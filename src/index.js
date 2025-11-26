@@ -4,12 +4,18 @@ const ctx = canvas.getContext('2d');
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
+// Base constants
+const ORIGINAL_BALL_SPEED = 250;
+const ORIGINAL_BOT_SPEED = 250;
+const ORIGINAL_PLAYER_SPEED = 300;
+
 const player = {
   x: 40,
   y: HEIGHT / 2 - 50,
   width: 15,
   height: 100,
-  speed: 300,
+  baseSpeed: ORIGINAL_PLAYER_SPEED,
+  speed: ORIGINAL_PLAYER_SPEED,
   dy: 0
 };
 
@@ -18,15 +24,15 @@ const bot = {
   y: HEIGHT / 2 - 50,
   width: 15,
   height: 100,
-  baseSpeed: 250,
-  speed: 250
+  baseSpeed: ORIGINAL_BOT_SPEED,
+  speed: ORIGINAL_BOT_SPEED
 };
 
 const ball = {
   x: WIDTH / 2,
   y: HEIGHT / 2,
   radius: 10,
-  baseSpeed: 250,
+  baseSpeed: ORIGINAL_BALL_SPEED,
   vx: 250,
   vy: 180
 };
@@ -34,34 +40,52 @@ const ball = {
 let scorePlayer = 0;
 let scoreBot = 0;
 let lastTime = performance.now();
-let difficultyMultiplier = 1.0;
-const MAX_DIFFICULTY = 2.0;
+
+// Difficulty
+let baseDifficulty = 1.0;         // baseline the multiplier snaps to on resetBall()
+let difficultyMultiplier = 1.0;   // current, grows over time from baseDifficulty
+const DIFFICULTY_RATE = 0.2;      // per second growth
+const BASE_DIFF_INC_PER_RESET = 0.08; // how much baseDifficulty bumps each ball reset
 
 let gameState = 'start'; // 'start' | 'playing' | 'paused' | 'gameover'
 
 function update(dt) {
   if (gameState !== 'playing') return;
 
-  // move player
+  // Grow difficulty smoothly over time from the current base
+  difficultyMultiplier += DIFFICULTY_RATE * dt;
+
+  // Paddle power scales with current scores
+  player.speed = player.baseSpeed + scorePlayer * 30;
+  bot.speed = bot.baseSpeed + scoreBot * 30;
+
+  // Ball speed scales with difficulty
+  const currentBallSpeed = ball.baseSpeed * difficultyMultiplier;
+  const dirX = Math.sign(ball.vx) || 1;
+  const dirY = Math.sign(ball.vy) || 1;
+  ball.vx = dirX * currentBallSpeed;
+  ball.vy = dirY * Math.min(Math.abs(ball.vy), currentBallSpeed);
+
+  // Player movement
   player.y += player.dy * dt;
   player.y = Math.max(0, Math.min(HEIGHT - player.height, player.y));
 
-  // move bot
+  // Bot movement
   const botCenter = bot.y + bot.height / 2;
   if (ball.y < botCenter - 10) bot.y -= bot.speed * dt;
   else if (ball.y > botCenter + 10) bot.y += bot.speed * dt;
   bot.y = Math.max(0, Math.min(HEIGHT - bot.height, bot.y));
 
-  // move ball
+  // Ball movement
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
 
-  // bounce top/bottom
+  // Wall bounce
   if (ball.y - ball.radius < 0 || ball.y + ball.radius > HEIGHT) {
     ball.vy *= -1;
   }
 
-  // player collision
+  // Player collision
   if (
     ball.x - ball.radius < player.x + player.width &&
     ball.y > player.y &&
@@ -72,7 +96,7 @@ function update(dt) {
     ball.vy = hit * 200;
   }
 
-  // bot collision
+  // Bot collision
   if (
     ball.x + ball.radius > bot.x &&
     ball.y > bot.y &&
@@ -83,18 +107,16 @@ function update(dt) {
     ball.vy = hit * 200;
   }
 
-  // scoring
+  // Scoring
   if (ball.x + ball.radius < 0) {
     scoreBot++;
-    increaseDifficulty();
-    checkWin();
     resetBall(-1);
   } else if (ball.x - ball.radius > WIDTH) {
     scorePlayer++;
-    increaseDifficulty();
-    checkWin();
     resetBall(1);
   }
+
+  checkWin();
 }
 
 function draw() {
@@ -119,25 +141,26 @@ function draw() {
     return;
   }
 
-  // mid line
+  // Mid line
   for (let y = 0; y < HEIGHT; y += 30) {
     ctx.fillRect(WIDTH / 2 - 1, y, 2, 20);
   }
 
-  // paddles and ball
+  // Paddles
   ctx.fillRect(player.x, player.y, player.width, player.height);
   ctx.fillRect(bot.x, bot.y, bot.width, bot.height);
+
+  // Ball (color reflects difficulty)
   ctx.beginPath();
+  ctx.fillStyle = getBallColor(difficultyMultiplier);
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // scores
+  // Scores
+  ctx.fillStyle = 'white';
   ctx.font = '28px monospace';
   ctx.fillText(scorePlayer, WIDTH / 2 - 60, 40);
   ctx.fillText(scoreBot, WIDTH / 2 + 60, 40);
-
-  // difficulty bar
-  drawDifficultyBar();
 
   if (gameState === 'paused') {
     ctx.font = '24px monospace';
@@ -145,48 +168,23 @@ function draw() {
   }
 }
 
-function drawDifficultyBar() {
-  const barWidth = 200;
-  const barHeight = 15;
-  const x = WIDTH / 2 - barWidth / 2;
-  const y = 60;
-
-  const fillRatio = (difficultyMultiplier - 1.0) / (MAX_DIFFICULTY - 1.0);
-  const filled = barWidth * fillRatio;
-
-  // background
-  ctx.fillStyle = '#444';
-  ctx.fillRect(x, y, barWidth, barHeight);
-
-  // filled portion (color gradient)
-  const gradient = ctx.createLinearGradient(x, y, x + barWidth, y);
-  gradient.addColorStop(0, '#00ff88');
-  gradient.addColorStop(1, '#ff0044');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, filled, barHeight);
-
-  // border
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, barWidth, barHeight);
-
-  // text label
-  ctx.font = '14px monospace';
-  ctx.fillStyle = 'white';
-  ctx.fillText(`Difficulty: ${difficultyMultiplier.toFixed(1)}x`, WIDTH / 2, y - 5);
+function getBallColor(multiplier) {
+  const hue = Math.max(0, 120 - (multiplier - 1) * 60); // green->red
+  return `hsl(${hue}, 100%, 60%)`;
 }
 
-function resetBall(direction = 1) {
+function resetBall(direction = 1, bumpBase = true) {
+  if (bumpBase) {
+    baseDifficulty += BASE_DIFF_INC_PER_RESET;
+  }
+  difficultyMultiplier = baseDifficulty;
+
   ball.x = WIDTH / 2;
   ball.y = HEIGHT / 2;
+
   const speed = ball.baseSpeed * difficultyMultiplier;
   ball.vx = speed * direction;
   ball.vy = 150 * (Math.random() > 0.5 ? 1 : -1);
-}
-
-function increaseDifficulty() {
-  difficultyMultiplier = Math.min(difficultyMultiplier + 0.1, MAX_DIFFICULTY);
-  bot.speed = bot.baseSpeed * difficultyMultiplier;
 }
 
 function checkWin() {
@@ -196,11 +194,26 @@ function checkWin() {
 }
 
 function resetGame() {
+  // Recompute base speeds from the *final* scores of the last match
+  const totalScore = scorePlayer + scoreBot;
+  const scoreFactor = 1 + totalScore * 0.05;
+
+  ball.baseSpeed   = ORIGINAL_BALL_SPEED   * scoreFactor;
+  bot.baseSpeed    = ORIGINAL_BOT_SPEED    * scoreFactor;
+  player.baseSpeed = ORIGINAL_PLAYER_SPEED * scoreFactor;
+
+  // Re-seed the difficulty baseline from the new score-adjusted base (not from the last peak)
+  baseDifficulty = 1.0 * scoreFactor;
+  difficultyMultiplier = baseDifficulty;
+
+  // Reset scores and start new round without bumping base again here
   scorePlayer = 0;
   scoreBot = 0;
-  difficultyMultiplier = 1.0;
+
   bot.speed = bot.baseSpeed;
-  resetBall();
+  player.speed = player.baseSpeed;
+
+  resetBall(Math.random() > 0.5 ? 1 : -1, false);
   gameState = 'playing';
 }
 
