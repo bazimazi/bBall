@@ -18,6 +18,7 @@ const bot = {
   y: HEIGHT / 2 - 50,
   width: 15,
   height: 100,
+  baseSpeed: 250,
   speed: 250
 };
 
@@ -25,6 +26,7 @@ const ball = {
   x: WIDTH / 2,
   y: HEIGHT / 2,
   radius: 10,
+  baseSpeed: 250,
   vx: 250,
   vy: 180
 };
@@ -32,6 +34,8 @@ const ball = {
 let scorePlayer = 0;
 let scoreBot = 0;
 let lastTime = performance.now();
+let difficultyMultiplier = 1.0;
+const MAX_DIFFICULTY = 2.0;
 
 let gameState = 'start'; // 'start' | 'playing' | 'paused' | 'gameover'
 
@@ -42,7 +46,7 @@ function update(dt) {
   player.y += player.dy * dt;
   player.y = Math.max(0, Math.min(HEIGHT - player.height, player.y));
 
-  // move bot (simple tracking)
+  // move bot
   const botCenter = bot.y + bot.height / 2;
   if (ball.y < botCenter - 10) bot.y -= bot.speed * dt;
   else if (ball.y > botCenter + 10) bot.y += bot.speed * dt;
@@ -82,10 +86,12 @@ function update(dt) {
   // scoring
   if (ball.x + ball.radius < 0) {
     scoreBot++;
+    increaseDifficulty();
     checkWin();
     resetBall(-1);
   } else if (ball.x - ball.radius > WIDTH) {
     scorePlayer++;
+    increaseDifficulty();
     checkWin();
     resetBall(1);
   }
@@ -107,8 +113,7 @@ function draw() {
   if (gameState === 'gameover') {
     ctx.fillText('GAME OVER', WIDTH / 2, HEIGHT / 2 - 40);
     ctx.font = '20px monospace';
-    const winner =
-      scorePlayer > scoreBot ? 'You Win!' : 'Bot Wins!';
+    const winner = scorePlayer > scoreBot ? 'You Win!' : 'Bot Wins!';
     ctx.fillText(winner, WIDTH / 2, HEIGHT / 2);
     ctx.fillText('Press SPACE to restart', WIDTH / 2, HEIGHT / 2 + 40);
     return;
@@ -131,17 +136,57 @@ function draw() {
   ctx.fillText(scorePlayer, WIDTH / 2 - 60, 40);
   ctx.fillText(scoreBot, WIDTH / 2 + 60, 40);
 
+  // difficulty bar
+  drawDifficultyBar();
+
   if (gameState === 'paused') {
     ctx.font = '24px monospace';
     ctx.fillText('Paused', WIDTH / 2, HEIGHT / 2);
   }
 }
 
+function drawDifficultyBar() {
+  const barWidth = 200;
+  const barHeight = 15;
+  const x = WIDTH / 2 - barWidth / 2;
+  const y = 60;
+
+  const fillRatio = (difficultyMultiplier - 1.0) / (MAX_DIFFICULTY - 1.0);
+  const filled = barWidth * fillRatio;
+
+  // background
+  ctx.fillStyle = '#444';
+  ctx.fillRect(x, y, barWidth, barHeight);
+
+  // filled portion (color gradient)
+  const gradient = ctx.createLinearGradient(x, y, x + barWidth, y);
+  gradient.addColorStop(0, '#00ff88');
+  gradient.addColorStop(1, '#ff0044');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(x, y, filled, barHeight);
+
+  // border
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, barWidth, barHeight);
+
+  // text label
+  ctx.font = '14px monospace';
+  ctx.fillStyle = 'white';
+  ctx.fillText(`Difficulty: ${difficultyMultiplier.toFixed(1)}x`, WIDTH / 2, y - 5);
+}
+
 function resetBall(direction = 1) {
   ball.x = WIDTH / 2;
   ball.y = HEIGHT / 2;
-  ball.vx = 250 * direction;
+  const speed = ball.baseSpeed * difficultyMultiplier;
+  ball.vx = speed * direction;
   ball.vy = 150 * (Math.random() > 0.5 ? 1 : -1);
+}
+
+function increaseDifficulty() {
+  difficultyMultiplier = Math.min(difficultyMultiplier + 0.1, MAX_DIFFICULTY);
+  bot.speed = bot.baseSpeed * difficultyMultiplier;
 }
 
 function checkWin() {
@@ -153,6 +198,8 @@ function checkWin() {
 function resetGame() {
   scorePlayer = 0;
   scoreBot = 0;
+  difficultyMultiplier = 1.0;
+  bot.speed = bot.baseSpeed;
   resetBall();
   gameState = 'playing';
 }
