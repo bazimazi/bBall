@@ -29,22 +29,24 @@ const ball = {
   vy: 180
 };
 
-let scoreBot = 0;
 let scorePlayer = 0;
+let scoreBot = 0;
 let lastTime = performance.now();
 
+let gameState = 'start'; // 'start' | 'playing' | 'paused' | 'gameover'
+
 function update(dt) {
+  if (gameState !== 'playing') return;
+
   // move player
   player.y += player.dy * dt;
-  if (player.y < 0) player.y = 0;
-  if (player.y + player.height > HEIGHT) player.y = HEIGHT - player.height;
+  player.y = Math.max(0, Math.min(HEIGHT - player.height, player.y));
 
   // move bot (simple tracking)
   const botCenter = bot.y + bot.height / 2;
   if (ball.y < botCenter - 10) bot.y -= bot.speed * dt;
   else if (ball.y > botCenter + 10) bot.y += bot.speed * dt;
-  if (bot.y < 0) bot.y = 0;
-  if (bot.y + bot.height > HEIGHT) bot.y = HEIGHT - bot.height;
+  bot.y = Math.max(0, Math.min(HEIGHT - bot.height, bot.y));
 
   // move ball
   ball.x += ball.vx * dt;
@@ -80,9 +82,11 @@ function update(dt) {
   // scoring
   if (ball.x + ball.radius < 0) {
     scoreBot++;
+    checkWin();
     resetBall(-1);
   } else if (ball.x - ball.radius > WIDTH) {
     scorePlayer++;
+    checkWin();
     resetBall(1);
   }
 }
@@ -90,25 +94,47 @@ function update(dt) {
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   ctx.fillStyle = 'white';
+  ctx.font = '32px monospace';
+  ctx.textAlign = 'center';
+
+  if (gameState === 'start') {
+    ctx.fillText('PONG', WIDTH / 2, HEIGHT / 2 - 40);
+    ctx.font = '20px monospace';
+    ctx.fillText('Press SPACE to start', WIDTH / 2, HEIGHT / 2 + 10);
+    return;
+  }
+
+  if (gameState === 'gameover') {
+    ctx.fillText('GAME OVER', WIDTH / 2, HEIGHT / 2 - 40);
+    ctx.font = '20px monospace';
+    const winner =
+      scorePlayer > scoreBot ? 'You Win!' : 'Bot Wins!';
+    ctx.fillText(winner, WIDTH / 2, HEIGHT / 2);
+    ctx.fillText('Press SPACE to restart', WIDTH / 2, HEIGHT / 2 + 40);
+    return;
+  }
 
   // mid line
   for (let y = 0; y < HEIGHT; y += 30) {
     ctx.fillRect(WIDTH / 2 - 1, y, 2, 20);
   }
 
-  // paddles
+  // paddles and ball
   ctx.fillRect(player.x, player.y, player.width, player.height);
   ctx.fillRect(bot.x, bot.y, bot.width, bot.height);
-
-  // ball
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fill();
 
   // scores
-  ctx.font = '32px monospace';
+  ctx.font = '28px monospace';
   ctx.fillText(scorePlayer, WIDTH / 2 - 60, 40);
-  ctx.fillText(scoreBot, WIDTH / 2 + 40, 40);
+  ctx.fillText(scoreBot, WIDTH / 2 + 60, 40);
+
+  if (gameState === 'paused') {
+    ctx.font = '24px monospace';
+    ctx.fillText('Paused', WIDTH / 2, HEIGHT / 2);
+  }
 }
 
 function resetBall(direction = 1) {
@@ -116,6 +142,19 @@ function resetBall(direction = 1) {
   ball.y = HEIGHT / 2;
   ball.vx = 250 * direction;
   ball.vy = 150 * (Math.random() > 0.5 ? 1 : -1);
+}
+
+function checkWin() {
+  if (scorePlayer >= 5 || scoreBot >= 5) {
+    gameState = 'gameover';
+  }
+}
+
+function resetGame() {
+  scorePlayer = 0;
+  scoreBot = 0;
+  resetBall();
+  gameState = 'playing';
 }
 
 function loop(timestamp) {
@@ -130,6 +169,13 @@ function loop(timestamp) {
 document.addEventListener('keydown', e => {
   if (e.code === 'ArrowUp') player.dy = -player.speed;
   else if (e.code === 'ArrowDown') player.dy = player.speed;
+
+  if (e.code === 'Escape' && gameState === 'playing') gameState = 'paused';
+  else if (e.code === 'Escape' && gameState === 'paused') gameState = 'playing';
+
+  if (e.code === 'Space') {
+    if (gameState === 'start' || gameState === 'gameover') resetGame();
+  }
 });
 
 document.addEventListener('keyup', e => {
