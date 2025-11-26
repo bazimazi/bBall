@@ -38,6 +38,7 @@ const ball = {
 
 const trail = [];
 const MAX_TRAIL = 15;
+const particles = [];
 
 let scorePlayer = 0;
 let scoreBot = 0;
@@ -55,6 +56,50 @@ let paddlesResetting = false;
 let paddleResetProgress = 0;
 const PADDLE_RESET_DURATION = 0.4;
 
+function spawnParticles(x, y, color, count = 15, speed = 150) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const vx = Math.cos(angle) * (Math.random() * speed);
+    const vy = Math.sin(angle) * (Math.random() * speed);
+    particles.push({
+      x,
+      y,
+      vx,
+      vy,
+      life: 0.5 + Math.random() * 0.3,
+      color,
+      age: 0
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.age += dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.95;
+    p.vy *= 0.95;
+    if (p.age >= p.life) {
+      particles.splice(i, 1);
+    }
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const alpha = 1 - p.age / p.life;
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 function update(dt) {
   if (paddlesResetting) {
     paddleResetProgress += dt / PADDLE_RESET_DURATION;
@@ -69,19 +114,25 @@ function update(dt) {
       ball.vy = 150 * (Math.random() > 0.5 ? 1 : -1);
     }
   }
+
   if (gameState !== 'playing') {
+    updateParticles(dt);
     return;
   }
+
   difficultyMultiplier += DIFFICULTY_RATE * dt;
   player.speed = player.baseSpeed + scorePlayer * 30;
   bot.speed = bot.baseSpeed + scoreBot * 30;
+
   const currentBallSpeed = ball.baseSpeed * difficultyMultiplier;
   const dirX = Math.sign(ball.vx) || 1;
   const dirY = Math.sign(ball.vy) || 1;
   ball.vx = dirX * currentBallSpeed;
   ball.vy = dirY * Math.min(Math.abs(ball.vy), currentBallSpeed);
+
   player.y += player.dy * dt;
   player.y = Math.max(0, Math.min(HEIGHT - player.height, player.y));
+
   const botCenter = bot.y + bot.height / 2;
   if (ball.y < botCenter - 10) {
     bot.y -= bot.speed * dt;
@@ -89,15 +140,19 @@ function update(dt) {
     bot.y += bot.speed * dt;
   }
   bot.y = Math.max(0, Math.min(HEIGHT - bot.height, bot.y));
+
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
+
   trail.push({ x: ball.x, y: ball.y });
   if (trail.length > MAX_TRAIL) {
     trail.shift();
   }
+
   if (ball.y - ball.radius < 0 || ball.y + ball.radius > HEIGHT) {
     ball.vy *= -1;
   }
+
   if (
     ball.x - ball.radius < player.x + player.width &&
     ball.y > player.y &&
@@ -106,7 +161,9 @@ function update(dt) {
     ball.vx = Math.abs(ball.vx);
     const hit = (ball.y - (player.y + player.height / 2)) / (player.height / 2);
     ball.vy = hit * 200;
+    spawnParticles(ball.x, ball.y, getBallColor(difficultyMultiplier));
   }
+
   if (
     ball.x + ball.radius > bot.x &&
     ball.y > bot.y &&
@@ -115,16 +172,22 @@ function update(dt) {
     ball.vx = -Math.abs(ball.vx);
     const hit = (ball.y - (bot.y + bot.height / 2)) / (bot.height / 2);
     ball.vy = hit * 200;
+    spawnParticles(ball.x, ball.y, getBallColor(difficultyMultiplier));
   }
+
   if (ball.x + ball.radius < 0) {
     scoreBot += 1;
+    spawnParticles(WIDTH / 2, HEIGHT / 2, 'red', 40, 200);
     nextServeDirection = -1;
     gameState = 'waiting';
   } else if (ball.x - ball.radius > WIDTH) {
     scorePlayer += 1;
+    spawnParticles(WIDTH / 2, HEIGHT / 2, 'lime', 40, 200);
     nextServeDirection = 1;
     gameState = 'waiting';
   }
+
+  updateParticles(dt);
   checkWin();
 }
 
@@ -154,6 +217,7 @@ function draw() {
   ctx.fillRect(player.x, player.y, player.width, player.height);
   ctx.fillRect(bot.x, bot.y, bot.width, bot.height);
   drawBallTrail();
+  drawParticles();
   ctx.beginPath();
   ctx.fillStyle = getBallColor(difficultyMultiplier);
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
