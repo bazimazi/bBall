@@ -56,6 +56,9 @@ let paddlesResetting = false;
 let paddleResetProgress = 0;
 const PADDLE_RESET_DURATION = 0.4;
 
+let shakeTime = 0;
+let shakeIntensity = 0;
+
 function spawnParticles(x, y, color, count = 15, speed = 150) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
@@ -100,7 +103,28 @@ function drawParticles() {
   }
 }
 
+function startShake(baseIntensity = 4, duration = 0.15) {
+  const speedFactor = Math.min(1.2, Math.abs(ball.vx) / 400);
+  shakeIntensity = baseIntensity * speedFactor;
+  shakeTime = duration;
+}
+
+function applyCameraShake() {
+  if (shakeTime > 0) {
+    const dx = (Math.random() - 0.5) * shakeIntensity;
+    const dy = (Math.random() - 0.5) * shakeIntensity;
+    ctx.translate(dx, dy);
+  }
+}
+
 function update(dt) {
+  if (shakeTime > 0) {
+    shakeTime -= dt;
+    if (shakeTime < 0) {
+      shakeTime = 0;
+    }
+  }
+
   if (paddlesResetting) {
     paddleResetProgress += dt / PADDLE_RESET_DURATION;
     const t = Math.min(paddleResetProgress, 1);
@@ -151,6 +175,7 @@ function update(dt) {
 
   if (ball.y - ball.radius < 0 || ball.y + ball.radius > HEIGHT) {
     ball.vy *= -1;
+    startShake(3.5, 0.12);
   }
 
   if (
@@ -162,6 +187,7 @@ function update(dt) {
     const hit = (ball.y - (player.y + player.height / 2)) / (player.height / 2);
     ball.vy = hit * 200;
     spawnParticles(ball.x, ball.y, getBallColor(difficultyMultiplier));
+    startShake(2.75, 0.11);
   }
 
   if (
@@ -173,6 +199,7 @@ function update(dt) {
     const hit = (ball.y - (bot.y + bot.height / 2)) / (bot.height / 2);
     ball.vy = hit * 200;
     spawnParticles(ball.x, ball.y, getBallColor(difficultyMultiplier));
+    startShake(2.75, 0.11);
   }
 
   if (ball.x + ball.radius < 0) {
@@ -180,11 +207,13 @@ function update(dt) {
     spawnParticles(WIDTH / 2, HEIGHT / 2, 'red', 40, 200);
     nextServeDirection = -1;
     gameState = 'waiting';
+    startShake(4, 0.25);
   } else if (ball.x - ball.radius > WIDTH) {
     scorePlayer += 1;
     spawnParticles(WIDTH / 2, HEIGHT / 2, 'lime', 40, 200);
     nextServeDirection = 1;
     gameState = 'waiting';
+    startShake(4, 0.25);
   }
 
   updateParticles(dt);
@@ -192,6 +221,8 @@ function update(dt) {
 }
 
 function draw() {
+  ctx.save();
+  applyCameraShake();
   ctx.fillStyle = getBackgroundColor(difficultyMultiplier);
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   ctx.fillStyle = 'white';
@@ -201,6 +232,7 @@ function draw() {
     ctx.fillText('PONG', WIDTH / 2, HEIGHT / 2 - 40);
     ctx.font = '20px monospace';
     ctx.fillText('Press SPACE to start', WIDTH / 2, HEIGHT / 2 + 10);
+    ctx.restore();
     return;
   }
   if (gameState === 'gameover') {
@@ -209,6 +241,7 @@ function draw() {
     const winner = scorePlayer > scoreBot ? 'You Win!' : 'Bot Wins!';
     ctx.fillText(winner, WIDTH / 2, HEIGHT / 2);
     ctx.fillText('Press SPACE to restart', WIDTH / 2, HEIGHT / 2 + 40);
+    ctx.restore();
     return;
   }
   for (let y = 0; y < HEIGHT; y += 30) {
@@ -235,6 +268,7 @@ function draw() {
     ctx.fillText('Point scored!', WIDTH / 2, HEIGHT / 2 - 20);
     ctx.fillText('Press SPACE to continue', WIDTH / 2, HEIGHT / 2 + 20);
   }
+  ctx.restore();
 }
 
 function drawBallTrail() {
