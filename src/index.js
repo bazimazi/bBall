@@ -62,6 +62,21 @@ let shakeIntensity = 0;
 let uiTransition = 0;
 let uiTransitionDir = 0;
 
+let scoreFlashPlayer = 0;
+let scoreFlashBot = 0;
+
+function updateScoreFlash(dt) {
+  if (scoreFlashPlayer > 0) {
+    scoreFlashPlayer -= dt * 3;
+    if (scoreFlashPlayer < 0) scoreFlashPlayer = 0;
+  }
+  if (scoreFlashBot > 0) {
+    scoreFlashBot -= dt * 3;
+    if (scoreFlashBot < 0) scoreFlashBot = 0;
+  }
+}
+
+
 function startUITransition(dir = 1) {
   uiTransition = dir === 1 ? 0 : 1;
   uiTransitionDir = dir;
@@ -227,18 +242,21 @@ function update(dt) {
 
   if (ball.x + ball.radius < 0) {
     scoreBot += 1;
+    scoreFlashBot = 1;
     spawnParticles(WIDTH / 2, HEIGHT / 2, 'red', 40, 200);
     nextServeDirection = -1;
     gameState = 'waiting';
     startShake(4, 0.25);
   } else if (ball.x - ball.radius > WIDTH) {
     scorePlayer += 1;
+    scoreFlashPlayer = 1;
     spawnParticles(WIDTH / 2, HEIGHT / 2, 'lime', 40, 200);
     nextServeDirection = 1;
     gameState = 'waiting';
     startShake(4, 0.25);
   }
 
+  updateScoreFlash(dt);
   updateParticles(dt);
   checkWin();
 }
@@ -258,8 +276,8 @@ function draw() {
       gameState === 'start'
         ? 'Press SPACE to start'
         : scorePlayer > scoreBot
-        ? 'You Win!'
-        : 'Bot Wins!';
+          ? 'You Win!'
+          : 'Bot Wins!';
     const prompt =
       gameState === 'start' ? '' : 'Press SPACE to restart';
 
@@ -295,10 +313,25 @@ function draw() {
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.font = '28px monospace';
+  const sp = 1 + scoreFlashPlayer * 0.5;
+  const sb = 1 + scoreFlashBot * 0.5;
+
+  ctx.save();
+  ctx.translate(WIDTH / 2 - 60, 40);
+  ctx.scale(sp, sp);
+  ctx.globalAlpha = 0.7 + 0.3 * (1 - scoreFlashPlayer);
   ctx.fillStyle = 'white';
-  ctx.fillText(scorePlayer, WIDTH / 2 - 60, 40);
-  ctx.fillText(scoreBot, WIDTH / 2 + 60, 40);
+  ctx.fillText(scorePlayer, 0, 0);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(WIDTH / 2 + 60, 40);
+  ctx.scale(sb, sb);
+  ctx.globalAlpha = 0.7 + 0.3 * (1 - scoreFlashBot);
+  ctx.fillStyle = 'white';
+  ctx.fillText(scoreBot, 0, 0);
+  ctx.restore();
+
 
   if (gameState === 'paused') {
     ctx.font = '24px monospace';
