@@ -59,6 +59,27 @@ const PADDLE_RESET_DURATION = 0.4;
 let shakeTime = 0;
 let shakeIntensity = 0;
 
+let uiTransition = 0;
+let uiTransitionDir = 0;
+
+function startUITransition(dir = 1) {
+  uiTransition = dir === 1 ? 0 : 1;
+  uiTransitionDir = dir;
+}
+
+function updateUITransition(dt) {
+  if (uiTransitionDir !== 0) {
+    uiTransition += uiTransitionDir * dt * 2;
+    if (uiTransition >= 1) {
+      uiTransition = 1;
+      uiTransitionDir = 0;
+    } else if (uiTransition <= 0) {
+      uiTransition = 0;
+      uiTransitionDir = 0;
+    }
+  }
+}
+
 function spawnParticles(x, y, color, count = 15, speed = 150) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
@@ -124,6 +145,8 @@ function update(dt) {
       shakeTime = 0;
     }
   }
+
+  updateUITransition(dt);
 
   if (paddlesResetting) {
     paddleResetProgress += dt / PADDLE_RESET_DURATION;
@@ -228,37 +251,55 @@ function draw() {
   ctx.fillStyle = 'white';
   ctx.font = '32px monospace';
   ctx.textAlign = 'center';
-  if (gameState === 'start') {
-    ctx.fillText('PONG', WIDTH / 2, HEIGHT / 2 - 40);
+
+  if (gameState === 'start' || gameState === 'gameover') {
+    const title = gameState === 'start' ? 'PONG' : 'GAME OVER';
+    const subtitle =
+      gameState === 'start'
+        ? 'Press SPACE to start'
+        : scorePlayer > scoreBot
+        ? 'You Win!'
+        : 'Bot Wins!';
+    const prompt =
+      gameState === 'start' ? '' : 'Press SPACE to restart';
+
+    const opacity = uiTransitionDir === 0 ? uiTransition : uiTransition;
+    const scale = 0.9 + 0.1 * opacity;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.translate(WIDTH / 2, HEIGHT / 2);
+    ctx.scale(scale, scale);
+    ctx.fillText(title, 0, -40);
     ctx.font = '20px monospace';
-    ctx.fillText('Press SPACE to start', WIDTH / 2, HEIGHT / 2 + 10);
+    ctx.fillText(subtitle, 0, 10);
+    if (prompt) {
+      ctx.fillText(prompt, 0, 40);
+    }
+    ctx.restore();
     ctx.restore();
     return;
   }
-  if (gameState === 'gameover') {
-    ctx.fillText('GAME OVER', WIDTH / 2, HEIGHT / 2 - 40);
-    ctx.font = '20px monospace';
-    const winner = scorePlayer > scoreBot ? 'You Win!' : 'Bot Wins!';
-    ctx.fillText(winner, WIDTH / 2, HEIGHT / 2);
-    ctx.fillText('Press SPACE to restart', WIDTH / 2, HEIGHT / 2 + 40);
-    ctx.restore();
-    return;
-  }
+
   for (let y = 0; y < HEIGHT; y += 30) {
     ctx.fillRect(WIDTH / 2 - 1, y, 2, 20);
   }
+
   ctx.fillRect(player.x, player.y, player.width, player.height);
   ctx.fillRect(bot.x, bot.y, bot.width, bot.height);
   drawBallTrail();
   drawParticles();
+
   ctx.beginPath();
   ctx.fillStyle = getBallColor(difficultyMultiplier);
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fill();
+
   ctx.font = '28px monospace';
   ctx.fillStyle = 'white';
   ctx.fillText(scorePlayer, WIDTH / 2 - 60, 40);
   ctx.fillText(scoreBot, WIDTH / 2 + 60, 40);
+
   if (gameState === 'paused') {
     ctx.font = '24px monospace';
     ctx.fillText('Paused', WIDTH / 2, HEIGHT / 2);
@@ -268,6 +309,7 @@ function draw() {
     ctx.fillText('Point scored!', WIDTH / 2, HEIGHT / 2 - 20);
     ctx.fillText('Press SPACE to continue', WIDTH / 2, HEIGHT / 2 + 20);
   }
+
   ctx.restore();
 }
 
@@ -315,7 +357,11 @@ function resetBall(direction = 1, bumpBase = true) {
 
 function checkWin() {
   if (scorePlayer >= 5 || scoreBot >= 5) {
-    gameState = 'gameover';
+    startUITransition(-1);
+    setTimeout(() => {
+      gameState = 'gameover';
+      startUITransition(1);
+    }, 300);
   }
 }
 
@@ -357,8 +403,18 @@ document.addEventListener('keydown', (e) => {
     gameState = 'playing';
   }
   if (e.code === 'Space') {
-    if (gameState === 'start' || gameState === 'gameover') {
-      resetGame();
+    if (gameState === 'start') {
+      startUITransition(-1);
+      setTimeout(() => {
+        resetGame();
+        startUITransition(1);
+      }, 300);
+    } else if (gameState === 'gameover') {
+      startUITransition(-1);
+      setTimeout(() => {
+        resetGame();
+        startUITransition(1);
+      }, 300);
     } else if (gameState === 'waiting') {
       resetBall(nextServeDirection);
       gameState = 'playing';
@@ -372,4 +428,5 @@ document.addEventListener('keyup', (e) => {
   }
 });
 
+startUITransition(1);
 requestAnimationFrame(loop);
