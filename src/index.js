@@ -187,10 +187,12 @@ function update(dt) {
   bot.speed = bot.baseSpeed + scoreBot * 30;
 
   const currentBallSpeed = ball.baseSpeed * difficultyMultiplier;
-  const dirX = Math.sign(ball.vx) || 1;
-  const dirY = Math.sign(ball.vy) || 1;
-  ball.vx = dirX * currentBallSpeed;
-  ball.vy = dirY * Math.min(Math.abs(ball.vy), currentBallSpeed);
+  const v = Math.hypot(ball.vx, ball.vy);
+  if (v > 0) {
+    const scale = currentBallSpeed / v;
+    ball.vx *= scale;
+    ball.vy *= scale;
+  }
 
   player.y += player.dy * dt;
   player.y = Math.max(0, Math.min(HEIGHT - player.height, player.y));
@@ -462,4 +464,6 @@ document.addEventListener('keyup', (e) => {
 });
 
 startUITransition(1);
-requestAnimationFrame(loop);
+setTimeout(() => {
+  requestAnimationFrame(loop);
+}, 1);
