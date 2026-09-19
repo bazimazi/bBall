@@ -3,8 +3,24 @@
 A fast, minimal bouncing-ball duel. Drag to move your paddle, keep the ball
 alive, and take five points off the bot before it takes five off you.
 
-No build step, no dependencies, no assets — open `src/index.html` in a browser
-and play.
+Built with Vite, React and TypeScript. No game assets — every pixel is drawn on
+a canvas and every sound is synthesised.
+
+## Getting started
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+```
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Vite dev server with hot reload |
+| `npm run build` | Type-check the project, then build to `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run typecheck` | Type-check without emitting |
+| `npm run lint` | ESLint over the whole project |
+| `npm run format` | Prettier write |
 
 ## Playing
 
@@ -26,8 +42,30 @@ Your longest rally is kept in `localStorage`, along with the mute setting.
 
 ## How it is built
 
-Three files in `src/`, all plain and dependency-free: `index.html`,
-`style.css`, and `index.js`.
+```
+src/
+  main.tsx           React entry point
+  game/              the simulation - no React, no DOM beyond the canvas
+    engine.ts        main loop, input, and the store React subscribes to
+    world.ts         all mutable state in one object
+    simulation.ts    one fixed timestep
+    physics.ts       ball, walls, swept paddle collisions
+    ai.ts            the bot
+    match.ts         serving, scoring, match lifecycle
+    audio.ts         synthesised WebAudio blips
+    view.ts          field <-> screen transform, canvas sizing
+    particles.ts     fixed-size particle pool
+    render/          canvas renderer
+  ui/                React components, CSS modules, hooks
+  styles/global.css  design tokens and resets
+```
+
+The split is the point: `game/` is a plain TypeScript simulation driven by
+`requestAnimationFrame`, and `ui/` is a React tree that never sees simulation
+state directly. The engine publishes a small immutable `GameSnapshot`
+(scores, which card to show, mute state); `useGameEngine` feeds it to React
+through `useSyncExternalStore`, so a component re-renders only when something
+it displays actually changed — never at 60 Hz.
 
 A few decisions worth knowing before changing things:
 
@@ -49,8 +87,9 @@ A few decisions worth knowing before changing things:
 - **Screen-space HUD.** Score pips live in field space (dots read the same at
   any rotation), while text is drawn unrotated at transformed anchor points so
   it stays upright on a portrait phone.
-- **Audio is synthesised.** Short WebAudio blips, created on the first user
-  gesture. No files to load.
+- **No allocation in the hot loop.** Particles come from a fixed-size ring
+  buffer and gradients are cached until the geometry or the heat bucket
+  changes, which keeps low-end phones smooth.
 
 Effects respect `prefers-reduced-motion`: shake, particles, hit-stop, and
 slow-motion are scaled down or switched off.
