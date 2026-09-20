@@ -1,20 +1,14 @@
 import { botProfile } from '../core/bots/levels';
+import { BALANCE, rankScale } from '../core/balance/config';
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
 import { quickMatchRules } from '../core/modes/rules';
 import type { MatchRules } from '../core/modes/types';
+import type { ResolvedLoadout } from '../core/talents/effects';
 import type { GameAudio } from './audio';
-import {
-  FIELD_H,
-  MAX_SPEED,
-  MIN_PADDLE_SCALE,
-  PADDLE_H,
-  PADDLE_INSET,
-  SERVE_SPEED,
-  SPEED_PER_HIT,
-  TRAIL_MAX
-} from './constants';
+import { FIELD_H, MIN_PADDLE_SCALE, PADDLE_H, PADDLE_INSET, TRAIL_MAX } from './constants';
 import { ParticleSystem } from './particles';
 import { sideHue, heatHue } from './palette';
+import { createRuntime, DEFAULT_LOADOUT } from './talents';
 import type {
   Ball,
   BotBrain,
@@ -22,10 +16,12 @@ import type {
   MatchState,
   Paddle,
   Side,
+  TalentRuntime,
   Tuning,
   Vec2,
   View
 } from './types';
+import { clamp } from './utils/math';
 import { createView } from './view';
 
 /**
@@ -45,8 +41,12 @@ export interface World {
   readonly audio: GameAudio;
   /** The mode being played. Replaced whenever a new match is configured. */
   rules: MatchRules;
-  /** Speeds and sizes for this match, after the mode's modifiers. */
+  /** Difficulty: speeds and sizes for this match. Never the player's doing. */
   tuning: Tuning;
+  /** Progression: the player's resolved build. Never the opponent's doing. */
+  loadout: ResolvedLoadout;
+  /** What that build is doing right now. Lives for one match. */
+  talents: TalentRuntime;
   /** Colours from the player's equipped cosmetics. */
   theme: ResolvedTheme;
   /** The opponent's head. */
@@ -80,7 +80,7 @@ function createBall(): Ball {
     py: FIELD_H / 2,
     vx: 0,
     vy: 0,
-    speed: SERVE_SPEED,
+    speed: BALANCE.ball.serve,
     squash: 0,
     squashAngle: 0,
     owner: 'you'
@@ -149,12 +149,24 @@ function createFx(): FxState {
   };
 }
 
+/**
+ * Difficulty, resolved.
+ *
+ * Two inputs and no others: the opponent's rank, and the mode's modifiers.
+ * A stronger opponent means a faster ball - never a slower paddle, and never
+ * a change to anything the player has earned.
+ */
 export function tuningFor(rules: MatchRules): Tuning {
   const m = rules.modifiers;
+  const { ball } = BALANCE;
+  const rank = rankScale(rules.bot.rank);
+  const growth = 1 + (ball.growth - 1) * rank.growth * m.speedPerHitScale;
+
   return {
-    serveSpeed: SERVE_SPEED * m.serveSpeedScale,
-    maxSpeed: MAX_SPEED * m.maxSpeedScale,
-    speedPerHit: 1 + (SPEED_PER_HIT - 1) * m.speedPerHitScale,
+    serveSpeed: clamp(ball.serve * rank.serve * m.serveSpeedScale, ball.hardMin, ball.hardMax),
+    maxSpeed: clamp(ball.max * rank.max * m.maxSpeedScale, ball.hardMin, ball.hardMax),
+    speedPerHit: clamp(growth, 1, BALANCE.talents.maxHitGrowth),
+    perPoint: ball.perPoint * rank.growth,
     shrinkPerHit: m.shrinkPerHit
   };
 }
@@ -178,6 +190,8 @@ export function createWorld(audio: GameAudio, motion: number): World {
     audio,
     rules,
     tuning: tuningFor(rules),
+    loadout: DEFAULT_LOADOUT,
+    talents: createRuntime(),
     theme: DEFAULT_THEME,
     botBrain: createBrain(rules.bot),
     demoBrain: createBrain(botProfile('amateur')),

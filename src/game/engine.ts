@@ -1,18 +1,14 @@
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
 import type { MatchRules } from '../core/modes/types';
+import type { ResolvedLoadout } from '../core/talents/effects';
+import { abilityViews, fireAbility } from './abilities';
 import { GameAudio } from './audio';
-import {
-  FIELD_H,
-  FIXED_DT,
-  KEY_SPEED,
-  MAX_FRAME_DT,
-  MAX_STEPS_PER_FRAME,
-  STORAGE_KEYS
-} from './constants';
+import { FIELD_H, FIXED_DT, MAX_FRAME_DT, MAX_STEPS_PER_FRAME, STORAGE_KEYS } from './constants';
 import { publishResult, returnToMenu, startMatch } from './match';
 import { Renderer } from './render/renderer';
 import { step } from './simulation';
-import type { GameSnapshot } from './types';
+import { playerKeySpeed, resetRuntime } from './talents';
+import type { AbilityView, GameSnapshot } from './types';
 import { clamp } from './utils/math';
 import { readStored } from './utils/storage';
 import { layoutView, screenToFieldY } from './view';
@@ -30,6 +26,24 @@ type Listener = () => void;
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 const REDUCED_MOTION_SCALE = 0.25;
+
+/** Shared so an ability-free snapshot never allocates a fresh array. */
+const NO_ABILITIES: readonly AbilityView[] = [];
+
+/** Keys that fire an equipped ability, in slot order. */
+const ABILITY_KEYS: readonly string[][] = [
+  ['1', 'q'],
+  ['2', 'e'],
+  ['3', 'r']
+];
+
+/** True when the key belongs to whatever the player is typing into. */
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
 
 let idle: GameSnapshot | null = null;
 
@@ -52,6 +66,7 @@ export function idleSnapshot(): GameSnapshot {
     muted: readStored(STORAGE_KEYS.muted, '0') === '1',
     canPause: false,
     objective: null,
+    abilities: NO_ABILITIES,
     result: null,
     resultId: 0
   };
@@ -74,6 +89,9 @@ export class GameEngine {
   private readonly keys = { up: false, down: false };
 
   private snapshot: GameSnapshot;
+  /** Cached ability view, rebuilt only when what the HUD shows changes. */
+  private abilities: readonly AbilityView[] = NO_ABILITIES;
+  private abilityKey = '';
   private frameHandle = 0;
   private layoutHandle = 0;
   private lastTime = 0;
@@ -194,7 +212,57 @@ export class GameEngine {
     this.renderer.invalidate();
   };
 
+  /**
+   * Swap in the player's build.
+   *
+   * A build change outside a match re-arms the runtime straight away, so the
+   * HUD shows the new abilities before the next serve. Mid-match it is only
+   * stored - a match is always played with the build it started under.
+   */
+  setLoadout = (loadout: ResolvedLoadout): void => {
+    if (this.world.loadout === loadout) return;
+    this.world.loadout = loadout;
+    const { status } = this.world.match;
+    if (status === 'menu' || status === 'over') resetRuntime(this.world);
+    this.publish();
+  };
+
+  /** Fire the ability in `slot`. Ignored when it is empty or cooling down. */
+  useAbility = (slot: number): void => {
+    this.audio.unlock();
+    if (fireAbility(this.world, slot)) this.publish();
+  };
+
   // --------------------------------------------------------------- state
+
+  /**
+   * The equipped abilities, as the HUD sees them.
+   *
+   * Cooldown is a continuous number, and the HUD is React: rebuilding the
+   * array every frame would re-render the bar sixty times a second for a ring
+   * that moves a pixel. The quantised key below is compared instead, so the
+   * array reference - and therefore the render - changes a couple of dozen
+   * times per cooldown.
+   */
+  private abilityView(): readonly AbilityView[] {
+    let key = '';
+    for (const slot of this.world.talents.slots) {
+      if (!slot.id) continue;
+      const left = slot.span > 0 ? Math.ceil((slot.cooldown / slot.span) * 24) : 0;
+      key += `${slot.id}${left};`;
+    }
+    const runtime = this.world.talents;
+    key += `${runtime.strikeArmed > 0 ? 1 : 0}${runtime.guardWindow > 0 ? 1 : 0}${
+      runtime.dashFx > 0 ? 1 : 0
+    }`;
+
+    if (key !== this.abilityKey) {
+      this.abilityKey = key;
+      const views = abilityViews(this.world);
+      this.abilities = views.length > 0 ? views : NO_ABILITIES;
+    }
+    return this.abilities;
+  }
 
   private buildSnapshot(): GameSnapshot {
     const { match, rules } = this.world;
@@ -214,6 +282,7 @@ export class GameEngine {
       muted: this.audio.muted,
       canPause: status === 'play' || status === 'serve',
       objective: rules.objective?.label ?? null,
+      abilities: this.abilityView(),
       result: match.result,
       resultId: match.resultId
     };
@@ -299,7 +368,8 @@ export class GameEngine {
     if (!this.keys.up && !this.keys.down) return;
     const { player } = this.world;
     const dir = (this.keys.down ? 1 : 0) - (this.keys.up ? 1 : 0);
-    player.target = clamp(player.target + dir * KEY_SPEED * dt, player.half, FIELD_H - player.half);
+    const speed = playerKeySpeed(this.world);
+    player.target = clamp(player.target + dir * speed * dt, player.half, FIELD_H - player.half);
   }
 
   private trackPointer(event: PointerEvent): void {
@@ -346,6 +416,9 @@ export class GameEngine {
 
   private onKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat || !event.key) return;
+    // The name field is a real text input: while it has focus the game gets
+    // no keys at all, or typing "1" would fire an ability and "m" would mute.
+    if (isTyping(event.target)) return;
     const key = event.key.toLowerCase();
     const { match } = this.world;
 
@@ -375,6 +448,14 @@ export class GameEngine {
       else if (match.status === 'paused') this.resume();
     } else if (key === 'm') {
       this.toggleMute();
+    } else {
+      // 1/2/3 and q/e/r fire the equipped abilities. Deliberately separate
+      // from the movement keys so a rally never turns into a chord.
+      const slot = ABILITY_KEYS.findIndex((keys) => keys.includes(key));
+      if (slot >= 0) {
+        event.preventDefault();
+        this.useAbility(slot);
+      }
     }
   };
 

@@ -1,5 +1,6 @@
 import type { BotLevelId } from '../bots/types';
 import type { Equipped } from '../cosmetics/catalog';
+import type { TalentSave } from '../talents/types';
 import type { TournamentSave } from '../tournament/bracket';
 
 /** The six simple avatars. Each one is drawn as an inline SVG glyph. */
@@ -57,6 +58,13 @@ export interface PlayerProfile {
 
   xp: number;
   stats: LifetimeStats;
+
+  /**
+   * The player's build: talent ranks, unspent points and equipped actives.
+   * Talent points come from levelling, so this moves with {@link xp} and
+   * never with the difficulty of the match being played.
+   */
+  talents: TalentSave;
 
   /** Achievement id -> unlock timestamp. */
   achievements: Record<string, number>;

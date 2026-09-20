@@ -1,0 +1,436 @@
+/*
+ * The talent screen.
+ *
+ * Built on the same column shell as every other menu (Screens.module.css) and
+ * only adding what a tree needs: a points banner that is always in view, a
+ * branch switcher, rows that open in place rather than pushing a new screen,
+ * and ability slots big enough for a thumb.
+ */
+
+/*
+ * The screen shell lays its body out as a flex column, so every block here
+ * has to opt out of shrinking - this screen is long enough that the default
+ * `flex-shrink: 1` squeezes the branch tabs down to a sliver.
+ */
+.points,
+.slots,
+.picker,
+.tabs,
+.rows,
+.synergy {
+  flex: 0 0 auto;
+}
+
+.points {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid rgba(79, 240, 214, 0.32);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(79, 240, 214, 0.14), rgba(79, 240, 214, 0.05));
+}
+
+.pointsValue {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--you);
+  font-variant-numeric: tabular-nums;
+}
+
+.pointsLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------- actives */
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 76px;
+  padding: 10px 6px;
+  border: 1px dashed rgba(238, 242, 255, 0.2);
+  border-radius: 18px;
+  background: rgba(16, 20, 34, 0.6);
+  color: var(--ink);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.slotOpen {
+  border-style: solid;
+  border-color: var(--you);
+}
+
+.slotGlyph {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.slotName {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--muted);
+  text-align: center;
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: rgba(16, 20, 34, 0.66);
+  color: var(--ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chipOn {
+  border-color: var(--you);
+  box-shadow: 0 0 0 1px var(--you) inset;
+}
+
+.chipGlyph {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(238, 242, 255, 0.07);
+  font-size: 17px;
+}
+
+.chipName {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.chipMeta {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+/* ------------------------------------------------------------ branches */
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: rgba(16, 20, 34, 0.7);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.tabOn {
+  color: var(--ink);
+}
+
+.tabDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.tabCount {
+  font-size: 11px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* ---------------------------------------------------------------- rows */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: rgba(16, 20, 34, 0.62);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.owned {
+  border-color: rgba(238, 242, 255, 0.24);
+}
+
+.locked {
+  opacity: 0.55;
+}
+
+.bought {
+  animation: purchase 0.6s cubic-bezier(0.18, 0.9, 0.24, 1);
+}
+
+@keyframes purchase {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(79, 240, 214, 0.55);
+  }
+  35% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 6px rgba(79, 240, 214, 0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.rowTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.activeTag {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(238, 242, 255, 0.1);
+  font-size: 9.5px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rowBlurb {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.rowMeta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.rowCost {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.pips {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(238, 242, 255, 0.16);
+}
+
+.pipOn {
+  background: var(--you);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 2px 14px 14px;
+  animation: reveal 0.2s ease;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.detailLine {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 550;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.detailTag {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 7px;
+  border-radius: 7px;
+  background: rgba(238, 242, 255, 0.09);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  vertical-align: 1px;
+}
+
+.detailNext {
+  background: rgba(79, 240, 214, 0.16);
+  color: var(--you);
+}
+
+/* A maxed talent gets a quiet line, not a large button that does nothing. */
+.maxedNote {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(79, 240, 214, 0.1);
+  color: var(--you);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+/* ----------------------------------------------------------- synergies */
+
+.synergy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 13px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: rgba(16, 20, 34, 0.5);
+  opacity: 0.62;
+}
+
+.synergyOn {
+  opacity: 1;
+  border-color: rgba(79, 240, 214, 0.35);
+  background: rgba(79, 240, 214, 0.07);
+}
+
+.synergyTick {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(238, 242, 255, 0.07);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.synergyOn .synergyTick {
+  background: var(--you);
+  color: #04120f;
+}
+
+/* ------------------------------------------------------------ responsive */
+
+@media (max-height: 460px) {
+  .rowHead {
+    min-height: 54px;
+    padding: 9px 12px;
+  }
+
+  .slot {
+    min-height: 64px;
+  }
+
+  .points {
+    padding: 9px 14px;
+  }
+
+  .pointsValue {
+    font-size: 21px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bought,
+  .detail {
+    animation: none;
+  }
+}

@@ -12,6 +12,8 @@ interface ResultScreenProps {
   secondaryLabel: string;
   onPrimary: () => void;
   onSecondary: () => void;
+  /** Offered only when there is something to spend. */
+  onTalents: () => void;
 }
 
 function title(result: MatchResult): string {
@@ -46,11 +48,14 @@ export function ResultScreen({
   primaryLabel,
   secondaryLabel,
   onPrimary,
-  onSecondary
+  onSecondary,
+  onTalents
 }: ResultScreenProps) {
   const endless = result.mode === 'endless';
   const award = summary?.award;
   const levelled = (summary?.levelsGained ?? 0) > 0;
+  const points = summary?.talentPointsAvailable ?? 0;
+  const gained = summary?.talentPoints ?? 0;
 
   return (
     <section className={styles.screen}>
@@ -103,6 +108,18 @@ export function ResultScreen({
           </div>
         )}
 
+        {points > 0 && (
+          <button type="button" className={styles.unlockRow} onClick={onTalents}>
+            <span>◆</span>
+            <span>
+              {gained > 0
+                ? `+${gained} talent point${gained > 1 ? 's' : ''}`
+                : 'Talent points waiting'}
+            </span>
+            <span style={{ marginLeft: 'auto' }}>Spend {points} ›</span>
+          </button>
+        )}
+
         {summary && award && award.total > 0 ? (
           <div className={styles.card}>
             <div className={styles.xpLines}>
@@ -116,6 +133,12 @@ export function ResultScreen({
                 <p className={styles.xpLine}>
                   <span>Difficulty</span>
                   <span>×{award.multiplier}</span>
+                </p>
+              )}
+              {award.talentMultiplier > 1 && (
+                <p className={styles.xpLine}>
+                  <span>Talents</span>
+                  <span>×{award.talentMultiplier.toFixed(2)}</span>
                 </p>
               )}
               {award.damped && (

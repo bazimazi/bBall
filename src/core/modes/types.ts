@@ -1,4 +1,5 @@
 import type { BotLevelId, BotProfile } from '../bots/types';
+import type { TalentMatchStats } from '../talents/types';
 
 export type ModeId = 'quick' | 'endless' | 'challenge' | 'tournament' | 'practice';
 
@@ -77,6 +78,8 @@ export interface MatchResult {
   readonly challengeId?: string | undefined;
   readonly tournamentRound?: number | undefined;
   readonly tournamentTier?: number | undefined;
+  /** What the player's build did this match. Drives talent statistics. */
+  readonly talent: TalentMatchStats;
   /** Won without conceding a point. */
   readonly shutout: boolean;
   /** Won after trailing by two or more. */

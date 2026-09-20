@@ -1,13 +1,8 @@
-import {
-  BALL_R,
-  COMBO_STEPS,
-  FIELD_H,
-  MAX_BOUNCE_ANGLE,
-  PADDLE_W,
-  SPIN_INFLUENCE
-} from './constants';
+import { BALANCE } from '../core/balance/config';
+import { BALL_R, COMBO_STEPS, FIELD_H, PADDLE_W, SPIN_INFLUENCE } from './constants';
 import { scorePoint } from './match';
 import { hsla } from './palette';
+import { plainReturn, playerReturn, tryShield } from './talents';
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
 import { addShake, ballHue, hueOf, pushTrail, shrinkPaddle, type World } from './world';
@@ -50,45 +45,89 @@ function checkCombo(world: World): void {
 
 function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1): void {
   const { ball, match, fx, tuning } = world;
-  const off = clamp((contactY - paddle.y) / paddle.half, -1, 1);
-  ball.speed = Math.min(tuning.maxSpeed, ball.speed * tuning.speedPerHit);
+  const raw = clamp((contactY - paddle.y) / paddle.half, -1, 1);
+
+  // The player's returns go through their build; the bot's never do. Attract
+  // mode plays the plain game, so the demo behind the menus is always the
+  // game as it ships rather than as the player has shaped it.
+  const talented = paddle.side === 'you' && match.status !== 'menu';
+  const mods = talented ? playerReturn(world, raw) : plainReturn(world, raw);
+  const off = mods.off;
+
+  const before = ball.speed;
+  ball.speed = clamp(
+    before * mods.growth,
+    BALANCE.ball.hardMin,
+    Math.min(BALANCE.ball.hardMax, mods.ceiling)
+  );
+
+  if (talented) {
+    // Book the pace this build added over a plain return, so the opponent
+    // can hand most of it back on the way through.
+    const plain = clamp(
+      before * tuning.speedPerHit,
+      BALANCE.ball.hardMin,
+      Math.min(BALANCE.ball.hardMax, tuning.maxSpeed)
+    );
+    world.talents.surge = Math.max(0, world.talents.surge + (ball.speed - plain));
+  } else if (paddle.side === 'bot' && match.status !== 'menu' && world.talents.surge > 0) {
+    const given = world.talents.surge * BALANCE.ball.surgeBleed;
+    ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed - given);
+    world.talents.surge -= given;
+  }
 
   // Angle comes from where the ball struck, nudged by the paddle's own motion.
-  const vy = Math.sin(off * MAX_BOUNCE_ANGLE) * ball.speed + paddle.vy * SPIN_INFLUENCE;
-  const raw = Math.atan2(vy, Math.abs(Math.cos(off * MAX_BOUNCE_ANGLE) * ball.speed));
-  const angle = clamp(raw, -MAX_BOUNCE_ANGLE, MAX_BOUNCE_ANGLE);
+  const limit = mods.angleLimit;
+  const vy = Math.sin(off * limit) * ball.speed + paddle.vy * SPIN_INFLUENCE * mods.spin;
+  const wanted = Math.atan2(vy, Math.abs(Math.cos(off * limit) * ball.speed));
+  const angle = clamp(wanted, -limit, limit);
   ball.vx = Math.cos(angle) * ball.speed * dir;
   ball.vy = Math.sin(angle) * ball.speed;
   ball.owner = paddle.side;
 
   const p = power(world);
-  paddle.flash = 1;
+  paddle.flash = mods.crit || mods.charged ? 1.35 : 1;
   ball.squash = 1;
   ball.squashAngle = 0; // compressed along the long axis
   match.rally++;
-  fx.freeze = (0.012 + p * 0.03) * world.motion;
-  addShake(world, 2.6 + p * 4);
+  fx.freeze = (0.012 + p * 0.03) * (mods.charged ? 2.2 : 1) * world.motion;
+  addShake(world, (2.6 + p * 4) * (mods.crit || mods.charged ? 1.8 : 1));
 
   if (paddle.side === 'you' && match.status !== 'menu') {
     match.hits++;
     // "Melting"-style challenges eat into the paddle with every return.
     if (tuning.shrinkPerHit > 0) shrinkPaddle(paddle, tuning.shrinkPerHit);
+    if (mods.charged || mods.crit) world.audio.impact(mods.charged);
+    else if (mods.guarded) world.audio.guardHit();
   }
 
+  // A charged or critical return reads instantly: more sparks, hotter hue.
+  const special = mods.charged || mods.crit;
+  const hue = mods.charged ? 26 : mods.crit ? 48 : hueOf(world, paddle.side);
   world.particles.emit(
     ball.x + dir * BALL_R,
     contactY,
-    12 + p * 10,
+    (12 + p * 10) * (special ? 2.4 : 1),
     {
       angle: dir > 0 ? 0 : Math.PI,
       spread: 1.5,
-      speed: 150 + p * 250,
+      speed: (150 + p * 250) * (special ? 1.5 : 1),
       life: 0.4,
-      size: 3.4,
-      color: hsla(hueOf(world, paddle.side), 100, 66, 0.9)
+      size: special ? 4.4 : 3.4,
+      color: hsla(hue, 100, 66, 0.9)
     },
     world.motion
   );
+
+  if (mods.guarded) {
+    world.particles.emit(
+      paddle.x,
+      contactY,
+      20,
+      { speed: 200, life: 0.5, size: 2.8, color: hsla(hueOf(world, 'you'), 30, 92, 0.9) },
+      world.motion
+    );
+  }
 
   // The attract demo plays silently and never raises a combo banner.
   if (match.status !== 'menu') {
@@ -204,6 +243,10 @@ export function stepBall(world: World, dt: number): void {
   // it, so both get an overlap rescue once the ball is known to be in bounds.
   resolveOverlap(world, world.player);
   resolveOverlap(world, world.bot);
+
+  // A Shield charge catches the ball at the player's line, before the point
+  // is ever awarded - so a save keeps the rally alive rather than undoing it.
+  if (ball.vx < 0 && ball.x <= BALL_R) tryShield(world);
 
   world.trailTick += dt;
   if (world.trailTick >= 1 / 90) {

@@ -2,7 +2,10 @@ import type { BotLevelId } from '../bots/types';
 import type { Equipped } from '../cosmetics/catalog';
 import type { MatchResult } from '../modes/types';
 import { applyMatchResult, syncUnlocks, type ProgressSummary } from '../progression/apply';
+import { levelOf } from '../progression/levels';
 import { loadRecord, saveRecord } from '../storage/localStore';
+import { buyTalent, cloneTalentSave, equipAbility, reconcile, respec } from '../talents/save';
+import type { AbilityId, TalentId } from '../talents/types';
 import { createTournament, type TournamentSave } from '../tournament/bracket';
 import { cleanName, createProfile } from './defaults';
 import { PROFILE_SPEC } from './schema';
@@ -50,6 +53,10 @@ class ProfileStore {
       if (best > 0) this.profile.stats.bestRally = best;
     }
 
+    // A talent catalogue change can strand a rank, and levels earned before
+    // talents existed still owe their points. Reconciling settles both.
+    this.profile.talents = reconcile(this.profile.talents, levelOf(this.profile.xp));
+
     // Catalogue changes (or a repaired save) can leave unlocks out of date.
     const added = syncUnlocks(this.profile);
     if (loaded.fresh || loaded.recovered || added.length > 0) this.persist();
@@ -77,11 +84,17 @@ class ProfileStore {
     const draft: PlayerProfile = {
       ...this.profile,
       stats: { ...this.profile.stats, winsByBot: { ...this.profile.stats.winsByBot } },
+      talents: cloneTalentSave(this.profile.talents),
       equipped: { ...this.profile.equipped },
       preferences: { ...this.profile.preferences }
     };
     edit(draft);
     this.commit(draft);
+  }
+
+  /** The player's level right now. Talent gates and paddle speed read it. */
+  private get level(): number {
+    return levelOf(this.profile.xp);
   }
 
   // ------------------------------------------------------------- identity
@@ -107,6 +120,39 @@ class ProfileStore {
     this.patch((draft) => {
       draft.equipped[slot] = id;
     });
+  }
+
+  // -------------------------------------------------------------- talents
+
+  /**
+   * Spend one point on `id`. Silently does nothing when the purchase is not
+   * legal - the UI disables those rows, and the store is the backstop.
+   */
+  buyTalent(id: TalentId): boolean {
+    const next = buyTalent(this.profile.talents, this.level, id);
+    if (!next) return false;
+    this.patch((draft) => {
+      draft.talents = next;
+    });
+    return true;
+  }
+
+  /** Refund the whole tree. Free, so a build is never a trap. */
+  respecTalents(): void {
+    const next = respec(this.profile.talents, this.level);
+    this.patch((draft) => {
+      draft.talents = next;
+    });
+  }
+
+  /** Slot an active ability, or clear the slot with `null`. */
+  equipAbility(slot: number, id: AbilityId | null): boolean {
+    const next = equipAbility(this.profile.talents, this.level, slot, id);
+    if (!next) return false;
+    this.patch((draft) => {
+      draft.talents = next;
+    });
+    return true;
   }
 
   // --------------------------------------------------------- preferences

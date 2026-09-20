@@ -1,5 +1,6 @@
 import type { BotProfile } from '../core/bots/types';
 import type { MatchResult, ModeId } from '../core/modes/types';
+import type { AbilityId, TalentMatchStats } from '../core/talents/types';
 
 export type Side = 'you' | 'bot';
 
@@ -60,15 +61,101 @@ export interface Ball {
   owner: Side;
 }
 
-/** Speed and size limits for the current match, after mode modifiers. */
+/**
+ * Speed and size limits for the current match.
+ *
+ * Everything here is *difficulty*: the opponent's rank and the mode's
+ * modifiers, and nothing else. The player's own capability lives in
+ * {@link World.loadout}, so the two can never quietly leak into each other.
+ */
 export interface Tuning {
   serveSpeed: number;
   maxSpeed: number;
   /** Multiplier applied to the ball's speed on every return. */
   speedPerHit: number;
+  /** Serve speed added per point played, capped at ten points in. */
+  perPoint: number;
   /** Fraction of the player's paddle lost per return. 0 for most modes. */
   shrinkPerHit: number;
 }
+
+/** One equipped active ability's live state. */
+export interface AbilitySlot {
+  id: AbilityId | null;
+  /** Seconds until it can be used again. 0 means ready. */
+  cooldown: number;
+  /** The full cooldown it is counting down from, for the HUD ring. */
+  span: number;
+}
+
+/**
+ * Everything a build does *during* one match.
+ *
+ * Reset on every serve-up, never persisted, and owned entirely by the
+ * simulation - the UI reads a flattened view of it and nothing else.
+ */
+export interface TalentRuntime {
+  /** Returns since the last conceded point. Feeds Combo Drive family. */
+  drive: number;
+  bestDrive: number;
+  /** Returns within the current rally. Feeds Momentum and Flow State. */
+  rallyReturns: number;
+  /**
+   * Ball speed this build has *added* on top of the plain return, in field
+   * units. Most of it bleeds off when the opponent returns the ball, so pace
+   * is an attack rather than something the player also has to survive.
+   */
+  surge: number;
+
+  /** Seconds left on each timed paddle buff. */
+  adrenaline: number;
+  guard: number;
+  strikeRush: number;
+  edgeRecovery: number;
+  /** Which wall the paddle was last parked against, so it fires once. */
+  edgeSide: -1 | 0 | 1;
+
+  /** Shield charges in hand, and the countdown to the next one. */
+  shield: number;
+  shieldMax: number;
+  shieldTimer: number;
+  /** Bulwark hands back at most one charge per point. */
+  guardShielded: boolean;
+  secondChances: number;
+
+  /** Seconds the next return stays charged by Power Strike. */
+  strikeArmed: number;
+  /** Seconds left on the Perfect Guard window. */
+  guardWindow: number;
+  /** Seconds left of the dash's visual streak, and where it started. */
+  dashFx: number;
+  dashFrom: number;
+
+  slots: AbilitySlot[];
+  stats: {
+    abilitiesUsed: number;
+    powerStrikes: number;
+    dashes: number;
+    perfectGuards: number;
+    crits: number;
+    shieldSaves: number;
+    secondChances: number;
+  };
+}
+
+/** One ability, flattened for the HUD. */
+export interface AbilityView {
+  readonly id: AbilityId;
+  readonly name: string;
+  readonly glyph: string;
+  readonly ready: boolean;
+  /** 0 when just used, 1 when ready. Quantised, so React re-renders rarely. */
+  readonly progress: number;
+  /** True while the ability's own effect is running. */
+  readonly active: boolean;
+}
+
+export type { TalentMatchStats };
 
 export interface MatchState {
   status: GameStatus;
@@ -178,6 +265,11 @@ export interface GameSnapshot {
   canPause: boolean;
   /** The objective line for challenge and cup matches, if any. */
   objective: string | null;
+  /**
+   * The equipped abilities. The array is rebuilt only when what it shows
+   * changes, so the HUD re-renders on state changes rather than per frame.
+   */
+  abilities: readonly AbilityView[];
   result: MatchResult | null;
   resultId: number;
 }

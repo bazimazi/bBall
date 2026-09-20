@@ -128,4 +128,44 @@ export class GameAudio {
   ui(): void {
     this.tone(640, 0.05, 'sine', 0.1);
   }
+
+  // ------------------------------------------------------------- abilities
+
+  /** Power Strike armed: a rising charge, so the next hit feels promised. */
+  charge(): void {
+    this.tone(220, 0.16, 'sawtooth', 0.12, 660);
+    this.tone(440, 0.1, 'sine', 0.07, 880);
+  }
+
+  dash(): void {
+    this.tone(720, 0.09, 'triangle', 0.14, 330);
+  }
+
+  /** The guard window opening - short, dry, easy to hear under a rally. */
+  guard(): void {
+    this.tone(980, 0.06, 'sine', 0.1, 1240);
+  }
+
+  /** A return landed inside the guard window. */
+  guardHit(): void {
+    this.tone(1320, 0.12, 'sine', 0.16, 1760);
+    this.tone(880, 0.16, 'triangle', 0.1, 0, 0.04);
+  }
+
+  /** A charged or critical return connecting. */
+  impact(charged: boolean): void {
+    const base = charged ? 150 : 210;
+    this.tone(base, 0.18, 'sawtooth', 0.22, base * 0.5);
+    this.tone(base * 4, 0.07, 'square', 0.08);
+  }
+
+  shield(): void {
+    this.tone(320, 0.14, 'sine', 0.2, 640);
+    this.tone(640, 0.2, 'triangle', 0.12, 0, 0.05);
+  }
+
+  secondChance(): void {
+    this.tone(392, 0.16, 'triangle', 0.18);
+    this.tone(587, 0.22, 'triangle', 0.16, 0, 0.09);
+  }
 }

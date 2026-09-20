@@ -2,6 +2,7 @@ import type { ResolvedTheme } from '../../core/cosmetics/theme';
 import { BALL_R, PADDLE_W, SERVE_DELAY } from '../constants';
 import { isMatchPoint } from '../match';
 import { BACKDROP, CANVAS_FONT, heatHue, hsla } from '../palette';
+import { paddleBuffed } from '../talents';
 import type { Paddle, Side, Vec2 } from '../types';
 import { clamp } from '../utils/math';
 import { applyFieldTransform, toScreenX, toScreenY } from '../view';
@@ -130,9 +131,12 @@ export class Renderer {
 
     if (world.match.status !== 'menu') this.drawPips(world);
 
+    this.drawShieldWall(world);
     this.drawTrail(world);
+    this.drawDashGhost(world);
     this.drawPaddle(world, world.player, 1);
     this.drawPaddle(world, world.bot, -1);
+    this.drawPlayerAura(world);
     this.drawParticles(world);
     this.drawBall(world);
 
@@ -223,6 +227,110 @@ export class Renderer {
       ctx.strokeStyle = hsla(hue, 100, 80, 1);
       ctx.lineWidth = 2;
       roundRect(ctx, x - 5, y - 5, w + 10, h + 10, radius + 5);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  /**
+   * A held Shield charge glows against the player's own line.
+   *
+   * It is drawn behind everything the player has to watch, at the one edge of
+   * the court where nothing else happens - so a defensive build is legible at
+   * a glance without a single pixel over the play area.
+   */
+  private drawShieldWall(world: World): void {
+    const { ctx } = this;
+    const { talents: runtime, view } = world;
+    if (runtime.shieldMax <= 0 || runtime.shield <= 0 || world.match.status === 'menu') return;
+
+    const strength = runtime.shield / runtime.shieldMax;
+    const hue = hueOf(world, 'you');
+    const width = 30;
+    const glow = ctx.createLinearGradient(0, 0, width, 0);
+    glow.addColorStop(0, hsla(hue, 100, 72, 0.34 * strength));
+    glow.addColorStop(1, hsla(hue, 100, 72, 0));
+
+    ctx.save();
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, view.h);
+    ctx.fillStyle = hsla(hue, 100, 78, 0.5 * strength);
+    ctx.fillRect(0, 0, 2.5, view.h);
+    ctx.restore();
+  }
+
+  /** A fading ghost of where the paddle was before it dashed. */
+  private drawDashGhost(world: World): void {
+    const { ctx } = this;
+    const { talents: runtime, player, loadout } = world;
+    if (runtime.dashFx <= 0) return;
+
+    const t = clamp(runtime.dashFx / Math.max(0.01, loadout.effects.dashSeconds), 0, 1);
+    const hue = hueOf(world, 'you');
+    const top = Math.min(runtime.dashFrom, player.y) - player.half;
+    const bottom = Math.max(runtime.dashFrom, player.y) + player.half;
+
+    ctx.save();
+    ctx.globalAlpha = t * 0.45;
+    ctx.fillStyle = hsla(hue, 95, 66, 1);
+    roundRect(ctx, player.x - PADDLE_W / 2, top, PADDLE_W, bottom - top, PADDLE_W / 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /**
+   * What the player's build is doing, drawn on the paddle itself.
+   *
+   * A charged strike pulses hot, an open guard window snaps to a bright
+   * bracket, and any other paddle buff shows as a quiet halo. Three states,
+   * three shapes, none of them anywhere near the ball.
+   */
+  private drawPlayerAura(world: World): void {
+    const { ctx } = this;
+    const { talents: runtime, player, fx } = world;
+    if (world.match.status === 'menu') return;
+
+    const x = player.x - PADDLE_W / 2;
+    const y = player.y - player.half;
+    const w = PADDLE_W;
+    const h = player.half * 2;
+
+    if (runtime.strikeArmed > 0) {
+      // Under prefers-reduced-motion the ring is steady rather than pulsing;
+      // it still has to be unmistakable, so it keeps the brighter alpha.
+      const pulse = world.motion > 0.5 ? 0.5 + 0.5 * Math.sin(fx.time * 16) : 1;
+      ctx.save();
+      ctx.globalAlpha = 0.45 + 0.4 * pulse;
+      ctx.strokeStyle = hsla(26, 100, 62, 1);
+      ctx.lineWidth = 3;
+      ctx.shadowColor = hsla(26, 100, 58, 0.9);
+      ctx.shadowBlur = 18 * world.motion;
+      roundRect(ctx, x - 6, y - 9, w + 12, h + 18, w / 2 + 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (runtime.guardWindow > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      // Two brackets rather than a ring: unmistakable, and it leaves the
+      // paddle's own silhouette readable while the ball is on the way.
+      ctx.moveTo(x - 10, y - 4);
+      ctx.lineTo(x - 10, y + h + 4);
+      ctx.moveTo(x + w + 10, y - 4);
+      ctx.lineTo(x + w + 10, y + h + 4);
+      ctx.stroke();
+      ctx.restore();
+    } else if (paddleBuffed(runtime)) {
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = hsla(hueOf(world, 'you'), 100, 82, 1);
+      ctx.lineWidth = 2;
+      roundRect(ctx, x - 4, y - 6, w + 8, h + 12, w / 2 + 4);
       ctx.stroke();
       ctx.restore();
     }

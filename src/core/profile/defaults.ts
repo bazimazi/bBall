@@ -1,6 +1,7 @@
 import { DEFAULT_BOT } from '../bots/levels';
 import { DEFAULT_EQUIPPED, DEFAULT_UNLOCKS } from '../cosmetics/catalog';
 import { dayKey } from '../progression/xp';
+import { createTalentSave } from '../talents/save';
 import { AVATARS, type AvatarId, type LifetimeStats, type PlayerProfile } from './types';
 
 export const NAME_MAX = 14;
@@ -56,6 +57,7 @@ export function createProfile(now = Date.now()): PlayerProfile {
     onboarded: false,
     xp: 0,
     stats: createStats(),
+    talents: createTalentSave(),
     achievements: {},
     unlocks: [...DEFAULT_UNLOCKS],
     equipped: { ...DEFAULT_EQUIPPED },

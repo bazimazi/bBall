@@ -11,6 +11,8 @@ export interface XpAward {
   readonly lines: readonly XpLine[];
   /** Difficulty multiplier, already applied to {@link total}. */
   readonly multiplier: number;
+  /** The build's own multiplier - Experience Boost and Combo Drive. */
+  readonly talentMultiplier: number;
   readonly total: number;
   /** True when the daily anti-farm damper reduced the award. */
   readonly damped: boolean;
@@ -21,12 +23,23 @@ export interface XpContext {
   readonly matchesToday: number;
   /** True the first time a given challenge objective is met. */
   readonly firstChallengeClear: boolean;
+  /**
+   * The build's XP multiplier, already capped by
+   * `BALANCE.rewards.maxXpMul`. 1 when the player has spent no points on it.
+   */
+  readonly talentXpMul: number;
 }
 
 /** Ranked matches per day before awards are halved. */
 export const DAILY_SOFT_CAP = 25;
 
-const EMPTY: XpAward = { lines: [], multiplier: 1, total: 0, damped: false };
+export const EMPTY_AWARD: XpAward = {
+  lines: [],
+  multiplier: 1,
+  talentMultiplier: 1,
+  total: 0,
+  damped: false
+};
 
 function rallyBonus(bestRally: number): number {
   // Generous up to a point, then flat - a single endless rally should not
@@ -41,8 +54,8 @@ function rallyBonus(bestRally: number): number {
  * never touched the ball in, which removes the obvious ways to farm.
  */
 export function computeMatchXp(result: MatchResult, context: XpContext): XpAward {
-  if (!result.ranked || result.abandoned) return EMPTY;
-  if (result.hits === 0 && result.bestRally === 0) return EMPTY;
+  if (!result.ranked || result.abandoned) return EMPTY_AWARD;
+  if (result.hits === 0 && result.bestRally === 0) return EMPTY_AWARD;
 
   const lines: XpLine[] = [];
   const add = (label: string, xp: number) => {
@@ -78,11 +91,12 @@ export function computeMatchXp(result: MatchResult, context: XpContext): XpAward
   }
 
   const multiplier = result.mode === 'endless' ? 1 : result.botRank ? botMultiplier(result) : 1;
-  const raw = lines.reduce((sum, line) => sum + line.xp, 0) * multiplier;
+  const talentMultiplier = Math.max(1, context.talentXpMul);
+  const raw = lines.reduce((sum, line) => sum + line.xp, 0) * multiplier * talentMultiplier;
   const damped = context.matchesToday >= DAILY_SOFT_CAP;
   const total = Math.max(0, Math.round(raw * (damped ? 0.5 : 1)));
 
-  return { lines, multiplier, total, damped };
+  return { lines, multiplier, talentMultiplier, total, damped };
 }
 
 function botMultiplier(result: MatchResult): number {

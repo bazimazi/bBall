@@ -2,12 +2,13 @@ import { useEffect } from 'react';
 
 import type { MatchResult } from '../core/modes/types';
 import { profileStore } from '../core/profile/store';
+import { AbilityBar } from './AbilityBar';
 import { GameCanvas } from './GameCanvas';
 import { Hud } from './Hud';
 import { Overlay } from './Overlay';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useGameFlow, type GameFlow } from './hooks/useGameFlow';
-import { useProfile, useTheme } from './hooks/useProfile';
+import { useLoadout, useProfile, useTheme } from './hooks/useProfile';
 import { PausePanel } from './panels/PausePanel';
 import { AchievementsScreen } from './screens/AchievementsScreen';
 import { ChallengeScreen } from './screens/ChallengeScreen';
@@ -17,6 +18,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { ResultScreen } from './screens/ResultScreen';
+import { TalentScreen } from './screens/TalentScreen';
 import { TournamentScreen } from './screens/TournamentScreen';
 
 interface ResultActions {
@@ -62,6 +64,7 @@ function resultActions(result: MatchResult, flow: GameFlow): ResultActions {
 export function App() {
   const profile = useProfile();
   const theme = useTheme(profile);
+  const loadout = useLoadout(profile);
   const { canvasRef, snapshot, engine } = useGameEngine(theme);
   const flow = useGameFlow(engine, snapshot);
 
@@ -69,6 +72,12 @@ export function App() {
   useEffect(() => {
     document.documentElement.style.setProperty('--you', theme.accentCss);
   }, [theme.accentCss]);
+
+  // The build is pushed the same way the theme is: resolved in React, read
+  // by the engine, and never looked up from inside the simulation.
+  useEffect(() => {
+    engine?.setLoadout(loadout);
+  }, [engine, loadout]);
 
   const playing = flow.screen === 'playing';
   const paused = playing && snapshot.status === 'paused';
@@ -85,6 +94,12 @@ export function App() {
         onPause={() => engine?.pause()}
       />
 
+      <AbilityBar
+        abilities={snapshot.abilities}
+        show={playing && !paused}
+        onUse={(slot) => engine?.useAbility(slot)}
+      />
+
       {flow.screen === 'onboarding' && (
         <OnboardingScreen profile={profile} onDone={() => flow.go('home')} />
       )}
@@ -94,6 +109,7 @@ export function App() {
           profile={profile}
           onPick={flow.pickMode}
           onProfile={() => flow.go('profile')}
+          onTalents={() => flow.go('talents')}
           onAchievements={() => flow.go('achievements')}
           onCustomize={() => flow.go('customize')}
         />
@@ -131,8 +147,13 @@ export function App() {
           profile={profile}
           onAchievements={() => flow.go('achievements')}
           onCustomize={() => flow.go('customize')}
+          onTalents={() => flow.go('talents')}
           onBack={() => flow.go('home')}
         />
+      )}
+
+      {flow.screen === 'talents' && (
+        <TalentScreen profile={profile} onBack={() => flow.go('home')} />
       )}
 
       {flow.screen === 'achievements' && (
@@ -148,6 +169,7 @@ export function App() {
           result={flow.result}
           summary={flow.summary}
           label={snapshot.label}
+          onTalents={() => flow.leaveResult('talents')}
           {...resultActions(flow.result, flow)}
         />
       )}

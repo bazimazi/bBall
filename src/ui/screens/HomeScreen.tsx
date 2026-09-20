@@ -13,6 +13,7 @@ interface HomeScreenProps {
   profile: PlayerProfile;
   onPick: (mode: ModeId) => void;
   onProfile: () => void;
+  onTalents: () => void;
   onAchievements: () => void;
   onCustomize: () => void;
 }
@@ -42,11 +43,14 @@ export function HomeScreen({
   profile,
   onPick,
   onProfile,
+  onTalents,
   onAchievements,
   onCustomize
 }: HomeScreenProps) {
   const coarse = useCoarsePointer();
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
+  const points = profile.talents.points;
+  const skills = profile.talents.equipped.filter(Boolean).length;
 
   return (
     <section className={styles.screen}>
@@ -79,6 +83,10 @@ export function HomeScreen({
       </div>
 
       <footer className={styles.footer}>
+        <button type="button" className={styles.ghost} onClick={onTalents}>
+          Talents
+          {points > 0 && <span className={styles.badge}>{points}</span>}
+        </button>
         <div className={styles.buttonRow}>
           <button type="button" className={styles.ghost} onClick={onAchievements}>
             Achievements
@@ -89,6 +97,7 @@ export function HomeScreen({
         </div>
         <p className={styles.note}>
           {coarse ? 'Drag anywhere to move' : 'Move the mouse or use ↑ ↓'}
+          {skills > 0 && (coarse ? ' · tap the corner for skills' : ' · 1 2 3 for skills')}
         </p>
       </footer>
     </section>

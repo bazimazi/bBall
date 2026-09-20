@@ -1,7 +1,8 @@
 import { objectiveMet } from '../core/modes/rules';
 import type { MatchResult, MatchRules } from '../core/modes/types';
-import { BALL_R, FIELD_H, SERVE_DELAY, SPEED_PER_POINT } from './constants';
+import { BALL_R, FIELD_H, SERVE_DELAY } from './constants';
 import { hsla } from './palette';
+import { matchStats, resetDrive, resetRally, resetRuntime, trySecondChance } from './talents';
 import type { Side } from './types';
 import { clamp } from './utils/math';
 import {
@@ -22,6 +23,7 @@ export function beginServe(world: World, dir: 1 | -1): void {
   match.serveTimer = SERVE_DELAY;
   match.status = 'serve';
   centreBall(world);
+  resetRally(world);
   for (const brain of [botBrain, demoBrain]) {
     brain.aimed = false;
     brain.reads = 0;
@@ -37,7 +39,7 @@ export function launchBall(world: World): void {
   fx.comboIndex = -1;
   ball.speed = Math.min(
     tuning.maxSpeed,
-    tuning.serveSpeed + Math.min(match.points, 10) * SPEED_PER_POINT
+    tuning.serveSpeed + Math.min(match.points, 10) * tuning.perPoint
   );
 
   // Serve on a gentle angle - never dead flat, never steep.
@@ -78,6 +80,7 @@ function buildResult(world: World, won: boolean, abandoned: boolean): MatchResul
     challengeId: rules.challengeId,
     tournamentRound: rules.tournamentRound,
     tournamentTier: rules.tournamentTier,
+    talent: matchStats(world),
     shutout: won && match.score.bot === 0,
     comeback: won && match.deficit >= 2,
     abandoned
@@ -144,7 +147,19 @@ export function scorePoint(world: World, scorer: Side): void {
   }
 
   noteRally(world);
+
+  // Second Chance steps in before anything is scored: the rally is over, the
+  // drive is broken, but the point itself is handed back. One use, then it
+  // is gone for the rest of the match.
+  if (!won && trySecondChance(world)) {
+    resetDrive(world);
+    pointFx(world, 'you', true);
+    beginServe(world, 1);
+    return;
+  }
+
   pointFx(world, scorer, won);
+  if (!won) resetDrive(world);
 
   // Endless: the run is measured in lives, not points. A miss by the wall
   // simply restarts the rally.
@@ -180,6 +195,8 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   world.tuning = tuningFor(rules);
   applyPaddleSizes(world);
   setBrainProfile(world.botBrain, rules.bot);
+  // Shields, charges and cooldowns all start a match full and cold.
+  resetRuntime(world);
 
   match.mode = rules.mode;
   match.label = rules.label;
@@ -215,6 +232,7 @@ export function returnToMenu(world: World): void {
   world.tuning = tuningFor(world.rules);
   applyPaddleSizes(world);
   setBrainProfile(world.botBrain, world.rules.bot);
+  resetRuntime(world);
 
   match.status = 'menu';
   match.mode = world.rules.mode;

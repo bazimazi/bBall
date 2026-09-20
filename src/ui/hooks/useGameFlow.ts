@@ -25,6 +25,7 @@ export type ScreenId =
   | 'profile'
   | 'achievements'
   | 'customize'
+  | 'talents'
   | 'playing'
   | 'result';
 

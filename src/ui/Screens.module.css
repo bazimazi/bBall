@@ -268,6 +268,23 @@
   gap: 8px;
 }
 
+/* Unspent talent points, on whatever button leads to them. */
+.badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: var(--you);
+  color: #04120f;
+  font-size: 11.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  vertical-align: 1px;
+}
+
 /* --------------------------------------------------------------- profile */
 
 .chip {
@@ -634,16 +651,27 @@
   color: var(--ink);
 }
 
+/* Also used as a button on the result card, so it carries both sets of
+   resets - a div and a <button> must look identical here. */
 .unlockRow {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 9px 12px;
   border-radius: 14px;
   background: rgba(79, 240, 214, 0.08);
   border: 1px solid rgba(79, 240, 214, 0.25);
+  color: var(--ink);
+  font-family: inherit;
   font-size: 13px;
   font-weight: 650;
+  text-align: left;
+}
+
+button.unlockRow {
+  cursor: pointer;
+  min-height: 46px;
 }
 
 .levelUp {

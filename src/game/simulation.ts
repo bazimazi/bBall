@@ -1,7 +1,8 @@
-import { FIELD_H, PADDLE_MAX_SPEED } from './constants';
+import { FIELD_H } from './constants';
 import { driveAi } from './ai';
 import { launchBall } from './match';
 import { movePaddle, stepBall } from './physics';
+import { playerPaddleSpeed, updateRuntime } from './talents';
 import { clamp, decay, lerp } from './utils/math';
 import type { World } from './world';
 
@@ -48,8 +49,9 @@ export function step(world: World, dt: number): void {
 
     case 'serve': {
       match.elapsed += dt;
+      updateRuntime(world, dt);
       player.target = clamp(player.target, player.half, FIELD_H - player.half);
-      movePaddle(player, dt, PADDLE_MAX_SPEED);
+      movePaddle(player, dt, playerPaddleSpeed(world));
       bot.target = lerp(bot.target, FIELD_H / 2, Math.min(1, dt * 3));
       movePaddle(bot, dt, 600);
       match.serveTimer -= dt;
@@ -59,7 +61,8 @@ export function step(world: World, dt: number): void {
 
     case 'play': {
       match.elapsed += dt;
-      movePaddle(player, dt, PADDLE_MAX_SPEED);
+      updateRuntime(world, dt);
+      movePaddle(player, dt, playerPaddleSpeed(world));
       driveAi(world, bot, world.botBrain, dt);
       stepBall(world, dt);
       break;

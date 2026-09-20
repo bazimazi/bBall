@@ -29,6 +29,7 @@ npm run dev        # http://localhost:5173
 | Drag / move pointer | Move your paddle (anywhere on screen — the paddle mirrors your finger) |
 | `↑` `↓` or `W` `S`  | Move your paddle                                                       |
 | Tap / `Space`       | Serve immediately instead of waiting                                   |
+| `1` `2` `3` or `Q` `E` `R` | Use the ability in that slot (or tap the buttons in the corner) |
 | `Esc` or `P`        | Pause                                                                  |
 | `M`                 | Mute                                                                   |
 
@@ -58,17 +59,64 @@ fast or the rally is long. A return placed wide enough always scores.
 
 ### Progression
 
-Matches, wins, rallies, challenges and cup rounds pay XP; XP levels you up, and
-levels and achievements unlock **cosmetics only** — colours, ball and paddle
-styles, trails and arenas. Nothing you unlock changes how the game plays.
-Practice pays nothing, quitting pays nothing, and the award is halved after 25
-ranked matches in a day, so there is nothing worth farming.
+Matches, wins, rallies, challenges and cup rounds pay XP; XP levels you up.
+Levels and achievements unlock cosmetics — colours, ball and paddle styles,
+trails and arenas — which change nothing about how the game plays. Levels also
+pay **one talent point each**, which very much do. Practice pays nothing,
+quitting pays nothing, and the award is halved after 25 ranked matches in a
+day, so there is nothing worth farming.
 
-The profile — name, avatar, level, lifetime stats, achievements, unlocks, the
-cup you are part-way through — lives in `localStorage` under `bball.profile`,
-in a versioned envelope. A save that is corrupt, half-written or from an older
-schema is repaired field by field rather than thrown away; anything genuinely
+Three things are kept strictly apart, and the whole balance model rests on it:
+
+> Difficulty makes the ball harder to handle. Progression makes your paddle
+> more capable. Talents decide how you handle that difficulty.
+
+A stronger opponent means a faster ball — never a slower paddle for you, and
+never a secret nerf to something you earned. Your paddle speed comes from your
+level and your build, and from nothing else. Every number behind all three
+lives in `src/core/balance/config.ts`; nothing outside that file hard-codes a
+speed, a cooldown or a cap.
+
+### Talents
+
+One point per level — 29 by the level cap — against 22 talents that cost 66
+points to fill. A build is a set of choices, not a checklist. Five short
+branches:
+
+| Branch       | What it makes you                                                    |
+| ------------ | -------------------------------------------------------------------- |
+| **Power**    | Heavy returns: charged strikes, criticals, a ball that keeps climbing |
+| **Control**  | A faster, tidier paddle with wider deliberate angles                  |
+| **Defense**  | Saves at your own line, steadier returns, a comeback in hand          |
+| **Momentum** | Streaks that pay: drives, adrenaline, clutch, flow                    |
+| **Mastery**  | Cooldowns, XP, and bonuses shaped by whatever else you picked         |
+
+Three of them unlock **active skills** — Power Strike, Dash and Perfect Guard —
+of which you equip two, or three from level 15. Each has a cooldown, a ring on
+its button, and a distinct reaction on the court. Everything else is passive.
+
+Certain pairs turn into named **synergies** (Power Strike + Momentum, Quick
+Hands + Dash, Perfect Guard + Stabilizer, Combo Drive + Adrenaline, Cooldown
+Mastery + two actives). They are additive rewards for committing to an idea,
+never a gate: every branch works on its own. Respec is free, from the talent
+screen, because a build is meant to be tried rather than regretted.
+
+Two rules keep builds from collapsing the game. Every multiplier a build can
+stack is capped once, in the balance config, so no combination escapes the
+ranges the simulation is tested against. And the pace a Power build *adds*
+mostly bleeds off when the opponent returns the ball — otherwise the extra
+speed comes straight back at the player who chose it, and the aggressive build
+is a trap rather than a style.
+
+The profile — name, avatar, level, lifetime stats, achievements, unlocks, your
+talent ranks, unspent points and equipped skills, the cup you are part-way
+through — lives in `localStorage` under `bball.profile`, in a versioned
+envelope (currently v2; v1 saves migrate and are handed the points their level
+already earned). A save that is corrupt, half-written or from an older schema
+is repaired field by field rather than thrown away; anything genuinely
 unreadable is parked under `bball.profile.broken` and the game starts fresh.
+Unspent points are never trusted from the file — they are recomputed from your
+level and what you have spent, every time the profile is read.
 
 ## How it is built
 
@@ -81,13 +129,17 @@ src/
     simulation.ts    one fixed timestep
     physics.ts       ball, walls, swept paddle collisions
     ai.ts            bot behaviour: reaction, reads, placement, pressure
+    talents.ts       the build at runtime: buffs, drives, shields, returns
+    abilities.ts     what each active skill does to the world
     match.ts         serving, scoring, match lifecycle, results
     audio.ts         synthesised WebAudio blips
     view.ts          field <-> screen transform, canvas sizing
     particles.ts     fixed-size particle pool
     render/          canvas renderer
   core/              domain model - no React, no canvas
+    balance/         every tuning number in the game, in one file
     bots/            difficulty profiles
+    talents/         the tree, the actives, synergies, and resolving a build
     modes/           mode rules, modifiers, challenges, objectives
     tournament/      cup tiers and brackets
     progression/     XP curve, awards, applying a result to a profile
@@ -132,6 +184,18 @@ A few decisions worth knowing before changing things:
 - **Modes change rules, not code paths.** Win score, lives, paddle sizes and
   ball speeds come from the mode's `MatchRules`, so a new mode is data rather
   than a new branch inside the physics.
+- **Talents are data too.** A talent is a catalogue entry describing what a
+  rank costs and what it changes. `resolveLoadout` turns a saved build into a
+  flat bag of pre-capped numbers once, when the build changes; the simulation
+  only ever reads fields off that bag and never looks a talent up by id. A new
+  talent is an object in `core/talents/catalog.ts` and one line in
+  `effects.ts`; a new active skill adds one `case` in `game/abilities.ts` and
+  gets its HUD button, cooldown, equip slot and persistence for free.
+- **The build never reaches into the UI, or the other way round.** React
+  resolves the loadout and hands it to the engine exactly the way it hands
+  over the cosmetic theme. The HUD reads a quantised view of the cooldowns, so
+  an ability ring re-renders a couple of dozen times per cooldown rather than
+  sixty times a second.
 - **Screen-space HUD.** Score pips live in field space (dots read the same at
   any rotation), while text is drawn unrotated at transformed anchor points so
   it stays upright on a portrait phone.

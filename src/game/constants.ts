@@ -1,9 +1,14 @@
 /**
- * Tuning constants for the simulation.
+ * Geometry and timing for the simulation.
  *
  * Every length is expressed in "field units": the simulation always runs in a
  * landscape field whose short axis is exactly {@link FIELD_H} units, so the
  * game plays identically on every device.
+ *
+ * Balance - paddle speed, ball speed, difficulty scaling, talent magnitudes,
+ * cooldowns and rewards - deliberately does *not* live here. It lives in
+ * `core/balance/config.ts`, so tuning the game never means editing the parts
+ * that describe its shape.
  */
 
 /** Field units across the short axis. Constant on every screen. */
@@ -20,16 +25,7 @@ export const PADDLE_H = 108;
 export const MIN_PADDLE_SCALE = 0.42;
 /** Paddle centre distance from the field edge. */
 export const PADDLE_INSET = 46;
-/** Field units per second. */
-export const PADDLE_MAX_SPEED = 1550;
-export const KEY_SPEED = 1080;
 
-export const SERVE_SPEED = 470;
-/** Serve speed grows a little every point... */
-export const SPEED_PER_POINT = 17;
-/** ...and a little more on every rally hit. */
-export const SPEED_PER_HIT = 1.045;
-export const MAX_SPEED = 1180;
 /** Radians off the long axis (~53 degrees). */
 export const MAX_BOUNCE_ANGLE = 0.92;
 export const SPIN_INFLUENCE = 0.26;

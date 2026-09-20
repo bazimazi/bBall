@@ -3,6 +3,8 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { resolveTheme, type ResolvedTheme } from '../../core/cosmetics/theme';
 import { profileStore } from '../../core/profile/store';
 import type { PlayerProfile } from '../../core/profile/types';
+import { levelOf } from '../../core/progression/levels';
+import { resolveLoadout, type ResolvedLoadout } from '../../core/talents/effects';
 
 /** The player's saved profile, re-rendering only when it actually changes. */
 export function useProfile(): PlayerProfile {
@@ -16,4 +18,16 @@ export function useProfile(): PlayerProfile {
 /** The equipped cosmetics, resolved once per change rather than per frame. */
 export function useTheme(profile: PlayerProfile): ResolvedTheme {
   return useMemo(() => resolveTheme(profile.equipped), [profile.equipped]);
+}
+
+/**
+ * The player's build, resolved into the numbers the engine reads.
+ *
+ * Resolving is pure and cheap, but it happens once per build change rather
+ * than once per frame - the engine is handed the result and never looks a
+ * talent up itself.
+ */
+export function useLoadout(profile: PlayerProfile): ResolvedLoadout {
+  const level = levelOf(profile.xp);
+  return useMemo(() => resolveLoadout(profile.talents, level), [profile.talents, level]);
 }

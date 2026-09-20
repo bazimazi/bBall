@@ -1,11 +1,14 @@
 import { ACHIEVEMENTS, type Achievement } from '../achievements/catalog';
+import { BALANCE } from '../balance/config';
 import { COSMETICS, isUnlocked, type Cosmetic } from '../cosmetics/catalog';
 import type { MatchResult } from '../modes/types';
 import { createStats } from '../profile/defaults';
 import type { PlayerProfile } from '../profile/types';
+import { resolveLoadout } from '../talents/effects';
+import { cloneTalentSave, reconcile } from '../talents/save';
 import { advanceTournament, TOURNAMENT_ROUNDS, type TournamentSave } from '../tournament/bracket';
 import { levelFromXp, levelOf } from './levels';
-import { computeMatchXp, dayKey, type XpAward } from './xp';
+import { computeMatchXp, dayKey, EMPTY_AWARD, type XpAward } from './xp';
 
 export interface ProgressSummary {
   readonly profile: PlayerProfile;
@@ -21,12 +24,17 @@ export interface ProgressSummary {
   readonly challengeCleared: boolean;
   readonly tournament: TournamentSave | null;
   readonly cupWon: boolean;
+  /** Talent points granted by the levels gained in this match. */
+  readonly talentPoints: number;
+  /** Unspent points afterwards, so the result card can nudge the player. */
+  readonly talentPointsAvailable: number;
 }
 
 function cloneProfile(profile: PlayerProfile): PlayerProfile {
   return {
     ...profile,
     stats: { ...createStats(), ...profile.stats, winsByBot: { ...profile.stats.winsByBot } },
+    talents: cloneTalentSave(profile.talents),
     achievements: { ...profile.achievements },
     unlocks: [...profile.unlocks],
     equipped: { ...profile.equipped },
@@ -174,6 +182,33 @@ function applyTournament(profile: PlayerProfile, result: MatchResult): Tournamen
 }
 
 /**
+ * The XP multiplier this build has earned.
+ *
+ * Experience Boost and Combo Drive are multiplied together and then capped
+ * once, so no combination of the two can turn into a farming loop - the cap
+ * is the promise that a build changes *how* you play, not how fast you level.
+ */
+function talentXpMul(profile: PlayerProfile, result: MatchResult): number {
+  const { effects } = resolveLoadout(profile.talents, levelOf(profile.xp));
+  const drive = Math.min(effects.driveCap, result.talent.bestDrive * effects.drivePerReturn);
+  return Math.min(BALANCE.rewards.maxXpMul, effects.xpMul * (1 + drive));
+}
+
+/** Fold what the build did this match into the lifetime talent numbers. */
+function applyTalentStats(profile: PlayerProfile, result: MatchResult): void {
+  const from = result.talent;
+  const stats = profile.talents.stats;
+  stats.abilitiesUsed += from.abilitiesUsed;
+  stats.powerStrikes += from.powerStrikes;
+  stats.dashes += from.dashes;
+  stats.perfectGuards += from.perfectGuards;
+  stats.crits += from.crits;
+  stats.shieldSaves += from.shieldSaves;
+  stats.secondChances += from.secondChances;
+  stats.bestDrive = Math.max(stats.bestDrive, from.bestDrive);
+}
+
+/**
  * Fold a finished match into a profile.
  *
  * Pure: the profile passed in is never mutated, and nothing here touches
@@ -191,7 +226,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   if (!counts) {
     return {
       profile: source,
-      award: { lines: [], multiplier: 1, total: 0, damped: false },
+      award: EMPTY_AWARD,
       xpBefore,
       xpAfter: xpBefore,
       levelBefore,
@@ -202,17 +237,21 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
       newBestRally: false,
       challengeCleared: false,
       tournament: null,
-      cupWon: false
+      cupWon: false,
+      talentPoints: 0,
+      talentPointsAvailable: source.talents.points
     };
   }
 
   const newBestRally = applyStats(profile, result);
   const challengeCleared = applyChallenge(profile, result);
   const tournament = applyTournament(profile, result);
+  applyTalentStats(profile, result);
 
   const award = computeMatchXp(result, {
     matchesToday: profile.daily.matches,
-    firstChallengeClear: challengeCleared
+    firstChallengeClear: challengeCleared,
+    talentXpMul: talentXpMul(profile, result)
   });
   profile.xp += award.total;
   profile.daily.matches += 1;
@@ -222,6 +261,12 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   profile.updatedAt = Date.now();
 
   const levelAfter = levelFromXp(profile.xp).level;
+
+  // Levelling is the only source of talent points, so the grant is simply
+  // the build re-reconciled against the new level. Difficulty never touches
+  // it, and neither does anything the player does mid-match.
+  const pointsBefore = profile.talents.points;
+  profile.talents = reconcile(profile.talents, levelAfter);
 
   return {
     profile,
@@ -236,6 +281,8 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
     newBestRally,
     challengeCleared,
     tournament,
-    cupWon: tournament?.champion ?? false
+    cupWon: tournament?.champion ?? false,
+    talentPoints: Math.max(0, profile.talents.points - pointsBefore),
+    talentPointsAvailable: profile.talents.points
   };
 }

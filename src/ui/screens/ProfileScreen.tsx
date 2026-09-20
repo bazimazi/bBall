@@ -13,6 +13,7 @@ interface ProfileScreenProps {
   profile: PlayerProfile;
   onAchievements: () => void;
   onCustomize: () => void;
+  onTalents: () => void;
   onBack: () => void;
 }
 
@@ -36,12 +37,14 @@ export function ProfileScreen({
   profile,
   onAchievements,
   onCustomize,
+  onTalents,
   onBack
 }: ProfileScreenProps) {
   const [name, setName] = useState(profile.name);
   const [confirmReset, setConfirmReset] = useState(false);
 
   const stats = profile.stats;
+  const talents = profile.talents.stats;
   const played = stats.matches;
   const winRate = played > 0 ? Math.round((stats.wins / played) * 100) : 0;
   const earned = Object.keys(profile.achievements).length;
@@ -103,6 +106,23 @@ export function ProfileScreen({
         <Stat value={stats.challengesCleared} label="Challenges" />
         <Stat value={playTime(stats.playSeconds)} label="Played" />
       </div>
+
+      <p className={styles.sectionLabel}>Build</p>
+      <div className={styles.stats}>
+        <Stat value={profile.talents.points} label="Points" />
+        <Stat value={talents.bestDrive} label="Best drive" />
+        <Stat value={talents.abilitiesUsed} label="Skills used" />
+        <Stat value={talents.crits} label="Criticals" />
+        <Stat value={talents.shieldSaves} label="Shields" />
+        <Stat value={talents.perfectGuards} label="Guards" />
+      </div>
+
+      <button type="button" className={styles.ghost} onClick={onTalents}>
+        Talents
+        {profile.talents.points > 0 && (
+          <span className={styles.badge}>{profile.talents.points}</span>
+        )}
+      </button>
 
       <div className={styles.buttonRow}>
         <button type="button" className={styles.ghost} onClick={onAchievements}>

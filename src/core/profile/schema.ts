@@ -8,14 +8,17 @@ import {
   type Equipped
 } from '../cosmetics/catalog';
 import { challengeById } from '../modes/challenges';
+import { levelOf } from '../progression/levels';
 import { dayKey } from '../progression/xp';
 import type { StoreSpec } from '../storage/localStore';
+import { talentSaveOf } from '../talents/save';
 import { TOURNAMENT_ROUNDS, TOURNAMENT_TIERS, type TournamentSave } from '../tournament/bracket';
 import { cleanName, createProfile, createStats } from './defaults';
 import { AVATARS, type AvatarId, type ChallengeRecord, type PlayerProfile } from './types';
 
 export const PROFILE_KEY = 'bball.profile';
-export const PROFILE_VERSION = 1;
+/** 1: the original profile. 2: adds the talent build. */
+export const PROFILE_VERSION = 2;
 
 type Bag = Record<string, unknown>;
 
@@ -154,6 +157,8 @@ export function validateProfile(data: unknown): PlayerProfile | null {
   const blank = createProfile();
   const preferences = bag(source.preferences);
 
+  const xp = num(source.xp, 0);
+
   const profile: PlayerProfile = {
     id: text(source.id, blank.id),
     name: cleanName(text(source.name, blank.name)),
@@ -161,8 +166,11 @@ export function validateProfile(data: unknown): PlayerProfile | null {
     createdAt: num(source.createdAt, blank.createdAt),
     updatedAt: num(source.updatedAt, blank.updatedAt),
     onboarded: bool(source.onboarded, false),
-    xp: num(source.xp, 0),
+    xp,
     stats: statsOf(source.stats),
+    // Points are always recomputed from level and spend, so a truncated,
+    // stale or tampered-with build converges on an honest total.
+    talents: talentSaveOf(source.talents, levelOf(xp)),
     achievements: achievementsOf(source.achievements),
     unlocks: unlocksOf(source.unlocks),
     equipped: equippedOf(source.equipped),
@@ -189,13 +197,33 @@ export function validateProfile(data: unknown): PlayerProfile | null {
   return profile;
 }
 
+/**
+ * One step forward, per call. `from` is the version the payload is currently
+ * at, so a save written months ago walks every step in order.
+ *
+ * Every step here only has to *shape* the data; validateProfile still runs
+ * afterwards and repairs anything a step left approximate.
+ */
+function migrateProfile(data: unknown, from: number): unknown {
+  const source = bag(data);
+  switch (from) {
+    // 1 -> 2: talents arrive. A returning player is handed the points their
+    // level has already earned, with nothing spent, so their save is worth
+    // more after the update rather than less.
+    case 1:
+      return { ...source, talents: talentSaveOf(source.talents, levelOf(num(source.xp, 0))) };
+    default:
+      return source;
+  }
+}
+
 export const PROFILE_SPEC: StoreSpec<PlayerProfile> = {
   key: PROFILE_KEY,
   version: PROFILE_VERSION,
   create: () => createProfile(),
-  // Version 1 is the first schema; future versions add their step here and
-  // bump PROFILE_VERSION. Unknown versions fall through to validateProfile,
-  // which repairs whatever it recognises.
-  migrate: (data) => data,
+  // A future version adds its case to migrateProfile and bumps
+  // PROFILE_VERSION. Versions from the future fall through to
+  // validateProfile, which repairs whatever it recognises.
+  migrate: migrateProfile,
   validate: validateProfile
 };
