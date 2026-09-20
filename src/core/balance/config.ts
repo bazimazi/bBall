@@ -82,6 +82,12 @@ export const BALANCE = {
   /** Talent-point economy and the shape of the tree. */
   talents: {
     pointsPerLevel: 1,
+    /**
+     * Points that must already sit in a branch before its next row of
+     * talents opens. Depth is bought with commitment to one branch rather
+     * than with player level, so the grid itself explains the gate.
+     */
+    pointsPerTier: 2,
     /** Equipped active abilities. A third slot is a mid-game reward. */
     slots: { base: 2, extraAtLevel: 15, max: 3 },
     /** Respec is free: builds are meant to be tried, not committed to. */

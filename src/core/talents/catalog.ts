@@ -19,11 +19,41 @@ function pct(value: number): string {
 }
 
 export const TALENT_BRANCHES: readonly Branch[] = [
-  { id: 'power', name: 'Power', blurb: 'Push the ball harder than it wants to go', hue: 14 },
-  { id: 'control', name: 'Control', blurb: 'Be where the ball is going, sooner', hue: 192 },
-  { id: 'defense', name: 'Defense', blurb: 'Survive the rallies that should beat you', hue: 268 },
-  { id: 'momentum', name: 'Momentum', blurb: 'Turn a good streak into a better one', hue: 44 },
-  { id: 'utility', name: 'Mastery', blurb: 'Bend the rest of the build to your shape', hue: 150 }
+  {
+    id: 'power',
+    name: 'Power',
+    blurb: 'Push the ball harder than it wants to go',
+    hue: 14,
+    crest: 'power-strike'
+  },
+  {
+    id: 'control',
+    name: 'Control',
+    blurb: 'Be where the ball is going, sooner',
+    hue: 192,
+    crest: 'precision'
+  },
+  {
+    id: 'defense',
+    name: 'Defense',
+    blurb: 'Survive the rallies that should beat you',
+    hue: 268,
+    crest: 'shield'
+  },
+  {
+    id: 'momentum',
+    name: 'Momentum',
+    blurb: 'Turn a good streak into a better one',
+    hue: 44,
+    crest: 'adrenaline'
+  },
+  {
+    id: 'utility',
+    name: 'Mastery',
+    blurb: 'Bend the rest of the build to your shape',
+    hue: 150,
+    crest: 'versatility'
+  }
 ];
 
 export const TALENTS: readonly TalentDef[] = [
@@ -35,7 +65,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Active: charge the next return',
     maxRank: 1,
     costs: [2],
-    minLevel: 1,
+    tier: 0,
+    column: 1,
     requires: [],
     ability: 'power-strike',
     rankText: () =>
@@ -48,7 +79,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Power Strike hits harder and returns sooner',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 3,
+    tier: 3,
+    column: 1,
     requires: [{ talent: 'power-strike', rank: 1 }],
     rankText: (rank) =>
       `+${pct(E.overdrive.speed)} Power Strike speed and ${Math.abs(E.overdrive.cooldown)}s off its cooldown (rank ${rank}).`
@@ -60,7 +92,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Every return accelerates the ball more',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 1,
+    tier: 0,
+    column: 0,
     requires: [],
     rankText: () => `Your returns add +${pct(E.heavyImpact.growth)} to the ball's speed gain.`
   },
@@ -71,7 +104,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Some returns land noticeably heavier',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 5,
+    tier: 1,
+    column: 0,
     requires: [],
     rankText: () =>
       `+${pct(E.criticalStrike.chance)} chance of a critical return, worth +${pct(E.criticalStrike.growth)} ball speed.`
@@ -83,7 +117,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Long rallies build extra acceleration',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 3,
+    tier: 2,
+    column: 0,
     requires: [],
     rankText: () =>
       `Each return in a rally adds +${pct(E.momentum.perReturn)} ball speed, up to +${pct(E.momentum.cap)} more.`
@@ -97,7 +132,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'A faster paddle, all the time',
     maxRank: 5,
     costs: [1, 1, 1, 1, 1],
-    minLevel: 1,
+    tier: 0,
+    column: 0,
     requires: [],
     rankText: () => `+${pct(E.quickHands.paddle)} paddle speed.`
   },
@@ -108,7 +144,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Peel off the wall without losing the point',
     maxRank: 2,
     costs: [1, 1],
-    minLevel: 2,
+    tier: 0,
+    column: 1,
     requires: [],
     rankText: () =>
       `+${pct(E.swiftRecovery.edgeBoost)} paddle speed for ${E.swiftRecovery.seconds}s after leaving an edge.`
@@ -120,7 +157,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Wider deliberate angles, less accidental spin',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 4,
+    tier: 1,
+    column: 1,
     requires: [],
     rankText: () =>
       `+${pct(E.precision.angle)} usable return angle, ${pct(Math.abs(E.precision.spin))} less unintended spin.`
@@ -132,7 +170,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Active: jump the paddle a short distance',
     maxRank: 1,
     costs: [2],
-    minLevel: 4,
+    tier: 2,
+    column: 0,
     requires: [{ talent: 'quick-hands', rank: 2 }],
     ability: 'dash',
     rankText: () =>
@@ -145,7 +184,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Active: a timing window that rewards the read',
     maxRank: 3,
     costs: [2, 1, 1],
-    minLevel: 8,
+    tier: 3,
+    column: 1,
     requires: [{ talent: 'precision', rank: 1 }],
     ability: 'perfect-guard',
     rankText: (rank) =>
@@ -162,7 +202,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'A miss that should have cost the point, saved',
     maxRank: 2,
     costs: [2, 2],
-    minLevel: 6,
+    tier: 1,
+    column: 0,
     requires: [],
     rankText: () =>
       `+1 shield charge. A charge saves one ball at your line, then recharges over ${E.shield.rechargeSeconds}s.`
@@ -174,7 +215,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Take a conceded point back while you are behind',
     maxRank: 1,
     costs: [3],
-    minLevel: 10,
+    tier: 3,
+    column: 0,
     requires: [{ talent: 'shield', rank: 1 }],
     rankText: () =>
       `Once a match, refunds a conceded point - or your last life - while you are not ahead.`
@@ -186,7 +228,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Scrambled returns come off straighter',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 1,
+    tier: 0,
+    column: 1,
     requires: [],
     rankText: () => `Pulls ${pct(E.stabilizer.pull)} of a wide edge-hit back towards a clean angle.`
   },
@@ -197,7 +240,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'The longer the rally, the steadier you get',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 5,
+    tier: 2,
+    column: 1,
     requires: [{ talent: 'stabilizer', rank: 1 }],
     rankText: () =>
       `+${pct(E.resilience.perFive)} paddle speed per five returns in a rally, up to +${pct(E.resilience.cap)} more.`
@@ -211,7 +255,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Returns without conceding build a multiplier',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 2,
+    tier: 0,
+    column: 1,
     requires: [],
     rankText: () =>
       `Each return on your drive is worth +${pct(E.comboDrive.xpPerReturn)} match XP, up to +${pct(E.comboDrive.cap)} more.`
@@ -223,7 +268,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'A drive threshold quickens the paddle',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 6,
+    tier: 2,
+    column: 1,
     requires: [{ talent: 'combo-drive', rank: 2 }],
     rankText: () =>
       `+${pct(E.adrenaline.paddle)} paddle speed for ${E.adrenaline.seconds}s every ${E.adrenaline.threshold} returns on a drive.`
@@ -235,7 +281,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Sharper when the match is nearly lost',
     maxRank: 2,
     costs: [1, 1],
-    minLevel: 7,
+    tier: 1,
+    column: 0,
     requires: [],
     rankText: () =>
       `+${pct(E.clutch.paddle)} paddle speed while one point - or one life - from losing.`
@@ -247,8 +294,9 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Sustained rallies sharpen paddle and cooldowns',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 9,
-    requires: [{ talent: 'combo-drive', rank: 1 }],
+    tier: 3,
+    column: 1,
+    requires: [{ talent: 'adrenaline', rank: 1 }],
     rankText: () =>
       `Past ${E.flowState.from} returns, +${pct(E.flowState.paddle)} paddle speed per return (up to +${pct(E.flowState.cap)}) and faster cooldown recovery.`
   },
@@ -261,7 +309,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Every active ability comes back sooner',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 5,
+    tier: 0,
+    column: 1,
     requires: [],
     rankText: () => `${pct(Math.abs(E.cooldownMastery.cooldown))} off every ability cooldown.`
   },
@@ -272,7 +321,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Meaningful matches are worth a little more',
     maxRank: 3,
     costs: [1, 1, 1],
-    minLevel: 3,
+    tier: 0,
+    column: 0,
     requires: [],
     rankText: () => `+${pct(E.experienceBoost.xp)} XP from ranked matches.`
   },
@@ -283,7 +333,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Combinations you already own pay out more',
     maxRank: 2,
     costs: [2, 2],
-    minLevel: 12,
+    tier: 2,
+    column: 1,
     requires: [],
     rankText: () =>
       `+${pct(E.talentSynergy.magnitude)} to every active synergy, and +${pct(E.talentSynergy.paddlePerSynergy)} paddle speed per synergy.`
@@ -295,7 +346,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'A bonus shaped by whatever you invest in most',
     maxRank: 2,
     costs: [1, 1],
-    minLevel: 10,
+    tier: 1,
+    column: 1,
     requires: [],
     rankText: () => `+${pct(E.versatility.bonus)} to the signature stat of your deepest branch.`
   }
@@ -333,3 +385,44 @@ export const TOTAL_TALENT_COST = TALENTS.reduce(
   (sum, talent) => sum + talent.costs.slice(0, talent.maxRank).reduce((a, b) => a + b, 0),
   0
 );
+
+/** Every branch grid is this many columns wide. */
+export const BRANCH_COLUMNS = 2;
+
+/** Rows in a branch's grid. */
+export function tiersOfBranch(branch: BranchId): number {
+  return talentsOfBranch(branch).reduce((deepest, talent) => Math.max(deepest, talent.tier), 0) + 1;
+}
+
+/** Points that must sit in a branch before `tier` opens. */
+export function tierRequirement(tier: number): number {
+  return Math.max(0, tier) * BALANCE.talents.pointsPerTier;
+}
+
+/** Everything a single branch would cost to fill. */
+export function branchCost(branch: BranchId): number {
+  return talentsOfBranch(branch).reduce(
+    (sum, talent) => sum + talent.costs.slice(0, talent.maxRank).reduce((a, b) => a + b, 0),
+    0
+  );
+}
+
+/**
+ * The arrows a branch draws: one per direct prerequisite, but only when both
+ * ends live in the same branch. The grid explains the rest on its own.
+ */
+export interface TalentLink {
+  readonly from: TalentDef;
+  readonly to: TalentDef;
+}
+
+export function linksOfBranch(branch: BranchId): readonly TalentLink[] {
+  const links: TalentLink[] = [];
+  for (const talent of talentsOfBranch(branch)) {
+    for (const need of talent.requires) {
+      const from = talentById(need.talent);
+      if (from && from.branch === branch) links.push({ from, to: talent });
+    }
+  }
+  return links;
+}

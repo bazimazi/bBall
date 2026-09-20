@@ -91,15 +91,23 @@ branches:
 | **Momentum** | Streaks that pay: drives, adrenaline, clutch, flow                    |
 | **Mastery**  | Cooldowns, XP, and bonuses shaped by whatever else you picked         |
 
-Three of them unlock **active skills** — Power Strike, Dash and Perfect Guard —
+Each branch is a grid, and depth is bought with commitment rather than with
+level: a row only opens once two points per row already sit in *that* branch,
+so the bottom of a tree costs six points before you may spend the seventh.
+Arrows run from a talent to whatever it unlocks. Points spent elsewhere never
+open a row here, which is what stops a max-level player simply owning the
+bottom of all five.
+
+Three talents unlock **active skills** — Power Strike, Dash and Perfect Guard —
 of which you equip two, or three from level 15. Each has a cooldown, a ring on
 its button, and a distinct reaction on the court. Everything else is passive.
 
 Certain pairs turn into named **synergies** (Power Strike + Momentum, Quick
 Hands + Dash, Perfect Guard + Stabilizer, Combo Drive + Adrenaline, Cooldown
 Mastery + two actives). They are additive rewards for committing to an idea,
-never a gate: every branch works on its own. Respec is free, from the talent
-screen, because a build is meant to be tried rather than regretted.
+never a gate: every branch works on its own. Respec is free — one branch at a
+time from its own panel, or the lot from the footer — because a build is meant
+to be tried rather than regretted.
 
 Two rules keep builds from collapsing the game. Every multiplier a build can
 stack is capped once, in the balance config, so no combination escapes the
@@ -185,12 +193,18 @@ A few decisions worth knowing before changing things:
   ball speeds come from the mode's `MatchRules`, so a new mode is data rather
   than a new branch inside the physics.
 - **Talents are data too.** A talent is a catalogue entry describing what a
-  rank costs and what it changes. `resolveLoadout` turns a saved build into a
-  flat bag of pre-capped numbers once, when the build changes; the simulation
-  only ever reads fields off that bag and never looks a talent up by id. A new
-  talent is an object in `core/talents/catalog.ts` and one line in
-  `effects.ts`; a new active skill adds one `case` in `game/abilities.ts` and
-  gets its HUD button, cooldown, equip slot and persistence for free.
+  rank costs, where it sits in its branch's grid, and what it changes.
+  `resolveLoadout` turns a saved build into a flat bag of pre-capped numbers
+  once, when the build changes; the simulation only ever reads fields off that
+  bag and never looks a talent up by id. A new talent is an object in
+  `core/talents/catalog.ts` and one line in `effects.ts` — its tile, its rank
+  badge, its arrows and its tier gate all fall out of the `tier`/`column` it
+  declares. A new active skill adds one `case` in `game/abilities.ts` and gets
+  its HUD button, cooldown, equip slot and persistence for free.
+- **The tree draws itself from one set of numbers.** Tile size and gap live in
+  `ui/components/TalentTree.tsx`, and both the absolutely-positioned tiles and
+  the SVG arrows drawn under them are laid out from those, so the connectors
+  cannot drift out of alignment with the icons.
 - **The build never reaches into the UI, or the other way round.** React
   resolves the loadout and hands it to the engine exactly the way it hands
   over the cosmetic theme. The HUD reads a quantised view of the cooldowns, so

@@ -1,14 +1,10 @@
 import { BALANCE, paddleSpeedForLevel } from '../balance/config';
 import { TALENTS } from './catalog';
+import { branchSpend, dominantBranch } from './save';
 import { activeSynergies, type SynergyDef } from './synergy';
-import {
-  BRANCHES,
-  type AbilityId,
-  type BranchId,
-  type TalentEffects,
-  type TalentId,
-  type TalentSave
-} from './types';
+import type { AbilityId, TalentEffects, TalentId, TalentSave } from './types';
+
+export { branchSpend, dominantBranch };
 
 /**
  * Turning a saved build into numbers.
@@ -161,27 +157,6 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   // -- utility ------------------------------------------------------------
   effects.cooldownMul *= 1 + r('cooldown-mastery') * E.cooldownMastery.cooldown;
   effects.xpMul *= 1 + r('experience-boost') * E.experienceBoost.xp;
-}
-
-/** Points invested in each branch, used by Versatility and by the UI. */
-export function branchSpend(save: TalentSave): Record<BranchId, number> {
-  const spend = { power: 0, control: 0, defense: 0, momentum: 0, utility: 0 };
-  for (const talent of TALENTS) {
-    const rank = rankOf(save, talent.id);
-    for (let i = 0; i < rank; i++) spend[talent.branch] += talent.costs[i] ?? 0;
-  }
-  return spend;
-}
-
-/** The branch the player has committed to most. Ties go to catalogue order. */
-export function dominantBranch(save: TalentSave): BranchId | null {
-  const spend = branchSpend(save);
-  let best: BranchId | null = null;
-  for (const id of BRANCHES) {
-    const value = spend[id];
-    if (value > 0 && (best === null || value > spend[best])) best = id;
-  }
-  return best;
 }
 
 /** Versatility: a small bonus to whatever the build already cares about. */

@@ -1,8 +1,10 @@
 import { BALANCE, abilitySlotsForLevel } from '../balance/config';
 import { isAbilityId } from './abilities';
-import { TALENTS, costOfRank, isTalentId, talentById } from './catalog';
+import { TALENTS, costOfRank, isTalentId, talentById, tierRequirement } from './catalog';
 import {
+  BRANCHES,
   type AbilityId,
+  type BranchId,
   type TalentDef,
   type TalentId,
   type TalentSave,
@@ -74,6 +76,27 @@ function requirementsMet(save: TalentSave, talent: TalentDef): boolean {
   return talent.requires.every((need) => rankOf(save, need.talent) >= need.rank);
 }
 
+/** Points invested in each branch. Drives tier gates and the panel headers. */
+export function branchSpend(save: TalentSave): Record<BranchId, number> {
+  const spend = { power: 0, control: 0, defense: 0, momentum: 0, utility: 0 };
+  for (const talent of TALENTS) {
+    const rank = Math.min(talent.maxRank, rankOf(save, talent.id));
+    for (let i = 0; i < rank; i++) spend[talent.branch] += talent.costs[i] ?? 0;
+  }
+  return spend;
+}
+
+/** The branch the player has committed to most. Ties go to catalogue order. */
+export function dominantBranch(save: TalentSave): BranchId | null {
+  const spend = branchSpend(save);
+  let best: BranchId | null = null;
+  for (const id of BRANCHES) {
+    const value = spend[id];
+    if (value > 0 && (best === null || value > spend[best])) best = id;
+  }
+  return best;
+}
+
 /**
  * Bring a save back in line with the catalogue and the player's level.
  *
@@ -96,12 +119,15 @@ export function reconcile(save: TalentSave, level: number): TalentSave {
     else next.ranks[id] = rank;
   }
 
-  // Prerequisites can fail in a chain, so settle before moving on.
+  // Prerequisites and tier gates can fail in a chain - dropping a rank lowers
+  // the branch's spend, which can close a tier below it - so settle first.
   for (let pass = 0; pass < TALENTS.length; pass++) {
+    const invested = branchSpend(next);
     let changed = false;
     for (const talent of TALENTS) {
       if (rankOf(next, talent.id) === 0) continue;
-      if (requirementsMet(next, talent)) continue;
+      const gated = invested[talent.branch] < tierRequirement(talent.tier);
+      if (!gated && requirementsMet(next, talent)) continue;
       delete next.ranks[talent.id];
       changed = true;
     }
@@ -137,7 +163,7 @@ export function reconcile(save: TalentSave, level: number): TalentSave {
 /** Why a talent cannot be bought right now, or null when it can. */
 export type TalentBlock =
   | { kind: 'maxed' }
-  | { kind: 'level'; level: number }
+  | { kind: 'tier'; need: number; branch: BranchId }
   | { kind: 'requires'; talent: TalentDef; rank: number }
   | { kind: 'points'; need: number };
 
@@ -153,14 +179,16 @@ export interface TalentState {
   readonly block: TalentBlock | null;
 }
 
-export function talentState(save: TalentSave, level: number, talent: TalentDef): TalentState {
+export function talentState(save: TalentSave, talent: TalentDef): TalentState {
   const rank = rankOf(save, talent.id);
   const maxed = rank >= talent.maxRank;
   const cost = costOfRank(talent, rank);
+  const invested = branchSpend(save)[talent.branch];
+  const gate = tierRequirement(talent.tier);
 
   let block: TalentBlock | null = null;
   if (maxed) block = { kind: 'maxed' };
-  else if (level < talent.minLevel) block = { kind: 'level', level: talent.minLevel };
+  else if (invested < gate) block = { kind: 'tier', need: gate, branch: talent.branch };
   else {
     const missing = talent.requires.find((need) => rankOf(save, need.talent) < need.rank);
     const missingTalent = missing ? talentById(missing.talent) : undefined;
@@ -171,9 +199,10 @@ export function talentState(save: TalentSave, level: number, talent: TalentDef):
     }
   }
 
+  // "Unlocked" is about the tree, not the wallet: a talent the player has
+  // opened but cannot yet afford still reads as available rather than locked.
   const unlocked =
-    level >= talent.minLevel &&
-    talent.requires.every((need) => rankOf(save, need.talent) >= need.rank);
+    invested >= gate && talent.requires.every((need) => rankOf(save, need.talent) >= need.rank);
 
   return { talent, rank, maxed, cost, unlocked, canBuy: block === null, block };
 }
@@ -182,7 +211,7 @@ export function talentState(save: TalentSave, level: number, talent: TalentDef):
 export function buyTalent(save: TalentSave, level: number, id: TalentId): TalentSave | null {
   const talent = talentById(id);
   if (!talent) return null;
-  const state = talentState(save, level, talent);
+  const state = talentState(save, talent);
   if (!state.canBuy) return null;
 
   const next = cloneTalentSave(save);
@@ -203,6 +232,26 @@ export function buyTalent(save: TalentSave, level: number, id: TalentId): Talent
 export function respec(save: TalentSave, level: number): TalentSave {
   const next = createTalentSave();
   next.stats = { ...save.stats, respecs: save.stats.respecs + 1 };
+  return reconcile(next, level);
+}
+
+/**
+ * Refund one branch and leave the rest of the build alone.
+ *
+ * Reconciling afterwards is what makes this safe: a talent elsewhere that
+ * depended on this branch - there are none today, but the catalogue is data -
+ * is dropped and refunded with it rather than left stranded.
+ */
+export function respecBranch(save: TalentSave, level: number, branch: BranchId): TalentSave {
+  const next = cloneTalentSave(save);
+  let cleared = false;
+  for (const talent of TALENTS) {
+    if (talent.branch !== branch || rankOf(next, talent.id) === 0) continue;
+    delete next.ranks[talent.id];
+    cleared = true;
+  }
+  if (!cleared) return save;
+  next.stats = { ...next.stats, respecs: next.stats.respecs + 1 };
   return reconcile(next, level);
 }
 

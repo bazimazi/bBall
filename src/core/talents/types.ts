@@ -20,6 +20,8 @@ export interface Branch {
   readonly blurb: string;
   /** Hue used for the branch's accents, so builds read at a glance. */
   readonly hue: number;
+  /** The talent whose glyph stands for the branch in its header. */
+  readonly crest: TalentId;
 }
 
 /** A prerequisite: `rank` points already invested in another talent. */
@@ -37,8 +39,13 @@ export interface TalentDef {
   readonly maxRank: number;
   /** Point cost of each rank, index 0 being the first. */
   readonly costs: readonly number[];
-  /** Player level needed before the first rank may be bought. */
-  readonly minLevel: number;
+  /**
+   * Position in the branch's grid. `tier` is the row, and it is also the
+   * gate: a tier only opens once `tier * BALANCE.talents.pointsPerTier`
+   * points sit in that branch. `column` is 0..{@link BRANCH_COLUMNS}-1.
+   */
+  readonly tier: number;
+  readonly column: number;
   readonly requires: readonly TalentRequirement[];
   /** The active ability this talent unlocks, when it unlocks one. */
   readonly ability?: AbilityId;

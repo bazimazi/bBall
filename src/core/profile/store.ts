@@ -4,8 +4,15 @@ import type { MatchResult } from '../modes/types';
 import { applyMatchResult, syncUnlocks, type ProgressSummary } from '../progression/apply';
 import { levelOf } from '../progression/levels';
 import { loadRecord, saveRecord } from '../storage/localStore';
-import { buyTalent, cloneTalentSave, equipAbility, reconcile, respec } from '../talents/save';
-import type { AbilityId, TalentId } from '../talents/types';
+import {
+  buyTalent,
+  cloneTalentSave,
+  equipAbility,
+  reconcile,
+  respec,
+  respecBranch
+} from '../talents/save';
+import type { AbilityId, BranchId, TalentId } from '../talents/types';
 import { createTournament, type TournamentSave } from '../tournament/bracket';
 import { cleanName, createProfile } from './defaults';
 import { PROFILE_SPEC } from './schema';
@@ -140,6 +147,15 @@ class ProfileStore {
   /** Refund the whole tree. Free, so a build is never a trap. */
   respecTalents(): void {
     const next = respec(this.profile.talents, this.level);
+    this.patch((draft) => {
+      draft.talents = next;
+    });
+  }
+
+  /** Refund a single branch, leaving the rest of the build in place. */
+  respecBranch(branch: BranchId): void {
+    const next = respecBranch(this.profile.talents, this.level, branch);
+    if (next === this.profile.talents) return;
     this.patch((draft) => {
       draft.talents = next;
     });
