@@ -1,7 +1,7 @@
 /**
  * Cosmetics only. Nothing in this file touches physics, paddle size, ball
  * speed or bot behaviour - unlocks change how the game looks, never how it
- * plays, so a level 1 player and a level 30 player play the same game.
+ * plays, so a level 1 player and a level 50 player play the same game.
  */
 
 export type CosmeticKind = 'accent' | 'ball' | 'paddle' | 'trail' | 'arena';

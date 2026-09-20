@@ -346,8 +346,29 @@
 }
 
 .slotGlyph {
+  display: grid;
+  place-items: center;
+  height: 22px;
   font-size: 21px;
   line-height: 1;
+}
+
+/* The same mark as the talent's tile in the tree, at slot size. */
+.slotGlyph svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* A filled slot wears the skill's own colour - the one its button and its
+   aura use in the match, so the mapping is learnt before the first rally. */
+.slotGlyphOn {
+  composes: slotGlyph;
+  color: hsl(var(--hue), 95%, 72%);
+}
+
+.slotOpen.slotOpen {
+  /* An empty slot has no skill and so no hue; it keeps the player colour. */
+  border-color: hsl(var(--hue, 171), 95%, 62%);
 }
 
 .slotName {
@@ -391,8 +412,14 @@
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: rgba(238, 242, 255, 0.07);
+  background: hsla(var(--hue), 80%, 55%, 0.16);
+  color: hsl(var(--hue), 95%, 74%);
   font-size: 17px;
+}
+
+.chipGlyph svg {
+  width: 19px;
+  height: 19px;
 }
 
 .chipName {
@@ -646,7 +673,13 @@
   }
 
   .slotGlyph {
+    height: 18px;
     font-size: 17px;
+  }
+
+  .slotGlyph svg {
+    width: 18px;
+    height: 18px;
   }
 
   .points {

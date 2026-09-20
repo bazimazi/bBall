@@ -5,6 +5,12 @@
  * so that corner is behind the player's *own* goal line - the one part of the
  * field the ball only reaches once the point is already decided. The buttons
  * are translucent over it either way, and nothing else is added to the HUD.
+ *
+ * Every button carries its skill's own hue in `--hue`, set inline from the
+ * catalogue. Three states have to be told apart without reading anything:
+ * ready (a lit rim in that hue), recharging (drained, with the seconds left
+ * printed on it) and active (a filled halo plus a ring that drains as the
+ * effect does). The hue is what keeps two of them running at once legible.
  */
 
 .bar {
@@ -44,9 +50,13 @@
   cursor: pointer;
   pointer-events: auto;
   touch-action: none;
+  /* Ready, and saying so: a rim in the skill's own colour. */
+  box-shadow:
+    0 0 0 1.5px hsla(var(--hue), 90%, 62%, 0.55) inset,
+    0 0 10px hsla(var(--hue), 95%, 55%, 0.22);
   transition:
     transform 0.1s ease,
-    border-color 0.2s ease,
+    box-shadow 0.2s ease,
     opacity 0.2s ease;
 }
 
@@ -54,29 +64,135 @@
   transform: scale(0.92);
 }
 
+/*
+ * Recharging: drained of its own colour, so "ready" is never a judgement
+ * call about brightness. The seconds left are printed on it instead.
+ */
 .cooling {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: default;
+  box-shadow: 0 0 0 1.5px rgba(238, 242, 255, 0.14) inset;
 }
 
-.active {
+.cooling .glyph {
+  filter: grayscale(0.7);
+  opacity: 0.75;
+}
+
+/*
+ * Running: the hue floods the button. A cooling skill can never look like
+ * this, because a cooling one has no hue on it at all.
+ */
+.active,
+.cooling.active {
+  opacity: 1;
+  background: hsla(var(--hue), 80%, 20%, 0.6);
   box-shadow:
-    0 0 0 2px var(--you) inset,
-    0 0 22px rgba(79, 240, 214, 0.4);
+    0 0 0 2.5px hsla(var(--hue), 100%, 66%, 0.95) inset,
+    0 0 24px hsla(var(--hue), 100%, 60%, 0.55);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+.active .glyph {
+  filter: none;
+  opacity: 1;
+  color: hsl(var(--hue), 100%, 78%);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2.5px hsla(var(--hue), 100%, 66%, 0.95) inset,
+      0 0 24px hsla(var(--hue), 100%, 60%, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2.5px hsla(var(--hue), 100%, 78%, 1) inset,
+      0 0 34px hsla(var(--hue), 100%, 64%, 0.8);
+  }
 }
 
 .glyph {
+  display: grid;
+  place-items: center;
+  /* The talent's own icon, so the button matches its tile in the tree. */
+  --glyph: 27px;
   font-size: 25px;
   font-weight: 700;
   line-height: 1;
+  color: hsl(var(--hue), 95%, 74%);
   /* The glyph is the target; nothing inside should eat the press. */
   pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.glyph svg {
+  width: var(--glyph);
+  height: var(--glyph);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
+
+/*
+ * Uses left, top-left, on the skills that are spent rather than timed.
+ * Big enough to read without looking away from the ball, and carried on its
+ * own dark chip so it survives whatever the court is doing underneath.
+ */
+.charges {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  min-width: 22px;
+  padding: 1px 4px;
+  border-radius: 11px;
+  background: rgba(6, 8, 15, 0.92);
+  box-shadow: 0 0 0 1.5px hsla(var(--hue), 100%, 64%, 0.9);
+  color: hsl(var(--hue), 100%, 80%);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.2px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.chargesOf {
+  font-size: 9px;
+  font-weight: 700;
+  font-style: normal;
+  opacity: 0.6;
+}
+
+/*
+ * One number under the glyph: seconds of effect left while it runs, seconds
+ * of cooldown left once it is over. Never both, so there is nothing to
+ * mistake for the other.
+ */
+.timer {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 4px;
+  border-radius: 7px;
+  background: rgba(6, 8, 15, 0.7);
+  color: rgba(238, 242, 255, 0.9);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.timerActive {
+  background: rgba(6, 8, 15, 0.85);
+  color: hsl(var(--hue), 100%, 82%);
 }
 
 .key {
   position: absolute;
-  right: 6px;
-  bottom: 4px;
+  top: 3px;
+  right: 7px;
   font-size: 10px;
   font-weight: 700;
   color: var(--muted);
@@ -107,11 +223,25 @@
 
 .ringFill {
   fill: none;
-  stroke: var(--you);
+  stroke: hsl(var(--hue), 95%, 62%);
   stroke-width: 3;
   stroke-linecap: round;
   /* Smooths the quantised progress the engine publishes. */
   transition: stroke-dashoffset 0.22s linear;
+}
+
+/*
+ * The effect's own ring, inside the cooldown one. It drains while the skill
+ * burns down; the outer one fills while it comes back. Opposite directions,
+ * different radii, so the two are never read as one.
+ */
+.effectRing {
+  fill: none;
+  stroke: hsl(var(--hue), 100%, 80%);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  opacity: 0.95;
+  transition: stroke-dashoffset 0.15s linear;
 }
 
 /*
@@ -132,43 +262,63 @@
   }
 
   .glyph {
+    --glyph: 21px;
     font-size: 19px;
+  }
+
+  .charges {
+    min-width: 18px;
+    font-size: 11px;
+  }
+
+  .chargesOf {
+    display: none;
+  }
+
+  .timer {
+    bottom: 2px;
+    font-size: 10px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .button,
-  .ringFill {
+  .ringFill,
+  .effectRing {
     transition-duration: 0.01ms;
+  }
+
+  /* Steady rather than breathing - but no dimmer, because this is still the
+     one state the player has to spot mid-rally. */
+  .active {
+    animation: none;
+    box-shadow:
+      0 0 0 2.5px hsla(var(--hue), 100%, 74%, 1) inset,
+      0 0 30px hsla(var(--hue), 100%, 62%, 0.7);
   }
 }
 
 /*
  * A capstone in the HUD.
  *
- * Bigger, gold-ringed and slightly proud of the others, because pressing the
- * wrong one of three round buttons mid-rally costs a forty-second cooldown.
+ * Bigger and ringed in gold *as well as* its own hue, because pressing the
+ * wrong one of four round buttons mid-rally costs a forty-second cooldown.
+ * The gold says "ultimate"; the hue inside it says which one.
  */
 .ultimate {
   width: 74px;
   height: 74px;
-  border: 2px solid rgba(255, 202, 58, 0.5);
+  border: 2px solid rgba(255, 202, 58, 0.55);
   background: rgba(24, 16, 4, 0.4);
 }
 
 .ultimate .glyph {
+  --glyph: 32px;
   font-size: 29px;
-  color: #ffd76a;
-}
-
-.ultimate .ringFill {
-  stroke: #ffca3a;
 }
 
 .ultimate.active {
-  box-shadow:
-    0 0 0 2px #ffca3a inset,
-    0 0 26px rgba(255, 202, 58, 0.5);
+  border-color: rgba(255, 202, 58, 0.9);
 }
 
 @media (max-height: 460px) {
@@ -178,6 +328,7 @@
   }
 
   .ultimate .glyph {
+    --glyph: 24px;
     font-size: 22px;
   }
 }

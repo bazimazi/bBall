@@ -34,12 +34,12 @@ const NO_ABILITIES: readonly AbilityView[] = [];
  * Keys that fire an equipped ability, in slot order.
  *
  * The digit row covers every slot the build could ever grow to; the letters
- * are the reach-friendly alternative for the first three, which is as many as
+ * are the reach-friendly alternative for the first five, which is as many as
  * a build carries today.
  */
 const ABILITY_KEYS: readonly string[][] = Array.from({ length: 9 }, (_, slot) => {
   const keys = [String(slot + 1)];
-  const letter = ['q', 'e', 'r'][slot];
+  const letter = ['q', 'e', 'r', 'f', 'v'][slot];
   if (letter) keys.push(letter);
   return keys;
 });
@@ -256,12 +256,18 @@ export class GameEngine {
     for (const slot of this.world.talents.slots) {
       if (!slot.id) continue;
       const left = slot.span > 0 ? Math.ceil((slot.cooldown / slot.span) * 24) : 0;
-      key += `${slot.id}${left};`;
+      // The whole second is in the key too: the HUD prints it, so a ring that
+      // has not moved a step is still a re-render when the digit changes.
+      key += `${slot.id}${left}:${Math.ceil(slot.cooldown)};`;
     }
+    // Every live effect, at a tenth of a second - the resolution the HUD's
+    // own countdowns are shown at, and no finer.
     const runtime = this.world.talents;
-    key += `${runtime.strikeArmed > 0 ? 1 : 0}${runtime.guardWindow > 0 ? 1 : 0}${
-      runtime.dashFx > 0 ? 1 : 0
-    }`;
+    const tenth = (value: number) => Math.ceil(value * 10);
+    key += `|${tenth(runtime.strikeArmed)},${tenth(runtime.guardWindow)},${tenth(runtime.dashFx)}`;
+    key += `,${runtime.overload},${tenth(runtime.slipstream)}`;
+    key += `,${tenth(runtime.aegis)},${runtime.aegisSaves}`;
+    key += `,${tenth(runtime.zenith)},${runtime.zenithRefunds},${tenth(runtime.echo)}`;
 
     if (key !== this.abilityKey) {
       this.abilityKey = key;

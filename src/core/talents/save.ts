@@ -54,9 +54,16 @@ export function cloneTalentSave(save: TalentSave): TalentSave {
   };
 }
 
-/** Talent points the player has been granted by reaching `level`. */
+/**
+ * Talent points the player has been granted by reaching `level`.
+ *
+ * Levels keep coming forever; points do not. Past
+ * `BALANCE.talents.pointsUntilLevel` a level is a record of play and nothing
+ * more, which is what stops a long-lived save from owning the whole tree.
+ */
 export function earnedPoints(level: number): number {
-  return Math.max(0, Math.round(level) - 1) * BALANCE.talents.pointsPerLevel;
+  const paid = Math.min(BALANCE.talents.pointsUntilLevel, Math.round(level));
+  return Math.max(0, paid - 1) * BALANCE.talents.pointsPerLevel;
 }
 
 export function rankOf(save: TalentSave, id: TalentId): number {

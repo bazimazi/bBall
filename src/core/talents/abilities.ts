@@ -13,12 +13,20 @@ export interface AbilityDef {
   readonly name: string;
   /** One line, written for a player mid-rally rather than a spreadsheet. */
   readonly blurb: string;
-  /** The talent that unlocks it; its rank is the ability's rank. */
+  /** The talent that unlocks it; its rank is the ability's rank. Every
+   * button for this ability draws that talent's icon. */
   readonly talent: TalentId;
-  /** Single glyph for the in-game button. Kept to one character. */
-  readonly glyph: string;
   /** True for a branch capstone. The HUD gives these their own frame. */
   readonly ultimate?: boolean;
+  /**
+   * The ability's identity hue, 0-360.
+   *
+   * Every surface that shows this skill draws it in this colour: the HUD
+   * button, its cooldown ring, and the aura it puts on the paddle. No two
+   * are within 25 degrees of each other, so two effects running at once can
+   * never be mistaken for one another.
+   */
+  readonly hue: number;
   /** Cooldown in seconds for this build. */
   cooldown(effects: TalentEffects): number;
   /** The live effect, in the player's words, for the talent screen. */
@@ -36,29 +44,29 @@ function seconds(value: number): string {
 export const ABILITY_DEFS: readonly AbilityDef[] = [
   {
     id: 'power-strike',
+    hue: 28,
     name: 'Power Strike',
     blurb: 'Charges your next return',
     talent: 'power-strike',
-    glyph: '⚡',
     cooldown: (effects) => effects.powerStrikeCooldown,
     summary: (effects) =>
       `Next return +${pct(effects.powerStrikeSpeed)} ball speed · holds ${seconds(effects.powerStrikeWindow)}`
   },
   {
     id: 'dash',
+    hue: 192,
     name: 'Dash',
     blurb: 'Jumps the paddle where you are heading',
     talent: 'dash',
-    glyph: '»',
     cooldown: (effects) => effects.dashCooldown,
     summary: (effects) => `${Math.round(effects.dashDistance)} units, instantly`
   },
   {
     id: 'perfect-guard',
+    hue: 104,
     name: 'Perfect Guard',
     blurb: 'A timing window that rewards the read',
     talent: 'perfect-guard',
-    glyph: '◇',
     cooldown: (effects) => effects.guardCooldown,
     summary: (effects) =>
       `${seconds(effects.guardWindow)} window · +${pct(effects.guardPaddle)} paddle for ${seconds(effects.guardSeconds)}`
@@ -67,20 +75,20 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
   // ------------------------------------------------------------- capstones
   {
     id: 'overload',
+    hue: 0,
     name: 'Overload',
     blurb: 'Three returns of pure pace',
     talent: 'overload',
-    glyph: '✦',
     ultimate: true,
     cooldown: (effects) => effects.overloadCooldown,
     summary: (effects) => `Next ${effects.overloadHits} returns charged and critical`
   },
   {
     id: 'slipstream',
+    hue: 232,
     name: 'Slipstream',
     blurb: 'A longer, far faster paddle',
     talent: 'slipstream',
-    glyph: '➤',
     ultimate: true,
     cooldown: (effects) => effects.slipstreamCooldown,
     summary: (effects) =>
@@ -88,10 +96,10 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
   },
   {
     id: 'aegis',
+    hue: 288,
     name: 'Aegis',
     blurb: 'Nothing gets past you',
     talent: 'aegis',
-    glyph: '❖',
     ultimate: true,
     cooldown: (effects) => effects.aegisCooldown,
     summary: (effects) =>
@@ -99,10 +107,10 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
   },
   {
     id: 'zenith',
+    hue: 58,
     name: 'Zenith',
     blurb: 'A streak that cannot be broken',
     talent: 'zenith',
-    glyph: '▲',
     ultimate: true,
     cooldown: (effects) => effects.zenithCooldown,
     summary: (effects) =>
@@ -110,10 +118,10 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
   },
   {
     id: 'echo',
+    hue: 152,
     name: 'Echo',
     blurb: 'Every other skill, ready again',
     talent: 'echo',
-    glyph: '◎',
     ultimate: true,
     cooldown: (effects) => effects.echoCooldown,
     summary: (effects) =>

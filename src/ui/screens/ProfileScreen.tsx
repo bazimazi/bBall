@@ -7,6 +7,7 @@ import { AVATARS, type PlayerProfile } from '../../core/profile/types';
 import { Avatar } from '../components/Avatar';
 import { Screen } from '../components/Screen';
 import { XpBar } from '../components/XpBar';
+import { useDemoLevel } from '../hooks/useProfile';
 import styles from '../Screens.module.css';
 
 interface ProfileScreenProps {
@@ -42,6 +43,7 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const [name, setName] = useState(profile.name);
   const [confirmReset, setConfirmReset] = useState(false);
+  const demoLevel = useDemoLevel();
 
   const stats = profile.stats;
   const talents = profile.talents.stats;
@@ -133,21 +135,26 @@ export function ProfileScreen({
         </button>
       </div>
 
-      <button
-        type="button"
-        className={`${styles.ghost} ${styles.danger}`}
-        onClick={() => {
-          if (confirmReset) {
-            profileStore.reset();
-            setName('Player');
-            setConfirmReset(false);
-          } else {
-            setConfirmReset(true);
-          }
-        }}
-      >
-        {confirmReset ? 'Tap again to erase everything' : 'Reset progress'}
-      </button>
+      {demoLevel !== null ? (
+        // There is nothing here to erase: a demo profile is never written.
+        <p className={styles.note}>Demo profile · level {demoLevel}. Nothing here is saved.</p>
+      ) : (
+        <button
+          type="button"
+          className={`${styles.ghost} ${styles.danger}`}
+          onClick={() => {
+            if (confirmReset) {
+              profileStore.reset();
+              setName('Player');
+              setConfirmReset(false);
+            } else {
+              setConfirmReset(true);
+            }
+          }}
+        >
+          {confirmReset ? 'Tap again to erase everything' : 'Reset progress'}
+        </button>
+      )}
     </Screen>
   );
 }

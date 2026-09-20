@@ -26,6 +26,7 @@ export type ScreenId =
   | 'achievements'
   | 'customize'
   | 'talents'
+  | 'demo'
   | 'playing'
   | 'result';
 
@@ -41,6 +42,9 @@ export interface GameFlow {
   startChallenge: (id: string) => void;
   startCup: (tier?: number) => void;
   abandonCup: () => void;
+  /** Enter Demo mode at `level`. Nothing played there is ever saved. */
+  startDemo: (level: number) => void;
+  exitDemo: () => void;
   replay: () => void;
   quitToMenu: () => void;
   leaveResult: (screen: ScreenId) => void;
@@ -116,6 +120,27 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     profileStore.abandonTournament();
   }, []);
 
+  const startDemo = useCallback(
+    (level: number) => {
+      // A demo swaps the whole profile out, so any match in flight belongs to
+      // the save being parked and is dropped rather than carried over.
+      engine?.quitToMenu();
+      profileStore.startDemo(level);
+      setResult(null);
+      setSummary(null);
+      setScreen('home');
+    },
+    [engine]
+  );
+
+  const exitDemo = useCallback(() => {
+    engine?.quitToMenu();
+    profileStore.endDemo();
+    setResult(null);
+    setSummary(null);
+    setScreen('home');
+  }, [engine]);
+
   const pickMode = useCallback(
     (mode: ModeId) => {
       switch (mode) {
@@ -169,6 +194,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     startChallenge,
     startCup,
     abandonCup,
+    startDemo,
+    exitDemo,
     replay,
     quitToMenu,
     leaveResult

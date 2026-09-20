@@ -1,3 +1,4 @@
+import { abilitySlotsForLevel } from '../../core/balance/config';
 import { botProfile } from '../../core/bots/levels';
 import { MODES, type ModeInfo } from '../../core/modes/catalog';
 import { CHALLENGES } from '../../core/modes/challenges';
@@ -11,7 +12,11 @@ import styles from '../Screens.module.css';
 
 interface HomeScreenProps {
   profile: PlayerProfile;
+  /** The level being demoed, or null when the real save is in play. */
+  demoLevel: number | null;
   onPick: (mode: ModeId) => void;
+  onDemo: () => void;
+  onExitDemo: () => void;
   onProfile: () => void;
   onTalents: () => void;
   onAchievements: () => void;
@@ -41,7 +46,10 @@ function metaFor(mode: ModeInfo, profile: PlayerProfile): string {
 
 export function HomeScreen({
   profile,
+  demoLevel,
   onPick,
+  onDemo,
+  onExitDemo,
   onProfile,
   onTalents,
   onAchievements,
@@ -51,16 +59,33 @@ export function HomeScreen({
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
   const points = profile.talents.points;
   const skills = profile.talents.equipped.filter(Boolean).length;
+  // The hint lists exactly the keys this level has slots for.
+  const keys = Array.from({ length: abilitySlotsForLevel(levelOf(profile.xp)) }, (_, i) => i + 1);
 
   return (
     <section className={styles.screen}>
       <h1 className={styles.logo}>
         <span>b</span>Ball
       </h1>
-      <p className={styles.tagline}>{cup ? `${cup.name} in progress` : 'Pick a mode and play'}</p>
+      <p className={styles.tagline}>
+        {demoLevel !== null
+          ? 'Demo · nothing is saved'
+          : cup
+            ? `${cup.name} in progress`
+            : 'Pick a mode and play'}
+      </p>
 
       <div className={styles.body}>
         <div className={styles.stack}>
+          {demoLevel !== null && (
+            <div className={styles.demoBar}>
+              <span>Demo · level {demoLevel}</span>
+              <button type="button" className={styles.demoExit} onClick={onExitDemo}>
+                Exit
+              </button>
+            </div>
+          )}
+
           <ProfileChip profile={profile} onClick={onProfile} />
 
           <div className={styles.grid}>
@@ -95,9 +120,13 @@ export function HomeScreen({
             Customise
           </button>
         </div>
+        <button type="button" className={styles.ghost} onClick={onDemo}>
+          {demoLevel === null ? 'Demo a level' : 'Change demo level'}
+        </button>
         <p className={styles.note}>
           {coarse ? 'Drag anywhere to move' : 'Move the mouse or use ↑ ↓'}
-          {skills > 0 && (coarse ? ' · tap the corner for skills' : ' · 1 2 3 for skills')}
+          {skills > 0 &&
+            (coarse ? ' · tap the corner for skills' : ` · ${keys.join(' ')} for skills`)}
         </p>
       </footer>
     </section>

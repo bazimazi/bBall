@@ -1,4 +1,6 @@
 import type { ResolvedTheme } from '../../core/cosmetics/theme';
+import { abilityById } from '../../core/talents/abilities';
+import { liveEffect } from '../abilities';
 import { BALL_R, PADDLE_W, SERVE_DELAY } from '../constants';
 import { isMatchPoint } from '../match';
 import { BACKDROP, CANVAS_FONT, heatHue, hsla } from '../palette';
@@ -281,9 +283,12 @@ export class Renderer {
   /**
    * What the player's build is doing, drawn on the paddle itself.
    *
-   * A charged strike pulses hot, an open guard window snaps to a bright
-   * bracket, and any other paddle buff shows as a quiet halo. Three states,
-   * three shapes, none of them anywhere near the ball.
+   * One layer per equipped skill, always at that slot's own distance from
+   * the paddle and always in that skill's own hue, so two effects running at
+   * once are two separate rings rather than one brighter blur. A skill that
+   * is spent rather than timed also prints what is left of it, in pips beside
+   * the paddle. Passive paddle buffs keep the quiet halo they always had, on
+   * the outside of the stack where they cannot be mistaken for a skill.
    */
   private drawPlayerAura(world: World): void {
     const { ctx } = this;
@@ -295,45 +300,124 @@ export class Renderer {
     const w = PADDLE_W;
     const h = player.half * 2;
 
-    if (runtime.strikeArmed > 0) {
-      // Under prefers-reduced-motion the ring is steady rather than pulsing;
-      // it still has to be unmistakable, so it keeps the brighter alpha.
-      const pulse = world.motion > 0.5 ? 0.5 + 0.5 * Math.sin(fx.time * 16) : 1;
-      ctx.save();
-      ctx.globalAlpha = 0.45 + 0.4 * pulse;
-      ctx.strokeStyle = hsla(26, 100, 62, 1);
-      ctx.lineWidth = 3;
-      ctx.shadowColor = hsla(26, 100, 58, 0.9);
-      ctx.shadowBlur = 18 * world.motion;
-      roundRect(ctx, x - 6, y - 9, w + 12, h + 18, w / 2 + 6);
-      ctx.stroke();
-      ctx.restore();
+    let outer = 4;
+    for (let i = 0; i < runtime.slots.length; i++) {
+      const id = runtime.slots[i]?.id;
+      if (!id) continue;
+      const def = abilityById(id);
+      if (!def) continue;
+      const live = liveEffect(world, id);
+      if (!live.active) continue;
+
+      // The slot decides the distance, not the order things were cast in:
+      // a ring must never hop inwards because another effect ran out.
+      const pad = 6 + i * 5.5;
+      outer = Math.max(outer, pad);
+
+      if (id === 'perfect-guard') {
+        this.drawGuardBrackets(x, y, w, h, pad, def.hue);
+      } else {
+        // Power Strike is the one that has to be felt rather than noticed,
+        // so it keeps its pulse; everything else holds a steady ring.
+        const pulse =
+          id === 'power-strike' && world.motion > 0.5 ? 0.5 + 0.5 * Math.sin(fx.time * 16) : 1;
+        ctx.save();
+        ctx.globalAlpha = 0.5 + 0.38 * pulse;
+        ctx.strokeStyle = hsla(def.hue, 100, 62, 1);
+        ctx.lineWidth = def.ultimate === true ? 3.5 : 3;
+        ctx.shadowColor = hsla(def.hue, 100, 58, 0.9);
+        ctx.shadowBlur = 16 * world.motion;
+        roundRect(ctx, x - pad, y - pad - 3, w + pad * 2, h + pad * 2 + 6, w / 2 + pad);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (live.maxCharges > 0) {
+        this.drawChargePips(world, live.charges, live.maxCharges, def.hue, pad);
+      }
     }
 
-    if (runtime.guardWindow > 0) {
+    // The passives sit outside every skill ring, so the two never touch.
+    if (paddleBuffed(runtime)) {
+      const pad = outer + 5;
       ctx.save();
-      ctx.globalAlpha = 0.85;
-      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      // Two brackets rather than a ring: unmistakable, and it leaves the
-      // paddle's own silhouette readable while the ball is on the way.
-      ctx.moveTo(x - 10, y - 4);
-      ctx.lineTo(x - 10, y + h + 4);
-      ctx.moveTo(x + w + 10, y - 4);
-      ctx.lineTo(x + w + 10, y + h + 4);
-      ctx.stroke();
-      ctx.restore();
-    } else if (paddleBuffed(runtime)) {
-      ctx.save();
-      ctx.globalAlpha = 0.4;
+      ctx.globalAlpha = 0.34;
       ctx.strokeStyle = hsla(hueOf(world, 'you'), 100, 82, 1);
       ctx.lineWidth = 2;
-      roundRect(ctx, x - 4, y - 6, w + 8, h + 12, w / 2 + 4);
+      roundRect(ctx, x - pad, y - pad - 2, w + pad * 2, h + pad * 2 + 4, w / 2 + pad);
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  /**
+   * Perfect Guard, as two brackets rather than a ring.
+   *
+   * It is the one skill whose whole value is a timing read, so it gets a
+   * shape of its own: unmistakable at a glance, and it leaves the paddle's
+   * silhouette readable while the ball is on the way.
+   */
+  private drawGuardBrackets(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    pad: number,
+    hue: number
+  ): void {
+    const { ctx } = this;
+    ctx.save();
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = hsla(hue, 100, 72, 1);
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.shadowColor = hsla(hue, 100, 60, 0.8);
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(x - pad - 4, y - 4);
+    ctx.lineTo(x - pad - 4, y + h + 4);
+    ctx.moveTo(x + w + pad + 4, y - 4);
+    ctx.lineTo(x + w + pad + 4, y + h + 4);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * Uses left of a counted effect - Overload's returns, Aegis's saves - as
+   * pips above the paddle, in that skill's hue. The same number is on the
+   * HUD button; this is the copy the player can read without looking away
+   * from the ball.
+   */
+  private drawChargePips(
+    world: World,
+    charges: number,
+    max: number,
+    hue: number,
+    pad: number
+  ): void {
+    const { ctx } = this;
+    const { player } = world;
+    const gap = 9;
+    const y = player.y - player.half - pad - 10;
+    const left = player.x - ((max - 1) * gap) / 2;
+
+    ctx.save();
+    for (let i = 0; i < max; i++) {
+      ctx.beginPath();
+      ctx.arc(left + i * gap, y, i < charges ? 3.4 : 2.6, 0, Math.PI * 2);
+      if (i < charges) {
+        ctx.fillStyle = hsla(hue, 100, 70, 0.95);
+        ctx.shadowColor = hsla(hue, 100, 60, 0.9);
+        ctx.shadowBlur = 10 * world.motion;
+        ctx.fill();
+      } else {
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = hsla(hue, 70, 70, 0.35);
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
 
   /**

@@ -380,6 +380,40 @@
   border-radius: 11px;
 }
 
+/* ------------------------------------------------------------------ demo */
+
+/* The home banner while a demo is running. */
+.demoBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px 8px 14px;
+  border: 1px solid var(--you);
+  border-radius: 14px;
+  background: rgba(238, 242, 255, 0.04);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.demoExit {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.demoExit:hover {
+  color: var(--ink);
+}
+
 /* ---------------------------------------------------------------- xp bar */
 
 .xpTrack {

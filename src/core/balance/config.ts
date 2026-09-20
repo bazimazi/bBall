@@ -32,7 +32,7 @@ export const BALANCE = {
   paddle: {
     /** Field units per second at level 1. Above every bot's own speed. */
     base: 960,
-    /** Added per player level. Level 30 lands at 1540. */
+    /** Added per player level, until `max` is reached at level 53. */
     perLevel: 20,
     /** Level, talents and ordinary buffs may never push past this. */
     max: 2000,
@@ -92,13 +92,25 @@ export const BALANCE = {
   talents: {
     pointsPerLevel: 1,
     /**
+     * The last level that pays a talent point.
+     *
+     * Levelling itself never stops, but power from it does: 49 points against
+     * a tree that costs 86 keeps a build a set of choices rather than a
+     * checklist, however long someone plays.
+     */
+    pointsUntilLevel: 50,
+    /**
      * Points that must already sit in a branch before its next row of
      * talents opens. Depth is bought with commitment to one branch rather
      * than with player level, so the grid itself explains the gate.
      */
     pointsPerTier: 2,
-    /** Equipped active abilities. A third slot is a mid-game reward. */
-    slots: { base: 2, extraAtLevel: 15, max: 3 },
+    /**
+     * Equipped active abilities: two to start, and one more at each level
+     * listed. Extra slots are spaced far apart on purpose - carrying every
+     * skill you own is meant to be a late reward, not the default.
+     */
+    slots: { base: 2, extraAtLevels: [15, 30, 50] as readonly number[], max: 5 },
     /** Respec is free: builds are meant to be tried, not committed to. */
     respecFree: true,
     /** Floor on the combined cooldown multiplier. Stops infinite loops. */
@@ -232,6 +244,13 @@ export function paddleSpeedForLevel(level: number): number {
 
 /** How many active abilities the player may equip at `level`. */
 export function abilitySlotsForLevel(level: number): number {
-  const { base, extraAtLevel, max } = BALANCE.talents.slots;
-  return Math.min(max, level >= extraAtLevel ? base + 1 : base);
+  const { base, extraAtLevels, max } = BALANCE.talents.slots;
+  const extra = extraAtLevels.filter((at) => level >= at).length;
+  return Math.min(max, base + extra);
+}
+
+/** The level that opens the next slot, or null once they are all open. */
+export function nextSlotLevel(level: number): number | null {
+  const { extraAtLevels } = BALANCE.talents.slots;
+  return extraAtLevels.find((at) => level < at) ?? null;
 }

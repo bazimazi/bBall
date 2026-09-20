@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
-import { abilitySlotsForLevel } from '../../core/balance/config';
+import { abilitySlotsForLevel, nextSlotLevel } from '../../core/balance/config';
 import { profileStore } from '../../core/profile/store';
 import type { PlayerProfile } from '../../core/profile/types';
 import { levelOf } from '../../core/progression/levels';
@@ -65,6 +65,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
   const spent = spentPoints(save);
   const owned = ownedAbilities(save);
   const slots = abilitySlotsForLevel(level);
+  const nextSlot = nextSlotLevel(level);
   const synergies = activeSynergies(save.ranks, loadout.equipped);
   const activeIds = new Set(synergies.map((entry) => entry.id));
 
@@ -122,9 +123,14 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
               key={index}
               type="button"
               className={slot === index ? `${styles.slot} ${styles.slotOpen}` : styles.slot}
+              // The skill's own hue, so the colour it wears in the match is
+              // the colour it is equipped in here.
+              style={def ? ({ '--hue': String(def.hue) } as CSSProperties) : undefined}
               onClick={() => setSlot(slot === index ? null : index)}
             >
-              <span className={styles.slotGlyph}>{def ? def.glyph : '+'}</span>
+              <span className={def ? styles.slotGlyphOn : styles.slotGlyph}>
+                {def ? <TalentIcon id={def.talent} /> : '+'}
+              </span>
               <span className={styles.slotName}>{def ? def.name : 'Empty'}</span>
             </button>
           );
@@ -145,12 +151,15 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
               className={
                 loadout.equipped[slot] === def.id ? `${styles.chip} ${styles.chipOn}` : styles.chip
               }
+              style={{ '--hue': String(def.hue) } as CSSProperties}
               onClick={() => {
                 const next: AbilityId | null = loadout.equipped[slot] === def.id ? null : def.id;
                 profileStore.equipAbility(slot, next);
               }}
             >
-              <span className={styles.chipGlyph}>{def.glyph}</span>
+              <span className={styles.chipGlyph}>
+                <TalentIcon id={def.talent} />
+              </span>
               <span>
                 <span className={styles.chipName}>{def.name}</span>
                 <span className={styles.chipMeta}>{def.summary(loadout.effects)}</span>
@@ -160,7 +169,11 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         </div>
       )}
 
-      {slots < 3 && <p className={screens.note}>A third slot unlocks at level 15.</p>}
+      {nextSlot !== null && (
+        <p className={screens.note}>
+          Slot {slots + 1} unlocks at level {nextSlot}.
+        </p>
+      )}
 
       {/* ----------------------------------------------------------- trees */}
       <div className={styles.trees}>

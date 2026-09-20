@@ -48,7 +48,7 @@ export function XpBar({ xp, from, labels = true }: XpBarProps) {
       {labels && (
         <p className={styles.xpMeta} style={{ marginTop: 5 }}>
           <span>Level {info.level}</span>
-          <span>{info.maxed ? 'Max level' : `${info.into} / ${info.span} XP`}</span>
+          <span>{`${info.into} / ${info.span} XP`}</span>
         </p>
       )}
     </div>

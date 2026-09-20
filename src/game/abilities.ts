@@ -1,3 +1,4 @@
+import { BALANCE } from '../core/balance/config';
 import { abilityById } from '../core/talents/abilities';
 import type { AbilityId } from '../core/talents/types';
 import { predictY } from './ai';
@@ -72,14 +73,14 @@ function fireDash(world: World): void {
   world.audio.dash();
 }
 
-function firePowerStrike(world: World): void {
+function firePowerStrike(world: World, hue: number): void {
   const { talents, loadout, player } = world;
   talents.strikeArmed = loadout.effects.powerStrikeWindow;
   world.particles.emit(
     player.x,
     player.y,
     18,
-    { speed: 210, life: 0.5, size: 3.2, color: hsla(26, 100, 66, 0.9) },
+    { speed: 210, life: 0.5, size: 3.2, color: hsla(hue, 100, 66, 0.9) },
     world.motion
   );
   world.audio.charge();
@@ -106,13 +107,13 @@ function ultimateFlare(world: World, hue: number): void {
   world.audio.ultimate();
 }
 
-function fire(world: World, id: AbilityId): void {
+function fire(world: World, id: AbilityId, hue: number): void {
   const { talents, loadout } = world;
   const { effects } = loadout;
 
   switch (id) {
     case 'power-strike':
-      firePowerStrike(world);
+      firePowerStrike(world, hue);
       break;
     case 'dash':
       fireDash(world);
@@ -124,20 +125,20 @@ function fire(world: World, id: AbilityId): void {
     // ----------------------------------------------------------- capstones
     case 'overload':
       talents.overload = effects.overloadHits;
-      ultimateFlare(world, 22);
+      ultimateFlare(world, hue);
       break;
     case 'slipstream':
       talents.slipstream = effects.slipstreamSeconds;
-      ultimateFlare(world, 192);
+      ultimateFlare(world, hue);
       break;
     case 'aegis':
       talents.aegis = effects.aegisSeconds;
       talents.aegisSaves = effects.aegisSaves;
-      ultimateFlare(world, 268);
+      ultimateFlare(world, hue);
       break;
     case 'zenith':
       talents.zenith = effects.zenithSeconds;
-      ultimateFlare(world, 44);
+      ultimateFlare(world, hue);
       break;
     case 'echo':
       // Clears the *other* slots, never its own - that is what keeps a
@@ -146,7 +147,7 @@ function fire(world: World, id: AbilityId): void {
         if (slot.id && slot.id !== 'echo') slot.cooldown = 0;
       }
       talents.echo = effects.echoSeconds;
-      ultimateFlare(world, 150);
+      ultimateFlare(world, hue);
       break;
   }
 }
@@ -173,7 +174,7 @@ export function fireAbility(world: World, slot: number): boolean {
   entry.span = span;
   world.talents.stats.abilitiesUsed++;
   if (def.ultimate) world.talents.stats.ultimates++;
-  fire(world, entry.id);
+  fire(world, entry.id, def.hue);
   return true;
 }
 
@@ -196,38 +197,94 @@ export function abilityViews(world: World): AbilityView[] {
 
     const ready = slot.cooldown <= 0;
     const raw = ready || slot.span <= 0 ? 1 : 1 - slot.cooldown / slot.span;
+    const live = liveEffect(world, slot.id);
     views.push({
       id: slot.id,
       name: def.name,
-      glyph: def.glyph,
+      talent: def.talent,
       ready,
       progress: Math.round(raw * STEPS) / STEPS,
-      active: activeNow(world, slot.id),
-      ultimate: def.ultimate === true
+      active: live.active,
+      ultimate: def.ultimate === true,
+      hue: def.hue,
+      cooldownLeft: ready ? 0 : Math.ceil(slot.cooldown),
+      remain: live.remain,
+      duration: live.duration,
+      charges: live.charges,
+      maxCharges: live.maxCharges
     });
   }
   return views;
 }
 
-/** True while the ability's own effect - not its cooldown - is running. */
-function activeNow(world: World, id: AbilityId): boolean {
+/**
+ * What an ability's own effect - not its cooldown - is currently doing.
+ *
+ * A skill runs on a clock (`remain` of `duration`), on a number of uses
+ * (`charges` of `maxCharges`), or on both; whichever it uses, the HUD reads
+ * it from here and never from the runtime directly.
+ */
+export interface LiveEffect {
+  /** True while the effect is doing something. */
+  active: boolean;
+  remain: number;
+  duration: number;
+  charges: number;
+  maxCharges: number;
+}
+
+const IDLE: LiveEffect = { active: false, remain: 0, duration: 0, charges: 0, maxCharges: 0 };
+
+function timed(remain: number, duration: number): LiveEffect {
+  return { active: remain > 0, remain, duration, charges: 0, maxCharges: 0 };
+}
+
+export function liveEffect(world: World, id: AbilityId): LiveEffect {
   const runtime = world.talents;
+  const { effects } = world.loadout;
+
   switch (id) {
     case 'power-strike':
-      return runtime.strikeArmed > 0;
+      return timed(runtime.strikeArmed, effects.powerStrikeWindow);
     case 'perfect-guard':
-      return runtime.guardWindow > 0;
+      return timed(runtime.guardWindow, effects.guardWindow);
     case 'dash':
-      return runtime.dashFx > 0;
+      return timed(runtime.dashFx, effects.dashSeconds);
+
+    // Counted rather than timed: it lasts exactly as long as the returns do.
     case 'overload':
-      return runtime.overload > 0;
+      return {
+        active: runtime.overload > 0,
+        remain: 0,
+        duration: 0,
+        charges: runtime.overload,
+        maxCharges: effects.overloadHits
+      };
     case 'slipstream':
-      return runtime.slipstream > 0;
+      return timed(runtime.slipstream, effects.slipstreamSeconds);
+    // Both at once - a window, and the saves left inside it. Spending the
+    // last save ends it early, so the HUD must not keep claiming it is up.
     case 'aegis':
-      return runtime.aegis > 0;
+      return {
+        active: runtime.aegis > 0 && runtime.aegisSaves > 0,
+        remain: runtime.aegis,
+        duration: effects.aegisSeconds,
+        charges: runtime.aegisSaves,
+        maxCharges: effects.aegisSaves
+      };
+    // The refunds are per match, so they are worth showing even between
+    // castings - but they never decide whether Zenith itself is running.
     case 'zenith':
-      return runtime.zenith > 0;
+      return {
+        active: runtime.zenith > 0,
+        remain: runtime.zenith,
+        duration: effects.zenithSeconds,
+        charges: runtime.zenithRefunds,
+        maxCharges: BALANCE.effects.zenith.refunds
+      };
     case 'echo':
-      return runtime.echo > 0;
+      return timed(runtime.echo, effects.echoSeconds);
+    default:
+      return IDLE;
   }
 }

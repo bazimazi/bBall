@@ -15,6 +15,7 @@ import {
 import type { AbilityId, BranchId, TalentId } from '../talents/types';
 import { createTournament, type TournamentSave } from '../tournament/bracket';
 import { cleanName, createProfile } from './defaults';
+import { clampDemoLevel, createDemoProfile } from './demo';
 import { PROFILE_SPEC } from './schema';
 import type { AvatarId, PlayerProfile } from './types';
 
@@ -43,6 +44,12 @@ function readLegacyBest(): number {
 class ProfileStore {
   private profile: PlayerProfile;
   private readonly listeners = new Set<Listener>();
+
+  /**
+   * The real save, parked while Demo mode runs. Its presence is what makes
+   * the store ephemeral: nothing is written to storage until it is back.
+   */
+  private parked: PlayerProfile | null = null;
 
   /** True when the stored save was missing or had to be repaired. */
   readonly recovered: boolean;
@@ -77,13 +84,19 @@ class ProfileStore {
   getSnapshot = (): PlayerProfile => this.profile;
 
   private persist(): void {
+    // A demo never reaches storage, so nothing it does can be kept.
+    if (this.parked) return;
     saveRecord(PROFILE_SPEC, this.profile);
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) listener();
   }
 
   private commit(next: PlayerProfile): void {
     this.profile = { ...next, updatedAt: Date.now() };
     this.persist();
-    for (const listener of this.listeners) listener();
+    this.notify();
   }
 
   /** Apply a small edit. The mutator receives a shallow copy to work on. */
@@ -102,6 +115,33 @@ class ProfileStore {
   /** The player's level right now. Talent gates and paddle speed read it. */
   private get level(): number {
     return levelOf(this.profile.xp);
+  }
+
+  // ----------------------------------------------------------------- demo
+
+  /** The level being demoed, or null when the real save is in play. */
+  getDemoLevel = (): number | null => (this.parked ? levelOf(this.profile.xp) : null);
+
+  /**
+   * Swap the real save out for a throwaway profile at `level`.
+   *
+   * Calling it again while a demo runs re-rolls the demo rather than nesting,
+   * so the level picker can be used any number of times without the real save
+   * ever being at risk.
+   */
+  startDemo(level: number): void {
+    const real = this.parked ?? this.profile;
+    this.parked = real;
+    this.profile = createDemoProfile(clampDemoLevel(level), real);
+    this.notify();
+  }
+
+  /** Drop the demo and hand the real save back, untouched. */
+  endDemo(): void {
+    if (!this.parked) return;
+    this.profile = this.parked;
+    this.parked = null;
+    this.notify();
   }
 
   // ------------------------------------------------------------- identity
@@ -217,6 +257,8 @@ class ProfileStore {
 
   /** Wipe everything and start over. Used by the profile screen. */
   reset(): void {
+    // The demo has nothing to wipe, and the parked save is not its to erase.
+    if (this.parked) return;
     this.commit({ ...createProfile(), onboarded: true });
   }
 }

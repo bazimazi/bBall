@@ -21,7 +21,7 @@ export function ProfileChip({ profile, onClick }: ProfileChipProps) {
         <XpBar xp={profile.xp} labels={false} />
         <span className={styles.xpMeta}>
           <span>Level {info.level}</span>
-          <span>{info.maxed ? 'Max level' : `${info.into} / ${info.span} XP`}</span>
+          <span>{`${info.into} / ${info.span} XP`}</span>
         </span>
       </span>
     </button>

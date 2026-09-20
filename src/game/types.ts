@@ -1,6 +1,6 @@
 import type { BotProfile } from '../core/bots/types';
 import type { MatchResult, ModeId } from '../core/modes/types';
-import type { AbilityId, TalentMatchStats } from '../core/talents/types';
+import type { AbilityId, TalentId, TalentMatchStats } from '../core/talents/types';
 
 export type Side = 'you' | 'bot';
 
@@ -167,7 +167,8 @@ export interface TalentRuntime {
 export interface AbilityView {
   readonly id: AbilityId;
   readonly name: string;
-  readonly glyph: string;
+  /** The talent behind it; the HUD draws its icon. */
+  readonly talent: TalentId;
   readonly ready: boolean;
   /** 0 when just used, 1 when ready. Quantised, so React re-renders rarely. */
   readonly progress: number;
@@ -175,6 +176,18 @@ export interface AbilityView {
   readonly active: boolean;
   /** A branch capstone. The HUD frames these differently. */
   readonly ultimate: boolean;
+  /** The skill's identity colour. Shared with the aura on the paddle. */
+  readonly hue: number;
+  /** Whole seconds of cooldown left. 0 when ready, so the HUD can print it. */
+  readonly cooldownLeft: number;
+  /** Seconds of the effect still running, and the window it started with.
+   *  Both 0 for a skill whose effect is counted in uses rather than time. */
+  readonly remain: number;
+  readonly duration: number;
+  /** Uses left of the effect, and the number it started with. Both 0 for a
+   *  skill that is purely timed. */
+  readonly charges: number;
+  readonly maxCharges: number;
 }
 
 export type { TalentMatchStats };

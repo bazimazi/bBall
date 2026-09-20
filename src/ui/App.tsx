@@ -8,11 +8,12 @@ import { Hud } from './Hud';
 import { Overlay } from './Overlay';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useGameFlow, type GameFlow } from './hooks/useGameFlow';
-import { useLoadout, useProfile, useTheme } from './hooks/useProfile';
+import { useDemoLevel, useLoadout, useProfile, useTheme } from './hooks/useProfile';
 import { PausePanel } from './panels/PausePanel';
 import { AchievementsScreen } from './screens/AchievementsScreen';
 import { ChallengeScreen } from './screens/ChallengeScreen';
 import { CustomizeScreen } from './screens/CustomizeScreen';
+import { DemoScreen } from './screens/DemoScreen';
 import { DifficultyScreen } from './screens/DifficultyScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
@@ -63,6 +64,7 @@ function resultActions(result: MatchResult, flow: GameFlow): ResultActions {
  */
 export function App() {
   const profile = useProfile();
+  const demoLevel = useDemoLevel();
   const theme = useTheme(profile);
   const loadout = useLoadout(profile);
   const { canvasRef, snapshot, engine } = useGameEngine(theme);
@@ -107,7 +109,10 @@ export function App() {
       {flow.screen === 'home' && (
         <HomeScreen
           profile={profile}
+          demoLevel={demoLevel}
           onPick={flow.pickMode}
+          onDemo={() => flow.go('demo')}
+          onExitDemo={flow.exitDemo}
           onProfile={() => flow.go('profile')}
           onTalents={() => flow.go('talents')}
           onAchievements={() => flow.go('achievements')}
@@ -158,6 +163,15 @@ export function App() {
 
       {flow.screen === 'achievements' && (
         <AchievementsScreen profile={profile} onBack={() => flow.go('home')} />
+      )}
+
+      {flow.screen === 'demo' && (
+        <DemoScreen
+          demoLevel={demoLevel}
+          onStart={flow.startDemo}
+          onExit={flow.exitDemo}
+          onBack={() => flow.go('home')}
+        />
       )}
 
       {flow.screen === 'customize' && (

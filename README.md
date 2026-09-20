@@ -29,7 +29,7 @@ npm run dev        # http://localhost:5173
 | Drag / move pointer | Move your paddle (anywhere on screen — the paddle mirrors your finger) |
 | `↑` `↓` or `W` `S`  | Move your paddle                                                       |
 | Tap / `Space`       | Serve immediately instead of waiting                                   |
-| `1` `2` `3` or `Q` `E` `R` | Use the ability in that slot (or tap the buttons in the corner) |
+| `1` `2` `3` `4` or `Q` `E` `R` `F` | Use the ability in that slot (or tap the buttons in the corner) |
 | `Esc` or `P`        | Pause                                                                  |
 | `M`                 | Mute                                                                   |
 
@@ -49,6 +49,19 @@ rally lasts, so rallies tend to end themselves.
 | **Tournament**  | Three rounds against progressively stronger bots, for a trophy     |
 | **Practice**    | Any bot, nothing recorded, no XP                                   |
 
+### Demo mode
+
+Home screen → **Demo a level** takes a level typed into a number field (1 to
+999) and drops you into the game as it is there: the talent points that level
+has earned, its skill slots, its cup tiers and its cosmetics. Nothing a demo
+does is kept — matches, XP, builds and cosmetic changes all live in memory
+only, and **Exit** hands your real save back exactly as it was.
+
+It works by parking the real profile and swapping in a throwaway one whose `xp`
+sits at the chosen level (`core/profile/demo.ts`). Every screen, gate and mode
+reads level from `xp` and nothing else, so none of them need to know a demo is
+running; the profile store simply refuses to write to storage while one is.
+
 ### Bots
 
 Five levels, from Rookie to Legend. Difficulty is behaviour, not cheating:
@@ -62,9 +75,14 @@ fast or the rally is long. A return placed wide enough always scores.
 Matches, wins, rallies, challenges and cup rounds pay XP; XP levels you up.
 Levels and achievements unlock cosmetics — colours, ball and paddle styles,
 trails and arenas — which change nothing about how the game plays. Levels also
-pay **one talent point each**, which very much do. Practice pays nothing,
-quitting pays nothing, and the award is halved after 25 ranked matches in a
-day, so there is nothing worth farming.
+pay **one talent point each** up to level 50, which very much do. Practice pays
+nothing, quitting pays nothing, and the award is halved after 25 ranked matches
+in a day, so there is nothing worth farming.
+
+Levelling itself has no cap — the curve just keeps going — but what a level
+buys does: talent points stop at level 50 and paddle speed reaches its ceiling
+at level 53. Past that a level is a record of how much you have played, never
+an advantage over someone who has played less.
 
 Three things are kept strictly apart, and the whole balance model rests on it:
 
@@ -79,7 +97,7 @@ speed, a cooldown or a cap.
 
 ### Talents
 
-One point per level — 29 by the level cap — against 27 talents that cost 86
+One point per level to level 50 — 49 in total — against 27 talents that cost 86
 points to fill. A build is a set of choices, not a checklist. Five short
 branches:
 
@@ -113,10 +131,10 @@ open a row here, which is what stops a max-level player simply owning the
 bottom of all five.
 
 Eight talents unlock **active skills** — Power Strike, Dash and Perfect Guard,
-plus the five ultimates — of which you equip two, or three from level 15. Each
-has a cooldown, a ring on its button, and a distinct reaction on the court.
-Everything else is passive. With more skills than slots, which ones you carry
-is a decision in its own right.
+plus the five ultimates — of which you equip two, three from level 15, four
+from level 30 and five from level 50. Each has a cooldown, a ring on its button, and a distinct
+reaction on the court. Everything else is passive. With more skills than slots,
+which ones you carry is a decision in its own right.
 
 Certain pairs turn into named **synergies** (Power Strike + Momentum, Quick
 Hands + Dash, Perfect Guard + Stabilizer, Combo Drive + Adrenaline, Cooldown
@@ -171,7 +189,7 @@ src/
     progression/     XP curve, awards, applying a result to a profile
     achievements/    achievement catalogue
     cosmetics/       unlockables and the resolved canvas theme
-    profile/         profile model, validation, migration, store
+    profile/         profile model, validation, migration, store, demo mode
     storage/         versioned localStorage envelope
   ui/                React components, CSS modules, hooks
   styles/global.css  design tokens and resets
