@@ -1,5 +1,6 @@
 import {
   BRANCH_COLUMNS,
+  isUltimate,
   linksOfBranch,
   talentsOfBranch,
   tiersOfBranch
@@ -38,6 +39,7 @@ interface TalentTreeProps {
 /** Which of the four looks a tile wears. */
 function tileClass(state: TalentState, selected: boolean): string {
   const classes = [styles.tile];
+  if (isUltimate(state.talent)) classes.push(styles.tileUltimate);
   if (state.maxed) classes.push(styles.tileMaxed);
   else if (state.rank > 0) classes.push(styles.tileLearned);
   else if (state.unlocked) classes.push(styles.tileOpen);
@@ -136,6 +138,7 @@ export function TalentTree({
                 <span className={styles.rank}>
                   {state.rank}/{talent.maxRank}
                 </span>
+                {isUltimate(talent) && <span className={styles.crown} aria-hidden="true" />}
               </button>
             );
           })}

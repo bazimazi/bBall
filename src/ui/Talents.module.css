@@ -209,6 +209,54 @@
   outline-offset: 2px;
 }
 
+/*
+ * The capstone at the foot of each branch.
+ *
+ * It has to look like the end of a road from across the screen: a rounder,
+ * brighter frame, a heavier glow and a small crown notch above it. The state
+ * classes above still apply on top, so a locked ultimate greys out with
+ * everything else and a bought one still goes gold.
+ */
+.tileUltimate {
+  border-radius: 50%;
+  border-width: 2px;
+  border-color: hsl(var(--branch) 90% 62% / 0.7);
+  background:
+    radial-gradient(100% 100% at 50% 0%, hsl(var(--branch) 80% 52%), transparent 75%),
+    linear-gradient(180deg, hsl(var(--branch) 60% 32%), hsl(var(--branch) 65% 15%));
+  box-shadow: 0 0 14px hsl(var(--branch) 90% 55% / 0.3);
+}
+
+.tileUltimate svg {
+  width: 27px;
+  height: 27px;
+}
+
+.tileUltimate .rank {
+  right: -5px;
+  bottom: -4px;
+}
+
+/* A notch over the tile, so the bottom row reads as a destination. */
+.crown {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 12px;
+  height: 7px;
+  transform: translateX(-50%);
+  background: hsl(var(--branch) 90% 62%);
+  clip-path: polygon(0 100%, 22% 0, 50% 62%, 78% 0, 100% 100%);
+}
+
+.tileLocked .crown {
+  background: rgba(238, 242, 255, 0.35);
+}
+
+.tileMaxed .crown {
+  background: #ffca3a;
+}
+
 /* The rank badge hangs off the corner, into the grid's gap. */
 .rank {
   position: absolute;
@@ -631,4 +679,18 @@
   .tile {
     transition-duration: 0.01ms;
   }
+}
+
+/* ----------------------------------------------------- capstone accents */
+
+.ultimateTag {
+  background: rgba(255, 202, 58, 0.18);
+  color: #ffca3a;
+}
+
+.sheetCrest {
+  border-radius: 50%;
+  border-color: rgba(255, 202, 58, 0.55);
+  background: rgba(255, 202, 58, 0.1);
+  color: #ffd76a;
 }

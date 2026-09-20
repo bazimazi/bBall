@@ -5,7 +5,8 @@ import { quickMatchRules } from '../core/modes/rules';
 import type { MatchRules } from '../core/modes/types';
 import type { ResolvedLoadout } from '../core/talents/effects';
 import type { GameAudio } from './audio';
-import { FIELD_H, MIN_PADDLE_SCALE, PADDLE_H, PADDLE_INSET, TRAIL_MAX } from './constants';
+import { FIELD_H, PADDLE_H, PADDLE_INSET, TRAIL_MAX } from './constants';
+import { setPaddleBase } from './paddle';
 import { ParticleSystem } from './particles';
 import { sideHue, heatHue } from './palette';
 import { createRuntime, DEFAULT_LOADOUT } from './talents';
@@ -68,6 +69,8 @@ function createPaddle(side: Side): Paddle {
     target: FIELD_H / 2,
     half: PADDLE_H / 2,
     baseHalf: PADDLE_H / 2,
+    scale: 1,
+    grow: 1,
     flash: 0
   };
 }
@@ -203,16 +206,8 @@ export function createWorld(audio: GameAudio, motion: number): World {
 /** Size both paddles for the rules in play. */
 export function applyPaddleSizes(world: World): void {
   const { modifiers } = world.rules;
-  world.player.baseHalf = (PADDLE_H / 2) * modifiers.playerPaddleScale;
-  world.bot.baseHalf = (PADDLE_H / 2) * modifiers.botPaddleScale;
-  world.player.half = world.player.baseHalf;
-  world.bot.half = world.bot.baseHalf;
-}
-
-/** Shrink the player's paddle a notch, never below a playable minimum. */
-export function shrinkPaddle(paddle: Paddle, fraction: number): void {
-  const floor = (PADDLE_H / 2) * MIN_PADDLE_SCALE;
-  paddle.half = Math.max(floor, paddle.half * (1 - fraction));
+  setPaddleBase(world.player, modifiers.playerPaddleScale);
+  setPaddleBase(world.bot, modifiers.botPaddleScale);
 }
 
 /** Re-point the paddles after the field's length changed. */

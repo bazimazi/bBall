@@ -10,7 +10,17 @@
 export const BRANCHES = ['power', 'control', 'defense', 'momentum', 'utility'] as const;
 export type BranchId = (typeof BRANCHES)[number];
 
-export const ABILITIES = ['power-strike', 'dash', 'perfect-guard'] as const;
+export const ABILITIES = [
+  'power-strike',
+  'dash',
+  'perfect-guard',
+  // The capstones. One per branch, and every one of them is an active.
+  'overload',
+  'slipstream',
+  'aegis',
+  'zenith',
+  'echo'
+] as const;
 export type AbilityId = (typeof ABILITIES)[number];
 
 export interface Branch {
@@ -63,27 +73,32 @@ export type TalentId =
   | 'heavy-impact'
   | 'critical-strike'
   | 'momentum'
+  | 'overload'
   // control
   | 'quick-hands'
   | 'swift-recovery'
   | 'precision'
   | 'dash'
   | 'perfect-guard'
+  | 'slipstream'
   // defense
   | 'shield'
   | 'second-chance'
   | 'stabilizer'
   | 'resilience'
+  | 'aegis'
   // momentum
   | 'combo-drive'
   | 'adrenaline'
   | 'clutch'
   | 'flow-state'
+  | 'zenith'
   // utility
   | 'cooldown-mastery'
   | 'experience-boost'
   | 'talent-synergy'
-  | 'versatility';
+  | 'versatility'
+  | 'echo';
 
 /** Lifetime talent numbers, kept for the profile screen. */
 export interface TalentStats {
@@ -97,6 +112,8 @@ export interface TalentStats {
   crits: number;
   shieldSaves: number;
   secondChances: number;
+  /** Capstone abilities fired, all time. */
+  ultimates: number;
   bestDrive: number;
 }
 
@@ -109,6 +126,7 @@ export interface TalentMatchStats {
   readonly crits: number;
   readonly shieldSaves: number;
   readonly secondChances: number;
+  readonly ultimates: number;
   readonly bestDrive: number;
 }
 
@@ -120,6 +138,7 @@ export const EMPTY_MATCH_STATS: TalentMatchStats = {
   crits: 0,
   shieldSaves: 0,
   secondChances: 0,
+  ultimates: 0,
   bestDrive: 0
 };
 
@@ -179,6 +198,8 @@ export interface TalentEffects {
   flowFrom: number;
   flowPaddle: number;
   flowCap: number;
+  /** Usable return angle gained per stack of flow. */
+  flowAngle: number;
   /** Extra cooldown recovery rate at full flow. */
   flowRecharge: number;
 
@@ -205,6 +226,28 @@ export interface TalentEffects {
   guardPaddle: number;
   guardSeconds: number;
   guardCooldown: number;
+
+  // capstones -------------------------------------------------------------
+  /** Returns that Overload charges. 0 when the talent is not owned. */
+  overloadHits: number;
+  overloadCooldown: number;
+  slipstreamSeconds: number;
+  slipstreamPaddle: number;
+  /** Fraction the paddle lengthens by while Slipstream runs. */
+  slipstreamGrow: number;
+  slipstreamCooldown: number;
+  aegisSeconds: number;
+  /** Balls Aegis saves before its window is spent. */
+  aegisSaves: number;
+  aegisCooldown: number;
+  zenithSeconds: number;
+  zenithPaddle: number;
+  /** Extra cooldown recovery rate while Zenith or Echo is running. */
+  zenithRecharge: number;
+  zenithCooldown: number;
+  echoSeconds: number;
+  echoRecharge: number;
+  echoCooldown: number;
 
   // rewards --------------------------------------------------------------
   xpMul: number;

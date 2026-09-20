@@ -2,7 +2,14 @@ import { objectiveMet } from '../core/modes/rules';
 import type { MatchResult, MatchRules } from '../core/modes/types';
 import { BALL_R, FIELD_H, SERVE_DELAY } from './constants';
 import { hsla } from './palette';
-import { matchStats, resetDrive, resetRally, resetRuntime, trySecondChance } from './talents';
+import {
+  matchStats,
+  resetDrive,
+  resetRally,
+  resetRuntime,
+  trySecondChance,
+  tryZenith
+} from './talents';
 import type { Side } from './types';
 import { clamp } from './utils/math';
 import {
@@ -151,7 +158,7 @@ export function scorePoint(world: World, scorer: Side): void {
   // Second Chance steps in before anything is scored: the rally is over, the
   // drive is broken, but the point itself is handed back. One use, then it
   // is gone for the rest of the match.
-  if (!won && trySecondChance(world)) {
+  if (!won && (tryZenith(world) || trySecondChance(world))) {
     resetDrive(world);
     pointFx(world, 'you', true);
     beginServe(world, 1);

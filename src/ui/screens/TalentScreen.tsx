@@ -7,9 +7,12 @@ import { levelOf } from '../../core/progression/levels';
 import { abilityById, ABILITY_DEFS } from '../../core/talents/abilities';
 import {
   branchCost,
+  isUltimate,
   TALENT_BRANCHES,
   talentById,
-  TOTAL_TALENT_COST
+  TOTAL_TALENT_COST,
+  ULTIMATE_TIER,
+  tierRequirement
 } from '../../core/talents/catalog';
 import { branchSpend, resolveLoadout } from '../../core/talents/effects';
 import {
@@ -177,7 +180,10 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
           />
         ))}
       </div>
-      <p className={screens.note}>Swipe the branches · tap a talent to spend a point</p>
+      <p className={screens.note}>
+        Swipe the branches · tap a talent to spend a point. Each branch ends in an <b>ultimate</b>,
+        behind {tierRequirement(ULTIMATE_TIER)} points in that branch.
+      </p>
 
       {/* ------------------------------------------------------- synergies */}
       <p className={screens.sectionLabel}>Synergies</p>
@@ -219,14 +225,24 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
             aria-label={selected.name}
           >
             <div className={styles.sheetHead}>
-              <span className={styles.sheetIcon}>
+              <span
+                className={
+                  isUltimate(selected)
+                    ? `${styles.sheetIcon} ${styles.sheetCrest}`
+                    : styles.sheetIcon
+                }
+              >
                 <TalentIcon id={selected.id} />
               </span>
               <span className={styles.rowText}>
                 <span className={styles.sheetName}>{selected.name}</span>
                 <span className={styles.sheetRank}>
                   Rank {state.rank} / {selected.maxRank}
-                  {selected.ability && <span className={styles.activeTag}>active skill</span>}
+                  {isUltimate(selected) ? (
+                    <span className={`${styles.activeTag} ${styles.ultimateTag}`}>ultimate</span>
+                  ) : (
+                    selected.ability && <span className={styles.activeTag}>active skill</span>
+                  )}
                 </span>
               </span>
             </div>

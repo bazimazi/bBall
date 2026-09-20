@@ -62,6 +62,7 @@ function baseEffects(): TalentEffects {
     flowFrom: E.flowState.from,
     flowPaddle: 0,
     flowCap: 0,
+    flowAngle: 0,
     flowRecharge: 0,
 
     shieldCharges: 0,
@@ -83,6 +84,25 @@ function baseEffects(): TalentEffects {
     guardPaddle: E.perfectGuard.basePaddle,
     guardSeconds: E.perfectGuard.seconds,
     guardCooldown: E.perfectGuard.cooldown,
+
+    // Capstones resolve to their catalogue values but stay inert until the
+    // talent is owned - `overloadHits` of 0 is what "not learned" means.
+    overloadHits: 0,
+    overloadCooldown: E.overload.cooldown,
+    slipstreamSeconds: E.slipstream.seconds,
+    slipstreamPaddle: 0,
+    slipstreamGrow: 0,
+    slipstreamCooldown: E.slipstream.cooldown,
+    aegisSeconds: E.aegis.seconds,
+    aegisSaves: E.aegis.saves,
+    aegisCooldown: E.aegis.cooldown,
+    zenithSeconds: E.zenith.seconds,
+    zenithPaddle: 0,
+    zenithRecharge: E.zenith.recharge,
+    zenithCooldown: E.zenith.cooldown,
+    echoSeconds: E.echo.seconds,
+    echoRecharge: E.echo.recharge,
+    echoCooldown: E.echo.cooldown,
 
     xpMul: 1,
     drivePerReturn: 0,
@@ -152,11 +172,20 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   const flow = r('flow-state');
   effects.flowPaddle += flow * E.flowState.paddle;
   effects.flowCap += flow * E.flowState.cap;
+  effects.flowAngle += flow * E.flowState.angle;
   effects.flowRecharge += flow * E.flowState.recharge;
 
   // -- utility ------------------------------------------------------------
   effects.cooldownMul *= 1 + r('cooldown-mastery') * E.cooldownMastery.cooldown;
   effects.xpMul *= 1 + r('experience-boost') * E.experienceBoost.xp;
+
+  // -- capstones ----------------------------------------------------------
+  if (r('overload') > 0) effects.overloadHits = E.overload.hits;
+  if (r('slipstream') > 0) {
+    effects.slipstreamPaddle = E.slipstream.paddle;
+    effects.slipstreamGrow = E.slipstream.grow;
+  }
+  if (r('zenith') > 0) effects.zenithPaddle = E.zenith.paddle;
 }
 
 /** Versatility: a small bonus to whatever the build already cares about. */
@@ -206,6 +235,19 @@ function applyCaps(effects: TalentEffects): void {
   effects.powerStrikeCooldown = Math.max(2, effects.powerStrikeCooldown * effects.cooldownMul);
   effects.dashCooldown = Math.max(1.5, effects.dashCooldown * effects.cooldownMul);
   effects.guardCooldown = Math.max(2, effects.guardCooldown * effects.cooldownMul);
+
+  // A capstone floors far higher than an ordinary skill: even a build built
+  // entirely around cooldowns cannot make one of these a rotation.
+  const ultimate = (span: number) => Math.max(14, span * effects.cooldownMul);
+  effects.overloadCooldown = ultimate(effects.overloadCooldown);
+  effects.slipstreamCooldown = ultimate(effects.slipstreamCooldown);
+  effects.aegisCooldown = ultimate(effects.aegisCooldown);
+  effects.zenithCooldown = ultimate(effects.zenithCooldown);
+  effects.echoCooldown = ultimate(effects.echoCooldown);
+
+  effects.slipstreamPaddle = clamp(effects.slipstreamPaddle, 0, 1);
+  effects.slipstreamGrow = clamp(effects.slipstreamGrow, 0, 0.6);
+  effects.zenithPaddle = clamp(effects.zenithPaddle, 0, 0.6);
 
   // A charged return is still a return: it may never outrun the hard ceiling,
   // which the physics also enforces against the live ball.

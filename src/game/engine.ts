@@ -30,12 +30,19 @@ const REDUCED_MOTION_SCALE = 0.25;
 /** Shared so an ability-free snapshot never allocates a fresh array. */
 const NO_ABILITIES: readonly AbilityView[] = [];
 
-/** Keys that fire an equipped ability, in slot order. */
-const ABILITY_KEYS: readonly string[][] = [
-  ['1', 'q'],
-  ['2', 'e'],
-  ['3', 'r']
-];
+/**
+ * Keys that fire an equipped ability, in slot order.
+ *
+ * The digit row covers every slot the build could ever grow to; the letters
+ * are the reach-friendly alternative for the first three, which is as many as
+ * a build carries today.
+ */
+const ABILITY_KEYS: readonly string[][] = Array.from({ length: 9 }, (_, slot) => {
+  const keys = [String(slot + 1)];
+  const letter = ['q', 'e', 'r'][slot];
+  if (letter) keys.push(letter);
+  return keys;
+});
 
 /** True when the key belongs to whatever the player is typing into. */
 function isTyping(target: EventTarget | null): boolean {
@@ -449,7 +456,7 @@ export class GameEngine {
     } else if (key === 'm') {
       this.toggleMute();
     } else {
-      // 1/2/3 and q/e/r fire the equipped abilities. Deliberately separate
+      // Digits (and q/e/r) fire the equipped abilities. Deliberately separate
       // from the movement keys so a rally never turns into a chord.
       const slot = ABILITY_KEYS.findIndex((keys) => keys.includes(key));
       if (slot >= 0) {

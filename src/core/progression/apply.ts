@@ -205,6 +205,7 @@ function applyTalentStats(profile: PlayerProfile, result: MatchResult): void {
   stats.crits += from.crits;
   stats.shieldSaves += from.shieldSaves;
   stats.secondChances += from.secondChances;
+  stats.ultimates += from.ultimates;
   stats.bestDrive = Math.max(stats.bestDrive, from.bestDrive);
 }
 

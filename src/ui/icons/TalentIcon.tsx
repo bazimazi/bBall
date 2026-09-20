@@ -182,6 +182,59 @@ function Glyph({ id }: TalentIconProps) {
           stroke="none"
         />
       );
+
+    // ------------------------------------------------------------ capstones
+    // Busier than the rest on purpose: at 44px the bottom row should look
+    // heavier than everything above it before a single word is read.
+    case 'overload':
+      return (
+        <>
+          <path
+            d="M13 1.5 5.5 12H10l-1 10.5L18.5 11H14l-1-9.5Z"
+            fill="currentColor"
+            stroke="none"
+          />
+          <path d="M2.5 4 4 6M21.5 4 20 6M2 19l2-1.5M22 19l-2-1.5" />
+        </>
+      );
+    case 'slipstream':
+      return (
+        <>
+          <path d="M1 7h9M1 12h6M1 17h9" />
+          <path d="M13 3.5 22.5 12 13 20.5V15H9.5V9H13Z" fill="currentColor" stroke="none" />
+        </>
+      );
+    case 'aegis':
+      return (
+        <>
+          <path
+            d="M12 1.5 3 6v6.5c0 5.4 3.7 9.3 9 10.5 5.3-1.2 9-5.1 9-10.5V6Z"
+            fill="currentColor"
+            stroke="none"
+          />
+          <path
+            d="M12 6.5 8 8.5v3.8c0 2.6 1.7 4.6 4 5.4 2.3-.8 4-2.8 4-5.4V8.5Z"
+            fill="#0b0f18"
+            stroke="none"
+          />
+        </>
+      );
+    case 'zenith':
+      return (
+        <>
+          <path d="M12 2 22 20H2Z" fill="currentColor" stroke="none" />
+          <path d="M12 8.5 14.6 14h-5.2Z" fill="#0b0f18" stroke="none" />
+          <path d="M5 4.5 6 6.5M19 4.5 18 6.5" />
+        </>
+      );
+    case 'echo':
+      return (
+        <>
+          <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="6" />
+          <circle cx="12" cy="12" r="9.5" />
+        </>
+      );
   }
 }
 

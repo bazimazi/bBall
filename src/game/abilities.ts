@@ -93,7 +93,23 @@ function firePerfectGuard(world: World): void {
   world.audio.guard();
 }
 
+/** A burst of light around the paddle, shared by every capstone. */
+function ultimateFlare(world: World, hue: number): void {
+  const { player } = world;
+  world.particles.emit(
+    player.x,
+    player.y,
+    34,
+    { speed: 340, life: 0.7, size: 4.2, color: hsla(hue, 100, 70, 0.95) },
+    world.motion
+  );
+  world.audio.ultimate();
+}
+
 function fire(world: World, id: AbilityId): void {
+  const { talents, loadout } = world;
+  const { effects } = loadout;
+
   switch (id) {
     case 'power-strike':
       firePowerStrike(world);
@@ -103,6 +119,34 @@ function fire(world: World, id: AbilityId): void {
       break;
     case 'perfect-guard':
       firePerfectGuard(world);
+      break;
+
+    // ----------------------------------------------------------- capstones
+    case 'overload':
+      talents.overload = effects.overloadHits;
+      ultimateFlare(world, 22);
+      break;
+    case 'slipstream':
+      talents.slipstream = effects.slipstreamSeconds;
+      ultimateFlare(world, 192);
+      break;
+    case 'aegis':
+      talents.aegis = effects.aegisSeconds;
+      talents.aegisSaves = effects.aegisSaves;
+      ultimateFlare(world, 268);
+      break;
+    case 'zenith':
+      talents.zenith = effects.zenithSeconds;
+      ultimateFlare(world, 44);
+      break;
+    case 'echo':
+      // Clears the *other* slots, never its own - that is what keeps a
+      // capstone from ever becoming part of a rotation.
+      for (const slot of talents.slots) {
+        if (slot.id && slot.id !== 'echo') slot.cooldown = 0;
+      }
+      talents.echo = effects.echoSeconds;
+      ultimateFlare(world, 150);
       break;
   }
 }
@@ -128,6 +172,7 @@ export function fireAbility(world: World, slot: number): boolean {
   entry.cooldown = span;
   entry.span = span;
   world.talents.stats.abilitiesUsed++;
+  if (def.ultimate) world.talents.stats.ultimates++;
   fire(world, entry.id);
   return true;
 }
@@ -157,7 +202,8 @@ export function abilityViews(world: World): AbilityView[] {
       glyph: def.glyph,
       ready,
       progress: Math.round(raw * STEPS) / STEPS,
-      active: activeNow(world, slot.id)
+      active: activeNow(world, slot.id),
+      ultimate: def.ultimate === true
     });
   }
   return views;
@@ -173,5 +219,15 @@ function activeNow(world: World, id: AbilityId): boolean {
       return runtime.guardWindow > 0;
     case 'dash':
       return runtime.dashFx > 0;
+    case 'overload':
+      return runtime.overload > 0;
+    case 'slipstream':
+      return runtime.slipstream > 0;
+    case 'aegis':
+      return runtime.aegis > 0;
+    case 'zenith':
+      return runtime.zenith > 0;
+    case 'echo':
+      return runtime.echo > 0;
   }
 }

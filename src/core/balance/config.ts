@@ -34,8 +34,17 @@ export const BALANCE = {
     base: 960,
     /** Added per player level. Level 30 lands at 1540. */
     perLevel: 20,
-    /** Nothing - level, talent or buff - may push past this. */
+    /** Level, talents and ordinary buffs may never push past this. */
     max: 2000,
+    /**
+     * The ceiling while an ultimate is running.
+     *
+     * Without it an ultimate's speed bonus would be invisible: a deep build
+     * already sits on `max`, so anything added on top would clamp straight
+     * back to it. A capstone is allowed past the everyday ceiling, briefly,
+     * and this is the only thing in the game that may go there.
+     */
+    burst: 2900,
     /** Keyboard travel, as a fraction of the current paddle speed. */
     keyboardShare: 0.7,
     /** Field units from a wall that still counts as "at the edge". */
@@ -142,13 +151,63 @@ export const BALANCE = {
     comboDrive: { xpPerReturn: 0.004, cap: 0.06 },
     adrenaline: { threshold: 6, paddle: 0.06, seconds: 4, cap: 0.18 },
     clutch: { paddle: 0.09, growth: -0.01 },
-    flowState: { from: 6, paddle: 0.0025, cap: 0.05, recharge: 0.08 },
+    flowState: {
+      from: 6,
+      /** Returns past `from` that Flow State keeps counting. */
+      stacks: 10,
+      paddle: 0.0025,
+      cap: 0.05,
+      /**
+       * Placement, not just pace. Paddle speed alone stops mattering once a
+       * build is deep - a wider deliberate angle is what still wins points,
+       * and it is what gives the Momentum branch teeth of its own.
+       */
+      angle: 0.004,
+      recharge: 0.08
+    },
 
     // -- utility ----------------------------------------------------------
     cooldownMastery: { cooldown: -0.08 },
     experienceBoost: { xp: 0.04 },
     talentSynergy: { magnitude: 0.5, paddlePerSynergy: 0.015 },
-    versatility: { bonus: 0.02 }
+    versatility: { bonus: 0.02 },
+
+    /*
+     * The capstones.
+     *
+     * One per branch, at the bottom of its grid, behind eight points of
+     * commitment and costing four more - roughly half a maxed-out player's
+     * entire budget for a single talent. They are priced to be the reason a
+     * build goes deep rather than wide, so each one has to change a rally
+     * rather than nudge a number: long cooldowns, short windows, obvious
+     * effects.
+     */
+    /**
+     * Charged, critical, and driven into a corner: `minAngle` is the floor on
+     * how far off centre an Overload return leaves, so the opponent has to
+     * cross the court for every one of them.
+     *
+     * Two things were tried and measured first. Raw extra pace did nothing
+     * against a composed bot, and pace that the opponent could not bleed off
+     * was actively *worse* than the plain ability - the player has to handle
+     * the fast ball on the way back too. Placement is what wins points here.
+     */
+    overload: { hits: 4, minAngle: 0.62, angle: 0.35, cooldown: 30 },
+    slipstream: { seconds: 7, paddle: 0.6, grow: 0.4, cooldown: 30 },
+    /**
+     * Bounded twice over: a window *and* a count. Six seconds of saving
+     * everything measured at nearly twenty points of win rate over an
+     * already-strong defensive build - far past what a capstone should buy.
+     */
+    aegis: { saves: 2, seconds: 8, cooldown: 40 },
+    /**
+     * `refunds` is per *match*, not per casting. Re-castable insurance every
+     * thirty-five seconds measured at more than twice the baseline win rate -
+     * the same trap Aegis fell into. The window is repeatable; the safety net
+     * is not.
+     */
+    zenith: { seconds: 8, paddle: 0.35, recharge: 2, refunds: 1, cooldown: 35 },
+    echo: { seconds: 6, recharge: 2.5, cooldown: 45 }
   },
 
   /** What a finished match is allowed to add on top of the base XP rules. */

@@ -30,6 +30,7 @@ function AbilityButton({ ability, index, onUse }: AbilityButtonProps) {
   };
 
   const classes = [styles.button];
+  if (ability.ultimate) classes.push(styles.ultimate);
   if (!ability.ready) classes.push(styles.cooling);
   if (ability.active) classes.push(styles.active);
 

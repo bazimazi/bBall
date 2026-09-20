@@ -87,12 +87,25 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /*
+   * `overflow-y: auto` makes the other axis scroll too, and the talent strip
+   * bleeds into the padding on purpose - so clip x, or that bleed hands the
+   * body a horizontal scrollbar it has no use for.
+   */
+  overflow-x: clip;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /* A game screen draws its own furniture; a desktop scrollbar is not it. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 12px 2px 6px;
+}
+
+.body::-webkit-scrollbar {
+  display: none;
 }
 
 .footer {

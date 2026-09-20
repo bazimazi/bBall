@@ -5,7 +5,8 @@ import { hsla } from './palette';
 import { plainReturn, playerReturn, tryShield } from './talents';
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
-import { addShake, ballHue, hueOf, pushTrail, shrinkPaddle, type World } from './world';
+import { shrinkPaddle } from './paddle';
+import { addShake, ballHue, hueOf, pushTrail, type World } from './world';
 
 /** How hard the ball is currently travelling, on a 0..1 scale. */
 function power(world: World): number {

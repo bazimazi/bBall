@@ -79,17 +79,31 @@ speed, a cooldown or a cap.
 
 ### Talents
 
-One point per level — 29 by the level cap — against 22 talents that cost 66
+One point per level — 29 by the level cap — against 27 talents that cost 86
 points to fill. A build is a set of choices, not a checklist. Five short
 branches:
 
-| Branch       | What it makes you                                                    |
-| ------------ | -------------------------------------------------------------------- |
-| **Power**    | Heavy returns: charged strikes, criticals, a ball that keeps climbing |
-| **Control**  | A faster, tidier paddle with wider deliberate angles                  |
-| **Defense**  | Saves at your own line, steadier returns, a comeback in hand          |
-| **Momentum** | Streaks that pay: drives, adrenaline, clutch, flow                    |
-| **Mastery**  | Cooldowns, XP, and bonuses shaped by whatever else you picked         |
+| Branch       | What it makes you                                                    | Ultimate       |
+| ------------ | -------------------------------------------------------------------- | -------------- |
+| **Power**    | Heavy returns: charged strikes, criticals, a ball that keeps climbing | **Overload**   |
+| **Control**  | A faster, tidier paddle with wider deliberate angles                  | **Slipstream** |
+| **Defense**  | Saves at your own line, steadier returns, a comeback in hand          | **Aegis**      |
+| **Momentum** | Streaks that pay: drives, adrenaline, clutch, flow                    | **Zenith**     |
+| **Mastery**  | Cooldowns, XP, and bonuses shaped by whatever else you picked         | **Echo**       |
+
+Each branch ends in an **ultimate** on its bottom row — eight points of
+commitment to reach, four more to buy. Twelve of your twenty-nine, for one
+talent, which is the point: an ultimate is the reason a build goes deep rather
+than wide. Two is the most any player can hold, and only by giving up almost
+everything else.
+
+| Ultimate       | What it does                                                            |
+| -------------- | ----------------------------------------------------------------------- |
+| **Overload**   | Your next four returns are charged, critical, and driven into a corner  |
+| **Slipstream** | Seven seconds of a paddle that is longer *and* faster than any cap       |
+| **Aegis**      | The next two balls to reach your line are saved for you                  |
+| **Zenith**     | Peak form: full Flow, and once a match the point you drop is given back  |
+| **Echo**       | Clears every other equipped skill's cooldown, then recharges them faster |
 
 Each branch is a grid, and depth is bought with commitment rather than with
 level: a row only opens once two points per row already sit in *that* branch,
@@ -98,9 +112,11 @@ Arrows run from a talent to whatever it unlocks. Points spent elsewhere never
 open a row here, which is what stops a max-level player simply owning the
 bottom of all five.
 
-Three talents unlock **active skills** — Power Strike, Dash and Perfect Guard —
-of which you equip two, or three from level 15. Each has a cooldown, a ring on
-its button, and a distinct reaction on the court. Everything else is passive.
+Eight talents unlock **active skills** — Power Strike, Dash and Perfect Guard,
+plus the five ultimates — of which you equip two, or three from level 15. Each
+has a cooldown, a ring on its button, and a distinct reaction on the court.
+Everything else is passive. With more skills than slots, which ones you carry
+is a decision in its own right.
 
 Certain pairs turn into named **synergies** (Power Strike + Momentum, Quick
 Hands + Dash, Perfect Guard + Stabilizer, Combo Drive + Adrenaline, Cooldown
@@ -109,12 +125,14 @@ never a gate: every branch works on its own. Respec is free — one branch at a
 time from its own panel, or the lot from the footer — because a build is meant
 to be tried rather than regretted.
 
-Two rules keep builds from collapsing the game. Every multiplier a build can
+Three rules keep builds from collapsing the game. Every multiplier a build can
 stack is capped once, in the balance config, so no combination escapes the
-ranges the simulation is tested against. And the pace a Power build *adds*
-mostly bleeds off when the opponent returns the ball — otherwise the extra
-speed comes straight back at the player who chose it, and the aggressive build
-is a trap rather than a style.
+ranges the simulation is tested against. The pace a Power build *adds* mostly
+bleeds off when the opponent returns the ball — otherwise the extra speed comes
+straight back at the player who chose it, and the aggressive build is a trap
+rather than a style. And every ultimate is bounded by a count as well as a
+clock: four returns, two saves, one refunded point. A window on its own turned
+out to be worth more than any four points should buy.
 
 The profile — name, avatar, level, lifetime stats, achievements, unlocks, your
 talent ranks, unspent points and equipped skills, the cup you are part-way

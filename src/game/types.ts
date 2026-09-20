@@ -22,8 +22,16 @@ export interface Paddle {
   vy: number;
   target: number;
   half: number;
-  /** The half-length this match started with; `half` may shrink from it. */
+  /**
+   * The half-length this match started with. `half` is always
+   * `baseHalf * scale * grow`, recomputed rather than mutated, so a shrinking
+   * challenge and a lengthening ultimate can both be in play at once.
+   */
   baseHalf: number;
+  /** Lasting size change - the "melting" challenge eats into this. */
+  scale: number;
+  /** Momentary size change. Slipstream is the only thing that moves it. */
+  grow: number;
   /** 0..1 hit highlight, decays every step. */
   flash: number;
 }
@@ -131,6 +139,17 @@ export interface TalentRuntime {
   dashFx: number;
   dashFrom: number;
 
+  /** Capstones. Overload counts returns; the rest count down seconds. */
+  overload: number;
+  slipstream: number;
+  aegis: number;
+  /** Balls Aegis has left to save inside its window. */
+  aegisSaves: number;
+  /** Points Zenith may still refund. Per match, not per casting. */
+  zenithRefunds: number;
+  zenith: number;
+  echo: number;
+
   slots: AbilitySlot[];
   stats: {
     abilitiesUsed: number;
@@ -140,6 +159,7 @@ export interface TalentRuntime {
     crits: number;
     shieldSaves: number;
     secondChances: number;
+    ultimates: number;
   };
 }
 
@@ -153,6 +173,8 @@ export interface AbilityView {
   readonly progress: number;
   /** True while the ability's own effect is running. */
   readonly active: boolean;
+  /** A branch capstone. The HUD frames these differently. */
+  readonly ultimate: boolean;
 }
 
 export type { TalentMatchStats };

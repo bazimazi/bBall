@@ -3,6 +3,7 @@ import { resolveLoadout, type ResolvedLoadout } from '../core/talents/effects';
 import { createTalentSave } from '../core/talents/save';
 import type { TalentMatchStats } from '../core/talents/types';
 import { BALL_R, FIELD_H, MAX_BOUNCE_ANGLE } from './constants';
+import { growPaddle } from './paddle';
 import { hsla, sideHue } from './palette';
 import type { AbilitySlot, Paddle, TalentRuntime } from './types';
 import { clamp } from './utils/math';
@@ -51,6 +52,13 @@ export function createRuntime(): TalentRuntime {
     guardWindow: 0,
     dashFx: 0,
     dashFrom: 0,
+    overload: 0,
+    slipstream: 0,
+    aegis: 0,
+    aegisSaves: 0,
+    zenith: 0,
+    zenithRefunds: 0,
+    echo: 0,
     slots: emptySlots(),
     stats: {
       abilitiesUsed: 0,
@@ -59,7 +67,8 @@ export function createRuntime(): TalentRuntime {
       perfectGuards: 0,
       crits: 0,
       shieldSaves: 0,
-      secondChances: 0
+      secondChances: 0,
+      ultimates: 0
     }
   };
 }
@@ -82,7 +91,15 @@ export function resetRuntime(world: World): void {
   runtime.guardWindow = 0;
   runtime.dashFx = 0;
   runtime.dashFrom = 0;
+  runtime.overload = 0;
+  runtime.slipstream = 0;
+  runtime.aegis = 0;
+  runtime.aegisSaves = 0;
+  runtime.zenith = 0;
+  runtime.zenithRefunds = BALANCE.effects.zenith.refunds;
+  runtime.echo = 0;
   runtime.guardShielded = false;
+  growPaddle(world.player, 0);
 
   runtime.shieldMax = effects.shieldCharges;
   runtime.shield = effects.shieldCharges;
@@ -103,6 +120,7 @@ export function resetRuntime(world: World): void {
   runtime.stats.crits = 0;
   runtime.stats.shieldSaves = 0;
   runtime.stats.secondChances = 0;
+  runtime.stats.ultimates = 0;
 }
 
 /** A new rally is about to start. */
@@ -112,11 +130,16 @@ export function resetRally(world: World): void {
   world.talents.guardShielded = false;
 }
 
-/** The player conceded. The drive is over; the match state is not. */
+/**
+ * The player conceded. The drive is over; the match state is not.
+ *
+ * Unless Zenith is running - holding the streak through a dropped point is
+ * the whole reason that capstone exists.
+ */
 export function resetDrive(world: World): void {
   const runtime = world.talents;
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
-  runtime.drive = 0;
+  if (runtime.zenith <= 0) runtime.drive = 0;
   runtime.rallyReturns = 0;
   runtime.surge = 0;
   runtime.adrenaline = 0;
@@ -131,11 +154,23 @@ function inClutch(world: World): boolean {
   return match.winScore > 0 && match.score.bot >= match.winScore - 1;
 }
 
-/** How deep into Flow State the current rally is, 0..1. */
-function flowProgress(world: World): number {
+/**
+ * How many stacks of Flow State are up.
+ *
+ * Zenith pins this at the top for its window - being instantly in peak form,
+ * and staying there through a dropped point, is what that capstone buys.
+ */
+function flowStacks(world: World): number {
   const { effects } = world.loadout;
-  if (effects.flowPaddle <= 0) return 0;
-  return clamp((world.talents.rallyReturns - effects.flowFrom) / 10, 0, 1);
+  const max = BALANCE.effects.flowState.stacks;
+  if (world.talents.zenith > 0) return max;
+  return clamp(world.talents.rallyReturns - effects.flowFrom, 0, max);
+}
+
+/** The same thing as 0..1, for cooldown recovery. */
+function flowProgress(world: World): number {
+  if (world.loadout.effects.flowPaddle <= 0 && world.talents.zenith <= 0) return 0;
+  return flowStacks(world) / BALANCE.effects.flowState.stacks;
 }
 
 /**
@@ -156,11 +191,22 @@ export function playerPaddleSpeed(world: World): number {
   if (runtime.edgeRecovery > 0) mul += effects.edgeBoost;
   if (inClutch(world)) mul += effects.clutchPaddle;
 
+  // A capstone is the one thing allowed past the everyday ceiling.
+  let ceiling: number = BALANCE.paddle.max;
+  if (runtime.slipstream > 0) {
+    mul += effects.slipstreamPaddle;
+    ceiling = BALANCE.paddle.burst;
+  }
+  if (runtime.zenith > 0) {
+    mul += effects.zenithPaddle;
+    ceiling = BALANCE.paddle.burst;
+  }
+
   const rally = runtime.rallyReturns;
   mul += Math.min(effects.resilienceCap, Math.floor(rally / 5) * effects.resiliencePerFive);
-  mul += Math.min(effects.flowCap, Math.max(0, rally - effects.flowFrom) * effects.flowPaddle);
+  mul += Math.min(effects.flowCap, flowStacks(world) * effects.flowPaddle);
 
-  return Math.min(BALANCE.paddle.max, paddleSpeed * mul);
+  return Math.min(ceiling, paddleSpeed * mul);
 }
 
 /** Keyboard travel, derived from whatever the paddle can do right now. */
@@ -205,9 +251,24 @@ export function updateRuntime(world: World, dt: number): void {
   runtime.guardWindow = Math.max(0, runtime.guardWindow - dt);
   runtime.dashFx = Math.max(0, runtime.dashFx - dt);
 
+  runtime.aegis = Math.max(0, runtime.aegis - dt);
+  runtime.zenith = Math.max(0, runtime.zenith - dt);
+  runtime.echo = Math.max(0, runtime.echo - dt);
+
+  // Slipstream lengthens the paddle, so the size has to settle the moment it
+  // starts and again the moment it ends.
+  runtime.slipstream = Math.max(0, runtime.slipstream - dt);
+  growPaddle(world.player, runtime.slipstream > 0 ? effects.slipstreamGrow : 0);
+
   trackEdges(world, dt);
 
-  const recovery = dt * (1 + effects.flowRecharge * flowProgress(world));
+  // Zenith and Echo both hurry cooldowns along; they never stack, and the
+  // capstone cooldown floor in `effects.ts` still bounds what that can mean.
+  const hurry = Math.max(
+    runtime.zenith > 0 ? effects.zenithRecharge : 1,
+    runtime.echo > 0 ? effects.echoRecharge : 1
+  );
+  const recovery = dt * hurry * (1 + effects.flowRecharge * flowProgress(world));
   for (const slot of runtime.slots) {
     if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - recovery);
   }
@@ -237,6 +298,8 @@ export interface ReturnMods {
   readonly crit: boolean;
   readonly charged: boolean;
   readonly guarded: boolean;
+  /** An Overload return: its pace stays on the ball rather than bleeding. */
+  readonly overloaded: boolean;
 }
 
 /** The plain return: what every contact did before talents existed. */
@@ -249,7 +312,8 @@ export function plainReturn(world: World, off: number): ReturnMods {
     angleLimit: MAX_BOUNCE_ANGLE,
     crit: false,
     charged: false,
-    guarded: false
+    guarded: false,
+    overloaded: false
   };
 }
 
@@ -261,10 +325,16 @@ export function plainReturn(world: World, off: number): ReturnMods {
  * charged strike is added on top of the cap - an active ability is allowed to
  * beat the passive ceiling, but never the hard one.
  */
-export function playerReturn(world: World, rawOff: number): ReturnMods {
+export function playerReturn(world: World, offset: number): ReturnMods {
   const runtime = world.talents;
   const { effects } = world.loadout;
   const { tuning } = world;
+
+  // Contact offset is measured as a fraction of the paddle's length, so a
+  // paddle that Slipstream has lengthened would quietly flatten every return
+  // - more reach bought with worse placement. Scaling by the stretch keeps
+  // the angle a given contact produces exactly where it was.
+  const rawOff = clamp(offset * world.player.grow, -1, 1);
 
   runtime.drive++;
   runtime.rallyReturns++;
@@ -285,14 +355,20 @@ export function playerReturn(world: World, rawOff: number): ReturnMods {
     }
   }
 
-  const charged = runtime.strikeArmed > 0;
+  // Overload spends one of its charged returns here rather than on a timer,
+  // so it is never wasted while the ball is at the far end of the court.
+  const overloaded = runtime.overload > 0;
+  if (overloaded) runtime.overload--;
+
+  const charged = runtime.strikeArmed > 0 || overloaded;
   if (charged) {
     runtime.strikeArmed = 0;
     runtime.stats.powerStrikes++;
     if (effects.powerStrikePaddle > 0) runtime.strikeRush = effects.powerStrikePaddleSeconds;
   }
 
-  const crit = !guarded && effects.critChance > 0 && Math.random() < effects.critChance;
+  const crit =
+    overloaded || (!guarded && effects.critChance > 0 && Math.random() < effects.critChance);
   if (crit) runtime.stats.crits++;
 
   // Passive sources, capped together.
@@ -319,17 +395,29 @@ export function playerReturn(world: World, rawOff: number): ReturnMods {
   if (guarded) off *= 0.5;
   // A heavy return also leaves at a wider angle. Speed on its own barely
   // troubles a composed opponent; speed sent somewhere awkward does.
-  if (crit || charged) off = clamp(off * (1 + E.criticalStrike.angle), -1, 1);
+  if (overloaded) {
+    // Overload does not merely widen the angle, it guarantees one: every one
+    // of its returns is driven into a corner, whichever side the player
+    // was already leaning towards.
+    const side = off < 0 ? -1 : 1;
+    off = side * Math.min(1, Math.max(Math.abs(off) * (1 + E.overload.angle), E.overload.minAngle));
+  } else if (crit || charged) {
+    off = clamp(off * (1 + E.criticalStrike.angle), -1, 1);
+  }
 
   return {
     off,
     growth: Math.max(0.5, growth),
     ceiling: Math.min(BALANCE.ball.hardMax, ceiling),
     spin: guarded ? 0 : effects.spinMul,
-    angleLimit: Math.min(1.15, MAX_BOUNCE_ANGLE * effects.angleMul),
+    angleLimit: Math.min(
+      1.15,
+      MAX_BOUNCE_ANGLE * (effects.angleMul + flowStacks(world) * effects.flowAngle)
+    ),
     crit,
     charged,
-    guarded
+    guarded,
+    overloaded
   };
 }
 
@@ -344,12 +432,19 @@ export function playerReturn(world: World, rawOff: number): ReturnMods {
  */
 export function tryShield(world: World): boolean {
   const runtime = world.talents;
-  if (runtime.shield <= 0 || world.match.status !== 'play') return false;
+  if (world.match.status !== 'play') return false;
+  // Aegis saves everything for its window, and spends no charge doing it.
+  const free = runtime.aegis > 0 && runtime.aegisSaves > 0;
+  if (!free && runtime.shield <= 0) return false;
 
   const { ball } = world;
   const { effects } = world.loadout;
-  runtime.shield--;
-  runtime.shieldTimer = effects.shieldRecharge;
+  if (free) {
+    runtime.aegisSaves--;
+  } else {
+    runtime.shield--;
+    runtime.shieldTimer = effects.shieldRecharge;
+  }
   runtime.stats.shieldSaves++;
   // A save is not a return: the drive - and everything riding on it - stops.
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
@@ -372,6 +467,22 @@ export function tryShield(world: World): boolean {
     world.motion
   );
   world.audio.shield();
+  return true;
+}
+
+/**
+ * Zenith taking a conceded point back.
+ *
+ * Once per *match*, and only inside a Zenith window - "the streak cannot be
+ * broken" has to hold the scoreboard and not merely the counter, but a
+ * re-castable refund is a different talent entirely. Checked before Second
+ * Chance, because a Zenith window expires and a Second Chance keeps.
+ */
+export function tryZenith(world: World): boolean {
+  const runtime = world.talents;
+  if (runtime.zenith <= 0 || runtime.zenithRefunds <= 0) return false;
+  runtime.zenithRefunds--;
+  world.audio.secondChance();
   return true;
 }
 
@@ -407,6 +518,7 @@ export function matchStats(world: World): TalentMatchStats {
     crits: runtime.stats.crits,
     shieldSaves: runtime.stats.shieldSaves,
     secondChances: runtime.stats.secondChances,
+    ultimates: runtime.stats.ultimates,
     bestDrive: Math.max(runtime.bestDrive, runtime.drive)
   };
 }

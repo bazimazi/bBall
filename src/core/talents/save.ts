@@ -31,6 +31,7 @@ export function createTalentStats(): TalentStats {
     crits: 0,
     shieldSaves: 0,
     secondChances: 0,
+    ultimates: 0,
     bestDrive: 0
   };
 }
@@ -315,6 +316,7 @@ function statsOf(value: unknown): TalentStats {
     crits: count(source.crits, base.crits),
     shieldSaves: count(source.shieldSaves, base.shieldSaves),
     secondChances: count(source.secondChances, base.secondChances),
+    ultimates: count(source.ultimates, base.ultimates),
     bestDrive: count(source.bestDrive, base.bestDrive)
   };
 }

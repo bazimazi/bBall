@@ -23,6 +23,8 @@ export const PADDLE_W = 16;
 export const PADDLE_H = 108;
 /** Challenge modifiers may shrink a paddle, but never past this fraction. */
 export const MIN_PADDLE_SCALE = 0.42;
+/** ...and nothing, capstone included, may stretch one past this. */
+export const MAX_PADDLE_SCALE = 1.5;
 /** Paddle centre distance from the field edge. */
 export const PADDLE_INSET = 46;
 

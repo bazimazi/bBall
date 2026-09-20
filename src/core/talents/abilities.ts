@@ -17,6 +17,8 @@ export interface AbilityDef {
   readonly talent: TalentId;
   /** Single glyph for the in-game button. Kept to one character. */
   readonly glyph: string;
+  /** True for a branch capstone. The HUD gives these their own frame. */
+  readonly ultimate?: boolean;
   /** Cooldown in seconds for this build. */
   cooldown(effects: TalentEffects): number;
   /** The live effect, in the player's words, for the talent screen. */
@@ -60,6 +62,62 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     cooldown: (effects) => effects.guardCooldown,
     summary: (effects) =>
       `${seconds(effects.guardWindow)} window · +${pct(effects.guardPaddle)} paddle for ${seconds(effects.guardSeconds)}`
+  },
+
+  // ------------------------------------------------------------- capstones
+  {
+    id: 'overload',
+    name: 'Overload',
+    blurb: 'Three returns of pure pace',
+    talent: 'overload',
+    glyph: '✦',
+    ultimate: true,
+    cooldown: (effects) => effects.overloadCooldown,
+    summary: (effects) => `Next ${effects.overloadHits} returns charged and critical`
+  },
+  {
+    id: 'slipstream',
+    name: 'Slipstream',
+    blurb: 'A longer, far faster paddle',
+    talent: 'slipstream',
+    glyph: '➤',
+    ultimate: true,
+    cooldown: (effects) => effects.slipstreamCooldown,
+    summary: (effects) =>
+      `+${pct(effects.slipstreamPaddle)} speed, +${pct(effects.slipstreamGrow)} length for ${seconds(effects.slipstreamSeconds)}`
+  },
+  {
+    id: 'aegis',
+    name: 'Aegis',
+    blurb: 'Nothing gets past you',
+    talent: 'aegis',
+    glyph: '❖',
+    ultimate: true,
+    cooldown: (effects) => effects.aegisCooldown,
+    summary: (effects) =>
+      `The next ${effects.aegisSaves} balls at your line are saved, within ${seconds(effects.aegisSeconds)}`
+  },
+  {
+    id: 'zenith',
+    name: 'Zenith',
+    blurb: 'A streak that cannot be broken',
+    talent: 'zenith',
+    glyph: '▲',
+    ultimate: true,
+    cooldown: (effects) => effects.zenithCooldown,
+    summary: (effects) =>
+      `Peak form for ${seconds(effects.zenithSeconds)} · +${pct(effects.zenithPaddle)} paddle, one point refunded`
+  },
+  {
+    id: 'echo',
+    name: 'Echo',
+    blurb: 'Every other skill, ready again',
+    talent: 'echo',
+    glyph: '◎',
+    ultimate: true,
+    cooldown: (effects) => effects.echoCooldown,
+    summary: (effects) =>
+      `Clears other cooldowns, then ${effects.echoRecharge}x recharge for ${seconds(effects.echoSeconds)}`
   }
 ];
 

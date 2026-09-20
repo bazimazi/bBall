@@ -12,6 +12,14 @@ import { BRANCHES, type Branch, type BranchId, type TalentDef, type TalentId } f
 
 const E = BALANCE.effects;
 
+/**
+ * Capstones sit on the same row in every branch, cost the same, and never
+ * have a second rank. Keeping that uniform is what lets a player read "the
+ * bottom of a tree" as a single idea rather than five special cases.
+ */
+export const ULTIMATE_TIER = 4;
+export const ULTIMATE_COST = 4;
+
 /** Percentage, rounded for display. `pct(0.035)` -> "3.5%". */
 function pct(value: number): string {
   const n = value * 100;
@@ -123,6 +131,20 @@ export const TALENTS: readonly TalentDef[] = [
     rankText: () =>
       `Each return in a rally adds +${pct(E.momentum.perReturn)} ball speed, up to +${pct(E.momentum.cap)} more.`
   },
+  {
+    id: 'overload',
+    branch: 'power',
+    name: 'Overload',
+    blurb: 'Ultimate: three returns of pure pace',
+    maxRank: 1,
+    costs: [ULTIMATE_COST],
+    tier: ULTIMATE_TIER,
+    column: 1,
+    requires: [{ talent: 'overdrive', rank: 1 }],
+    ability: 'overload',
+    rankText: () =>
+      `Unlocks Overload. Your next ${E.overload.hits} returns are charged *and* critical, stacking every source of pace you own onto three consecutive hits. ${E.overload.cooldown}s cooldown.`
+  },
 
   // ---------------------------------------------------------------- control
   {
@@ -193,6 +215,20 @@ export const TALENTS: readonly TalentDef[] = [
         ? `Unlocks Perfect Guard: a ${E.perfectGuard.baseWindow}s window. A return inside it is absorbed clean and grants +${pct(E.perfectGuard.basePaddle)} paddle speed for ${E.perfectGuard.seconds}s.`
         : `+${E.perfectGuard.window}s window and +${pct(E.perfectGuard.paddle)} to the guard bonus.`
   },
+  {
+    id: 'slipstream',
+    branch: 'control',
+    name: 'Slipstream',
+    blurb: 'Ultimate: a longer, far faster paddle',
+    maxRank: 1,
+    costs: [ULTIMATE_COST],
+    tier: ULTIMATE_TIER,
+    column: 1,
+    requires: [{ talent: 'perfect-guard', rank: 1 }],
+    ability: 'slipstream',
+    rankText: () =>
+      `Unlocks Slipstream. For ${E.slipstream.seconds}s your paddle is ${pct(E.slipstream.grow)} longer and up to ${pct(E.slipstream.paddle)} faster, past the speed anything else can reach. ${E.slipstream.cooldown}s cooldown.`
+  },
 
   // ---------------------------------------------------------------- defense
   {
@@ -245,6 +281,20 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [{ talent: 'stabilizer', rank: 1 }],
     rankText: () =>
       `+${pct(E.resilience.perFive)} paddle speed per five returns in a rally, up to +${pct(E.resilience.cap)} more.`
+  },
+  {
+    id: 'aegis',
+    branch: 'defense',
+    name: 'Aegis',
+    blurb: 'Ultimate: nothing gets past you',
+    maxRank: 1,
+    costs: [ULTIMATE_COST],
+    tier: ULTIMATE_TIER,
+    column: 0,
+    requires: [{ talent: 'second-chance', rank: 1 }],
+    ability: 'aegis',
+    rankText: () =>
+      `Unlocks Aegis. The next ${E.aegis.saves} balls to reach your line are saved for you, within ${E.aegis.seconds}s and without spending a shield charge. ${E.aegis.cooldown}s cooldown.`
   },
 
   // --------------------------------------------------------------- momentum
@@ -300,6 +350,20 @@ export const TALENTS: readonly TalentDef[] = [
     rankText: () =>
       `Past ${E.flowState.from} returns, +${pct(E.flowState.paddle)} paddle speed per return (up to +${pct(E.flowState.cap)}) and faster cooldown recovery.`
   },
+  {
+    id: 'zenith',
+    branch: 'momentum',
+    name: 'Zenith',
+    blurb: 'Ultimate: a streak that cannot be broken',
+    maxRank: 1,
+    costs: [ULTIMATE_COST],
+    tier: ULTIMATE_TIER,
+    column: 1,
+    requires: [{ talent: 'flow-state', rank: 1 }],
+    ability: 'zenith',
+    rankText: () =>
+      `Unlocks Zenith. For ${E.zenith.seconds}s you are in peak form: Flow State runs at full stacks, +${pct(E.zenith.paddle)} paddle speed, abilities recharge ${E.zenith.recharge}x faster, and once a match the first point you would concede is given back. ${E.zenith.cooldown}s cooldown.`
+  },
 
   // ---------------------------------------------------------------- utility
   {
@@ -333,8 +397,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Combinations you already own pay out more',
     maxRank: 2,
     costs: [2, 2],
-    tier: 2,
-    column: 1,
+    tier: 3,
+    column: 0,
     requires: [],
     rankText: () =>
       `+${pct(E.talentSynergy.magnitude)} to every active synergy, and +${pct(E.talentSynergy.paddlePerSynergy)} paddle speed per synergy.`
@@ -347,9 +411,23 @@ export const TALENTS: readonly TalentDef[] = [
     maxRank: 2,
     costs: [1, 1],
     tier: 1,
-    column: 1,
+    column: 0,
     requires: [],
     rankText: () => `+${pct(E.versatility.bonus)} to the signature stat of your deepest branch.`
+  },
+  {
+    id: 'echo',
+    branch: 'utility',
+    name: 'Echo',
+    blurb: 'Ultimate: every other skill, ready again',
+    maxRank: 1,
+    costs: [ULTIMATE_COST],
+    tier: ULTIMATE_TIER,
+    column: 1,
+    requires: [{ talent: 'cooldown-mastery', rank: 3 }],
+    ability: 'echo',
+    rankText: () =>
+      `Unlocks Echo. Instantly clears the cooldown of your other equipped skills, then recharges them ${E.echo.recharge}x faster for ${E.echo.seconds}s. ${E.echo.cooldown}s cooldown.`
   }
 ];
 
@@ -388,6 +466,11 @@ export const TOTAL_TALENT_COST = TALENTS.reduce(
 
 /** Every branch grid is this many columns wide. */
 export const BRANCH_COLUMNS = 2;
+
+/** True for a branch's capstone - the bottom row, and only ever one rank. */
+export function isUltimate(talent: TalentDef): boolean {
+  return talent.tier === ULTIMATE_TIER;
+}
 
 /** Rows in a branch's grid. */
 export function tiersOfBranch(branch: BranchId): number {

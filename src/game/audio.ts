@@ -164,6 +164,13 @@ export class GameAudio {
     this.tone(640, 0.2, 'triangle', 0.12, 0, 0.05);
   }
 
+  /** A capstone firing. Longer and lower than anything else in the game. */
+  ultimate(): void {
+    const notes = [196, 294, 392, 587];
+    notes.forEach((note, i) => this.tone(note, 0.32, 'sawtooth', 0.14, 0, i * 0.055));
+    this.tone(98, 0.5, 'sine', 0.2, 60);
+  }
+
   secondChance(): void {
     this.tone(392, 0.16, 'triangle', 0.18);
     this.tone(587, 0.22, 'triangle', 0.16, 0, 0.09);
