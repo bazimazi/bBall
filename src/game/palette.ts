@@ -1,5 +1,7 @@
+import type { ResolvedTheme } from '../core/cosmetics/theme';
 import type { Side } from './types';
 
+/** Fallback hues, used before a theme is resolved. */
 export const HUE = { you: 171, bot: 342, hot: 34 } as const;
 
 export const CANVAS_FONT = '-apple-system, system-ui, "Segoe UI", Roboto, sans-serif';
@@ -7,13 +9,14 @@ export const CANVAS_FONT = '-apple-system, system-ui, "Segoe UI", Roboto, sans-s
 export const INK = 'rgba(238,242,255,';
 export const BACKDROP = '#06080f';
 
-export function sideHue(side: Side): number {
-  return side === 'you' ? HUE.you : HUE.bot;
+/** The hue a side is drawn in, under the equipped theme. */
+export function sideHue(theme: ResolvedTheme, side: Side): number {
+  return side === 'you' ? theme.youHue : theme.botHue;
 }
 
 /** Blend a hue towards the "hot" hue, taking the short way round. */
-export function heatHue(base: number, heat: number): number {
-  let d = HUE.hot - base;
+export function heatHue(base: number, heat: number, hot: number = HUE.hot): number {
+  let d = hot - base;
   if (d > 180) d -= 360;
   if (d < -180) d += 360;
   let h = base + d * heat;

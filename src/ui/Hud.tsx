@@ -7,6 +7,8 @@ import { SoundIcon } from './icons/SoundIcon';
 interface HudProps {
   muted: boolean;
   canPause: boolean;
+  /** The objective of the match in play, if it has one. */
+  label?: string | null;
   onToggleMute: () => void;
   onPause: () => void;
 }
@@ -43,22 +45,25 @@ function IconButton({ label, onClick, children, pressed }: IconButtonProps) {
 }
 
 /** Sound and pause controls, floating above everything else. */
-export function Hud({ muted, canPause, onToggleMute, onPause }: HudProps) {
+export function Hud({ muted, canPause, label, onToggleMute, onPause }: HudProps) {
   return (
-    <div className={styles.hud}>
-      <IconButton
-        label={muted ? 'Unmute sound' : 'Mute sound'}
-        pressed={muted}
-        onClick={onToggleMute}
-      >
-        <SoundIcon muted={muted} />
-      </IconButton>
-
-      {canPause && (
-        <IconButton label="Pause game" onClick={onPause}>
-          <PauseIcon />
+    <>
+      {label && <p className={styles.label}>{label}</p>}
+      <div className={styles.hud}>
+        <IconButton
+          label={muted ? 'Unmute sound' : 'Mute sound'}
+          pressed={muted}
+          onClick={onToggleMute}
+        >
+          <SoundIcon muted={muted} />
         </IconButton>
-      )}
-    </div>
+
+        {canPause && (
+          <IconButton label="Pause game" onClick={onPause}>
+            <PauseIcon />
+          </IconButton>
+        )}
+      </div>
+    </>
   );
 }

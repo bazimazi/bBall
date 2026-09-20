@@ -61,3 +61,18 @@
     transition-duration: 0.01ms;
   }
 }
+
+/* The objective of a challenge or cup match, kept small and out of the way. */
+.label {
+  position: fixed;
+  top: calc(var(--safe-t) + 18px);
+  left: calc(var(--safe-l) + 16px);
+  margin: 0;
+  z-index: 4;
+  max-width: 45vw;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  pointer-events: none;
+}

@@ -1,8 +1,31 @@
+import { botProfile } from '../core/bots/levels';
+import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
+import { quickMatchRules } from '../core/modes/rules';
+import type { MatchRules } from '../core/modes/types';
 import type { GameAudio } from './audio';
-import { FIELD_H, PADDLE_H, PADDLE_INSET, SERVE_SPEED, STORAGE_KEYS, TRAIL_MAX } from './constants';
+import {
+  FIELD_H,
+  MAX_SPEED,
+  MIN_PADDLE_SCALE,
+  PADDLE_H,
+  PADDLE_INSET,
+  SERVE_SPEED,
+  SPEED_PER_HIT,
+  TRAIL_MAX
+} from './constants';
 import { ParticleSystem } from './particles';
-import type { Ball, FxState, MatchState, Paddle, Side, Vec2, View } from './types';
-import { readStored } from './utils/storage';
+import { sideHue, heatHue } from './palette';
+import type {
+  Ball,
+  BotBrain,
+  FxState,
+  MatchState,
+  Paddle,
+  Side,
+  Tuning,
+  Vec2,
+  View
+} from './types';
 import { createView } from './view';
 
 /**
@@ -20,6 +43,16 @@ export interface World {
   readonly trail: Vec2[];
   readonly particles: ParticleSystem;
   readonly audio: GameAudio;
+  /** The mode being played. Replaced whenever a new match is configured. */
+  rules: MatchRules;
+  /** Speeds and sizes for this match, after the mode's modifiers. */
+  tuning: Tuning;
+  /** Colours from the player's equipped cosmetics. */
+  theme: ResolvedTheme;
+  /** The opponent's head. */
+  botBrain: BotBrain;
+  /** Drives the player's paddle during the attract-mode demo. */
+  demoBrain: BotBrain;
   /** Effect strength, 1 normally and 0.25 under `prefers-reduced-motion`. */
   motion: number;
   /** Accumulator for trail sampling. */
@@ -34,9 +67,8 @@ function createPaddle(side: Side): Paddle {
     vy: 0,
     target: FIELD_H / 2,
     half: PADDLE_H / 2,
-    flash: 0,
-    aimed: false,
-    wait: 0
+    baseHalf: PADDLE_H / 2,
+    flash: 0
   };
 }
 
@@ -55,21 +87,49 @@ function createBall(): Ball {
   };
 }
 
-function createMatch(): MatchState {
+export function createBrain(profile: BotBrain['profile']): BotBrain {
+  return {
+    profile,
+    wait: 0,
+    aimed: false,
+    reads: 0,
+    maxReads: 1 + Math.round(profile.prediction * 2),
+    misread: false
+  };
+}
+
+export function setBrainProfile(brain: BotBrain, profile: BotBrain['profile']): void {
+  brain.profile = profile;
+  brain.maxReads = 1 + Math.round(profile.prediction * 2);
+  brain.wait = 0;
+  brain.aimed = false;
+  brain.reads = 0;
+  brain.misread = false;
+}
+
+function createMatch(rules: MatchRules): MatchState {
   return {
     status: 'menu',
     resumeTo: 'play',
+    mode: rules.mode,
+    label: rules.label,
     serveTimer: 0,
     serveDir: 1,
     rally: 0,
-    best: parseInt(readStored(STORAGE_KEYS.best, '0'), 10) || 0,
     bestThisMatch: 0,
     points: 0,
+    hits: 0,
+    elapsed: 0,
     score: { you: 0, bot: 0 },
+    winScore: rules.winScore,
+    deficit: 0,
+    lives: rules.lives,
+    maxLives: rules.lives,
     winner: null,
-    newBest: false,
     overTimer: 0,
-    overShown: false
+    overShown: false,
+    result: null,
+    resultId: 0
   };
 }
 
@@ -89,20 +149,56 @@ function createFx(): FxState {
   };
 }
 
+export function tuningFor(rules: MatchRules): Tuning {
+  const m = rules.modifiers;
+  return {
+    serveSpeed: SERVE_SPEED * m.serveSpeedScale,
+    maxSpeed: MAX_SPEED * m.maxSpeedScale,
+    speedPerHit: 1 + (SPEED_PER_HIT - 1) * m.speedPerHitScale,
+    shrinkPerHit: m.shrinkPerHit
+  };
+}
+
+/** The demo rally behind the menus - never scored, never recorded. */
+export function attractRules(): MatchRules {
+  return quickMatchRules('pro');
+}
+
 export function createWorld(audio: GameAudio, motion: number): World {
+  const rules = attractRules();
   return {
     view: createView(),
     player: createPaddle('you'),
     bot: createPaddle('bot'),
     ball: createBall(),
-    match: createMatch(),
+    match: createMatch(rules),
     fx: createFx(),
     trail: [],
     particles: new ParticleSystem(),
     audio,
+    rules,
+    tuning: tuningFor(rules),
+    theme: DEFAULT_THEME,
+    botBrain: createBrain(rules.bot),
+    demoBrain: createBrain(botProfile('amateur')),
     motion,
     trailTick: 0
   };
+}
+
+/** Size both paddles for the rules in play. */
+export function applyPaddleSizes(world: World): void {
+  const { modifiers } = world.rules;
+  world.player.baseHalf = (PADDLE_H / 2) * modifiers.playerPaddleScale;
+  world.bot.baseHalf = (PADDLE_H / 2) * modifiers.botPaddleScale;
+  world.player.half = world.player.baseHalf;
+  world.bot.half = world.bot.baseHalf;
+}
+
+/** Shrink the player's paddle a notch, never below a playable minimum. */
+export function shrinkPaddle(paddle: Paddle, fraction: number): void {
+  const floor = (PADDLE_H / 2) * MIN_PADDLE_SCALE;
+  paddle.half = Math.max(floor, paddle.half * (1 - fraction));
 }
 
 /** Re-point the paddles after the field's length changed. */
@@ -116,8 +212,6 @@ export function centrePaddles(world: World): void {
     paddle.y = FIELD_H / 2;
     paddle.target = FIELD_H / 2;
     paddle.vy = 0;
-    paddle.aimed = false;
-    paddle.wait = 0;
   }
 }
 
@@ -160,4 +254,14 @@ export function rescaleField(world: World, k: number): void {
 
 export function addShake(world: World, amount: number): void {
   world.fx.shake = Math.min(18, world.fx.shake + amount * world.motion);
+}
+
+/** The hue a side is drawn in under the equipped theme. */
+export function hueOf(world: World, side: Side): number {
+  return sideHue(world.theme, side);
+}
+
+/** The ball's hue: its owner's colour, pulled towards hot in a long rally. */
+export function ballHue(world: World): number {
+  return heatHue(hueOf(world, world.ball.owner), world.fx.heat, world.theme.hotHue);
 }

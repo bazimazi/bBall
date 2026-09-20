@@ -1,34 +1,20 @@
-import type { GameSnapshot } from '../game/types';
+import type { ReactNode } from 'react';
+
 import styles from './Overlay.module.css';
-import { GameOverPanel } from './panels/GameOverPanel';
-import { PausePanel } from './panels/PausePanel';
-import { StartPanel } from './panels/StartPanel';
 
 interface OverlayProps {
-  snapshot: GameSnapshot;
-  onPlay: () => void;
-  onResume: () => void;
-  onQuit: () => void;
+  show: boolean;
+  children: ReactNode;
 }
 
 /**
- * The card stack over the court: title screen, pause menu and result. The
- * overlay itself stays mounted so it can fade, and lets pointer events through
- * to the canvas whenever no panel is up.
+ * The card over the court, used for the pause menu. It stays mounted so it can
+ * fade, and lets pointer events through to the canvas whenever it is hidden.
  */
-export function Overlay({ snapshot, onPlay, onResume, onQuit }: OverlayProps) {
-  const { panel } = snapshot;
-
+export function Overlay({ show, children }: OverlayProps) {
   return (
-    <div
-      className={panel ? `${styles.overlay} ${styles.show}` : styles.overlay}
-      aria-live="polite"
-    >
-      <div className={styles.card}>
-        {panel === 'start' && <StartPanel best={snapshot.best} onPlay={onPlay} />}
-        {panel === 'pause' && <PausePanel onResume={onResume} onQuit={onQuit} />}
-        {panel === 'over' && <GameOverPanel snapshot={snapshot} onPlayAgain={onPlay} />}
-      </div>
+    <div className={show ? `${styles.overlay} ${styles.show}` : styles.overlay} aria-live="polite">
+      <div className={styles.card}>{show && children}</div>
     </div>
   );
 }

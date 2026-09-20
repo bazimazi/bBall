@@ -3,21 +3,19 @@ import {
   COMBO_STEPS,
   FIELD_H,
   MAX_BOUNCE_ANGLE,
-  MAX_SPEED,
   PADDLE_W,
-  SERVE_SPEED,
-  SPEED_PER_HIT,
   SPIN_INFLUENCE
 } from './constants';
 import { scorePoint } from './match';
-import { heatHue, hsla, sideHue } from './palette';
+import { hsla } from './palette';
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
-import { addShake, pushTrail, type World } from './world';
+import { addShake, ballHue, hueOf, pushTrail, shrinkPaddle, type World } from './world';
 
 /** How hard the ball is currently travelling, on a 0..1 scale. */
-function power(speed: number): number {
-  return clamp((speed - SERVE_SPEED) / (MAX_SPEED - SERVE_SPEED), 0, 1);
+function power(world: World): number {
+  const { serveSpeed, maxSpeed } = world.tuning;
+  return clamp((world.ball.speed - serveSpeed) / Math.max(1, maxSpeed - serveSpeed), 0, 1);
 }
 
 export function movePaddle(paddle: Paddle, dt: number, speed: number): void {
@@ -26,10 +24,6 @@ export function movePaddle(paddle: Paddle, dt: number, speed: number): void {
   const dy = clamp(paddle.target - paddle.y, -max, max);
   paddle.y = clamp(paddle.y + dy, paddle.half, FIELD_H - paddle.half);
   paddle.vy = (paddle.y - previous) / dt;
-}
-
-function ballHue(world: World): number {
-  return heatHue(sideHue(world.ball.owner), world.fx.heat);
 }
 
 function checkCombo(world: World): void {
@@ -55,9 +49,9 @@ function checkCombo(world: World): void {
 }
 
 function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1): void {
-  const { ball, match, fx } = world;
+  const { ball, match, fx, tuning } = world;
   const off = clamp((contactY - paddle.y) / paddle.half, -1, 1);
-  ball.speed = Math.min(MAX_SPEED, ball.speed * SPEED_PER_HIT);
+  ball.speed = Math.min(tuning.maxSpeed, ball.speed * tuning.speedPerHit);
 
   // Angle comes from where the ball struck, nudged by the paddle's own motion.
   const vy = Math.sin(off * MAX_BOUNCE_ANGLE) * ball.speed + paddle.vy * SPIN_INFLUENCE;
@@ -67,15 +61,19 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   ball.vy = Math.sin(angle) * ball.speed;
   ball.owner = paddle.side;
 
-  const p = power(ball.speed);
+  const p = power(world);
   paddle.flash = 1;
   ball.squash = 1;
   ball.squashAngle = 0; // compressed along the long axis
   match.rally++;
   fx.freeze = (0.012 + p * 0.03) * world.motion;
   addShake(world, 2.6 + p * 4);
-  world.bot.aimed = false;
-  world.player.aimed = false;
+
+  if (paddle.side === 'you' && match.status !== 'menu') {
+    match.hits++;
+    // "Melting"-style challenges eat into the paddle with every return.
+    if (tuning.shrinkPerHit > 0) shrinkPaddle(paddle, tuning.shrinkPerHit);
+  }
 
   world.particles.emit(
     ball.x + dir * BALL_R,
@@ -87,7 +85,7 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
       speed: 150 + p * 250,
       life: 0.4,
       size: 3.4,
-      color: hsla(sideHue(paddle.side), 100, 66, 0.9)
+      color: hsla(hueOf(world, paddle.side), 100, 66, 0.9)
     },
     world.motion
   );
@@ -138,8 +136,7 @@ function resolveOverlap(world: World, paddle: Paddle): void {
 function sweepPaddle(world: World, paddle: Paddle, dir: 1 | -1, dt: number): void {
   const { ball } = world;
   const face = dir > 0 ? paddle.x + PADDLE_W / 2 + BALL_R : paddle.x - PADDLE_W / 2 - BALL_R;
-  const crossed =
-    dir > 0 ? ball.px >= face && ball.x <= face : ball.px <= face && ball.x >= face;
+  const crossed = dir > 0 ? ball.px >= face && ball.x <= face : ball.px <= face && ball.x >= face;
   if (!crossed) return;
 
   const span = ball.px - ball.x;
@@ -156,7 +153,7 @@ function sweepPaddle(world: World, paddle: Paddle, dir: 1 | -1, dt: number): voi
 
 function onWallBounce(world: World): void {
   const { ball, match } = world;
-  const p = power(ball.speed);
+  const p = power(world);
   ball.squash = 0.8;
   ball.squashAngle = Math.PI / 2; // compressed against the wall
   addShake(world, 1.6 + p * 2.4);

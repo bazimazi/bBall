@@ -1,10 +1,11 @@
-import { BALL_R, MAX_SPEED, PADDLE_W, SERVE_DELAY, SERVE_SPEED, WIN_SCORE } from '../constants';
+import type { ResolvedTheme } from '../../core/cosmetics/theme';
+import { BALL_R, PADDLE_W, SERVE_DELAY } from '../constants';
 import { isMatchPoint } from '../match';
-import { BACKDROP, CANVAS_FONT, HUE, heatHue, hsla, sideHue } from '../palette';
+import { BACKDROP, CANVAS_FONT, heatHue, hsla } from '../palette';
 import type { Paddle, Side, Vec2 } from '../types';
 import { clamp } from '../utils/math';
 import { applyFieldTransform, toScreenX, toScreenY } from '../view';
-import type { World } from '../world';
+import { ballHue, hueOf, type World } from '../world';
 import { roundRect } from './shapes';
 
 const COURT_RADIUS = 26;
@@ -12,9 +13,9 @@ const COMBO_DURATION = 1.3;
 
 /**
  * Canvas renderer. All drawing state lives here; the simulation never touches
- * the context. Gradients are cached and rebuilt only when the geometry or the
- * heat bucket changes - allocating them every frame costs real time on
- * low-end phones.
+ * the context. Gradients are cached and rebuilt only when the geometry, the
+ * theme or the heat bucket changes - allocating them every frame costs real
+ * time on low-end phones.
  */
 export class Renderer {
   private readonly edgeA: Vec2[] = [];
@@ -24,6 +25,7 @@ export class Renderer {
   private bg: CanvasGradient | null = null;
   private court: CanvasGradient | null = null;
   private endGlow: Partial<Record<Side, CanvasGradient>> = {};
+  private theme: ResolvedTheme | null = null;
 
   private readonly ctx: CanvasRenderingContext2D;
 
@@ -31,7 +33,7 @@ export class Renderer {
     this.ctx = ctx;
   }
 
-  /** Call whenever the view geometry changes. */
+  /** Call whenever the view geometry or the equipped theme changes. */
   invalidate(): void {
     this.bgHeatBucket = -1;
     this.court = null;
@@ -41,6 +43,13 @@ export class Renderer {
   render(world: World): void {
     const { ctx } = this;
     const { view, fx } = world;
+
+    // A theme swap arrives through the engine, but catch it here too so a
+    // cached gradient can never outlive the cosmetic it came from.
+    if (this.theme !== world.theme) {
+      this.theme = world.theme;
+      this.invalidate();
+    }
 
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     this.drawBackground(world);
@@ -62,13 +71,9 @@ export class Renderer {
     }
   }
 
-  private ballHue(world: World): number {
-    return heatHue(sideHue(world.ball.owner), world.fx.heat);
-  }
-
   private drawBackground(world: World): void {
     const { ctx } = this;
-    const { view, fx } = world;
+    const { view, fx, theme } = world;
 
     ctx.fillStyle = BACKDROP;
     ctx.fillRect(0, 0, view.vw, view.vh);
@@ -78,7 +83,7 @@ export class Renderer {
       this.bgHeatBucket = bucket;
       const r = Math.max(view.vw, view.vh) * 0.75;
       const gradient = ctx.createRadialGradient(view.cx, view.cy, 0, view.cx, view.cy, r);
-      gradient.addColorStop(0, hsla(heatHue(205, fx.heat), 60, 22, 0.55));
+      gradient.addColorStop(0, hsla(heatHue(theme.bgHue, fx.heat, theme.hotHue), 60, 22, 0.55));
       gradient.addColorStop(1, 'rgba(6,8,15,0)');
       this.bg = gradient;
     }
@@ -89,6 +94,7 @@ export class Renderer {
   private drawCourt(world: World): void {
     const { ctx } = this;
     const { w, h } = world.view;
+    const theme = world.theme;
 
     roundRect(ctx, 0, 0, w, h, COURT_RADIUS);
     ctx.save();
@@ -96,8 +102,8 @@ export class Renderer {
 
     if (!this.court) {
       const gradient = ctx.createLinearGradient(0, 0, 0, h);
-      gradient.addColorStop(0, '#0c1121');
-      gradient.addColorStop(1, '#070a14');
+      gradient.addColorStop(0, theme.courtTop);
+      gradient.addColorStop(1, theme.courtBottom);
       this.court = gradient;
     }
     ctx.fillStyle = this.court;
@@ -107,9 +113,9 @@ export class Renderer {
     this.drawEndGlow(world, 0, 'you');
     this.drawEndGlow(world, w, 'bot');
 
-    ctx.strokeStyle = 'rgba(238,242,255,0.10)';
+    ctx.strokeStyle = `rgba(238,242,255,${theme.lineAlpha})`;
     ctx.lineWidth = 2;
-    ctx.setLineDash([9, 13]);
+    ctx.setLineDash([theme.dash[0], theme.dash[1]]);
     ctx.beginPath();
     ctx.moveTo(w / 2, 8);
     ctx.lineTo(w / 2, h - 8);
@@ -118,15 +124,15 @@ export class Renderer {
 
     ctx.beginPath();
     ctx.arc(w / 2, h / 2, 74, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(238,242,255,0.06)';
+    ctx.strokeStyle = `rgba(238,242,255,${theme.lineAlpha * 0.6})`;
     ctx.lineWidth = 2;
     ctx.stroke();
 
     if (world.match.status !== 'menu') this.drawPips(world);
 
     this.drawTrail(world);
-    this.drawPaddle(world.player, 1);
-    this.drawPaddle(world.bot, -1);
+    this.drawPaddle(world, world.player, 1);
+    this.drawPaddle(world, world.bot, -1);
     this.drawParticles(world);
     this.drawBall(world);
 
@@ -143,7 +149,7 @@ export class Renderer {
     const { h } = world.view;
     let gradient = this.endGlow[side];
     if (!gradient) {
-      const hue = sideHue(side);
+      const hue = hueOf(world, side);
       gradient = ctx.createRadialGradient(x, h / 2, 0, x, h / 2, h * 0.85);
       gradient.addColorStop(0, hsla(hue, 80, 50, 0.13));
       gradient.addColorStop(1, hsla(hue, 80, 50, 0));
@@ -153,53 +159,61 @@ export class Renderer {
     ctx.fillRect(x - h * 0.85, 0, h * 1.7, h);
   }
 
+  /** Score pips per side - or, in a lives-based mode, the lives left. */
   private drawPips(world: World): void {
-    const { ctx } = this;
     const { view, match } = world;
+
+    if (match.maxLives > 0) {
+      this.drawPipColumn(world, 24, hueOf(world, 'you'), match.maxLives, match.lives);
+      return;
+    }
+    if (match.winScore <= 0) return;
+
+    this.drawPipColumn(world, 24, hueOf(world, 'you'), match.winScore, match.score.you);
+    this.drawPipColumn(world, view.w - 24, hueOf(world, 'bot'), match.winScore, match.score.bot);
+  }
+
+  private drawPipColumn(world: World, x: number, hue: number, total: number, filled: number): void {
+    const { ctx } = this;
     const gap = 30;
-    const top = view.h / 2 - ((WIN_SCORE - 1) * gap) / 2;
-    const sides: Side[] = ['you', 'bot'];
+    const top = world.view.h / 2 - ((total - 1) * gap) / 2;
 
-    for (const side of sides) {
-      const x = side === 'you' ? 24 : view.w - 24;
-      const hue = sideHue(side);
-      const score = match.score[side];
-
-      for (let i = 0; i < WIN_SCORE; i++) {
-        const y = top + i * gap;
-        ctx.beginPath();
-        if (i < score) {
-          ctx.arc(x, y, 7, 0, Math.PI * 2);
-          ctx.fillStyle = hsla(hue, 95, 66, 1);
-          ctx.shadowColor = hsla(hue, 95, 60, 0.9);
-          ctx.shadowBlur = 14;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        } else {
-          ctx.arc(x, y, 6, 0, Math.PI * 2);
-          ctx.strokeStyle = hsla(hue, 60, 60, 0.3);
-          ctx.lineWidth = 1.6;
-          ctx.stroke();
-        }
+    for (let i = 0; i < total; i++) {
+      const y = top + i * gap;
+      ctx.beginPath();
+      if (i < filled) {
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.fillStyle = hsla(hue, 95, 66, 1);
+        ctx.shadowColor = hsla(hue, 95, 60, 0.9);
+        ctx.shadowBlur = 14;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.strokeStyle = hsla(hue, 60, 60, 0.3);
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
       }
     }
   }
 
-  private drawPaddle(paddle: Paddle, dir: 1 | -1): void {
+  private drawPaddle(world: World, paddle: Paddle, dir: 1 | -1): void {
     const { ctx } = this;
+    const theme = world.theme;
     const flash = paddle.flash;
     const w = PADDLE_W * (1 + flash * 0.4);
     const h = paddle.half * 2 * (1 - flash * 0.07);
     // Paddles keep their identity colour at all times - only the ball runs hot.
-    const hue = sideHue(paddle.side);
+    const hue = hueOf(world, paddle.side);
     const x = paddle.x - w / 2 + dir * flash * 3;
     const y = paddle.y - h / 2;
+    const radius = (w / 2) * theme.paddleRound;
 
     ctx.save();
-    ctx.shadowColor = hsla(hue, 95, 60, 0.55 + flash * 0.4);
-    ctx.shadowBlur = 16 + flash * 26;
+    ctx.shadowColor = hsla(hue, 95, 60, (0.55 + flash * 0.4) * theme.paddleGlow);
+    ctx.shadowBlur = (16 + flash * 26) * theme.paddleGlow;
     ctx.fillStyle = hsla(hue, 92, 62 + flash * 22, 1);
-    roundRect(ctx, x, y, w, h, w / 2);
+    roundRect(ctx, x, y, w, h, radius);
     ctx.fill();
     ctx.restore();
 
@@ -208,7 +222,7 @@ export class Renderer {
       ctx.globalAlpha = flash * 0.5;
       ctx.strokeStyle = hsla(hue, 100, 80, 1);
       ctx.lineWidth = 2;
-      roundRect(ctx, x - 5, y - 5, w + 10, h + 10, (w + 10) / 2);
+      roundRect(ctx, x - 5, y - 5, w + 10, h + 10, radius + 5);
       ctx.stroke();
       ctx.restore();
     }
@@ -225,6 +239,7 @@ export class Renderer {
     const n = trail.length;
     if (n < 3) return;
 
+    const theme = world.theme;
     for (let i = 0; i < n; i++) {
       const a = trail[Math.max(0, i - 1)]!;
       const b = trail[Math.min(n - 1, i + 1)]!;
@@ -233,14 +248,14 @@ export class Renderer {
       const dy = b.y - a.y;
       const len = Math.hypot(dx, dy);
       const t = i / (n - 1);
-      const w = BALL_R * 0.95 * t * t;
+      const w = BALL_R * 0.95 * theme.trailWidth * t * t;
       const nx = len < 0.0001 ? 0 : (-dy / len) * w;
       const ny = len < 0.0001 ? 0 : (dx / len) * w;
       this.edgeA[i] = { x: here.x + nx, y: here.y + ny };
       this.edgeB[i] = { x: here.x - nx, y: here.y - ny };
     }
 
-    const hue = this.ballHue(world);
+    const hue = ballHue(world);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 1; i < n; i++) {
@@ -255,7 +270,7 @@ export class Renderer {
       ctx.lineTo(b1.x, b1.y);
       ctx.lineTo(b0.x, b0.y);
       ctx.closePath();
-      ctx.fillStyle = hsla(hue, 100, 64, 0.42 * t * t);
+      ctx.fillStyle = hsla(hue, 100, 64, 0.42 * theme.trailAlpha * t * t);
       ctx.fill();
     }
     ctx.restore();
@@ -263,15 +278,16 @@ export class Renderer {
 
   private drawBall(world: World): void {
     const { ctx } = this;
-    const { ball, match } = world;
+    const { ball, match, theme, tuning } = world;
 
     if (match.status === 'serve') this.drawServeRing(world);
     if (ball.vx === 0 && ball.vy === 0 && match.status !== 'serve' && match.status !== 'menu') {
       return;
     }
 
-    const hue = this.ballHue(world);
-    const speedT = clamp((ball.speed - SERVE_SPEED) / (MAX_SPEED - SERVE_SPEED), 0, 1);
+    const hue = ballHue(world);
+    const span = Math.max(1, tuning.maxSpeed - tuning.serveSpeed);
+    const speedT = clamp((ball.speed - tuning.serveSpeed) / span, 0, 1);
     const squash = ball.squash;
 
     // Stretch along travel, squash against the surface that was just hit.
@@ -284,21 +300,22 @@ export class Renderer {
     ctx.save();
     ctx.translate(ball.x, ball.y);
 
-    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, BALL_R * 4.2);
-    glow.addColorStop(0, hsla(hue, 100, 70, 0.5));
-    glow.addColorStop(0.45, hsla(hue, 100, 60, 0.16));
+    const reach = BALL_R * 4.2;
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
+    glow.addColorStop(0, hsla(hue, 100, 70, 0.5 * theme.ballGlow));
+    glow.addColorStop(0.45, hsla(hue, 100, 60, 0.16 * theme.ballGlow));
     glow.addColorStop(1, hsla(hue, 100, 60, 0));
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(0, 0, BALL_R * 4.2, 0, Math.PI * 2);
+    ctx.arc(0, 0, reach, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.rotate(angle);
     ctx.beginPath();
     ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = theme.ballFill;
     ctx.fill();
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.5 * theme.ballRing;
     ctx.strokeStyle = hsla(hue, 100, 68, 0.9);
     ctx.stroke();
     ctx.restore();
@@ -306,9 +323,10 @@ export class Renderer {
 
   private drawServeRing(world: World): void {
     const { ctx } = this;
-    const { ball, match, fx } = world;
+    const { ball, match, fx, theme } = world;
     const t = 1 - clamp(match.serveTimer / SERVE_DELAY, 0, 1);
-    const hue = heatHue(match.serveDir > 0 ? HUE.you : HUE.bot, fx.heat);
+    const base = match.serveDir > 0 ? theme.youHue : theme.botHue;
+    const hue = heatHue(base, fx.heat, theme.hotHue);
 
     ctx.save();
     ctx.globalAlpha = 0.25 + 0.35 * Math.sin(t * Math.PI);
@@ -342,7 +360,7 @@ export class Renderer {
    */
   private drawScreenHud(world: World): void {
     const { ctx } = this;
-    const { view, match, fx } = world;
+    const { view, match, fx, theme } = world;
     const cx = toScreenX(view, view.w / 2, view.h / 2);
     const cy = toScreenY(view, view.w / 2, view.h / 2);
     const s = view.scale;
@@ -353,7 +371,7 @@ export class Renderer {
     if (match.rally >= 2 && (match.status === 'play' || match.status === 'paused')) {
       ctx.save();
       ctx.font = `800 ${(170 * s).toFixed(1)}px ${CANVAS_FONT}`;
-      ctx.fillStyle = hsla(heatHue(198, fx.heat), 72, 72, 0.09 + fx.heat * 0.13);
+      ctx.fillStyle = hsla(heatHue(198, fx.heat, theme.hotHue), 72, 72, 0.09 + fx.heat * 0.13);
       ctx.fillText(String(match.rally), cx, cy);
       ctx.restore();
     }
@@ -375,7 +393,8 @@ export class Renderer {
       ctx.save();
       ctx.globalAlpha = 0.5 + 0.3 * Math.sin(fx.time * 6);
       ctx.font = `750 ${(20 * s).toFixed(1)}px ${CANVAS_FONT}`;
-      ctx.fillStyle = match.score.you === WIN_SCORE - 1 ? 'hsl(171,90%,66%)' : 'hsl(342,90%,68%)';
+      const mine = match.score.you === match.winScore - 1;
+      ctx.fillStyle = hsla(mine ? theme.youHue : theme.botHue, 90, 67, 1);
       ctx.fillText('MATCH POINT', cx, cy - 116 * s);
       ctx.restore();
     }

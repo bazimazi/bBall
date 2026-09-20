@@ -1,5 +1,5 @@
 import { FIELD_H, PADDLE_MAX_SPEED } from './constants';
-import { botSkill, driveAi } from './ai';
+import { driveAi } from './ai';
 import { launchBall } from './match';
 import { movePaddle, stepBall } from './physics';
 import { clamp, decay, lerp } from './utils/math';
@@ -31,9 +31,8 @@ export function step(world: World, dt: number): void {
 
   switch (match.status) {
     case 'menu': {
-      const skill = botSkill(world);
-      driveAi(world, player, dt, skill);
-      driveAi(world, bot, dt, skill);
+      driveAi(world, player, world.demoBrain, dt);
+      driveAi(world, bot, world.botBrain, dt);
       if (match.serveTimer > 0) {
         match.serveTimer -= dt;
         if (match.serveTimer <= 0) {
@@ -48,6 +47,7 @@ export function step(world: World, dt: number): void {
     }
 
     case 'serve': {
+      match.elapsed += dt;
       player.target = clamp(player.target, player.half, FIELD_H - player.half);
       movePaddle(player, dt, PADDLE_MAX_SPEED);
       bot.target = lerp(bot.target, FIELD_H / 2, Math.min(1, dt * 3));
@@ -58,8 +58,9 @@ export function step(world: World, dt: number): void {
     }
 
     case 'play': {
+      match.elapsed += dt;
       movePaddle(player, dt, PADDLE_MAX_SPEED);
-      driveAi(world, bot, dt, botSkill(world));
+      driveAi(world, bot, world.botBrain, dt);
       stepBall(world, dt);
       break;
     }

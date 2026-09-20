@@ -1,12 +1,12 @@
+import type { BotProfile } from '../core/bots/types';
+import type { MatchResult, ModeId } from '../core/modes/types';
+
 export type Side = 'you' | 'bot';
 
 /**
  * `menu` runs a silent attract-mode rally; `serve` holds the ball at centre.
  */
 export type GameStatus = 'menu' | 'serve' | 'play' | 'paused' | 'over';
-
-/** Which overlay card the UI should show, if any. */
-export type PanelName = 'start' | 'pause' | 'over' | null;
 
 export interface Vec2 {
   x: number;
@@ -21,12 +21,28 @@ export interface Paddle {
   vy: number;
   target: number;
   half: number;
+  /** The half-length this match started with; `half` may shrink from it. */
+  baseHalf: number;
   /** 0..1 hit highlight, decays every step. */
   flash: number;
-  /** Bot only: has it committed to this approach? */
-  aimed: boolean;
-  /** Bot only: remaining reaction delay, in seconds. */
+}
+
+/**
+ * One computer player's short-term memory: when it last looked at the ball,
+ * what it decided, and whether it misread the bounce. Kept apart from
+ * {@link Paddle} so the same paddle can be driven by a person or a bot.
+ */
+export interface BotBrain {
+  profile: BotProfile;
+  /** Remaining reaction delay, in seconds. */
   wait: number;
+  /** Has it committed to this approach? */
+  aimed: boolean;
+  /** Looks taken at the incoming ball; better bots correct themselves. */
+  reads: number;
+  maxReads: number;
+  /** True when this approach was misjudged - a believable, human whiff. */
+  misread: boolean;
 }
 
 export interface Ball {
@@ -44,23 +60,49 @@ export interface Ball {
   owner: Side;
 }
 
+/** Speed and size limits for the current match, after mode modifiers. */
+export interface Tuning {
+  serveSpeed: number;
+  maxSpeed: number;
+  /** Multiplier applied to the ball's speed on every return. */
+  speedPerHit: number;
+  /** Fraction of the player's paddle lost per return. 0 for most modes. */
+  shrinkPerHit: number;
+}
+
 export interface MatchState {
   status: GameStatus;
   /** Which status a resume returns to. */
   resumeTo: Extract<GameStatus, 'play' | 'serve'>;
+  mode: ModeId;
+  /** Short title for the HUD and result card. */
+  label: string;
   serveTimer: number;
   serveDir: 1 | -1;
   rally: number;
-  best: number;
   bestThisMatch: number;
-  /** Points played this match; drives serve speed and bot skill. */
+  /** Points played this match; drives serve speed. */
   points: number;
+  /** Returns the player has hit this match. */
+  hits: number;
+  /** Seconds of active play, for stats and the result card. */
+  elapsed: number;
   score: Record<Side, number>;
+  /** Points needed to win. 0 in modes that never end on score. */
+  winScore: number;
+  /** Largest deficit the player has faced this match; drives "comeback". */
+  deficit: number;
+  /** Misses left. 0 when the mode does not use lives. */
+  lives: number;
+  maxLives: number;
   winner: Side | null;
-  newBest: boolean;
-  /** Delay before the game-over card appears. */
+  /** Delay before the result is published. */
   overTimer: number;
   overShown: boolean;
+  /** The finished match, published once when it ends. */
+  result: MatchResult | null;
+  /** Increments with every published result, so the UI can react exactly once. */
+  resultId: number;
 }
 
 /** Presentation-only state: camera, colour heat and banners. */
@@ -122,14 +164,20 @@ export interface EmitOptions {
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
   status: GameStatus;
-  panel: PanelName;
+  mode: ModeId;
+  label: string;
   scoreYou: number;
   scoreBot: number;
-  best: number;
+  winScore: number;
   bestThisMatch: number;
-  newBest: boolean;
+  lives: number;
+  maxLives: number;
   winner: Side | null;
   muted: boolean;
   /** True while the in-game pause button should be offered. */
   canPause: boolean;
+  /** The objective line for challenge and cup matches, if any. */
+  objective: string | null;
+  result: MatchResult | null;
+  resultId: number;
 }

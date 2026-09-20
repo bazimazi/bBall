@@ -16,6 +16,8 @@ export const MAX_ASPECT = 2.15;
 export const BALL_R = 11;
 export const PADDLE_W = 16;
 export const PADDLE_H = 108;
+/** Challenge modifiers may shrink a paddle, but never past this fraction. */
+export const MIN_PADDLE_SCALE = 0.42;
 /** Paddle centre distance from the field edge. */
 export const PADDLE_INSET = 46;
 /** Field units per second. */
@@ -32,7 +34,6 @@ export const MAX_SPEED = 1180;
 export const MAX_BOUNCE_ANGLE = 0.92;
 export const SPIN_INFLUENCE = 0.26;
 
-export const WIN_SCORE = 5;
 /** Seconds the ball hovers at centre before launch. */
 export const SERVE_DELAY = 0.8;
 export const FIXED_DT = 1 / 120;
@@ -51,6 +52,5 @@ export const TRAIL_MAX = 20;
 export const PARTICLE_MAX = 320;
 
 export const STORAGE_KEYS = {
-  best: 'bball.best',
   muted: 'bball.muted'
 } as const;

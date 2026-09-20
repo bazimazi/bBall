@@ -1,3 +1,5 @@
+import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
+import type { MatchRules } from '../core/modes/types';
 import { GameAudio } from './audio';
 import {
   FIELD_H,
@@ -7,14 +9,15 @@ import {
   MAX_STEPS_PER_FRAME,
   STORAGE_KEYS
 } from './constants';
-import { returnToMenu, startMatch } from './match';
+import { publishResult, returnToMenu, startMatch } from './match';
 import { Renderer } from './render/renderer';
 import { step } from './simulation';
-import type { GameSnapshot, PanelName } from './types';
+import type { GameSnapshot } from './types';
 import { clamp } from './utils/math';
 import { readStored } from './utils/storage';
 import { layoutView, screenToFieldY } from './view';
 import {
+  applyPaddleSizes,
   centreBall,
   centrePaddles,
   createWorld,
@@ -37,15 +40,20 @@ let idle: GameSnapshot | null = null;
 export function idleSnapshot(): GameSnapshot {
   idle ??= {
     status: 'menu',
-    panel: 'start',
+    mode: 'quick',
+    label: '',
     scoreYou: 0,
     scoreBot: 0,
-    best: parseInt(readStored(STORAGE_KEYS.best, '0'), 10) || 0,
+    winScore: 0,
     bestThisMatch: 0,
-    newBest: false,
+    lives: 0,
+    maxLives: 0,
     winner: null,
     muted: readStored(STORAGE_KEYS.muted, '0') === '1',
-    canPause: false
+    canPause: false,
+    objective: null,
+    result: null,
+    resultId: 0
   };
   return idle;
 }
@@ -75,13 +83,14 @@ export class GameEngine {
 
   private readonly canvas: HTMLCanvasElement;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, theme: ResolvedTheme = DEFAULT_THEME) {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('bBall: this browser has no 2D canvas context.');
 
     this.canvas = canvas;
     this.renderer = new Renderer(ctx);
     this.world = createWorld(this.audio, this.motionQuery.matches ? REDUCED_MOTION_SCALE : 1);
+    this.world.theme = theme;
     this.snapshot = this.buildSnapshot();
   }
 
@@ -93,6 +102,7 @@ export class GameEngine {
     this.running = true;
 
     this.layout();
+    applyPaddleSizes(this.world);
     centreBall(this.world);
     centrePaddles(this.world);
     this.world.match.serveTimer = 0.4;
@@ -124,11 +134,20 @@ export class GameEngine {
 
   // ------------------------------------------------------------ commands
 
-  newMatch = (): void => {
+  /** Start a match under `rules`. Every mode goes through here. */
+  play = (rules: MatchRules): void => {
     this.audio.unlock();
     this.audio.ui();
-    startMatch(this.world);
+    this.keys.up = false;
+    this.keys.down = false;
+    this.pointerId = null;
+    startMatch(this.world, rules);
     this.publish();
+  };
+
+  /** Replay the match that just finished, with the same rules. */
+  replay = (): void => {
+    this.play(this.world.rules);
   };
 
   pause = (): void => {
@@ -153,9 +172,11 @@ export class GameEngine {
     this.publish();
   };
 
+  /** Leave the match and go back to the attract-mode demo behind the menus. */
   quitToMenu = (): void => {
     this.audio.ui();
     returnToMenu(this.world);
+    applyPaddleSizes(this.world);
     this.publish();
   };
 
@@ -166,27 +187,35 @@ export class GameEngine {
     this.publish();
   };
 
+  /** Swap the equipped cosmetics. Safe to call mid-match. */
+  setTheme = (theme: ResolvedTheme): void => {
+    if (this.world.theme === theme) return;
+    this.world.theme = theme;
+    this.renderer.invalidate();
+  };
+
   // --------------------------------------------------------------- state
 
   private buildSnapshot(): GameSnapshot {
-    const { match } = this.world;
+    const { match, rules } = this.world;
     const status = match.status;
-    let panel: PanelName = null;
-    if (status === 'menu') panel = 'start';
-    else if (status === 'paused') panel = 'pause';
-    else if (status === 'over' && match.overShown) panel = 'over';
 
     return {
       status,
-      panel,
+      mode: match.mode,
+      label: match.label,
       scoreYou: match.score.you,
       scoreBot: match.score.bot,
-      best: match.best,
+      winScore: match.winScore,
       bestThisMatch: match.bestThisMatch,
-      newBest: match.newBest,
+      lives: match.lives,
+      maxLives: match.maxLives,
       winner: match.winner,
       muted: this.audio.muted,
-      canPause: status === 'play' || status === 'serve'
+      canPause: status === 'play' || status === 'serve',
+      objective: rules.objective?.label ?? null,
+      result: match.result,
+      resultId: match.resultId
     };
   }
 
@@ -254,10 +283,10 @@ export class GameEngine {
       fx.shakeY = 0;
     }
 
-    // The game-over card waits a beat so the winning point can be seen.
+    // The result card waits a beat so the winning point can be seen.
     if (match.status === 'over' && !match.overShown) {
       match.overTimer -= dt;
-      if (match.overTimer <= 0) match.overShown = true;
+      if (match.overTimer <= 0) publishResult(world);
     }
 
     this.publish();
@@ -270,11 +299,7 @@ export class GameEngine {
     if (!this.keys.up && !this.keys.down) return;
     const { player } = this.world;
     const dir = (this.keys.down ? 1 : 0) - (this.keys.up ? 1 : 0);
-    player.target = clamp(
-      player.target + dir * KEY_SPEED * dt,
-      player.half,
-      FIELD_H - player.half
-    );
+    player.target = clamp(player.target + dir * KEY_SPEED * dt, player.half, FIELD_H - player.half);
   }
 
   private trackPointer(event: PointerEvent): void {
@@ -304,7 +329,11 @@ export class GameEngine {
   private onPointerMove = (event: PointerEvent): void => {
     const { status } = this.world.match;
     if (status !== 'play' && status !== 'serve') return;
-    if (event.pointerType === 'mouse' || this.pointerId === null || event.pointerId === this.pointerId) {
+    if (
+      event.pointerType === 'mouse' ||
+      this.pointerId === null ||
+      event.pointerId === this.pointerId
+    ) {
       this.trackPointer(event);
     }
   };
@@ -329,13 +358,17 @@ export class GameEngine {
       event.preventDefault();
       this.audio.unlock();
     } else if (key === ' ' || key === 'enter') {
-      // Never steal the key from a focused button - it would double-fire.
+      // Never steal the key from a focused button - it would double-fire, and
+      // the menus are React's to drive.
       if (document.activeElement instanceof HTMLButtonElement) return;
-      event.preventDefault();
       this.audio.unlock();
-      if (match.status === 'menu' || match.status === 'over') this.newMatch();
-      else if (match.status === 'paused') this.resume();
-      else if (match.status === 'serve') match.serveTimer = 0;
+      if (match.status === 'paused') {
+        event.preventDefault();
+        this.resume();
+      } else if (match.status === 'serve') {
+        event.preventDefault();
+        match.serveTimer = 0;
+      }
     } else if (key === 'escape' || key === 'p') {
       event.preventDefault();
       if (match.status === 'play' || match.status === 'serve') this.pause();

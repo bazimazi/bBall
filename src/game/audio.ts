@@ -64,7 +64,14 @@ export class GameAudio {
   }
 
   /** One short synthesised blip. */
-  tone(freq: number, dur: number, type: OscillatorType, gain: number, slideTo = 0, delay = 0): void {
+  tone(
+    freq: number,
+    dur: number,
+    type: OscillatorType,
+    gain: number,
+    slideTo = 0,
+    delay = 0
+  ): void {
     const context = this.context;
     const master = this.master;
     if (!context || !master || this.mutedFlag) return;

@@ -1,0 +1,821 @@
+/*
+ * One stylesheet for every menu screen.
+ *
+ * Mobile first: a screen is a full-height column with a fixed header, one
+ * scrolling body and an optional sticky footer, so the primary action always
+ * sits under the thumb and no menu is ever more than two taps deep.
+ */
+
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--safe-t) + 10px) calc(var(--safe-r) + 14px) calc(var(--safe-b) + 12px)
+    calc(var(--safe-l) + 14px);
+  background: radial-gradient(120% 90% at 50% 40%, rgba(6, 8, 15, 0.42), rgba(6, 8, 15, 0.84));
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  animation: fade 0.22s ease;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  flex: 0 0 auto;
+}
+
+.title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.back {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: rgba(238, 242, 255, 0.04);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.back svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.back:hover {
+  background: rgba(238, 242, 255, 0.1);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 2px 6px;
+}
+
+.footer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.center {
+  margin: auto 0;
+}
+
+/* ---------------------------------------------------------------- cards */
+
+.card {
+  border: 1px solid var(--edge);
+  border-radius: 20px;
+  background: var(--card);
+  padding: 14px 16px;
+}
+
+.grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+
+.gridTwo {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* A tappable row: title + blurb on the left, meta on the right. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 62px;
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: rgba(16, 20, 34, 0.66);
+  color: var(--ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.row:hover {
+  border-color: rgba(238, 242, 255, 0.24);
+  background: rgba(24, 30, 48, 0.8);
+}
+
+.row:active {
+  transform: scale(0.985);
+}
+
+.row:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.rowTitle {
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.rowBlurb {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.rowMeta {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-end;
+}
+
+.selected {
+  border-color: var(--you);
+  box-shadow: 0 0 0 1px var(--you) inset;
+}
+
+.done {
+  color: var(--you);
+}
+
+/* --------------------------------------------------------------- buttons */
+
+.primary {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 16px;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #04120f;
+  /* Plain fallback first, for engines without color-mix(). */
+  background: var(--you);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--you) 78%, white), var(--you));
+  box-shadow: 0 10px 26px rgba(79, 240, 214, 0.18);
+  transition:
+    transform 0.12s ease,
+    filter 0.18s ease;
+}
+
+.primary:hover {
+  filter: brightness(1.06);
+}
+
+.primary:active {
+  transform: scale(0.98);
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ghost {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
+}
+
+.ghost:hover {
+  color: var(--ink);
+  background: rgba(238, 242, 255, 0.06);
+}
+
+.buttonRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* --------------------------------------------------------------- profile */
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: rgba(238, 242, 255, 0.24);
+}
+
+.chipText {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chipName {
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: rgba(238, 242, 255, 0.06);
+  border: 1px solid var(--edge);
+}
+
+.avatarLarge {
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+}
+
+.avatar svg {
+  width: 60%;
+  height: 60%;
+  display: block;
+}
+
+.level {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  color: #04120f;
+  background: var(--you);
+}
+
+.levelBig {
+  min-width: 44px;
+  height: 30px;
+  font-size: 15px;
+  border-radius: 11px;
+}
+
+/* ---------------------------------------------------------------- xp bar */
+
+.xpTrack {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(238, 242, 255, 0.1);
+  overflow: hidden;
+}
+
+.xpFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--you);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--you) 60%, #ffffff), var(--you));
+  transition: width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.xpMeta {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------------- stats */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stat {
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: rgba(238, 242, 255, 0.045);
+  text-align: center;
+}
+
+.statValue {
+  font-size: 17px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------ difficulty */
+
+.rank {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.rankDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(238, 242, 255, 0.18);
+}
+
+.rankOn {
+  background: var(--you);
+}
+
+/* ------------------------------------------------------------- cosmetics */
+
+.swatchGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+}
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: rgba(16, 20, 34, 0.6);
+  color: var(--ink);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.swatch:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.swatchDisc {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(238, 242, 255, 0.2);
+}
+
+.swatchName {
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.swatchLock {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.sectionLabel {
+  margin: 4px 0 -2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------- achievements */
+
+.achievement {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 13px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: rgba(16, 20, 34, 0.55);
+}
+
+.achievementLocked {
+  opacity: 0.62;
+}
+
+.tick {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(238, 242, 255, 0.07);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.tickOn {
+  background: var(--you);
+  color: #04120f;
+}
+
+.miniTrack {
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgba(238, 242, 255, 0.1);
+  overflow: hidden;
+}
+
+.miniFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--you);
+}
+
+/* -------------------------------------------------------------- brackets */
+
+.bracket {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bracketRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: rgba(16, 20, 34, 0.55);
+}
+
+.bracketNow {
+  border-color: var(--you);
+}
+
+.bracketScore {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.win {
+  color: var(--you);
+}
+
+.lose {
+  color: var(--bot);
+}
+
+/* --------------------------------------------------------------- results */
+
+.resultHead {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resultTitle {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.scoreLine {
+  margin: 0;
+  font-size: 38px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreYou {
+  color: var(--you);
+}
+
+.scoreBot {
+  color: var(--bot);
+}
+
+.scoreLine i {
+  font-style: normal;
+  color: var(--muted);
+  margin: 0 8px;
+}
+
+.xpLines {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.xpLine {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.xpTotal {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 7px;
+  margin-top: 3px;
+  border-top: 1px solid var(--edge);
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--ink);
+}
+
+.unlockRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: rgba(79, 240, 214, 0.08);
+  border: 1px solid rgba(79, 240, 214, 0.25);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.levelUp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(79, 240, 214, 0.16), rgba(79, 240, 214, 0.06));
+  border: 1px solid rgba(79, 240, 214, 0.35);
+  font-size: 15px;
+  font-weight: 750;
+  animation: pop 0.45s cubic-bezier(0.18, 0.9, 0.24, 1);
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.82);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+  }
+}
+
+/* ------------------------------------------------------------------ form */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: rgba(238, 242, 255, 0.05);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--you);
+}
+
+.note {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.danger {
+  color: var(--bot);
+  border-color: rgba(255, 92, 138, 0.4);
+}
+
+/* ------------------------------------------------------------ responsive */
+
+@media (min-width: 620px) {
+  .screen {
+    padding-left: max(calc(var(--safe-l) + 14px), calc(50vw - 300px));
+    padding-right: max(calc(var(--safe-r) + 14px), calc(50vw - 300px));
+  }
+}
+
+/* Landscape phones: shorter rows, two columns, smaller type. */
+@media (max-height: 460px) {
+  .body {
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .row {
+    min-height: 54px;
+    padding: 9px 12px;
+  }
+
+  .primary {
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  .ghost {
+    min-height: 42px;
+  }
+
+  .resultTitle {
+    font-size: 24px;
+  }
+
+  .scoreLine {
+    font-size: 28px;
+  }
+
+  .avatarLarge {
+    width: 56px;
+    height: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen,
+  .levelUp {
+    animation: none;
+  }
+
+  .xpFill,
+  .row,
+  .primary {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* -------------------------------------------------------------- home top */
+
+.logo {
+  margin: 2px 0 0;
+  font-size: clamp(34px, 11vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  text-align: center;
+}
+
+.logo span {
+  color: var(--you);
+}
+
+.tagline {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-height: 460px) {
+  .logo {
+    font-size: 30px;
+  }
+
+  .tagline {
+    display: none;
+  }
+}
+
+/* The home screen's stack sits in the middle of the space it is given. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: auto 0;
+}
