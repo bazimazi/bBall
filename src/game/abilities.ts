@@ -1,7 +1,8 @@
 import { BALANCE } from '../core/balance/config';
-import { abilityById } from '../core/talents/abilities';
+import { abilityById, type AbilityDef } from '../core/talents/abilities';
 import type { AbilityId } from '../core/talents/types';
 import { predictY } from './ai';
+import { laneRush, ultimateCast } from './casts';
 import { FIELD_H } from './constants';
 import { hsla, sideHue } from './palette';
 import { boundTarget } from './talents';
@@ -41,7 +42,7 @@ function dashAim(world: World): { dir: 1 | -1; stop: number | null } {
   return { dir: player.y < FIELD_H / 2 ? 1 : -1, stop: null };
 }
 
-function fireDash(world: World): void {
+function fireDash(world: World, hue: number): void {
   const { player, talents, loadout } = world;
   const { dir, stop } = dashAim(world);
 
@@ -49,12 +50,22 @@ function fireDash(world: World): void {
   if (stop !== null) to = dir > 0 ? Math.min(to, stop) : Math.max(to, stop);
   to = boundTarget(player, to);
 
-  talents.dashFrom = player.y;
+  const from = player.y;
+  talents.dashFrom = from;
   player.y = to;
   player.target = to;
   player.vy = 0;
   talents.dashFx = loadout.effects.dashSeconds;
   talents.stats.dashes++;
+  // The first afterimage has to be taken at the *old* position: by the next
+  // step the paddle is already at the far end of the streak.
+  world.ghosts.mark(from, player.half);
+
+  // A ripple at each end of the jump - one where the paddle left, one where
+  // it arrived. Between them the renderer draws the corridor itself, which
+  // is the only motion a teleport has to show for itself.
+  world.casts.spawn('dash', { x: player.x, y: from, hue, life: 0.4, size: 44 }, world.motion);
+  world.casts.spawn('dash', { x: player.x, y: to, hue, life: 0.5, size: 30 }, world.motion);
 
   world.particles.emit(
     player.x,
@@ -76,6 +87,14 @@ function fireDash(world: World): void {
 function firePowerStrike(world: World, hue: number): void {
   const { talents, loadout, player } = world;
   talents.strikeArmed = loadout.effects.powerStrikeWindow;
+
+  // Arcs collapsing onto the paddle rather than flying off it: the charge is
+  // being taken *on*, which is what tells a held buff from a spent one.
+  world.casts.spawn(
+    'power-strike',
+    { x: player.x, y: player.y, hue, life: 0.55, size: 74 },
+    world.motion
+  );
   world.particles.emit(
     player.x,
     player.y,
@@ -86,17 +105,33 @@ function firePowerStrike(world: World, hue: number): void {
   world.audio.charge();
 }
 
-function firePerfectGuard(world: World): void {
-  const { talents, loadout } = world;
+function firePerfectGuard(world: World, hue: number): void {
+  const { talents, loadout, player } = world;
   // The window opens now and closes on its own. The cooldown starts either
   // way, so mashing it costs the next read rather than buying a second one.
   talents.guardWindow = loadout.effects.guardWindow;
+  // One bloom outwards as it opens. From here the aura's ring walks back in
+  // as the window drains, so the timing is a shape rather than a number.
+  world.casts.spawn(
+    'perfect-guard',
+    { x: player.x, y: player.y, hue, life: 0.4, size: 58 },
+    world.motion
+  );
   world.audio.guard();
 }
 
-/** A burst of light around the paddle, shared by every capstone. */
-function ultimateFlare(world: World, hue: number): void {
+/**
+ * The burst of light every capstone opens with.
+ *
+ * On top of the skill's own animation, and deliberately identical for all
+ * five: a court-wide ring, a beat of hit-stop, the viewport washed in the
+ * skill's own colour, and its name under the centre circle. Nothing else in
+ * the game may have any of those four, so "a capstone went off, and it was
+ * that one" reads even to a player whose eyes never left the ball.
+ */
+function ultimateFlare(world: World, id: AbilityId, hue: number, name: string): void {
   const { player } = world;
+  ultimateCast(world, id, hue, name);
   world.particles.emit(
     player.x,
     player.y,
@@ -104,41 +139,45 @@ function ultimateFlare(world: World, hue: number): void {
     { speed: 340, life: 0.7, size: 4.2, color: hsla(hue, 100, 70, 0.95) },
     world.motion
   );
-  world.audio.ultimate();
+  world.audio.ultimate(id);
 }
 
-function fire(world: World, id: AbilityId, hue: number): void {
+function fire(world: World, def: AbilityDef): void {
   const { talents, loadout } = world;
   const { effects } = loadout;
+  const { id, hue, name } = def;
 
   switch (id) {
     case 'power-strike':
       firePowerStrike(world, hue);
       break;
     case 'dash':
-      fireDash(world);
+      fireDash(world, hue);
       break;
     case 'perfect-guard':
-      firePerfectGuard(world);
+      firePerfectGuard(world, hue);
       break;
 
     // ----------------------------------------------------------- capstones
     case 'overload':
       talents.overload = effects.overloadHits;
-      ultimateFlare(world, hue);
+      ultimateFlare(world, id, hue, name);
       break;
     case 'slipstream':
       talents.slipstream = effects.slipstreamSeconds;
-      ultimateFlare(world, hue);
+      ultimateFlare(world, id, hue, name);
+      // Streaks the whole length of the lane, on top of the shared flare:
+      // the paddle did not merely get quicker, the court got shorter.
+      laneRush(world, hue);
       break;
     case 'aegis':
       talents.aegis = effects.aegisSeconds;
       talents.aegisSaves = effects.aegisSaves;
-      ultimateFlare(world, hue);
+      ultimateFlare(world, id, hue, name);
       break;
     case 'zenith':
       talents.zenith = effects.zenithSeconds;
-      ultimateFlare(world, hue);
+      ultimateFlare(world, id, hue, name);
       break;
     case 'echo':
       // Clears the *other* slots, never its own - that is what keeps a
@@ -147,7 +186,7 @@ function fire(world: World, id: AbilityId, hue: number): void {
         if (slot.id && slot.id !== 'echo') slot.cooldown = 0;
       }
       talents.echo = effects.echoSeconds;
-      ultimateFlare(world, hue);
+      ultimateFlare(world, id, hue, name);
       break;
   }
 }
@@ -174,7 +213,7 @@ export function fireAbility(world: World, slot: number): boolean {
   entry.span = span;
   world.talents.stats.abilitiesUsed++;
   if (def.ultimate) world.talents.stats.ultimates++;
-  fire(world, entry.id, def.hue);
+  fire(world, def);
   return true;
 }
 

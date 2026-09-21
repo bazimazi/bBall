@@ -2,6 +2,7 @@ import { BALANCE } from '../core/balance/config';
 import { resolveLoadout, type ResolvedLoadout } from '../core/talents/effects';
 import { createTalentSave } from '../core/talents/save';
 import type { TalentMatchStats } from '../core/talents/types';
+import { aegisSaveCast, zenithRefundCast } from './casts';
 import { BALL_R, FIELD_H, MAX_BOUNCE_ANGLE } from './constants';
 import { growPaddle } from './paddle';
 import { hsla, sideHue } from './palette';
@@ -458,7 +459,10 @@ export function tryShield(world: World): boolean {
   ball.squash = 0.9;
   ball.squashAngle = 0;
 
-  const hue = sideHue(world.theme, 'you');
+  // A Shield charge is the player's own colour; an Aegis save is Aegis's,
+  // and lights the whole barrier rather than one point on it. The two are
+  // never mistaken for each other, which matters when both are equipped.
+  const hue = free ? aegisSaveCast(world, ball.y) : sideHue(world.theme, 'you');
   world.particles.emit(
     0,
     ball.y,
@@ -482,6 +486,7 @@ export function tryZenith(world: World): boolean {
   const runtime = world.talents;
   if (runtime.zenith <= 0 || runtime.zenithRefunds <= 0) return false;
   runtime.zenithRefunds--;
+  zenithRefundCast(world);
   world.audio.secondChance();
   return true;
 }

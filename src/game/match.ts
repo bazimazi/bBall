@@ -1,6 +1,7 @@
 import { objectiveMet } from '../core/modes/rules';
 import type { MatchResult, MatchRules } from '../core/modes/types';
 import { BALL_R, FIELD_H, SERVE_DELAY } from './constants';
+import { clearAbilityFx } from './casts';
 import { hsla } from './palette';
 import {
   matchStats,
@@ -229,6 +230,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   fx.comboTimer = 0;
   centrePaddles(world);
   world.particles.clear();
+  clearAbilityFx(world);
   beginServe(world, Math.random() < 0.5 ? 1 : -1);
 }
 
@@ -261,6 +263,7 @@ export function returnToMenu(world: World): void {
   fx.heat = 0;
   fx.timeScale = 1;
   world.particles.clear();
+  clearAbilityFx(world);
   centreBall(world);
   match.serveTimer = 0.35;
 }

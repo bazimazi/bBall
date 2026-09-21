@@ -1,3 +1,4 @@
+import { updateAbilityFx } from './casts';
 import { FIELD_H } from './constants';
 import { driveAi } from './ai';
 import { launchBall } from './match';
@@ -15,6 +16,10 @@ export function step(world: World, dt: number): void {
   fx.shake *= decay(0.0016, dt);
   if (fx.shake < 0.05) fx.shake = 0;
   fx.flash *= decay(0.0008, dt);
+  // The tint belongs to the flash that asked for it; once that has gone, the
+  // next plain flash must not inherit a capstone's colour.
+  if (fx.flash < 0.01) fx.flashHue = -1;
+  if (fx.castTimer > 0) fx.castTimer = Math.max(0, fx.castTimer - dt);
   ball.squash *= decay(0.0009, dt);
   player.flash *= decay(0.0005, dt);
   bot.flash *= decay(0.0005, dt);
@@ -25,10 +30,14 @@ export function step(world: World, dt: number): void {
 
   if (fx.freeze > 0) {
     fx.freeze -= dt;
+    // Skill animations slow with the hit-stop they caused rather than running
+    // on through it - a capstone's flare is part of the impact, not after it.
     world.particles.update(dt * 0.25);
+    updateAbilityFx(world, dt * 0.25);
     return;
   }
   world.particles.update(dt);
+  updateAbilityFx(world, dt);
 
   switch (match.status) {
     case 'menu': {

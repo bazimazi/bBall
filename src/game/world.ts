@@ -5,6 +5,7 @@ import { quickMatchRules } from '../core/modes/rules';
 import type { MatchRules } from '../core/modes/types';
 import type { ResolvedLoadout } from '../core/talents/effects';
 import type { GameAudio } from './audio';
+import { CastSystem, GhostTrail } from './casts';
 import { FIELD_H, PADDLE_H, PADDLE_INSET, TRAIL_MAX } from './constants';
 import { setPaddleBase } from './paddle';
 import { ParticleSystem } from './particles';
@@ -39,6 +40,10 @@ export interface World {
   readonly fx: FxState;
   readonly trail: Vec2[];
   readonly particles: ParticleSystem;
+  /** One-shot skill animations. Presentation only - never read by physics. */
+  readonly casts: CastSystem;
+  /** The player paddle's afterimages, while a movement skill is running. */
+  readonly ghosts: GhostTrail;
   readonly audio: GameAudio;
   /** The mode being played. Replaced whenever a new match is configured. */
   rules: MatchRules;
@@ -145,9 +150,16 @@ function createFx(): FxState {
     shakeX: 0,
     shakeY: 0,
     flash: 0,
+    flashHue: -1,
     comboIndex: -1,
     comboLabel: '',
     comboTimer: 0,
+    castLabel: '',
+    castTimer: 0,
+    castHue: 0,
+    pulseTick: 0,
+    echoTick: 0,
+    emberTick: 0,
     time: 0
   };
 }
@@ -190,6 +202,8 @@ export function createWorld(audio: GameAudio, motion: number): World {
     fx: createFx(),
     trail: [],
     particles: new ParticleSystem(),
+    casts: new CastSystem(),
+    ghosts: new GhostTrail(),
     audio,
     rules,
     tuning: tuningFor(rules),

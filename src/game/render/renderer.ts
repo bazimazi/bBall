@@ -1,14 +1,18 @@
 import type { ResolvedTheme } from '../../core/cosmetics/theme';
-import { abilityById } from '../../core/talents/abilities';
-import { liveEffect } from '../abilities';
 import { BALL_R, PADDLE_W, SERVE_DELAY } from '../constants';
 import { isMatchPoint } from '../match';
 import { BACKDROP, CANVAS_FONT, heatHue, hsla } from '../palette';
-import { paddleBuffed } from '../talents';
 import type { Paddle, Side, Vec2 } from '../types';
 import { clamp } from '../utils/math';
 import { applyFieldTransform, toScreenX, toScreenY } from '../view';
 import { ballHue, hueOf, type World } from '../world';
+import {
+  drawCasts,
+  drawDashStreak,
+  drawGhosts,
+  drawPlayerAura,
+  drawUltimateBanner
+} from './abilityFx';
 import { roundRect } from './shapes';
 
 const COURT_RADIUS = 26;
@@ -69,7 +73,13 @@ export class Renderer {
     ctx.restore();
 
     if (fx.flash > 0.01) {
-      ctx.fillStyle = `rgba(255,255,255,${(fx.flash * 0.28).toFixed(3)})`;
+      // A capstone washes the viewport in its own colour; everything else
+      // gets the plain white one it always had.
+      const alpha = fx.flash * 0.28;
+      ctx.fillStyle =
+        fx.flashHue < 0
+          ? `rgba(255,255,255,${alpha.toFixed(3)})`
+          : hsla(fx.flashHue, 100, 66, alpha);
       ctx.fillRect(0, 0, view.vw, view.vh);
     }
   }
@@ -135,10 +145,12 @@ export class Renderer {
 
     this.drawShieldWall(world);
     this.drawTrail(world);
-    this.drawDashGhost(world);
+    drawGhosts(ctx, world);
+    drawDashStreak(ctx, world);
     this.drawPaddle(world, world.player, 1);
     this.drawPaddle(world, world.bot, -1);
-    this.drawPlayerAura(world);
+    drawPlayerAura(ctx, world);
+    drawCasts(ctx, world);
     this.drawParticles(world);
     this.drawBall(world);
 
@@ -258,165 +270,6 @@ export class Renderer {
     ctx.fillRect(0, 0, width, view.h);
     ctx.fillStyle = hsla(hue, 100, 78, 0.5 * strength);
     ctx.fillRect(0, 0, 2.5, view.h);
-    ctx.restore();
-  }
-
-  /** A fading ghost of where the paddle was before it dashed. */
-  private drawDashGhost(world: World): void {
-    const { ctx } = this;
-    const { talents: runtime, player, loadout } = world;
-    if (runtime.dashFx <= 0) return;
-
-    const t = clamp(runtime.dashFx / Math.max(0.01, loadout.effects.dashSeconds), 0, 1);
-    const hue = hueOf(world, 'you');
-    const top = Math.min(runtime.dashFrom, player.y) - player.half;
-    const bottom = Math.max(runtime.dashFrom, player.y) + player.half;
-
-    ctx.save();
-    ctx.globalAlpha = t * 0.45;
-    ctx.fillStyle = hsla(hue, 95, 66, 1);
-    roundRect(ctx, player.x - PADDLE_W / 2, top, PADDLE_W, bottom - top, PADDLE_W / 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  /**
-   * What the player's build is doing, drawn on the paddle itself.
-   *
-   * One layer per equipped skill, always at that slot's own distance from
-   * the paddle and always in that skill's own hue, so two effects running at
-   * once are two separate rings rather than one brighter blur. A skill that
-   * is spent rather than timed also prints what is left of it, in pips beside
-   * the paddle. Passive paddle buffs keep the quiet halo they always had, on
-   * the outside of the stack where they cannot be mistaken for a skill.
-   */
-  private drawPlayerAura(world: World): void {
-    const { ctx } = this;
-    const { talents: runtime, player, fx } = world;
-    if (world.match.status === 'menu') return;
-
-    const x = player.x - PADDLE_W / 2;
-    const y = player.y - player.half;
-    const w = PADDLE_W;
-    const h = player.half * 2;
-
-    let outer = 4;
-    for (let i = 0; i < runtime.slots.length; i++) {
-      const id = runtime.slots[i]?.id;
-      if (!id) continue;
-      const def = abilityById(id);
-      if (!def) continue;
-      const live = liveEffect(world, id);
-      if (!live.active) continue;
-
-      // The slot decides the distance, not the order things were cast in:
-      // a ring must never hop inwards because another effect ran out.
-      const pad = 6 + i * 5.5;
-      outer = Math.max(outer, pad);
-
-      if (id === 'perfect-guard') {
-        this.drawGuardBrackets(x, y, w, h, pad, def.hue);
-      } else {
-        // Power Strike is the one that has to be felt rather than noticed,
-        // so it keeps its pulse; everything else holds a steady ring.
-        const pulse =
-          id === 'power-strike' && world.motion > 0.5 ? 0.5 + 0.5 * Math.sin(fx.time * 16) : 1;
-        ctx.save();
-        ctx.globalAlpha = 0.5 + 0.38 * pulse;
-        ctx.strokeStyle = hsla(def.hue, 100, 62, 1);
-        ctx.lineWidth = def.ultimate === true ? 3.5 : 3;
-        ctx.shadowColor = hsla(def.hue, 100, 58, 0.9);
-        ctx.shadowBlur = 16 * world.motion;
-        roundRect(ctx, x - pad, y - pad - 3, w + pad * 2, h + pad * 2 + 6, w / 2 + pad);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      if (live.maxCharges > 0) {
-        this.drawChargePips(world, live.charges, live.maxCharges, def.hue, pad);
-      }
-    }
-
-    // The passives sit outside every skill ring, so the two never touch.
-    if (paddleBuffed(runtime)) {
-      const pad = outer + 5;
-      ctx.save();
-      ctx.globalAlpha = 0.34;
-      ctx.strokeStyle = hsla(hueOf(world, 'you'), 100, 82, 1);
-      ctx.lineWidth = 2;
-      roundRect(ctx, x - pad, y - pad - 2, w + pad * 2, h + pad * 2 + 4, w / 2 + pad);
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  /**
-   * Perfect Guard, as two brackets rather than a ring.
-   *
-   * It is the one skill whose whole value is a timing read, so it gets a
-   * shape of its own: unmistakable at a glance, and it leaves the paddle's
-   * silhouette readable while the ball is on the way.
-   */
-  private drawGuardBrackets(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    pad: number,
-    hue: number
-  ): void {
-    const { ctx } = this;
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = hsla(hue, 100, 72, 1);
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.shadowColor = hsla(hue, 100, 60, 0.8);
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.moveTo(x - pad - 4, y - 4);
-    ctx.lineTo(x - pad - 4, y + h + 4);
-    ctx.moveTo(x + w + pad + 4, y - 4);
-    ctx.lineTo(x + w + pad + 4, y + h + 4);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  /**
-   * Uses left of a counted effect - Overload's returns, Aegis's saves - as
-   * pips above the paddle, in that skill's hue. The same number is on the
-   * HUD button; this is the copy the player can read without looking away
-   * from the ball.
-   */
-  private drawChargePips(
-    world: World,
-    charges: number,
-    max: number,
-    hue: number,
-    pad: number
-  ): void {
-    const { ctx } = this;
-    const { player } = world;
-    const gap = 9;
-    const y = player.y - player.half - pad - 10;
-    const left = player.x - ((max - 1) * gap) / 2;
-
-    ctx.save();
-    for (let i = 0; i < max; i++) {
-      ctx.beginPath();
-      ctx.arc(left + i * gap, y, i < charges ? 3.4 : 2.6, 0, Math.PI * 2);
-      if (i < charges) {
-        ctx.fillStyle = hsla(hue, 100, 70, 0.95);
-        ctx.shadowColor = hsla(hue, 100, 60, 0.9);
-        ctx.shadowBlur = 10 * world.motion;
-        ctx.fill();
-      } else {
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = hsla(hue, 70, 70, 0.35);
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-      }
-    }
     ctx.restore();
   }
 
@@ -580,6 +433,8 @@ export class Renderer {
       ctx.fillText(fx.comboLabel, 0, 0);
       ctx.restore();
     }
+
+    drawUltimateBanner(ctx, world, cx, cy, s, CANVAS_FONT);
 
     if (match.status === 'serve' && isMatchPoint(world)) {
       ctx.save();

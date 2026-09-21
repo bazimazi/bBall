@@ -5,6 +5,31 @@ const MASTER_GAIN = 0.45;
 
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
+interface Chord {
+  readonly notes: readonly number[];
+  readonly wave: OscillatorType;
+  /** Seconds each note rings for, and the stagger between them. */
+  readonly length: number;
+  readonly gap: number;
+  /** True to bend each note downwards - heavier, and a little menacing. */
+  readonly slide?: boolean;
+}
+
+/** One chord per capstone, keyed by ability id. See {@link GameAudio.ultimate}. */
+const ULTIMATE_CHORDS: Record<string, Chord> = {
+  /** A snarl that falls away: four charged returns, about to be spent. */
+  overload: { notes: [147, 185, 220, 294], wave: 'sawtooth', length: 0.36, gap: 0.04, slide: true },
+  /** Rising and quick, the way the paddle is about to move. */
+  slipstream: { notes: [294, 440, 587, 880], wave: 'triangle', length: 0.26, gap: 0.045 },
+  /** Wide, flat and held - a wall going up rather than a run starting. */
+  aegis: { notes: [196, 262, 330], wave: 'sine', length: 0.55, gap: 0.02 },
+  /** Bright and major, arriving all at once: peak form, instantly. */
+  zenith: { notes: [523, 659, 784, 1047], wave: 'triangle', length: 0.34, gap: 0.03 },
+  /** Bare fifths, so the repeat underneath it is heard as a repeat. */
+  echo: { notes: [262, 392, 523], wave: 'square', length: 0.24, gap: 0.07 },
+  default: { notes: [196, 294, 392, 587], wave: 'sawtooth', length: 0.32, gap: 0.055 }
+};
+
 /**
  * Every sound is a short synthesised blip - no files to load, no assets to
  * ship. The context is created lazily on the first user gesture, because
@@ -164,11 +189,27 @@ export class GameAudio {
     this.tone(640, 0.2, 'triangle', 0.12, 0, 0.05);
   }
 
-  /** A capstone firing. Longer and lower than anything else in the game. */
-  ultimate(): void {
-    const notes = [196, 294, 392, 587];
-    notes.forEach((note, i) => this.tone(note, 0.32, 'sawtooth', 0.14, 0, i * 0.055));
+  /**
+   * A capstone firing. Longer and lower than anything else in the game.
+   *
+   * The sub-bass drop underneath is the same for all five - that is the part
+   * that says "ultimate" - but the chord on top is the skill's own, so a
+   * player who is watching the ball still hears *which* one went off. The
+   * shapes follow the effects: Overload snarls, Aegis holds, Echo repeats.
+   */
+  ultimate(id: string): void {
+    const chord = ULTIMATE_CHORDS[id] ?? ULTIMATE_CHORDS.default!;
+    chord.notes.forEach((note, i) =>
+      this.tone(note, chord.length, chord.wave, 0.14, chord.slide ? note * 0.6 : 0, i * chord.gap)
+    );
     this.tone(98, 0.5, 'sine', 0.2, 60);
+    // Echo is the one that answers itself - a second, quieter copy of its own
+    // chord, which is exactly what the skill does to the rest of the bar.
+    if (id === 'echo') {
+      chord.notes.forEach((note, i) =>
+        this.tone(note * 2, 0.22, 'sine', 0.06, 0, 0.32 + i * chord.gap)
+      );
+    }
   }
 
   secondChance(): void {

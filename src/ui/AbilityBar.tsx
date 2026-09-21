@@ -1,4 +1,4 @@
-import type { CSSProperties, PointerEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 
 import type { AbilityView } from '../game/types';
 import styles from './AbilityBar.module.css';
@@ -41,6 +41,50 @@ function label(ability: AbilityView): string {
   return parts.join(', ');
 }
 
+/** A one-shot ring on the button, and what it is saying. */
+interface Burst {
+  kind: 'cast' | 'refresh';
+  /** Bumped every time, so React remounts the node and the CSS replays. */
+  id: number;
+}
+
+/**
+ * The two moments a button has to mark, read from the cooldown ring alone.
+ *
+ * *Cast*: the ring emptied, because the skill was just spent - the press
+ * deserves an acknowledgement the player can see with their eyes on the ball.
+ *
+ * *Refresh*: the ring refilled in one step instead of creeping back, which
+ * only ever happens when Echo clears the bar. That is the whole point of that
+ * capstone, and without this it is invisible - four buttons quietly become
+ * available and nothing says why.
+ */
+function useBurst(progress: number): Burst | null {
+  const previous = useRef(progress);
+  const counter = useRef(0);
+  const [burst, setBurst] = useState<Burst | null>(null);
+
+  useEffect(() => {
+    const was = previous.current;
+    previous.current = progress;
+
+    let kind: Burst['kind'] | null = null;
+    if (progress <= 0.2 && was > progress + 0.2) kind = 'cast';
+    // A cooldown that ran its course arrives a step at a time, so the jump
+    // test cannot fire on one; Echo clearing a slot the player only just
+    // spent - `was` of exactly 0 - is the case that matters most.
+    else if (progress >= 1 && was < 0.9) kind = 'refresh';
+    if (!kind) return;
+
+    counter.current += 1;
+    setBurst({ kind, id: counter.current });
+    const handle = window.setTimeout(() => setBurst(null), 700);
+    return () => window.clearTimeout(handle);
+  }, [progress]);
+
+  return burst;
+}
+
 interface AbilityButtonProps {
   ability: AbilityView;
   index: number;
@@ -48,6 +92,8 @@ interface AbilityButtonProps {
 }
 
 function AbilityButton({ ability, index, onUse }: AbilityButtonProps) {
+  const burst = useBurst(ability.progress);
+
   // Fire on pointerdown, not click: during a rally the difference between the
   // two is the difference between reaching the ball and watching it go past.
   // The event is swallowed so the paddle does not jump to the thumb as well.
@@ -141,6 +187,16 @@ function AbilityButton({ ability, index, onUse }: AbilityButtonProps) {
       <span className={styles.key} aria-hidden="true">
         {index + 1}
       </span>
+
+      {/* Keyed on a counter so firing twice in a row replays the ring rather
+          than leaving the first one frozen half-way out. */}
+      {burst && (
+        <span
+          key={burst.id}
+          className={`${styles.burst} ${burst.kind === 'cast' ? styles.burstCast : styles.burstRefresh}`}
+          aria-hidden="true"
+        />
+      )}
     </button>
   );
 }

@@ -236,9 +236,25 @@ export interface FxState {
   shakeX: number;
   shakeY: number;
   flash: number;
+  /**
+   * The colour of the screen flash, or -1 for the plain white one.
+   *
+   * A capstone flashes the whole viewport in its own hue - that, more than
+   * anything else on screen, is what makes an ultimate read as an ultimate
+   * even when the player's eyes are on the ball.
+   */
+  flashHue: number;
   comboIndex: number;
   comboLabel: string;
   comboTimer: number;
+  /** A capstone's name, banner countdown and hue. Ultimates only. */
+  castLabel: string;
+  castTimer: number;
+  castHue: number;
+  /** Clock the repeating skill flourishes beat against, and their last beat. */
+  pulseTick: number;
+  echoTick: number;
+  emberTick: number;
   /** Seconds of simulated time since load; drives idle pulses. */
   time: number;
 }
@@ -269,6 +285,19 @@ export interface Particle {
   size: number;
   drag: number;
   color: string;
+  alive: boolean;
+}
+
+/**
+ * One paddle afterimage.
+ *
+ * Sampled only while a movement skill is running, so a paddle that is merely
+ * being steered never smears - the trail *is* the skill.
+ */
+export interface Ghost {
+  y: number;
+  half: number;
+  age: number;
   alive: boolean;
 }
 

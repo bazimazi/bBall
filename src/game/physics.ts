@@ -1,8 +1,9 @@
 import { BALANCE } from '../core/balance/config';
+import { abilityById } from '../core/talents/abilities';
 import { BALL_R, COMBO_STEPS, FIELD_H, PADDLE_W, SPIN_INFLUENCE } from './constants';
 import { scorePoint } from './match';
 import { hsla } from './palette';
-import { plainReturn, playerReturn, tryShield } from './talents';
+import { plainReturn, playerReturn, tryShield, type ReturnMods } from './talents';
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
 import { shrinkPaddle } from './paddle';
@@ -100,6 +101,10 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
     if (tuning.shrinkPerHit > 0) shrinkPaddle(paddle, tuning.shrinkPerHit);
     if (mods.charged || mods.crit) world.audio.impact(mods.charged);
     else if (mods.guarded) world.audio.guardHit();
+    // The skills that pay off *on contact* rather than on a timer get their
+    // own mark at the point of contact: a return is the only moment they
+    // ever have, so it is the only moment they are allowed to be loud.
+    releaseFx(world, mods, contactY, dir);
   }
 
   // A charged or critical return reads instantly: more sparks, hotter hue.
@@ -134,6 +139,45 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   if (match.status !== 'menu') {
     world.audio.hit(p);
     checkCombo(world);
+  }
+}
+
+/**
+ * What a return looks like when a skill was spent on it.
+ *
+ * Overload is drawn in its own red and at twice the reach of a plain charged
+ * strike - it is the capstone spending one of its four, and each of those
+ * four should feel like the ultimate it came from rather than like a Power
+ * Strike that happened to be free.
+ */
+function releaseFx(world: World, mods: ReturnMods, contactY: number, dir: 1 | -1): void {
+  const { ball, motion } = world;
+  const angle = Math.atan2(ball.vy, ball.vx);
+  const x = ball.x + dir * BALL_R;
+
+  if (mods.overloaded) {
+    const hue = abilityById('overload')?.hue ?? 0;
+    world.casts.spawn(
+      'strike-impact',
+      { x, y: contactY, hue, life: 0.5, size: 78, dir: angle },
+      motion
+    );
+    addShake(world, 5);
+  } else if (mods.charged) {
+    const hue = abilityById('power-strike')?.hue ?? 28;
+    world.casts.spawn(
+      'strike-impact',
+      { x, y: contactY, hue, life: 0.4, size: 46, dir: angle },
+      motion
+    );
+  }
+
+  if (mods.guarded) {
+    const hue = abilityById('perfect-guard')?.hue ?? 104;
+    world.casts.spawn('guard-parry', { x, y: contactY, hue, life: 0.42, size: 54 }, motion);
+    // The read deserves a beat of its own - the same hit-stop a charged
+    // return gets, for the opposite reason.
+    world.fx.freeze = Math.max(world.fx.freeze, 0.05 * motion);
   }
 }
 

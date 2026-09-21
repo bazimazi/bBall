@@ -206,6 +206,81 @@
   }
 }
 
+/*
+ * The ring a button throws when its state changes in one step.
+ *
+ * Two of them, and they run in opposite directions on purpose: a cast pushes
+ * outwards because something was spent, a refresh pulls inwards because
+ * something was handed back. Echo is the only thing in the game that causes
+ * the second one, and it fires four of them at once.
+ */
+.burst {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2.5px solid hsl(var(--hue), 100%, 72%);
+  pointer-events: none;
+}
+
+.burstCast {
+  animation: burstOut 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+.burstRefresh {
+  border-color: hsl(var(--hue), 100%, 82%);
+  animation: burstIn 0.5s cubic-bezier(0.3, 0.8, 0.3, 1) forwards;
+}
+
+/* A capstone's ring travels further and leaves gold behind it - the same
+   "this one was expensive" the court-wide shockwave says. */
+.ultimate .burstCast {
+  border-width: 3px;
+  box-shadow: 0 0 18px hsla(var(--hue), 100%, 60%, 0.8);
+  animation-duration: 0.7s;
+  animation-name: burstUltimate;
+}
+
+@keyframes burstOut {
+  from {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  to {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+@keyframes burstUltimate {
+  0% {
+    transform: scale(0.9);
+    opacity: 1;
+    border-color: rgba(255, 236, 188, 0.95);
+  }
+  45% {
+    border-color: hsl(var(--hue), 100%, 74%);
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+    border-color: rgba(255, 202, 58, 0.6);
+  }
+}
+
+@keyframes burstIn {
+  from {
+    transform: scale(2);
+    opacity: 0;
+  }
+  55% {
+    opacity: 1;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
 .ring {
   position: absolute;
   inset: 0;
@@ -286,6 +361,21 @@
   .ringFill,
   .effectRing {
     transition-duration: 0.01ms;
+  }
+
+  /* A short flash in place rather than a ring travelling across the corner -
+     the same information, without the motion that was asked to stop. */
+  .burst {
+    animation: burstFlash 0.3s ease-out forwards !important;
+  }
+
+  @keyframes burstFlash {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
   }
 
   /* Steady rather than breathing - but no dimmer, because this is still the
