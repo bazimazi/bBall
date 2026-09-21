@@ -251,6 +251,20 @@ export interface FxState {
   castLabel: string;
   castTimer: number;
   castHue: number;
+  /**
+   * Bumped once per capstone cast.
+   *
+   * The React chrome keys its own page-wide flare off this, because the HUD
+   * and the ability bar sit above the canvas and would otherwise be the only
+   * two things on screen an ultimate left untouched.
+   */
+  castId: number;
+  /** Seconds left of the viewport-wide wave, and where it started from. */
+  burst: number;
+  burstX: number;
+  burstY: number;
+  /** 0..1 camera zoom impulse. A capstone is the only thing that sets it. */
+  punch: number;
   /** Clock the repeating skill flourishes beat against, and their last beat. */
   pulseTick: number;
   echoTick: number;
@@ -334,6 +348,17 @@ export interface GameSnapshot {
    * changes, so the HUD re-renders on state changes rather than per frame.
    */
   abilities: readonly AbilityView[];
+  /**
+   * The capstone cue, flattened into scalars.
+   *
+   * Scalars rather than an object because the snapshot is diffed field by
+   * field: a fresh object every frame would re-render the whole chrome sixty
+   * times a second for a value that changes twice a match.
+   */
+  ultimateCastId: number;
+  ultimateHue: number;
+  /** True while some capstone's effect is still running. */
+  ultimateActive: boolean;
   result: MatchResult | null;
   resultId: number;
 }

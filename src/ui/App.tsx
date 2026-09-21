@@ -6,6 +6,7 @@ import { AbilityBar } from './AbilityBar';
 import { GameCanvas } from './GameCanvas';
 import { Hud } from './Hud';
 import { Overlay } from './Overlay';
+import { UltimateFlare } from './UltimateFlare';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useGameFlow, type GameFlow } from './hooks/useGameFlow';
 import { useDemoLevel, useLoadout, useProfile, useTheme } from './hooks/useProfile';
@@ -100,6 +101,15 @@ export function App() {
         abilities={snapshot.abilities}
         show={playing && !paused}
         onUse={(slot) => engine?.useAbility(slot)}
+      />
+
+      {/* Above the bar and the HUD, so a capstone reaches the whole page and
+          not only the part of it the renderer owns. */}
+      <UltimateFlare
+        castId={snapshot.ultimateCastId}
+        hue={snapshot.ultimateHue}
+        active={snapshot.ultimateActive}
+        show={playing && !paused}
       />
 
       {flow.screen === 'onboarding' && (

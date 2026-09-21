@@ -14,9 +14,12 @@ import {
   drawUltimateBanner
 } from './abilityFx';
 import { roundRect } from './shapes';
+import { UltimateLayer } from './ultimateFx';
 
 const COURT_RADIUS = 26;
 const COMBO_DURATION = 1.3;
+/** How far a capstone's camera punch pushes the view in, at full strength. */
+const PUNCH_ZOOM = 0.045;
 
 /**
  * Canvas renderer. All drawing state lives here; the simulation never touches
@@ -33,6 +36,7 @@ export class Renderer {
   private court: CanvasGradient | null = null;
   private endGlow: Partial<Record<Side, CanvasGradient>> = {};
   private theme: ResolvedTheme | null = null;
+  private readonly ultimate = new UltimateLayer();
 
   private readonly ctx: CanvasRenderingContext2D;
 
@@ -45,6 +49,7 @@ export class Renderer {
     this.bgHeatBucket = -1;
     this.court = null;
     this.endGlow = {};
+    this.ultimate.invalidate();
   }
 
   render(world: World): void {
@@ -60,9 +65,20 @@ export class Renderer {
 
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     this.drawBackground(world);
+    // Behind the court, so a capstone colours the page without ever sitting
+    // between the player and the ball.
+    this.ultimate.backdrop(ctx, world);
 
     ctx.save();
     ctx.translate(fx.shakeX, fx.shakeY);
+    // The camera punch takes the court *and* the screen HUD with it - half a
+    // zoom would read as the court resizing rather than as an impact.
+    if (fx.punch > 0) {
+      const zoom = 1 + fx.punch * PUNCH_ZOOM;
+      ctx.translate(view.cx, view.cy);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-view.cx, -view.cy);
+    }
 
     ctx.save();
     applyFieldTransform(ctx, view);
@@ -71,6 +87,10 @@ export class Renderer {
 
     this.drawScreenHud(world);
     ctx.restore();
+
+    // Over everything, and outside the punch: the wave has to cross the real
+    // viewport, not a viewport that is itself being pushed around.
+    this.ultimate.overlay(ctx, world);
 
     if (fx.flash > 0.01) {
       // A capstone washes the viewport in its own colour; everything else

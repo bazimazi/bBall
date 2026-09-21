@@ -183,10 +183,25 @@ export class GhostTrail {
 
 // --------------------------------------------------------------- spawning
 
-/** Seconds a capstone's name stays on screen. */
+/** Seconds a capstone's name stays on screen, and of its viewport-wide wave. */
 export const ULTIMATE_BANNER = 1.1;
+export const ULTIMATE_BURST = 0.85;
 
-/** The court-wide ring, the tinted flash and the banner a capstone opens with. */
+/**
+ * Everything a capstone does to the screen as a whole.
+ *
+ * The court-level animation is the skill's own; this is the part that is the
+ * same for all five, and it is deliberately impossible to look away from:
+ *
+ *  - a wave of the skill's colour crossing the entire viewport from the
+ *    paddle outwards, past the corners;
+ *  - the backdrop and the rim of the page held in that colour for as long as
+ *    the effect runs, so peripheral vision alone says one is up;
+ *  - a camera punch, a beat of hit-stop and a tinted flash;
+ *  - the skill's name under the centre circle.
+ *
+ * Nothing else in the game may have any of them.
+ */
 export function ultimateCast(world: World, kind: CastKind, hue: number, name: string): void {
   const { fx, player, view, motion } = world;
 
@@ -197,9 +212,6 @@ export function ultimateCast(world: World, kind: CastKind, hue: number, name: st
   );
   world.casts.spawn(kind, { x: player.x, y: player.y, hue, life: 0.9, size: 150 }, motion);
 
-  // The three things that make a capstone impossible to miss, and the three
-  // that everything else in the game is deliberately denied: the whole screen
-  // takes the skill's colour, play stops for a beat, and it says its name.
   fx.flash = Math.max(fx.flash, 0.55 * motion);
   fx.flashHue = hue;
   fx.freeze = Math.max(fx.freeze, 0.07 * motion);
@@ -207,6 +219,15 @@ export function ultimateCast(world: World, kind: CastKind, hue: number, name: st
   fx.castLabel = name;
   fx.castHue = hue;
   fx.castTimer = ULTIMATE_BANNER;
+
+  // The wave starts where the skill did, not at the middle of the screen: a
+  // player watching their own paddle sees it leave, and a player watching the
+  // ball sees it arrive.
+  fx.burst = ULTIMATE_BURST;
+  fx.burstX = player.x;
+  fx.burstY = player.y;
+  fx.punch = motion;
+  fx.castId++;
 }
 
 /**
@@ -249,6 +270,11 @@ export function clearAbilityFx(world: World): void {
   fx.flashHue = -1;
   fx.castLabel = '';
   fx.castTimer = 0;
+  fx.burst = 0;
+  fx.punch = 0;
+  // Back to zero, not merely stopped: the React chrome treats a change in the
+  // id as "a capstone just fired", and a new match has not had one.
+  fx.castId = 0;
   fx.pulseTick = 0;
   fx.echoTick = 0;
   fx.emberTick = 0;

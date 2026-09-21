@@ -1,7 +1,7 @@
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
 import type { MatchRules } from '../core/modes/types';
 import type { ResolvedLoadout } from '../core/talents/effects';
-import { abilityViews, fireAbility } from './abilities';
+import { abilityViews, activeUltimate, fireAbility } from './abilities';
 import { GameAudio } from './audio';
 import { FIELD_H, FIXED_DT, MAX_FRAME_DT, MAX_STEPS_PER_FRAME, STORAGE_KEYS } from './constants';
 import { publishResult, returnToMenu, startMatch } from './match';
@@ -74,6 +74,9 @@ export function idleSnapshot(): GameSnapshot {
     canPause: false,
     objective: null,
     abilities: NO_ABILITIES,
+    ultimateCastId: 0,
+    ultimateHue: 0,
+    ultimateActive: false,
     result: null,
     resultId: 0
   };
@@ -278,8 +281,9 @@ export class GameEngine {
   }
 
   private buildSnapshot(): GameSnapshot {
-    const { match, rules } = this.world;
+    const { match, rules, fx } = this.world;
     const status = match.status;
+    const live = activeUltimate(this.world);
 
     return {
       status,
@@ -296,6 +300,12 @@ export class GameEngine {
       canPause: status === 'play' || status === 'serve',
       objective: rules.objective?.label ?? null,
       abilities: this.abilityView(),
+      // The chrome sits above the canvas, so it is the one part of the page a
+      // capstone cannot reach from the renderer. These four scalars are what
+      // it flares on; `ultimateCastId` changes exactly once per cast.
+      ultimateCastId: fx.castId,
+      ultimateHue: live ? live.hue : fx.castHue,
+      ultimateActive: live !== null,
       result: match.result,
       resultId: match.resultId
     };

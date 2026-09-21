@@ -217,6 +217,37 @@ export function fireAbility(world: World, slot: number): boolean {
   return true;
 }
 
+/**
+ * The capstone whose effect is running right now, if any.
+ *
+ * Asked once a frame by everything that colours the *page* rather than the
+ * court - the backdrop, the rim of the viewport, the React chrome - so all
+ * three agree on one hue and can never disagree about whether one is up.
+ *
+ * When two are running the lowest slot wins. It is arbitrary, but it is
+ * stable: a hue that swapped when the other one happened to expire would
+ * look like a third skill firing.
+ */
+export function activeUltimate(world: World): { hue: number; strength: number } | null {
+  for (const slot of world.talents.slots) {
+    if (!slot.id) continue;
+    const def = abilityById(slot.id);
+    if (!def?.ultimate) continue;
+    const live = liveEffect(world, slot.id);
+    if (!live.active) continue;
+
+    // Timed capstones ease out over their last second so the page does not
+    // snap back to normal; counted ones simply stop, because the moment the
+    // last charged return is spent there is nothing left to advertise.
+    const strength = live.duration > 0 ? Math.min(1, live.remain / FADE_OUT) : 1;
+    return { hue: def.hue, strength };
+  }
+  return null;
+}
+
+/** Seconds of a timed capstone over which the page colour bleeds away. */
+const FADE_OUT = 1;
+
 /** Cooldown steps published to the HUD. Enough to look smooth, few enough
  *  that React re-renders a handful of times per cooldown rather than 60. */
 const STEPS = 24;

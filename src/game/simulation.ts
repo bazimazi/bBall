@@ -20,6 +20,12 @@ export function step(world: World, dt: number): void {
   // next plain flash must not inherit a capstone's colour.
   if (fx.flash < 0.01) fx.flashHue = -1;
   if (fx.castTimer > 0) fx.castTimer = Math.max(0, fx.castTimer - dt);
+  // The viewport-wide wave and the camera punch run in real time alongside
+  // the hit-stop they arrived with, so the freeze reads as impact rather
+  // than as a frame the game dropped.
+  if (fx.burst > 0) fx.burst = Math.max(0, fx.burst - dt);
+  fx.punch *= decay(0.0004, dt);
+  if (fx.punch < 0.002) fx.punch = 0;
   ball.squash *= decay(0.0009, dt);
   player.flash *= decay(0.0005, dt);
   bot.flash *= decay(0.0005, dt);

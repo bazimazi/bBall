@@ -1,0 +1,125 @@
+/*
+ * The page-wide capstone layer.
+ *
+ * Above the HUD and the ability bar on purpose - those two float over the
+ * canvas, so they are the only part of the screen the renderer cannot reach,
+ * and an ultimate that left them untouched would stop at the edge of the
+ * court. Nothing here is ever interactive.
+ *
+ * The hue arrives inline as `--hue`, from the same catalogue entry that
+ * colours the button, the aura on the paddle and the wave on the canvas: one
+ * skill, one colour, everywhere it appears.
+ */
+
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  /* Its own stacking context, so the two children never interleave with the
+     chrome they sit above. */
+  isolation: isolate;
+}
+
+/*
+ * The edge of the page, held for the whole of the capstone's window.
+ *
+ * Deliberately only the rim: the middle of the screen is where the ball is,
+ * and a tint across it would be the one way this layer could cost a point.
+ */
+.veil {
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    inset 0 0 90px hsla(var(--hue), 100%, 58%, 0.34),
+    inset 0 0 18px hsla(var(--hue), 100%, 70%, 0.24);
+  animation:
+    veilIn 0.32s ease-out both,
+    veilBreathe 2.6s ease-in-out 0.32s infinite;
+}
+
+@keyframes veilIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes veilBreathe {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/*
+ * The cast itself: the rim slams on and lets go.
+ *
+ * It starts well inside the page and snaps out to the edge, so the motion is
+ * the page opening up rather than something arriving on top of it - the same
+ * direction as the wave the canvas throws underneath it, a beat ahead.
+ */
+.flare {
+  position: absolute;
+  inset: 0;
+  animation: flareOut 0.75s cubic-bezier(0.14, 0.72, 0.26, 1) both;
+}
+
+@keyframes flareOut {
+  0% {
+    opacity: 0;
+    box-shadow:
+      inset 0 0 0 hsla(var(--hue), 100%, 62%, 0),
+      inset 0 0 0 0 hsla(var(--hue), 100%, 76%, 0);
+  }
+  12% {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 40px hsla(var(--hue), 100%, 62%, 0.85),
+      inset 0 0 0 4px hsla(var(--hue), 100%, 82%, 0.9);
+  }
+  45% {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 220px hsla(var(--hue), 100%, 60%, 0.6),
+      inset 0 0 0 2px hsla(var(--hue), 100%, 80%, 0.5);
+  }
+  100% {
+    opacity: 0;
+    box-shadow:
+      inset 0 0 300px hsla(var(--hue), 100%, 58%, 0),
+      inset 0 0 0 0 hsla(var(--hue), 100%, 78%, 0);
+  }
+}
+
+/*
+ * Reduced motion keeps the colour and drops the travel: the rim simply
+ * appears and fades. It is the one signal in the game a player must not be
+ * able to miss, so it is dimmed rather than removed.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .veil {
+    animation: veilIn 0.2s ease-out both;
+    opacity: 0.7;
+  }
+
+  .flare {
+    animation: flareStatic 0.45s ease-out both;
+  }
+
+  @keyframes flareStatic {
+    from {
+      opacity: 0.9;
+      box-shadow: inset 0 0 90px hsla(var(--hue), 100%, 60%, 0.7);
+    }
+    to {
+      opacity: 0;
+      box-shadow: inset 0 0 90px hsla(var(--hue), 100%, 60%, 0.7);
+    }
+  }
+}
