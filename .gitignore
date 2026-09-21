@@ -137,3 +137,9 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# bBall server: the SQLite database and its write-ahead log
+server/data/
+*.db
+*.db-wal
+*.db-shm

@@ -2,16 +2,21 @@ import { useState } from 'react';
 
 import { ACHIEVEMENTS } from '../../core/achievements/catalog';
 import { NAME_MAX } from '../../core/profile/defaults';
+import { setIdentity } from '../../core/account/progression';
 import { profileStore } from '../../core/profile/store';
 import { AVATARS, type PlayerProfile } from '../../core/profile/types';
+import type { AccountState } from '../../core/account/store';
 import { Avatar } from '../components/Avatar';
 import { Screen } from '../components/Screen';
+import { SyncBadge } from '../components/SyncBadge';
 import { XpBar } from '../components/XpBar';
 import { useDemoLevel } from '../hooks/useProfile';
 import styles from '../Screens.module.css';
 
 interface ProfileScreenProps {
   profile: PlayerProfile;
+  account: AccountState;
+  onAccount: () => void;
   onAchievements: () => void;
   onCustomize: () => void;
   onTalents: () => void;
@@ -36,6 +41,8 @@ function playTime(seconds: number): string {
 
 export function ProfileScreen({
   profile,
+  account,
+  onAccount,
   onAchievements,
   onCustomize,
   onTalents,
@@ -52,7 +59,7 @@ export function ProfileScreen({
   const earned = Object.keys(profile.achievements).length;
 
   const commitName = () => {
-    if (name !== profile.name) profileStore.setIdentity(name, profile.avatar);
+    if (name !== profile.name) setIdentity(name, profile.avatar);
   };
 
   return (
@@ -78,6 +85,17 @@ export function ProfileScreen({
         <XpBar xp={profile.xp} />
       </div>
 
+      {demoLevel === null && (
+        <>
+          <p className={styles.sectionLabel}>Account</p>
+          <button type="button" className={styles.ghost} onClick={onAccount}>
+            {account.status === 'authenticated' ? (account.email ?? 'Account') : 'Sign in'}
+            {account.pending > 0 && <span className={styles.badge}>{account.pending}</span>}
+          </button>
+          <SyncBadge account={account} showGuest />
+        </>
+      )}
+
       <p className={styles.sectionLabel}>Avatar</p>
       <div className={styles.swatchGrid}>
         {AVATARS.map((avatar) => (
@@ -89,7 +107,7 @@ export function ProfileScreen({
             }
             aria-label={`Avatar ${avatar}`}
             aria-pressed={avatar === profile.avatar}
-            onClick={() => profileStore.setIdentity(name, avatar)}
+            onClick={() => setIdentity(name, avatar)}
           >
             <Avatar avatar={avatar} />
           </button>
@@ -138,6 +156,14 @@ export function ProfileScreen({
       {demoLevel !== null ? (
         // There is nothing here to erase: a demo profile is never written.
         <p className={styles.note}>Demo profile · level {demoLevel}. Nothing here is saved.</p>
+      ) : account.status === 'authenticated' ? (
+        // The server owns this save, so wiping the local copy would achieve
+        // nothing but a re-download. Deleting the account is the real action,
+        // and it lives on the account screen where it can be confirmed.
+        <p className={styles.note}>
+          This progress lives on your account. To erase it, delete the account from the account
+          screen.
+        </p>
       ) : (
         <button
           type="button"

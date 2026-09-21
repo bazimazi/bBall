@@ -6,17 +6,22 @@ import type { ModeId } from '../../core/modes/types';
 import { levelOf } from '../../core/progression/levels';
 import type { PlayerProfile } from '../../core/profile/types';
 import { roundFor, tierById, tierForLevel } from '../../core/tournament/bracket';
+import type { AccountState } from '../../core/account/store';
 import { ProfileChip } from '../components/ProfileChip';
+import { SyncBadge } from '../components/SyncBadge';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
+import accountStyles from '../Account.module.css';
 import styles from '../Screens.module.css';
 
 interface HomeScreenProps {
   profile: PlayerProfile;
+  account: AccountState;
   /** The level being demoed, or null when the real save is in play. */
   demoLevel: number | null;
   onPick: (mode: ModeId) => void;
   onDemo: () => void;
   onExitDemo: () => void;
+  onAccount: () => void;
   onProfile: () => void;
   onTalents: () => void;
   onAchievements: () => void;
@@ -46,10 +51,12 @@ function metaFor(mode: ModeInfo, profile: PlayerProfile): string {
 
 export function HomeScreen({
   profile,
+  account,
   demoLevel,
   onPick,
   onDemo,
   onExitDemo,
+  onAccount,
   onProfile,
   onTalents,
   onAchievements,
@@ -87,6 +94,24 @@ export function HomeScreen({
           )}
 
           <ProfileChip profile={profile} onClick={onProfile} />
+
+          {/* One row, always in the same place: signed in or not, a player can
+              see at a glance where their progress is going. Demo mode hides it,
+              because nothing a demo does is saved anywhere. */}
+          {demoLevel === null && (
+            <button type="button" className={accountStyles.entry} onClick={onAccount}>
+              <span className={accountStyles.entryText}>
+                {account.status === 'authenticated'
+                  ? (account.email ?? 'Your account')
+                  : 'Sign in or create an account'}
+              </span>
+              <span className={accountStyles.entryMeta}>
+                {account.status === 'authenticated' ? 'Account' : 'Optional'}
+              </span>
+            </button>
+          )}
+
+          {demoLevel === null && <SyncBadge account={account} />}
 
           <div className={styles.grid}>
             {MODES.map((mode) => (

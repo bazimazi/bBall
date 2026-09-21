@@ -71,8 +71,18 @@ export function syncUnlocks(profile: PlayerProfile): Cosmetic[] {
   return added;
 }
 
-/** Unlock everything the player has just qualified for, XP bonuses included. */
-function grantAchievements(profile: PlayerProfile, result: MatchResult | null): Achievement[] {
+/**
+ * Unlock everything the player has just qualified for, XP bonuses included.
+ *
+ * Exported because the server runs it outside a match too - after a guest
+ * save is carried into an account, the merged profile may already qualify for
+ * achievements neither save had banked. Re-running it is safe: an achievement
+ * already recorded is skipped, so its XP is never granted twice.
+ */
+export function grantAchievements(
+  profile: PlayerProfile,
+  result: MatchResult | null
+): Achievement[] {
   const unlocked: Achievement[] = [];
   const now = Date.now();
 

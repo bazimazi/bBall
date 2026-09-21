@@ -1,0 +1,32 @@
+{
+  "name": "@bball/server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "bBall backend: identity, authoritative progression and cloud saves.",
+  "license": "MIT",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "build": "node scripts/build.mjs",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "migrate": "tsx --env-file-if-exists=.env src/db/cli.ts migrate",
+    "migrate:status": "tsx --env-file-if-exists=.env src/db/cli.ts status",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test --test-concurrency=1 \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/helmet": "^13.0.2",
+    "@fastify/rate-limit": "^10.3.0",
+    "better-sqlite3": "^12.5.0",
+    "fastify": "^5.6.1",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "esbuild": "^0.25.10",
+    "tsx": "^4.20.6"
+  }
+}

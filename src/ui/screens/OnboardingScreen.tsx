@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { ACCENTS } from '../../core/cosmetics/catalog';
 import { NAME_MAX } from '../../core/profile/defaults';
+import { equipCosmetic, setIdentity } from '../../core/account/progression';
 import { profileStore } from '../../core/profile/store';
 import { AVATARS, type AvatarId, type PlayerProfile } from '../../core/profile/types';
 import { Avatar } from '../components/Avatar';
@@ -22,8 +23,8 @@ export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
   const [accent, setAccent] = useState(profile.equipped.accent);
 
   const start = () => {
-    profileStore.setIdentity(name, avatar);
-    profileStore.equip('accent', accent);
+    setIdentity(name, avatar);
+    equipCosmetic('accent', accent);
     onDone();
   };
 

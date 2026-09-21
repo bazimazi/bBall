@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { MatchResult } from '../core/modes/types';
 import { profileStore } from '../core/profile/store';
@@ -7,10 +7,13 @@ import { GameCanvas } from './GameCanvas';
 import { Hud } from './Hud';
 import { Overlay } from './Overlay';
 import { UltimateFlare } from './UltimateFlare';
+import { useAccount } from './hooks/useAccount';
+import { useAccountLink } from './hooks/useAccountLink';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useGameFlow, type GameFlow } from './hooks/useGameFlow';
 import { useDemoLevel, useLoadout, useProfile, useTheme } from './hooks/useProfile';
 import { PausePanel } from './panels/PausePanel';
+import { AccountScreen } from './screens/AccountScreen';
 import { AchievementsScreen } from './screens/AchievementsScreen';
 import { ChallengeScreen } from './screens/ChallengeScreen';
 import { CustomizeScreen } from './screens/CustomizeScreen';
@@ -70,6 +73,9 @@ export function App() {
   const loadout = useLoadout(profile);
   const { canvasRef, snapshot, engine } = useGameEngine(theme);
   const flow = useGameFlow(engine, snapshot);
+  const account = useAccount();
+  const openAccount = useCallback(() => flow.go('account'), [flow]);
+  const accountLink = useAccountLink(openAccount);
 
   // Keep the React chrome on the same accent as the court.
   useEffect(() => {
@@ -119,10 +125,12 @@ export function App() {
       {flow.screen === 'home' && (
         <HomeScreen
           profile={profile}
+          account={account}
           demoLevel={demoLevel}
           onPick={flow.pickMode}
           onDemo={() => flow.go('demo')}
           onExitDemo={flow.exitDemo}
+          onAccount={openAccount}
           onProfile={() => flow.go('profile')}
           onTalents={() => flow.go('talents')}
           onAchievements={() => flow.go('achievements')}
@@ -160,9 +168,19 @@ export function App() {
       {flow.screen === 'profile' && (
         <ProfileScreen
           profile={profile}
+          account={account}
+          onAccount={openAccount}
           onAchievements={() => flow.go('achievements')}
           onCustomize={() => flow.go('customize')}
           onTalents={() => flow.go('talents')}
+          onBack={() => flow.go('home')}
+        />
+      )}
+
+      {flow.screen === 'account' && (
+        <AccountScreen
+          token={accountLink.token}
+          onTokenUsed={accountLink.clear}
           onBack={() => flow.go('home')}
         />
       )}

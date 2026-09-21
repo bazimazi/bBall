@@ -1,9 +1,11 @@
+import type { CloudProfileDto } from '../../../shared/protocol';
 import type { BotLevelId } from '../bots/types';
 import type { Equipped } from '../cosmetics/catalog';
 import type { MatchResult } from '../modes/types';
 import { applyMatchResult, syncUnlocks, type ProgressSummary } from '../progression/apply';
 import { levelOf } from '../progression/levels';
-import { loadRecord, saveRecord } from '../storage/localStore';
+import { clearRecord, loadRecord, saveRecord, type StoreSpec } from '../storage/localStore';
+import { cloudMetaOf, cloudToProfile, toLocalSave, type CloudMeta } from './cloud';
 import {
   buyTalent,
   cloneTalentSave,
@@ -23,6 +25,18 @@ type Listener = () => void;
 
 /** The pre-profile save from the original game, imported once. */
 const LEGACY_BEST_KEY = 'bball.best';
+
+/**
+ * Where a signed-in player's cached cloud save is kept.
+ *
+ * Deliberately a separate key per account rather than overwriting
+ * `bball.profile`. Signing in must not destroy the guest save - a player may
+ * sign out again, or may be borrowing someone else's device - and signing out
+ * must hand the guest save back exactly as it was.
+ */
+function cloudSpec(userId: string): StoreSpec<PlayerProfile> {
+  return { ...PROFILE_SPEC, key: `bball.cloud.${userId}` };
+}
 
 function readLegacyBest(): number {
   try {
@@ -50,6 +64,17 @@ class ProfileStore {
    * the store ephemeral: nothing is written to storage until it is back.
    */
   private parked: PlayerProfile | null = null;
+
+  /**
+   * The guest save, parked while an account is signed in.
+   *
+   * Signing out puts it straight back, untouched, which is what makes trying
+   * an account free of consequences on a shared device.
+   */
+  private guest: PlayerProfile | null = null;
+
+  /** Identity of the cloud save in play, or null when this is a guest. */
+  private cloud: CloudMeta | null = null;
 
   /** True when the stored save was missing or had to be repaired. */
   readonly recovered: boolean;
@@ -86,7 +111,9 @@ class ProfileStore {
   private persist(): void {
     // A demo never reaches storage, so nothing it does can be kept.
     if (this.parked) return;
-    saveRecord(PROFILE_SPEC, this.profile);
+    // While signed in the local copy is a cache of the cloud save, so it goes
+    // to that account's own key and leaves the guest save alone.
+    saveRecord(this.cloud ? cloudSpec(this.cloud.userId) : PROFILE_SPEC, this.profile);
   }
 
   private notify(): void {
@@ -142,6 +169,116 @@ class ProfileStore {
     this.profile = this.parked;
     this.parked = null;
     this.notify();
+  }
+
+  // ---------------------------------------------------------------- cloud
+
+  /** The cloud save in play, or null when this is a guest session. */
+  getCloudMeta = (): CloudMeta | null => this.cloud;
+
+  /** True when the profile on screen belongs to a signed-in account. */
+  isCloud(): boolean {
+    return this.cloud !== null;
+  }
+
+  /**
+   * The guest save, packaged for the server.
+   *
+   * Read from the parked copy when an account is already signed in, so the
+   * "bring my progress over" button still knows what it is offering.
+   */
+  guestSave(): ReturnType<typeof toLocalSave> {
+    return toLocalSave(this.guest ?? this.profile);
+  }
+
+  /** The guest profile itself, for deciding whether it is worth offering. */
+  guestProfile(): PlayerProfile {
+    return this.guest ?? this.profile;
+  }
+
+  /**
+   * Switch to an account's save.
+   *
+   * The guest profile is parked rather than replaced, and the incoming cloud
+   * profile is cached under the account's own key so the next launch is
+   * instant and offline-capable.
+   */
+  signIn(dto: CloudProfileDto): void {
+    // A demo is a throwaway view of the game; signing in ends it rather than
+    // nesting a real account inside a fake one.
+    this.endDemo();
+    if (!this.cloud) this.guest = this.profile;
+    this.cloud = cloudMetaOf(dto);
+    this.commit(this.reconciled(cloudToProfile(dto)));
+  }
+
+  /**
+   * Take a fresh authoritative profile from the server.
+   *
+   * Used after every sync. Ignored when signed out, so a response that
+   * arrives after the player signed out cannot resurrect their account's
+   * save on the screen.
+   */
+  applyCloud(dto: CloudProfileDto): void {
+    if (!this.cloud || this.cloud.userId !== dto.userId) return;
+    this.cloud = cloudMetaOf(dto);
+    this.commit(this.reconciled(cloudToProfile(dto)));
+  }
+
+  /**
+   * Hand the guest save back.
+   *
+   * `forget` wipes the cached cloud copy as well, which is what account
+   * deletion and an explicit "sign out on a shared device" both want.
+   */
+  signOut(forget = false): void {
+    // A demo parked the real save; ending it first is what stops the guest
+    // profile being restored underneath a demo that is still running, which
+    // would leave the store unable to write anything at all.
+    this.endDemo();
+
+    const account = this.cloud;
+    if (!account) return;
+    if (forget) clearRecord(cloudSpec(account.userId));
+
+    this.cloud = null;
+    const guest = this.guest ?? loadRecord(PROFILE_SPEC).value;
+    this.guest = null;
+    this.commit(this.reconciled(guest));
+  }
+
+  /**
+   * Try to restore a cached cloud save before the network answers.
+   *
+   * This is what makes a signed-in relaunch show the player's real level
+   * immediately instead of a spinner or, worse, a blank guest profile.
+   */
+  restoreCachedCloud(userId: string): boolean {
+    const loaded = loadRecord(cloudSpec(userId));
+    if (loaded.fresh) return false;
+
+    this.endDemo();
+    if (!this.cloud) this.guest = this.profile;
+    this.cloud = {
+      userId,
+      // Zero means "no version seen yet", so the first push reports no
+      // divergence rather than a false conflict against a guessed number.
+      version: 0,
+      saveId: '',
+      updatedAt: loaded.value.updatedAt
+    };
+    this.commit(this.reconciled(loaded.value));
+    return true;
+  }
+
+  /** Settle a profile against the catalogue before it goes on screen. */
+  private reconciled(profile: PlayerProfile): PlayerProfile {
+    const next: PlayerProfile = {
+      ...profile,
+      talents: reconcile(profile.talents, levelOf(profile.xp))
+    };
+    syncUnlocks(next);
+    return next;
   }
 
   // ------------------------------------------------------------- identity
@@ -255,10 +392,16 @@ class ProfileStore {
     return summary;
   }
 
-  /** Wipe everything and start over. Used by the profile screen. */
+  /**
+   * Wipe everything and start over. Used by the profile screen.
+   *
+   * Refused while signed in: the server owns that save, and erasing the local
+   * cache would only have it pulled straight back. Deleting an account is a
+   * different, deliberate action on the account screen.
+   */
   reset(): void {
     // The demo has nothing to wipe, and the parked save is not its to erase.
-    if (this.parked) return;
+    if (this.parked || this.cloud) return;
     this.commit({ ...createProfile(), onboarded: true });
   }
 }

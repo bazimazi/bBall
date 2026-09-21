@@ -21,17 +21,19 @@ npm run dev        # http://localhost:5173
 | `npm run typecheck` | Type-check without emitting                   |
 | `npm run lint`      | ESLint over the whole project                 |
 | `npm run format`    | Prettier write                                |
+| `npm run server`    | The backend, with reload                      |
+| `npm test`          | The backend test suite                        |
 
 ## Playing
 
-| Input               | Action                                                                 |
-| ------------------- | ---------------------------------------------------------------------- |
-| Drag / move pointer | Move your paddle (anywhere on screen — the paddle mirrors your finger) |
-| `↑` `↓` or `W` `S`  | Move your paddle                                                       |
-| Tap / `Space`       | Serve immediately instead of waiting                                   |
-| `1` `2` `3` `4` or `Q` `E` `R` `F` | Use the ability in that slot (or tap the buttons in the corner) |
-| `Esc` or `P`        | Pause                                                                  |
-| `M`                 | Mute                                                                   |
+| Input                              | Action                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| Drag / move pointer                | Move your paddle (anywhere on screen — the paddle mirrors your finger) |
+| `↑` `↓` or `W` `S`                 | Move your paddle                                                       |
+| Tap / `Space`                      | Serve immediately instead of waiting                                   |
+| `1` `2` `3` `4` or `Q` `E` `R` `F` | Use the ability in that slot (or tap the buttons in the corner)        |
+| `Esc` or `P`                       | Pause                                                                  |
+| `M`                                | Mute                                                                   |
 
 Your paddle is the aqua one (or whatever colour you equip); the bot's is rose.
 The dots beside each end count that side's points. The faint number in the
@@ -51,8 +53,7 @@ rally lasts, so rallies tend to end themselves.
 
 ### Demo mode
 
-Home screen → **Demo a level** takes a level typed into a number field (1 to
-999) and drops you into the game as it is there: the talent points that level
+Home screen → **Demo a level** takes a level typed into a number field (1 to 999) and drops you into the game as it is there: the talent points that level
 has earned, its skill slots, its cup tiers and its cosmetics. Nothing a demo
 does is kept — matches, XP, builds and cosmetic changes all live in memory
 only, and **Exit** hands your real save back exactly as it was.
@@ -101,8 +102,8 @@ One point per level to level 50 — 49 in total — against 27 talents that cost
 points to fill. A build is a set of choices, not a checklist. Five short
 branches:
 
-| Branch       | What it makes you                                                    | Ultimate       |
-| ------------ | -------------------------------------------------------------------- | -------------- |
+| Branch       | What it makes you                                                     | Ultimate       |
+| ------------ | --------------------------------------------------------------------- | -------------- |
 | **Power**    | Heavy returns: charged strikes, criticals, a ball that keeps climbing | **Overload**   |
 | **Control**  | A faster, tidier paddle with wider deliberate angles                  | **Slipstream** |
 | **Defense**  | Saves at your own line, steadier returns, a comeback in hand          | **Aegis**      |
@@ -115,16 +116,16 @@ talent, which is the point: an ultimate is the reason a build goes deep rather
 than wide. Two is the most any player can hold, and only by giving up almost
 everything else.
 
-| Ultimate       | What it does                                                            |
-| -------------- | ----------------------------------------------------------------------- |
-| **Overload**   | Your next four returns are charged, critical, and driven into a corner  |
-| **Slipstream** | Seven seconds of a paddle that is longer *and* faster than any cap       |
+| Ultimate       | What it does                                                             |
+| -------------- | ------------------------------------------------------------------------ |
+| **Overload**   | Your next four returns are charged, critical, and driven into a corner   |
+| **Slipstream** | Seven seconds of a paddle that is longer _and_ faster than any cap       |
 | **Aegis**      | The next two balls to reach your line are saved for you                  |
 | **Zenith**     | Peak form: full Flow, and once a match the point you drop is given back  |
 | **Echo**       | Clears every other equipped skill's cooldown, then recharges them faster |
 
 Each branch is a grid, and depth is bought with commitment rather than with
-level: a row only opens once two points per row already sit in *that* branch,
+level: a row only opens once two points per row already sit in _that_ branch,
 so the bottom of a tree costs six points before you may spend the seventh.
 Arrows run from a talent to whatever it unlocks. Points spent elsewhere never
 open a row here, which is what stops a max-level player simply owning the
@@ -145,7 +146,7 @@ to be tried rather than regretted.
 
 Three rules keep builds from collapsing the game. Every multiplier a build can
 stack is capped once, in the balance config, so no combination escapes the
-ranges the simulation is tested against. The pace a Power build *adds* mostly
+ranges the simulation is tested against. The pace a Power build _adds_ mostly
 bleeds off when the opponent returns the ball — otherwise the extra speed comes
 straight back at the player who chose it, and the aggressive build is a trap
 rather than a style. And every ultimate is bounded by a count as well as a
@@ -162,9 +163,64 @@ unreadable is parked under `bball.profile.broken` and the game starts fresh.
 Unspent points are never trusted from the file — they are recomputed from your
 level and what you have spent, every time the profile is read.
 
+### Accounts
+
+An account is optional and the game never asks for one. There is a row on the
+home screen offering it, and everything works without it — you can play, level
+up, fill a talent tree and win a Gold Cup having never typed an email address.
+
+What an account adds is **somewhere else for your save to live**. Sign in on a
+second device and your level, build, records and cup come with you; lose the
+phone and nothing is lost with it.
+
+You can make one with an email address and a password, or with **Google,
+Apple or any other provider the server has been given credentials for** — the
+buttons are drawn from what the server actually offers, so a deployment with
+no Apple credentials simply shows no Apple button.
+
+The local save stays in charge of how the game feels:
+
+- **As a guest**, nothing leaves the device and no request is ever made.
+- **Making an account later** offers to bring your progress with you. The
+  server validates and imports it once; the guest save is parked rather than
+  replaced, and comes back untouched if you sign out.
+- **Signed in and online**, the server is the authority and the local copy is a
+  cache. A match is applied locally the instant it ends and confirmed a moment
+  later — the result card never waits for the network.
+- **Signed in and offline**, you keep playing. Every change goes into a durable
+  queue that survives a closed tab, and drains when the connection comes back.
+
+A small dot on the home screen says which of those you are in, and that is the
+only place the account intrudes.
+
+The other half of having a server is that progression stops being editable.
+XP, levels, talent points, unlocks, achievements and competitive records are
+all computed server-side from what a match reports, using the same code this
+client uses to preview them. A finished match sends evidence — score, rally,
+returns, duration — and no rewards at all.
+
+All of it lives in [`server/`](server/README.md), which has its own README
+covering the security model, the schema and the anti-cheat rules.
+
+```bash
+npm install
+npm run dev        # the game, http://localhost:5173
+npm run server     # the API,  http://127.0.0.1:8787
+```
+
+The dev server proxies `/v1` to the API, so the two run on one origin exactly
+as they do in production — no CORS, and the session cookie behaves the same in
+both. Point a build somewhere else with `VITE_API_URL`.
+
+Without a server running, the game is exactly the guest experience above: the
+account row reports that it cannot be reached, and nothing else changes.
+
 ## How it is built
 
 ```
+shared/
+  protocol.ts        the client/server wire contract, imported by both
+server/              the backend - see server/README.md
 src/
   main.tsx           React entry point
   game/              the simulation - no React, no DOM beyond the canvas
@@ -191,6 +247,9 @@ src/
     cosmetics/       unlockables and the resolved canvas theme
     profile/         profile model, validation, migration, store, demo mode
     storage/         versioned localStorage envelope
+    net/             the API client: timeouts, retries, token refresh
+    account/         session, offline outbox, sync, and the one door every
+                     progression change goes through
   ui/                React components, CSS modules, hooks
   styles/global.css  design tokens and resets
 ```
@@ -249,6 +308,20 @@ A few decisions worth knowing before changing things:
 - **Screen-space HUD.** Score pips live in field space (dots read the same at
   any rotation), while text is drawn unrotated at transformed anchor points so
   it stays upright on a portrait phone.
+- **One copy of the rules, shared.** The server does not re-implement
+  progression; it loads its rows into this client's own `PlayerProfile` shape
+  and runs these same pure functions — `applyMatchResult`, `buyTalent`,
+  `reconcile` — from `core/`. A server whose rules were a hand-copied
+  approximation would start rejecting honest matches within a release or two,
+  and every balance change would become a two-place edit with a silent failure
+  mode. `shared/protocol.ts` is imported by both sides for the same reason: a
+  payload change breaks the build twice, at compile time, rather than once at
+  runtime in front of a player.
+- **The account layer never blocks the game.** A match is applied locally the
+  moment it ends and queued for the server afterwards, never the other way
+  round. The local numbers are a prediction, and they are right because both
+  sides run the same functions over the same save; when they are not, the
+  server's answer replaces them within a second.
 - **No allocation in the hot loop.** Particles come from a fixed-size ring
   buffer and gradients are cached until the geometry, the theme or the heat
   bucket changes, which keeps low-end phones smooth. Cosmetics are resolved to

@@ -5,6 +5,9 @@
   "type": "module",
   "description": "A fast, minimal bouncing-ball duel built with Vite, React and TypeScript.",
   "license": "MIT",
+  "workspaces": [
+    "server"
+  ],
   "scripts": {
     "dev": "vite",
     "start": "vite --open",
@@ -12,7 +15,13 @@
     "preview": "vite preview",
     "typecheck": "tsc --build --force",
     "lint": "eslint .",
-    "format": "prettier --write \"**/*.{ts,tsx,css,html,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,css,html,json,md}\"",
+    "server": "npm run dev --workspace server",
+    "server:build": "npm run build --workspace server",
+    "server:start": "npm run start --workspace server",
+    "server:test": "npm run test --workspace server",
+    "server:migrate": "npm run migrate --workspace server",
+    "test": "npm run test --workspace server"
   },
   "dependencies": {
     "react": "^19.3.0",
@@ -32,5 +41,9 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
     "vite": "^8.3.0"
+  },
+  "allowScripts": {
+    "better-sqlite3": true,
+    "esbuild": true
   }
 }

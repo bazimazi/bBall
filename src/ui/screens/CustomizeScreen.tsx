@@ -6,7 +6,7 @@ import {
   type CosmeticKind,
   type Equipped
 } from '../../core/cosmetics/catalog';
-import { profileStore } from '../../core/profile/store';
+import { equipCosmetic } from '../../core/account/progression';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
 import styles from '../Screens.module.css';
@@ -53,7 +53,7 @@ export function CustomizeScreen({ profile, onBack }: CustomizeScreenProps) {
                   disabled={!have}
                   aria-pressed={equipped}
                   className={equipped ? `${styles.swatch} ${styles.selected}` : styles.swatch}
-                  onClick={() => profileStore.equip(slot as keyof Equipped, cosmetic.id)}
+                  onClick={() => equipCosmetic(slot as keyof Equipped, cosmetic.id)}
                 >
                   <span
                     className={styles.swatchDisc}

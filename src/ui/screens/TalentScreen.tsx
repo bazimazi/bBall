@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 import { abilitySlotsForLevel, nextSlotLevel } from '../../core/balance/config';
-import { profileStore } from '../../core/profile/store';
+import * as progression from '../../core/account/progression';
 import type { PlayerProfile } from '../../core/profile/types';
 import { levelOf } from '../../core/progression/levels';
 import { abilityById, ABILITY_DEFS } from '../../core/talents/abilities';
@@ -80,7 +80,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
   }, [bought]);
 
   const buy = (talent: TalentDef) => {
-    if (profileStore.buyTalent(talent.id)) setBought(talent.id);
+    if (progression.buyTalent(talent.id)) setBought(talent.id);
   };
 
   return (
@@ -95,7 +95,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
           disabled={spent === 0}
           onClick={() => {
             if (confirmRespec) {
-              profileStore.respecTalents();
+              progression.respecTalents();
               setConfirmRespec(false);
               setOpen(null);
             } else {
@@ -154,7 +154,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
               style={{ '--hue': String(def.hue) } as CSSProperties}
               onClick={() => {
                 const next: AbilityId | null = loadout.equipped[slot] === def.id ? null : def.id;
-                profileStore.equipAbility(slot, next);
+                progression.equipAbility(slot, next);
               }}
             >
               <span className={styles.chipGlyph}>
@@ -187,7 +187,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
             selected={open}
             onPick={(talent) => setOpen(open === talent.id ? null : talent.id)}
             onReset={() => {
-              profileStore.respecBranch(branch.id);
+              progression.respecTalents(branch.id);
               setOpen(null);
             }}
           />

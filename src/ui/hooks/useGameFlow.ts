@@ -9,6 +9,7 @@ import {
   tournamentRules
 } from '../../core/modes/rules';
 import type { MatchResult, MatchRules, ModeId } from '../../core/modes/types';
+import * as progression from '../../core/account/progression';
 import { profileStore, type ProgressSummary } from '../../core/profile/store';
 import { levelOf } from '../../core/progression/levels';
 import { tierForLevel } from '../../core/tournament/bracket';
@@ -23,6 +24,7 @@ export type ScreenId =
   | 'challenges'
   | 'tournament'
   | 'profile'
+  | 'account'
   | 'achievements'
   | 'customize'
   | 'talents'
@@ -69,7 +71,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     if (!finished || snapshot.resultId === handled.current) return;
     handled.current = snapshot.resultId;
     setResult(finished);
-    setSummary(profileStore.applyResult(finished));
+    setSummary(progression.recordMatch(finished));
     setScreen('result');
   }, [snapshot.result, snapshot.resultId]);
 
@@ -83,7 +85,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const startQuick = useCallback(
     (bot: BotLevelId) => {
-      profileStore.setLastBot(bot);
+      progression.setLastBot(bot);
       play(quickMatchRules(bot));
     },
     [play]
@@ -91,7 +93,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const startPractice = useCallback(
     (bot: BotLevelId) => {
-      profileStore.setLastPracticeBot(bot);
+      progression.setLastPracticeBot(bot);
       play(practiceRules(bot));
     },
     [play]
@@ -110,14 +112,14 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       const profile = profileStore.getSnapshot();
       const save =
         profile.tournament ??
-        profileStore.startTournament(tier ?? tierForLevel(levelOf(profile.xp)).id);
+        progression.startTournament(tier ?? tierForLevel(levelOf(profile.xp)).id);
       play(tournamentRules(save));
     },
     [play]
   );
 
   const abandonCup = useCallback(() => {
-    profileStore.abandonTournament();
+    progression.abandonTournament();
   }, []);
 
   const startDemo = useCallback(
