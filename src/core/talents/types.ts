@@ -60,8 +60,12 @@ export interface TalentDef {
   /** The active ability this talent unlocks, when it unlocks one. */
   readonly ability?: AbilityId;
   /**
-   * What rank `rank` does, in the player's words. Rendered as the "next
-   * rank" preview, so it must describe the rank rather than the total.
+   * What the talent is worth *at* `rank`, in the player's words.
+   *
+   * Always the running total, never the step one point adds: the screen puts
+   * the owned rank's line directly above the next rank's, and two lines that
+   * print the same per-rank number make a rank-3 talent look identical to a
+   * rank-1 one.
    */
   rankText(rank: number): string;
 }

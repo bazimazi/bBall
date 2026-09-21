@@ -41,7 +41,7 @@ function baseEffects(): TalentEffects {
   return {
     paddleMul: 1,
     edgeBoost: 0,
-    edgeSeconds: E.swiftRecovery.seconds,
+    edgeSeconds: 0,
 
     hitGrowth: 0,
     critChance: 0,
@@ -125,7 +125,12 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
     effects.powerStrikeCooldown += overdrive * E.overdrive.cooldown;
   }
   effects.hitGrowth += r('heavy-impact') * E.heavyImpact.growth;
-  effects.critChance += r('critical-strike') * E.criticalStrike.chance;
+
+  // Crit chance *and* crit size scale with the rank: a maxed Critical Strike
+  // lands more of them and each one is worth more.
+  const crit = r('critical-strike');
+  effects.critChance += crit * E.criticalStrike.chance;
+  effects.critGrowth += crit * E.criticalStrike.growthPerRank;
 
   const momentum = r('momentum');
   effects.momentumPerReturn += momentum * E.momentum.perReturn;
@@ -133,7 +138,10 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
 
   // -- control ------------------------------------------------------------
   effects.paddleMul *= 1 + r('quick-hands') * E.quickHands.paddle;
-  effects.edgeBoost += r('swift-recovery') * E.swiftRecovery.edgeBoost;
+
+  const recovery = r('swift-recovery');
+  effects.edgeBoost += recovery * E.swiftRecovery.edgeBoost;
+  effects.edgeSeconds += recovery * E.swiftRecovery.seconds;
 
   const precision = r('precision');
   effects.angleMul *= 1 + precision * E.precision.angle;
@@ -143,10 +151,15 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   if (guard > 0) {
     effects.guardWindow += (guard - 1) * E.perfectGuard.window;
     effects.guardPaddle += (guard - 1) * E.perfectGuard.paddle;
+    effects.guardSeconds += (guard - 1) * E.perfectGuard.secondsStep;
   }
 
   // -- defense ------------------------------------------------------------
-  effects.shieldCharges += r('shield') * E.shield.charges;
+  const shield = r('shield');
+  effects.shieldCharges += shield * E.shield.charges;
+  // A second charge also recharges the pair faster - two charges that each
+  // take a minute to come back is a talent nobody notices twice.
+  if (shield > 0) effects.shieldRecharge += (shield - 1) * E.shield.rechargeStep;
   effects.secondChances += r('second-chance') * E.secondChance.uses;
 
   const stabilizer = r('stabilizer');
@@ -164,6 +177,7 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
 
   const adrenaline = r('adrenaline');
   effects.adrenalinePaddle = Math.min(E.adrenaline.cap, adrenaline * E.adrenaline.paddle);
+  if (adrenaline > 0) effects.adrenalineSeconds += (adrenaline - 1) * E.adrenaline.secondsStep;
 
   const clutch = r('clutch');
   effects.clutchPaddle += clutch * E.clutch.paddle;
@@ -255,6 +269,7 @@ function applyCaps(effects: TalentEffects): void {
   effects.dashDistance = clamp(effects.dashDistance, 0, 220);
   effects.guardWindow = clamp(effects.guardWindow, 0.1, 0.6);
   effects.shieldSaveSpeed = clamp(effects.shieldSaveSpeed, 0.6, 1);
+  effects.shieldRecharge = Math.max(E.shield.minRecharge, effects.shieldRecharge);
 }
 
 /** Drop any equipped ability the build no longer owns. */

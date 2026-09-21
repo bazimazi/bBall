@@ -118,7 +118,7 @@ export const BALANCE = {
     /** Ceiling on every paddle-speed source multiplied together. */
     maxPaddleMul: 1.6,
     /** Ceiling on the ball-speed growth a single return may reach. */
-    maxHitGrowth: 1.12
+    maxHitGrowth: 1.2
   },
 
   /**
@@ -128,61 +128,75 @@ export const BALANCE = {
   effects: {
     // -- power ------------------------------------------------------------
     powerStrike: { speed: 0.22, window: 4, cooldown: 9 },
-    overdrive: { speed: 0.06, cooldown: -0.6 },
-    heavyImpact: { growth: 0.008 },
+    overdrive: { speed: 0.08, cooldown: -0.9 },
+    heavyImpact: { growth: 0.014 },
     /**
      * `angle` widens the contact offset on a heavy return, so power lands
      * the ball further from the opponent rather than only faster. Speed
      * alone barely troubles a composed bot; speed plus angle wins points,
      * which is what makes the branch worth investing in.
      */
-    criticalStrike: { chance: 0.07, growth: 0.14, chanceCap: 0.24, angle: 0.16 },
-    momentum: { perReturn: 0.0035, cap: 0.04 },
+    criticalStrike: {
+      chance: 0.08,
+      /** A crit's own bonus, before ranks. Overload crits with this alone. */
+      growth: 0.1,
+      /** Added to `growth` per rank: a deeper investment hits harder, too. */
+      growthPerRank: 0.04,
+      /** Above three ranks' worth, so Versatility still buys crit chance. */
+      chanceCap: 0.3,
+      angle: 0.16
+    },
+    momentum: { perReturn: 0.005, cap: 0.05 },
 
     // -- control ----------------------------------------------------------
-    quickHands: { paddle: 0.03 },
-    swiftRecovery: { edgeBoost: 0.22, seconds: 0.45 },
-    precision: { angle: 0.04, spin: -0.1 },
+    quickHands: { paddle: 0.035 },
+    /** `seconds` is per rank as well: rank two holds the boost twice as long. */
+    swiftRecovery: { edgeBoost: 0.22, seconds: 0.5 },
+    precision: { angle: 0.05, spin: -0.12 },
     dash: { distance: 110, cooldown: 5, seconds: 0.12 },
     perfectGuard: {
       baseWindow: 0.25,
-      window: 0.05,
+      window: 0.06,
       basePaddle: 0.14,
-      paddle: 0.04,
+      paddle: 0.06,
       seconds: 3,
+      /** Added to `seconds` per rank past the first. */
+      secondsStep: 0.75,
       cooldown: 8
     },
 
     // -- defense ----------------------------------------------------------
-    shield: { charges: 1, rechargeSeconds: 60, saveSpeed: 0.92 },
+    /** `rechargeStep` is added per rank past the first, so charges return sooner. */
+    shield: { charges: 1, rechargeSeconds: 48, rechargeStep: -8, minRecharge: 24, saveSpeed: 0.92 },
     secondChance: { uses: 1 },
-    stabilizer: { pull: 0.18, spin: -0.12 },
-    resilience: { perFive: 0.012, cap: 0.06 },
+    stabilizer: { pull: 0.2, spin: -0.12 },
+    resilience: { perFive: 0.016, cap: 0.07 },
 
     // -- momentum ---------------------------------------------------------
-    comboDrive: { xpPerReturn: 0.004, cap: 0.06 },
-    adrenaline: { threshold: 6, paddle: 0.06, seconds: 4, cap: 0.18 },
-    clutch: { paddle: 0.09, growth: -0.01 },
+    comboDrive: { xpPerReturn: 0.005, cap: 0.07 },
+    /** `secondsStep` is added per rank past the first: longer, as well as stronger. */
+    adrenaline: { threshold: 6, paddle: 0.07, seconds: 3.25, secondsStep: 0.75, cap: 0.21 },
+    clutch: { paddle: 0.12, growth: -0.015 },
     flowState: {
       from: 6,
       /** Returns past `from` that Flow State keeps counting. */
       stacks: 10,
-      paddle: 0.0025,
-      cap: 0.05,
+      paddle: 0.004,
+      cap: 0.06,
       /**
        * Placement, not just pace. Paddle speed alone stops mattering once a
        * build is deep - a wider deliberate angle is what still wins points,
        * and it is what gives the Momentum branch teeth of its own.
        */
-      angle: 0.004,
-      recharge: 0.08
+      angle: 0.005,
+      recharge: 0.1
     },
 
     // -- utility ----------------------------------------------------------
-    cooldownMastery: { cooldown: -0.08 },
-    experienceBoost: { xp: 0.04 },
-    talentSynergy: { magnitude: 0.5, paddlePerSynergy: 0.015 },
-    versatility: { bonus: 0.02 },
+    cooldownMastery: { cooldown: -0.1 },
+    experienceBoost: { xp: 0.05 },
+    talentSynergy: { magnitude: 0.5, paddlePerSynergy: 0.02 },
+    versatility: { bonus: 0.035 },
 
     /*
      * The capstones.

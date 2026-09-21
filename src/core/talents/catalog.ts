@@ -26,6 +26,34 @@ function pct(value: number): string {
   return `${Math.round(n * 10) / 10}%`;
 }
 
+/** Seconds, rounded for display. `sec(0.375)` -> "0.38s". */
+function sec(value: number): string {
+  return `${Math.round(value * 100) / 100}s`;
+}
+
+/** What one shield charge takes to come back at `rank`, floored as `effects.ts` floors it. */
+function shieldRecharge(rank: number): number {
+  return Math.max(
+    E.shield.minRecharge,
+    E.shield.rechargeSeconds + Math.max(0, rank - 1) * E.shield.rechargeStep
+  );
+}
+
+/** The most paddle speed Flow State can be holding at `rank`, stacks included. */
+function flowPeak(rank: number): number {
+  return Math.min(rank * E.flowState.cap, rank * E.flowState.paddle * E.flowState.stacks);
+}
+
+/**
+ * Every `rankText` below describes the *total* a talent is worth at `rank`,
+ * not what that one point adds.
+ *
+ * The screen shows two of these side by side - "Now" for the rank owned and
+ * "Rank n+1" for the next one - so a player weighing a point compares two
+ * totals. Printing the per-rank step in both lines is what made a rank-3
+ * talent read exactly like a rank-1 one.
+ */
+
 export const TALENT_BRANCHES: readonly Branch[] = [
   {
     id: 'power',
@@ -91,7 +119,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 1,
     requires: [{ talent: 'power-strike', rank: 1 }],
     rankText: (rank) =>
-      `+${pct(E.overdrive.speed)} Power Strike speed and ${Math.abs(E.overdrive.cooldown)}s off its cooldown (rank ${rank}).`
+      `Power Strike leaves +${pct(rank * E.overdrive.speed)} faster and comes back ${sec(rank * Math.abs(E.overdrive.cooldown))} sooner.`
   },
   {
     id: 'heavy-impact',
@@ -103,7 +131,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 0,
     column: 0,
     requires: [],
-    rankText: () => `Your returns add +${pct(E.heavyImpact.growth)} to the ball's speed gain.`
+    rankText: (rank) =>
+      `Your returns add +${pct(rank * E.heavyImpact.growth)} to the ball's speed gain.`
   },
   {
     id: 'critical-strike',
@@ -115,8 +144,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 1,
     column: 0,
     requires: [],
-    rankText: () =>
-      `+${pct(E.criticalStrike.chance)} chance of a critical return, worth +${pct(E.criticalStrike.growth)} ball speed.`
+    rankText: (rank) =>
+      `${pct(Math.min(E.criticalStrike.chanceCap, rank * E.criticalStrike.chance))} chance of a critical return, each worth +${pct(E.criticalStrike.growth + rank * E.criticalStrike.growthPerRank)} ball speed and a wider angle.`
   },
   {
     id: 'momentum',
@@ -128,14 +157,14 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 2,
     column: 0,
     requires: [],
-    rankText: () =>
-      `Each return in a rally adds +${pct(E.momentum.perReturn)} ball speed, up to +${pct(E.momentum.cap)} more.`
+    rankText: (rank) =>
+      `Each return in a rally adds +${pct(rank * E.momentum.perReturn)} ball speed, up to +${pct(rank * E.momentum.cap)} more.`
   },
   {
     id: 'overload',
     branch: 'power',
     name: 'Overload',
-    blurb: 'Ultimate: three returns of pure pace',
+    blurb: 'Ultimate: a run of unanswerable returns',
     maxRank: 1,
     costs: [ULTIMATE_COST],
     tier: ULTIMATE_TIER,
@@ -143,7 +172,7 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [{ talent: 'overdrive', rank: 1 }],
     ability: 'overload',
     rankText: () =>
-      `Unlocks Overload. Your next ${E.overload.hits} returns are charged *and* critical, stacking every source of pace you own onto three consecutive hits. ${E.overload.cooldown}s cooldown.`
+      `Unlocks Overload. Your next ${E.overload.hits} returns are charged *and* critical, stacking every source of pace you own onto ${E.overload.hits} consecutive hits and driving each one into a corner. ${E.overload.cooldown}s cooldown.`
   },
 
   // ---------------------------------------------------------------- control
@@ -157,7 +186,7 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 0,
     column: 0,
     requires: [],
-    rankText: () => `+${pct(E.quickHands.paddle)} paddle speed.`
+    rankText: (rank) => `+${pct(rank * E.quickHands.paddle)} paddle speed, always.`
   },
   {
     id: 'swift-recovery',
@@ -169,8 +198,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 0,
     column: 1,
     requires: [],
-    rankText: () =>
-      `+${pct(E.swiftRecovery.edgeBoost)} paddle speed for ${E.swiftRecovery.seconds}s after leaving an edge.`
+    rankText: (rank) =>
+      `+${pct(rank * E.swiftRecovery.edgeBoost)} paddle speed for ${sec(rank * E.swiftRecovery.seconds)} after leaving an edge.`
   },
   {
     id: 'precision',
@@ -182,8 +211,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 1,
     column: 1,
     requires: [],
-    rankText: () =>
-      `+${pct(E.precision.angle)} usable return angle, ${pct(Math.abs(E.precision.spin))} less unintended spin.`
+    rankText: (rank) =>
+      `+${pct(rank * E.precision.angle)} usable return angle, ${pct(rank * Math.abs(E.precision.spin))} less unintended spin.`
   },
   {
     id: 'dash',
@@ -210,10 +239,14 @@ export const TALENTS: readonly TalentDef[] = [
     column: 1,
     requires: [{ talent: 'precision', rank: 1 }],
     ability: 'perfect-guard',
-    rankText: (rank) =>
-      rank === 1
-        ? `Unlocks Perfect Guard: a ${E.perfectGuard.baseWindow}s window. A return inside it is absorbed clean and grants +${pct(E.perfectGuard.basePaddle)} paddle speed for ${E.perfectGuard.seconds}s.`
-        : `+${E.perfectGuard.window}s window and +${pct(E.perfectGuard.paddle)} to the guard bonus.`
+    rankText: (rank) => {
+      const window = sec(E.perfectGuard.baseWindow + (rank - 1) * E.perfectGuard.window);
+      const paddle = pct(E.perfectGuard.basePaddle + (rank - 1) * E.perfectGuard.paddle);
+      const span = sec(E.perfectGuard.seconds + (rank - 1) * E.perfectGuard.secondsStep);
+      return rank === 1
+        ? `Unlocks Perfect Guard: a ${window} window. A return inside it is absorbed clean and grants +${paddle} paddle speed for ${span}.`
+        : `A ${window} window, and a guard grants +${paddle} paddle speed for ${span}.`;
+    }
   },
   {
     id: 'slipstream',
@@ -241,8 +274,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 1,
     column: 0,
     requires: [],
-    rankText: () =>
-      `+1 shield charge. A charge saves one ball at your line, then recharges over ${E.shield.rechargeSeconds}s.`
+    rankText: (rank) =>
+      `${rank} shield charge${rank === 1 ? '' : 's'}. Each saves one ball at your line, then recharges over ${sec(shieldRecharge(rank))}.`
   },
   {
     id: 'second-chance',
@@ -267,7 +300,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 0,
     column: 1,
     requires: [],
-    rankText: () => `Pulls ${pct(E.stabilizer.pull)} of a wide edge-hit back towards a clean angle.`
+    rankText: (rank) =>
+      `Pulls ${pct(rank * E.stabilizer.pull)} of a wide edge-hit back towards a clean angle, with ${pct(rank * Math.abs(E.stabilizer.spin))} less spin on it.`
   },
   {
     id: 'resilience',
@@ -279,8 +313,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 2,
     column: 1,
     requires: [{ talent: 'stabilizer', rank: 1 }],
-    rankText: () =>
-      `+${pct(E.resilience.perFive)} paddle speed per five returns in a rally, up to +${pct(E.resilience.cap)} more.`
+    rankText: (rank) =>
+      `+${pct(rank * E.resilience.perFive)} paddle speed per five returns in a rally, up to +${pct(rank * E.resilience.cap)} more.`
   },
   {
     id: 'aegis',
@@ -308,8 +342,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 0,
     column: 1,
     requires: [],
-    rankText: () =>
-      `Each return on your drive is worth +${pct(E.comboDrive.xpPerReturn)} match XP, up to +${pct(E.comboDrive.cap)} more.`
+    rankText: (rank) =>
+      `Each return on your drive is worth +${pct(rank * E.comboDrive.xpPerReturn)} match XP, up to +${pct(rank * E.comboDrive.cap)} more.`
   },
   {
     id: 'adrenaline',
@@ -321,8 +355,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 2,
     column: 1,
     requires: [{ talent: 'combo-drive', rank: 2 }],
-    rankText: () =>
-      `+${pct(E.adrenaline.paddle)} paddle speed for ${E.adrenaline.seconds}s every ${E.adrenaline.threshold} returns on a drive.`
+    rankText: (rank) =>
+      `+${pct(Math.min(E.adrenaline.cap, rank * E.adrenaline.paddle))} paddle speed for ${sec(E.adrenaline.seconds + (rank - 1) * E.adrenaline.secondsStep)} every ${E.adrenaline.threshold} returns on a drive.`
   },
   {
     id: 'clutch',
@@ -334,8 +368,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 1,
     column: 0,
     requires: [],
-    rankText: () =>
-      `+${pct(E.clutch.paddle)} paddle speed while one point - or one life - from losing.`
+    rankText: (rank) =>
+      `+${pct(rank * E.clutch.paddle)} paddle speed, and ${pct(rank * Math.abs(E.clutch.growth))} less ball acceleration, while one point - or one life - from losing.`
   },
   {
     id: 'flow-state',
@@ -347,8 +381,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 3,
     column: 1,
     requires: [{ talent: 'adrenaline', rank: 1 }],
-    rankText: () =>
-      `Past ${E.flowState.from} returns, +${pct(E.flowState.paddle)} paddle speed per return (up to +${pct(E.flowState.cap)}) and faster cooldown recovery.`
+    rankText: (rank) =>
+      `Past ${E.flowState.from} returns, each return adds +${pct(rank * E.flowState.paddle)} paddle speed - up to +${pct(flowPeak(rank))} - and recharges abilities up to ${pct(rank * E.flowState.recharge)} faster.`
   },
   {
     id: 'zenith',
@@ -376,7 +410,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 0,
     column: 1,
     requires: [],
-    rankText: () => `${pct(Math.abs(E.cooldownMastery.cooldown))} off every ability cooldown.`
+    rankText: (rank) =>
+      `${pct(rank * Math.abs(E.cooldownMastery.cooldown))} off every ability cooldown.`
   },
   {
     id: 'experience-boost',
@@ -388,7 +423,7 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 0,
     column: 0,
     requires: [],
-    rankText: () => `+${pct(E.experienceBoost.xp)} XP from ranked matches.`
+    rankText: (rank) => `+${pct(rank * E.experienceBoost.xp)} XP from ranked matches.`
   },
   {
     id: 'talent-synergy',
@@ -400,8 +435,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 3,
     column: 0,
     requires: [],
-    rankText: () =>
-      `+${pct(E.talentSynergy.magnitude)} to every active synergy, and +${pct(E.talentSynergy.paddlePerSynergy)} paddle speed per synergy.`
+    rankText: (rank) =>
+      `+${pct(rank * E.talentSynergy.magnitude)} to every active synergy, and +${pct(rank * E.talentSynergy.paddlePerSynergy)} paddle speed per active synergy.`
   },
   {
     id: 'versatility',
@@ -413,7 +448,8 @@ export const TALENTS: readonly TalentDef[] = [
     tier: 1,
     column: 0,
     requires: [],
-    rankText: () => `+${pct(E.versatility.bonus)} to the signature stat of your deepest branch.`
+    rankText: (rank) =>
+      `+${pct(rank * E.versatility.bonus)} to the signature stat of your deepest branch.`
   },
   {
     id: 'echo',

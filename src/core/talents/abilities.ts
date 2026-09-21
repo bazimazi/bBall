@@ -77,11 +77,11 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     id: 'overload',
     hue: 0,
     name: 'Overload',
-    blurb: 'Three returns of pure pace',
+    blurb: 'A run of charged, critical returns',
     talent: 'overload',
     ultimate: true,
     cooldown: (effects) => effects.overloadCooldown,
-    summary: (effects) => `Next ${effects.overloadHits} returns charged and critical`
+    summary: (effects) => `Next ${effects.overloadHits} returns charged, critical and cornered`
   },
   {
     id: 'slipstream',
