@@ -65,6 +65,18 @@ const schema = z.object({
   /** Public URL of the game, used to build verification and reset links. */
   PUBLIC_APP_URL: z.string().url().default('http://localhost:5173'),
 
+  /**
+   * Where a social sign-in returns to when it was started by a packaged
+   * build rather than a browser.
+   *
+   * The desktop and mobile shells register the `bball://` scheme, and the
+   * sign-in itself happens in the system browser - providers refuse to render
+   * inside an embedded webview - so the callback has to redirect across the
+   * gap. It is configured here and never taken from the request, which is the
+   * difference between a URL scheme handoff and an open redirect.
+   */
+  NATIVE_RETURN_URL: z.string().url().default('bball://oauth'),
+
   /** Behind a load balancer this must be on for rate limiting to be correct. */
   TRUST_PROXY: bool.default(false),
   /** Largest accepted request body. Sync pushes are the biggest legitimate one. */
@@ -134,6 +146,8 @@ export interface AppConfig {
     readonly trustProxy: boolean;
     readonly bodyLimitBytes: number;
     readonly publicAppUrl: string;
+    /** Return address for the packaged builds. See NATIVE_RETURN_URL. */
+    readonly nativeReturnUrl: string;
   };
 
   readonly rateLimit: {
@@ -234,7 +248,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       cookieSecure: isProduction,
       trustProxy: raw.TRUST_PROXY,
       bodyLimitBytes: raw.BODY_LIMIT_BYTES,
-      publicAppUrl: raw.PUBLIC_APP_URL.replace(/\/+$/, '')
+      publicAppUrl: raw.PUBLIC_APP_URL.replace(/\/+$/, ''),
+      nativeReturnUrl: raw.NATIVE_RETURN_URL.replace(/\/+$/, '')
     },
 
     rateLimit: {

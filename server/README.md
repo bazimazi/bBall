@@ -163,6 +163,21 @@ account has no address at all gets a `@no-email.bball.invalid` placeholder —
 which is correct for the usual deployment where the game and the API are
 served together. See `.env.example` for where each credential comes from.
 
+### Signing in from the packaged game
+
+The desktop and mobile builds cannot host a provider in their own webview —
+providers refuse to render in embedded webviews — so they open the system
+browser and come back over a URL scheme. The client says which kind it is when
+it starts the flow (`{ "client": "native" }`), that answer is stored on the
+flow row, and the callback redirects to `NATIVE_RETURN_URL`
+(`bball://oauth?...`) instead of `PUBLIC_APP_URL`.
+
+Both addresses are configuration. The request picks between them and can never
+supply one, which is the difference between a scheme handoff and an open
+redirect. The shells' own origins — `tauri://localhost` and
+`http://tauri.localhost` — are allowed by CORS unconditionally, since no web
+page can send a request bearing them. See `docs/packaging.md`.
+
 Both companies publish sign-in button guidelines covering mark, wording and
 spacing. `ui/components/ProviderButton.tsx` follows their shape; a production
 release should check the current guidelines rather than trust that comment.

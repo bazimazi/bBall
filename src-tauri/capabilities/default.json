@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the game itself is allowed to ask the shell for. Everything else - the filesystem, the shell, arbitrary HTTP from native code - is absent on purpose: the game is a webview app that keeps its saves in localStorage and talks to its own API over fetch.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-set-title",
+    "os:allow-platform",
+    "deep-link:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://*" }]
+    }
+  ]
+}

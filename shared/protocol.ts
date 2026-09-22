@@ -182,6 +182,22 @@ export interface OAuthProvidersResponse {
   readonly providers: readonly OAuthProviderDto[];
 }
 
+/**
+ * Which kind of client is starting the sign-in.
+ *
+ * It decides one thing only: where the provider's callback sends the player
+ * afterwards. A browser is sent back to the game's own URL; a packaged app is
+ * sent to its URL scheme, because the round trip happens in the system
+ * browser and has to cross back into the app. Both targets are configured on
+ * the server, so this is a choice between two known destinations and never an
+ * address the client supplies.
+ */
+export type OAuthClientKind = 'web' | 'native';
+
+export interface OAuthStartRequest {
+  readonly client?: OAuthClientKind | undefined;
+}
+
 export interface OAuthStartResponse {
   /** Send the browser here. */
   readonly authorizeUrl: string;

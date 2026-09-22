@@ -1,0 +1,62 @@
+# The checks that run on every change. Packaging lives in release.yml, because
+# building three installers takes minutes and a typo does not deserve them.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # Proves the Rust shell still compiles and that its capabilities still match
+  # the config, without paying for a full bundle on every push. One platform is
+  # enough for that: the parts that differ per platform are the bundlers, and
+  # release.yml exercises those.
+  shell:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install the Linux webview and its build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            patchelf \
+            build-essential \
+            file
+
+      - run: npm ci
+      - run: npm run build:desktop
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets

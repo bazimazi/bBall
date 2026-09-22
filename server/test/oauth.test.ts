@@ -369,6 +369,83 @@ describe('the callback', () => {
   });
 });
 
+describe('returning to a packaged build', () => {
+  /** Start a flow as a desktop or mobile shell would, and follow the callback. */
+  async function nativeCallback(query: (state: string) => string) {
+    const started = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/oauth/fake/start',
+      payload: { client: 'native' }
+    });
+    assert.equal(started.statusCode, 200);
+    const { state } = started.json<{ state: string }>();
+
+    const callback = await server.app.inject({
+      method: 'GET',
+      url: `/v1/auth/oauth/fake/callback?${query(state)}`
+    });
+    assert.equal(callback.statusCode, 302);
+    return new URL(callback.headers.location as string);
+  }
+
+  it('sends a successful sign-in to the app scheme, not the web page', async () => {
+    const code = 'native-success-1';
+    provider.identities.set(code, identity({ subject: 'native-player-1' }));
+
+    const location = await nativeCallback(
+      (state) => `state=${encodeURIComponent(state)}&code=${code}`
+    );
+
+    assert.equal(location.protocol, 'bball:');
+    assert.equal(location.searchParams.get('status'), 'ok');
+
+    // The code that came back over the scheme is a real handoff.
+    const handoff = location.searchParams.get('code');
+    assert.ok(handoff);
+    const { statusCode } = await complete(handoff!);
+    assert.equal(statusCode, 200);
+  });
+
+  it('sends a cancelled sign-in there too', async () => {
+    // The flow is never consumed on this path, so the return address has to
+    // be read from the flow rather than from the result of spending it.
+    const location = await nativeCallback(
+      (state) => `state=${encodeURIComponent(state)}&error=access_denied`
+    );
+
+    assert.equal(location.protocol, 'bball:');
+    assert.equal(location.searchParams.get('status'), 'cancelled');
+  });
+
+  it('leaves browsers on the web page', async () => {
+    const code = 'web-default-1';
+    provider.identities.set(code, identity({ subject: 'web-player-1' }));
+
+    const started = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/oauth/fake/start'
+    });
+    const { state } = started.json<{ state: string }>();
+    const callback = await server.app.inject({
+      method: 'GET',
+      url: `/v1/auth/oauth/fake/callback?state=${encodeURIComponent(state)}&code=${code}`
+    });
+
+    const location = new URL(callback.headers.location as string);
+    assert.match(location.protocol, /^https?:$/);
+    assert.ok(location.hash.startsWith('#/oauth?'));
+  });
+
+  it('refuses a return address the caller made up', async () => {
+    const response = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/oauth/fake/start',
+      payload: { client: 'https://evil.test/steal' }
+    });
+    assert.ok(response.statusCode >= 400);
+  });
+});
+
 describe('redeeming the handoff', () => {
   it('works exactly once', async () => {
     const result = await signInWith(identity({ subject: 'single-use-1' }));

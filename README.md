@@ -23,6 +23,29 @@ npm run dev        # http://localhost:5173
 | `npm run format`    | Prettier write                                |
 | `npm run server`    | The backend, with reload                      |
 | `npm test`          | The backend test suite                        |
+| `npm run desktop`   | The game in a native window, with hot reload  |
+| `npm run icons`     | Redraw every app icon from `scripts/`         |
+
+## Platforms
+
+The same build runs in a browser tab, in a desktop window on Windows, macOS and
+Linux, and in a mobile app on Android and iOS. The native shells are
+[Tauri](https://tauri.app): a system webview, a Rust binary of a few hundred
+kilobytes, and an installer per operating system - no second JavaScript runtime
+to ship.
+
+```bash
+npm run desktop          # dev, in a native window
+npm run desktop:build    # installers for this OS
+npm run android          # on a device or emulator
+```
+
+Pushing a `v*` tag builds Windows, macOS and Linux installers and attaches them
+to a draft release. Two things differ from the web build, both because the shell
+serves the game from its own origin: a packaged build needs an absolute
+`VITE_API_URL`, and social sign-in returns through the `bball://` URL scheme
+rather than a redirect. [docs/packaging.md](docs/packaging.md) covers all of it -
+prerequisites, signing, deep links, and what the shell is allowed to do.
 
 ## Playing
 
@@ -221,6 +244,7 @@ account row reports that it cannot be reached, and nothing else changes.
 shared/
   protocol.ts        the client/server wire contract, imported by both
 server/              the backend - see server/README.md
+src-tauri/           the desktop and mobile shell - see docs/packaging.md
 src/
   main.tsx           React entry point
   game/              the simulation - no React, no DOM beyond the canvas
@@ -248,6 +272,7 @@ src/
     profile/         profile model, validation, migration, store, demo mode
     storage/         versioned localStorage envelope
     net/             the API client: timeouts, retries, token refresh
+    platform/        native shell: deep links, external links, full screen
     account/         session, offline outbox, sync, and the one door every
                      progression change goes through
   ui/                React components, CSS modules, hooks

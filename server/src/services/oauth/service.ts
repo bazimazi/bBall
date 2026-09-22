@@ -39,7 +39,8 @@ import {
   consumeHandoff,
   createFlow,
   createHandoff,
-  FLOW_TTL_SECONDS
+  FLOW_TTL_SECONDS,
+  type OAuthClient
 } from '../../repositories/oauth';
 import {
   createUserWithIdentity,
@@ -79,7 +80,8 @@ export interface StartResult {
 export function startOAuth(
   context: ServiceContext,
   registry: OAuthRegistry,
-  providerId: string
+  providerId: string,
+  client: OAuthClient = 'web'
 ): StartResult {
   const provider = providerOrFail(registry, providerId);
   const now = context.now();
@@ -91,7 +93,14 @@ export function startOAuth(
   const codeVerifier = randomBytes(48).toString('base64url');
   const redirectUri = registry.redirectUri(provider.id);
 
-  createFlow(context.db, { state, provider: provider.id, codeVerifier, nonce, redirectUri }, now);
+  // The client is recorded now rather than trusted later: the callback
+  // arrives from the provider, not from the game, and the only thing tying
+  // the two together is this row.
+  createFlow(
+    context.db,
+    { state, provider: provider.id, codeVerifier, nonce, redirectUri, client },
+    now
+  );
 
   return {
     authorizeUrl: provider.authorizeUrl({
@@ -112,6 +121,8 @@ export interface CallbackResult {
   readonly handoffCode: string;
   readonly provider: string;
   readonly created: boolean;
+  /** The kind of client that started the flow, from the flow row. */
+  readonly client: OAuthClient;
 }
 
 /**
@@ -239,7 +250,7 @@ export async function completeCallback(
   });
 
   context.log.info({ provider: provider.id, created }, 'oauth: sign-in completed');
-  return { handoffCode, provider: provider.id, created };
+  return { handoffCode, provider: provider.id, created, client: flow.client };
 }
 
 // ---------------------------------------------------------------- redeem

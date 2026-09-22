@@ -1,0 +1,77 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "bBall",
+  "version": "1.0.0",
+  "identifier": "dev.bazimazi.bball",
+  "build": {
+    "beforeDevCommand": "npm run dev:desktop",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build:desktop",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "bBall",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 640,
+        "minHeight": 420,
+        "resizable": true,
+        "center": true,
+        "focus": true,
+        "theme": "Dark",
+        "backgroundColor": "#06080f",
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost https: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; frame-src 'none'; object-src 'none'; base-uri 'self'",
+      "capabilities": ["default"]
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["bball"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Game",
+    "publisher": "bazimazi",
+    "copyright": "MIT licensed",
+    "shortDescription": "A fast, minimal bouncing-ball duel.",
+    "longDescription": "bBall is a fast, minimal bouncing-ball duel: talents, abilities and a first-to-five match against bots or a friend on the same keyboard.",
+    "licenseFile": "../LICENSE",
+    "icon": [
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    }
+  }
+}

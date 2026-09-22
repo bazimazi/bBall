@@ -1,0 +1,115 @@
+# Builds the installers for every desktop operating system and attaches them
+# to a draft GitHub release.
+#
+# Triggered by a version tag (`v1.0.0`), or by hand from the Actions tab when
+# you want artifacts without cutting a release. The release is left as a draft
+# on purpose: the last step of shipping is a person looking at what is about
+# to ship.
+#
+# What comes out:
+#   Windows   .msi and .exe (NSIS), per-user install
+#   macOS     .dmg and .app, universal (Apple silicon and Intel in one)
+#   Linux     .deb, .rpm and .AppImage
+#
+# Code signing is optional here and unset by default, so unsigned builds still
+# come out of a fresh clone. To sign, add the secrets named in the env blocks
+# below: without them macOS shows the "unidentified developer" warning and
+# Windows shows SmartScreen, and both builds still run.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One macOS job, not two: the universal target carries both
+          # architectures, so there is a single download to explain.
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          # 22.04 rather than latest, because the glibc a build links against
+          # is the oldest distribution it will run on.
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install the Linux webview and its build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            patchelf \
+            build-essential \
+            file
+
+      - run: npm ci
+
+      # Where the packaged game will look for the API. Set VITE_API_URL as a
+      # repository variable (Settings > Secrets and variables > Actions >
+      # Variables) to point releases at the real deployment. Left unset, the
+      # build falls back to .env.desktop, which points at localhost - fine for
+      # a test build, wrong for anything published.
+      #
+      # Deliberately not set as a plain `env:` value: an empty environment
+      # variable would win over .env.desktop and leave the build with no API
+      # origin at all.
+      - name: Point the build at the API
+        if: vars.VITE_API_URL != ''
+        shell: bash
+        run: echo "VITE_API_URL=${{ vars.VITE_API_URL }}" >> "$GITHUB_ENV"
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS signing and notarisation. All five are needed together;
+          # with none of them set the build is simply unsigned.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}-{1}', github.run_number, github.sha) }}
+          releaseName: bBall ${{ github.ref_type == 'tag' && github.ref_name || github.run_number }}
+          releaseBody: |
+            Download the file for your system:
+
+            - **Windows** - `.exe` installs for the current user, `.msi` for a machine-wide install.
+            - **macOS** - `.dmg`, universal. On an unsigned build, right-click the app and choose Open the first time.
+            - **Linux** - `.AppImage` runs anywhere, `.deb` and `.rpm` install.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: false
+          args: ${{ matrix.args }}

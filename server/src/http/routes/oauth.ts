@@ -28,14 +28,30 @@ import { loadProfile } from '../../repositories/profiles';
 import { toUserDto } from '../../services/auth';
 import type { ServiceContext } from '../../services/context';
 import { completeCallback, redeemHandoff, startOAuth } from '../../services/oauth/service';
-import { oauthCompleteSchema, oauthProviderParamSchema } from '../schemas';
+import type { OAuthClient } from '../../repositories/oauth';
+import { flowClient } from '../../repositories/oauth';
+import { oauthCompleteSchema, oauthProviderParamSchema, oauthStartSchema } from '../schemas';
 import { parse } from '../validate';
 import { REFRESH_COOKIE, REFRESH_COOKIE_PATH, requestMeta } from '../plugins/auth';
 import { authRateLimit } from '../plugins/security';
 
-/** Where the game is sent back to, with the outcome on the hash. */
-function returnUrl(context: ServiceContext, params: Record<string, string>): string {
+/**
+ * Where the game is sent back to, with the outcome on the hash.
+ *
+ * A browser goes to the game's own URL. A packaged build goes to its URL
+ * scheme, because the sign-in happened in the system browser and the answer
+ * has to cross back into the app; the operating system hands `bball://...`
+ * to the running game, which turns it into the same hash route the web build
+ * reads. Both targets come from configuration - the request only ever picks
+ * between them.
+ */
+function returnUrl(
+  context: ServiceContext,
+  client: OAuthClient,
+  params: Record<string, string>
+): string {
   const query = new URLSearchParams(params).toString();
+  if (client === 'native') return `${context.config.http.nativeReturnUrl}?${query}`;
   return `${context.config.http.publicAppUrl}/#/oauth?${query}`;
 }
 
@@ -52,7 +68,8 @@ export function registerOAuthRoutes(app: FastifyInstance, context: ServiceContex
 
   app.post('/v1/auth/oauth/:provider/start', { config: limited }, async (request, reply) => {
     const { provider } = parse(oauthProviderParamSchema, request.params);
-    const started = startOAuth(context, context.oauth, provider);
+    const { client } = parse(oauthStartSchema, request.body ?? {});
+    const started = startOAuth(context, context.oauth, provider, client);
 
     const payload: OAuthStartResponse = {
       authorizeUrl: started.authorizeUrl,
@@ -77,15 +94,20 @@ export function registerOAuthRoutes(app: FastifyInstance, context: ServiceContex
 
     // A player who presses "cancel" at the provider is not an error worth a
     // stack trace; they are simply back where they started.
+    const state = typeof fields.state === 'string' ? fields.state : '';
+    // Read before the flow is spent, because every branch below needs to know
+    // which of the two return addresses this player can actually be reached
+    // at - including the ones that never get as far as consuming the flow.
+    const client = state ? flowClient(context.db, state) : 'web';
+
     if (typeof fields.error === 'string') {
       context.log.info({ provider, error: fields.error }, 'oauth: provider returned an error');
-      return reply.redirect(returnUrl(context, { status: 'cancelled', provider }));
+      return reply.redirect(returnUrl(context, client, { status: 'cancelled', provider }));
     }
 
-    const state = typeof fields.state === 'string' ? fields.state : '';
     const code = typeof fields.code === 'string' ? fields.code : '';
     if (!state || !code) {
-      return reply.redirect(returnUrl(context, { status: 'failed', provider }));
+      return reply.redirect(returnUrl(context, client, { status: 'failed', provider }));
     }
 
     try {
@@ -96,7 +118,7 @@ export function registerOAuthRoutes(app: FastifyInstance, context: ServiceContex
         formFields: fields
       });
       return reply.redirect(
-        returnUrl(context, { status: 'ok', provider, code: result.handoffCode })
+        returnUrl(context, result.client, { status: 'ok', provider, code: result.handoffCode })
       );
     } catch (error) {
       // The player is mid-navigation, so they get sent home with a reason
@@ -106,7 +128,9 @@ export function registerOAuthRoutes(app: FastifyInstance, context: ServiceContex
         { provider, err: isAppError(error) ? error.internal : error },
         'oauth: callback failed'
       );
-      return reply.redirect(returnUrl(context, { status: 'failed', provider, reason: message }));
+      return reply.redirect(
+        returnUrl(context, client, { status: 'failed', provider, reason: message })
+      );
     }
   };
 

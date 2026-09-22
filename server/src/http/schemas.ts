@@ -118,6 +118,17 @@ export const oauthProviderParamSchema = z
   })
   .strict();
 
+/**
+ * What kind of client is starting a sign-in.
+ *
+ * Only the kind, never a return address: the two addresses live in the
+ * server's configuration, so a caller can choose between them and cannot
+ * invent a third.
+ */
+export const oauthStartSchema = z
+  .object({ client: z.enum(['web', 'native']).default('web') })
+  .strict();
+
 export const oauthCompleteSchema = z
   .object({ code: z.string().min(16).max(512), claim: localSaveSchema.optional() })
   .strict();

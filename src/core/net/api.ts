@@ -14,6 +14,7 @@ import type {
   LocalSaveDto,
   MatchSubmissionDto,
   MeResponse,
+  OAuthClientKind,
   OAuthCompleteResponse,
   OAuthProvidersResponse,
   OAuthStartResponse,
@@ -131,10 +132,10 @@ export const api = {
     return request('/v1/auth/oauth/providers', { auth: false });
   },
 
-  oauthStart(provider: string): Promise<OAuthStartResponse> {
+  oauthStart(provider: string, client: OAuthClientKind = 'web'): Promise<OAuthStartResponse> {
     return request(`/v1/auth/oauth/${encodeURIComponent(provider)}/start`, {
       method: 'POST',
-      body: {},
+      body: { client },
       auth: false,
       attempts: 1
     });

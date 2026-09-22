@@ -24,6 +24,7 @@ import type {
 import { profileStore } from '../profile/store';
 import { ApiError, browserOnline, isOffline, setTokenProvider } from '../net/client';
 import { api } from '../net/api';
+import { isNativeShell, openExternal } from '../platform/shell';
 import {
   acknowledgeDropped,
   clearOutbox,
@@ -274,6 +275,13 @@ class AccountStore {
    * leaves and re-enters the page and whatever is in memory does not survive
    * it. Everything else is the server's problem until the browser comes back
    * to `#/oauth`.
+   *
+   * A packaged build takes the long way round. Its webview cannot host the
+   * provider - providers refuse to render in embedded webviews, and
+   * navigating away would replace the game with a page it could never come
+   * back from - so the system browser does the sign-in and the answer returns
+   * as a `bball://oauth?...` deep link. Which of the two return addresses the
+   * server uses is decided by the `client` it is told here.
    */
   async startOAuth(
     provider: string,
@@ -281,13 +289,21 @@ class AccountStore {
   ): Promise<void> {
     this.set({ busy: true, notice: null, conflict: null });
     try {
-      const started = await api.oauthStart(provider);
+      const started = await api.oauthStart(provider, isNativeShell ? 'native' : 'web');
       rememberPendingOAuth({
         provider,
         claimGuestProgress: options.claimGuestProgress ?? false,
         startedAt: Date.now()
       });
-      window.location.assign(started.authorizeUrl);
+      await openExternal(started.authorizeUrl);
+
+      // In a browser the line above is a navigation and nothing after it
+      // runs. In a packaged app it opens another program and returns, so the
+      // game stays on screen and has to say what it is waiting for - the
+      // deep link that finishes this is handled in main.tsx.
+      if (isNativeShell) {
+        this.set({ busy: false, notice: 'Finish signing in in your browser, then come back.' });
+      }
     } catch (error) {
       this.set({ busy: false });
       throw error;

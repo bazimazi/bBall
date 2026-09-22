@@ -396,8 +396,17 @@ CREATE INDEX idx_oauth_handoffs_user ON oauth_handoffs (user_id);
 CREATE INDEX idx_oauth_handoffs_expires ON oauth_handoffs (expires_at);
 `;
 
+const oauthClient = `
+-- Which kind of client started the flow, so the callback knows where to send
+-- the player back to: a browser to the game's own URL, a packaged desktop or
+-- mobile build to its URL scheme. Existing rows are browsers, which is what
+-- every client was when they were written.
+ALTER TABLE oauth_flows ADD COLUMN client TEXT NOT NULL DEFAULT 'web';
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'init', up: init },
   { version: 2, name: 'sync_state', up: syncState },
-  { version: 3, name: 'oauth', up: oauth }
+  { version: 3, name: 'oauth', up: oauth },
+  { version: 4, name: 'oauth_client', up: oauthClient }
 ];

@@ -1,0 +1,5 @@
+# Build output and the generated native projects. `gen/` is reproducible from
+# `tauri android init` / `tauri ios init`; only `gen/schemas` is written on
+# every build and none of it belongs in history.
+/target/
+/gen/schemas/

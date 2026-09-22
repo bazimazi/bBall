@@ -143,3 +143,7 @@ server/data/
 *.db
 *.db-wal
 *.db-shm
+
+# Committed on purpose: it holds no secret, only the API origin a packaged
+# build points at. See .env.desktop.
+!.env.desktop

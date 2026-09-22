@@ -20,12 +20,16 @@ export const FLOW_TTL_SECONDS = 10 * 60;
 /** A handoff code is redeemed by the game immediately on return. */
 export const HANDOFF_TTL_SECONDS = 2 * 60;
 
+/** Where the callback sends the player back to. See the `client` column. */
+export type OAuthClient = 'web' | 'native';
+
 export interface OAuthFlowRow {
   state: string;
   provider: string;
   code_verifier: string;
   nonce: string;
   redirect_uri: string;
+  client: OAuthClient;
   created_at: number;
   expires_at: number;
   consumed_at: number | null;
@@ -39,22 +43,39 @@ export function createFlow(
     codeVerifier: string;
     nonce: string;
     redirectUri: string;
+    client?: OAuthClient;
   },
   now = Date.now()
 ): OAuthFlowRow {
   db.prepare(
-    `INSERT INTO oauth_flows (state, provider, code_verifier, nonce, redirect_uri, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO oauth_flows (state, provider, code_verifier, nonce, redirect_uri, client, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     flow.state,
     flow.provider,
     flow.codeVerifier,
     flow.nonce,
     flow.redirectUri,
+    flow.client ?? 'web',
     now,
     now + FLOW_TTL_SECONDS * 1000
   );
   return db.prepare('SELECT * FROM oauth_flows WHERE state = ?').get(flow.state) as OAuthFlowRow;
+}
+
+/**
+ * The client a flow was started by, without spending the flow.
+ *
+ * Needed on the paths where there is nothing to spend: a player who cancelled
+ * at the provider, or a callback that arrived malformed. They still have to be
+ * sent somewhere, and a packaged app is not reachable at the web URL.
+ * Unknown, expired and already-consumed states all read as 'web', which is
+ * the harmless answer - a browser page that explains what happened.
+ */
+export function flowClient(db: Db, state: string): OAuthClient {
+  const row = db.prepare('SELECT client FROM oauth_flows WHERE state = ?').get(state) as
+    { client: OAuthClient } | undefined;
+  return row?.client === 'native' ? 'native' : 'web';
 }
 
 /**

@@ -39,6 +39,18 @@ function limitKey(request: FastifyRequest): string {
   return principal ? `user:${principal.userId}` : `ip:${request.ip}`;
 }
 
+/**
+ * The origins the packaged builds are served from.
+ *
+ * A Tauri app serves its own files from `tauri://localhost`, or
+ * `http://tauri.localhost` on Windows, and there is no configuration that can
+ * change that - so these are allowed unconditionally rather than being one
+ * more thing every deployment has to remember to add. It gives nothing away:
+ * no web page can send a request bearing these origins, and anything that is
+ * not a browser was never constrained by CORS in the first place.
+ */
+const NATIVE_ORIGINS = ['tauri://localhost', 'http://tauri.localhost'];
+
 export async function registerSecurity(app: FastifyInstance, config: AppConfig): Promise<void> {
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -56,7 +68,7 @@ export async function registerSecurity(app: FastifyInstance, config: AppConfig):
       : false
   });
 
-  const allowed = new Set(config.http.corsOrigins);
+  const allowed = new Set([...config.http.corsOrigins, ...NATIVE_ORIGINS]);
   await app.register(cors, {
     origin(origin, callback) {
       // No Origin header at all is a non-browser caller - curl, a native app,

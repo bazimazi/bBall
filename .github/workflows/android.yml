@@ -1,0 +1,72 @@
+# Builds the Android package.
+#
+# Separate from release.yml and manual on purpose: the mobile shell needs an
+# Android SDK, an NDK and - for anything published to a store - a signing
+# keystore, none of which the desktop builds want to wait for.
+#
+# With no keystore configured this produces an unsigned APK, which installs on
+# a device with "install unknown apps" enabled and is exactly what you want for
+# testing. To publish, add the keystore secrets below and switch `--apk` for
+# `--aab`.
+name: android
+
+on:
+  workflow_dispatch:
+    inputs:
+      format:
+        description: What to build
+        type: choice
+        default: apk
+        options: [apk, aab]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install the NDK
+        run: |
+          sdkmanager "ndk;27.0.12077973"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - run: npm ci
+
+      - name: Point the build at the API
+        if: vars.VITE_API_URL != ''
+        run: echo "VITE_API_URL=${{ vars.VITE_API_URL }}" >> "$GITHUB_ENV"
+
+      # Regenerates src-tauri/gen/android from the config. Safe to run when the
+      # directory is already committed - it leaves existing files alone.
+      - run: npm run android:init
+
+      - run: npm run android:build -- --${{ inputs.format }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bball-android-${{ inputs.format }}
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+          if-no-files-found: error

@@ -1,0 +1,10 @@
+# Build output
+dist/
+server/dist/
+
+# The Rust shell's build directory and the generated native projects. Both are
+# full of machine-written files, and one of them is several hundred megabytes.
+src-tauri/target/
+src-tauri/gen/
+
+package-lock.json
