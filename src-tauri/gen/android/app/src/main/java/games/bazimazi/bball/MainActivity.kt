@@ -1,4 +1,4 @@
-package dev.bazimazi.bball
+package games.bazimazi.bball
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
