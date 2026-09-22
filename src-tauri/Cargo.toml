@@ -20,6 +20,11 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# Not used by hand anywhere in this crate: `generate_context!` expands to code
+# that parses the embedded config, and that expansion names `serde_json` in the
+# crate root. Only a packaged build (`tauri/custom-protocol`) takes that path,
+# so a `tauri dev` run compiles fine without it.
+serde_json = "1"
 tauri-plugin-deep-link = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-os = "2"
