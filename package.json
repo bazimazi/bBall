@@ -1,7 +1,7 @@
 {
   "name": "bball",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "A fast, minimal bouncing-ball duel built with Vite, React and TypeScript.",
   "license": "MIT",

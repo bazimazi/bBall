@@ -1,7 +1,7 @@
 {
   "name": "@bball/server",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "bBall backend: identity, authoritative progression and cloud saves.",
   "license": "MIT",

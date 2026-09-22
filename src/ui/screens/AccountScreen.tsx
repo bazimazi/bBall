@@ -8,6 +8,7 @@ import { ProviderButton } from '../components/ProviderButton';
 import { Screen } from '../components/Screen';
 import { SyncBadge } from '../components/SyncBadge';
 import { useAccount } from '../hooks/useAccount';
+import { useBackHandler } from '../hooks/useBackHandler';
 import styles from '../Account.module.css';
 import screens from '../Screens.module.css';
 
@@ -77,6 +78,11 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
 
   const guest = guestProgress();
   const providers = account.providers ?? [];
+
+  // Registering, or asking for a reset link, is a step away from signing in
+  // rather than a screen of its own - so back returns to the form it came
+  // from, and only then leaves the account screen.
+  useBackHandler(mode === 'register' || mode === 'forgot', () => setMode('signin'));
 
   // Asked for once, and remembered by the store - including an empty answer,
   // so a deployment with no providers configured is not asked again.
@@ -439,6 +445,9 @@ function DeleteAccount({
 }) {
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
+
+  // An opened "delete account" panel is the only thing back should close.
+  useBackHandler(open, () => setOpen(false));
 
   if (!open) {
     return (

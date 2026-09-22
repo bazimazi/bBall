@@ -24,6 +24,7 @@ import {
 import { activeSynergies, SYNERGIES } from '../../core/talents/synergy';
 import type { AbilityId, TalentDef, TalentId } from '../../core/talents/types';
 import { Screen } from '../components/Screen';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { TalentTree } from '../components/TalentTree';
 import { TalentIcon } from '../icons/TalentIcon';
 import screens from '../Screens.module.css';
@@ -78,6 +79,14 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
     const id = window.setTimeout(() => setBought(null), 600);
     return () => window.clearTimeout(id);
   }, [bought]);
+
+  // Back closes whatever is open over the tree before it leaves the tree: a
+  // talent card, a slot being filled, or a half-confirmed respec.
+  useBackHandler(open !== null || slot !== null || confirmRespec, () => {
+    if (open !== null) setOpen(null);
+    else if (slot !== null) setSlot(null);
+    else setConfirmRespec(false);
+  });
 
   const buy = (talent: TalentDef) => {
     if (progression.buyTalent(talent.id)) setBought(talent.id);

@@ -18,10 +18,11 @@ src-tauri/
   tauri.conf.json       window, bundle, CSP, URL scheme
   capabilities/         what the web layer may ask the shell for
   icons/                generated from app-icon.png
-  src/lib.rs            the whole shell: one window and three plugins
+  src/lib.rs            the whole shell: one window, three plugins, one command
   src/main.rs           desktop entry point
 src/core/platform/
-  shell.ts              native detection, opening links, deep links
+  back.ts               the back button, in a tab and on Android
+  shell.ts              native detection, opening links, deep links, exit
   window.ts             full screen
 ```
 
@@ -236,3 +237,18 @@ filesystem access, no shell access and no native HTTP client, because the game
 needs none of it - it keeps its saves in `localStorage` and talks to its own API
 with `fetch`. Anything added there should be added the same way: one permission,
 for one thing the game actually does.
+
+The one thing the shell does that is not a plugin is `exit_app`, a command in
+`src/lib.rs`. Commands the app defines itself are not part of the capability
+list; this one exists because a packaged build can honour "close the app" and a
+browser tab cannot.
+
+## The back button
+
+Android's system back and a browser's back button arrive the same way, so they
+are handled the same way. `src/core/platform/back.ts` keeps one spare history
+entry alive at all times, which is what Tauri's Android activity checks
+(`WebView.canGoBack()`) before it decides to finish the activity. Every press is
+therefore delivered to the innermost thing on screen - a modal, then the screen
+it sits in, then the screen stack in `useGameFlow` - and the app is closed only
+from the prompt that appears when Home has nowhere left to go.

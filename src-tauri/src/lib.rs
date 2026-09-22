@@ -18,6 +18,17 @@
 
 use tauri::Manager;
 
+/// Quit the app, because the player asked to.
+///
+/// The web build has no equivalent - a page cannot close its own tab - so this
+/// is the one place the packaged builds genuinely part company with it. On
+/// Android the window *is* the activity, so closing the window and quitting
+/// the app are the same thing said two ways; `exit` says it once.
+#[tauri::command]
+fn exit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 /// Build and run the app.
 ///
 /// `mobile_entry_point` is what `tauri android dev` and `tauri ios dev` call;
@@ -44,6 +55,7 @@ pub fn run() {
     }
 
     builder
+        .invoke_handler(tauri::generate_handler![exit_app])
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())

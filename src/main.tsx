@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { accountStore } from './core/account/store';
+import { installBackRouting } from './core/platform/back';
 import { installDeepLinkRouting } from './core/platform/shell';
 import { installWindowShortcuts } from './core/platform/window';
 import { App } from './ui/App';
@@ -16,6 +17,11 @@ accountStore.start();
 // sign-in gets back in (`bball://oauth?...`) and how F11 reaches the window.
 void installDeepLinkRouting();
 installWindowShortcuts();
+
+// Arms the history guard the back button is routed through. Done before the
+// first render so the very first press - which on Android would otherwise
+// close the app outright - already has somewhere to land.
+installBackRouting();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('bBall: #root is missing from index.html.');

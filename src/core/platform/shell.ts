@@ -3,7 +3,7 @@
  *
  * The same TypeScript runs in three places: a browser tab, a desktop window
  * (Tauri, on Windows, macOS and Linux) and a mobile app (Tauri, on Android and
- * iOS). Almost nothing cares about the difference. Two things do:
+ * iOS). Almost nothing cares about the difference. Three things do:
  *
  * - **Leaving the app.** In a tab, sending the player to a provider is a
  *   navigation. In a webview it must not be: providers refuse to render inside
@@ -13,12 +13,16 @@
  * - **Coming back.** A browser returns by URL. A native app returns by URL
  *   scheme - `bball://oauth?status=ok&code=...` - which arrives as an event
  *   rather than a page load.
+ * - **Closing.** A packaged app can quit; a tab cannot close itself, and backs
+ *   out of its own history instead.
  *
  * Everything here degrades to nothing on the web: `isNativeShell` is false,
  * `openExternal` is a plain navigation, and the deep-link listener is never
  * installed. The Tauri packages are imported dynamically so a web build never
  * ships them.
  */
+
+import { leaveHistory } from './back';
 
 /**
  * True when a Tauri shell is hosting the page.
@@ -128,5 +132,29 @@ export async function installDeepLinkRouting(): Promise<void> {
     // passwords, sync - works without them, so this is a warning and not a
     // failure to start.
     console.warn('bball: deep links are unavailable in this shell', error);
+  }
+}
+
+/**
+ * Close the game.
+ *
+ * A packaged app can actually do this, so it does: `exit_app` is a command on
+ * the Rust side rather than a window close, because on Android the window is
+ * the activity and the player pressing "Exit" means the app, not the view.
+ *
+ * A tab cannot be closed by the page that lives in it, so the web build backs
+ * out of its own history instead - see `leaveHistory`.
+ */
+export async function exitApp(): Promise<void> {
+  if (!isNativeShell) {
+    leaveHistory();
+    return;
+  }
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('exit_app');
+  } catch (error) {
+    console.warn('bball: this shell would not close', error);
+    leaveHistory();
   }
 }

@@ -34,7 +34,14 @@ export type ScreenId =
 
 export interface GameFlow {
   screen: ScreenId;
+  /** Open a screen on top of the one showing, so back returns to it. */
   go: (screen: ScreenId) => void;
+  /** Swap the screen showing for another, with no way back to it. */
+  replace: (screen: ScreenId) => void;
+  /** Step back one screen. Does nothing when this one is the bottom. */
+  back: () => void;
+  /** Is there a screen behind this one? */
+  canGoBack: boolean;
   /** The finished match being shown on the result screen. */
   result: MatchResult | null;
   summary: ProgressSummary | null;
@@ -56,10 +63,31 @@ export interface GameFlow {
  * Routing and match start-up: which screen is showing, and what each mode
  * does when it is picked. Keeping it here means the screens stay presentational
  * and the engine keeps knowing nothing about menus.
+ *
+ * Screens are a stack rather than a single value, because "back" has to mean
+ * the screen the player actually came from: Profile then Talents goes back to
+ * Profile, while Home then Talents goes back to Home. The bottom of the stack
+ * is always somewhere it is reasonable to stop - Home, or onboarding on a
+ * first run - so the back button runs out exactly where leaving the app is
+ * the honest next step.
  */
 export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): GameFlow {
-  const [screen, setScreen] = useState<ScreenId>(() =>
-    profileStore.getSnapshot().onboarded ? 'home' : 'onboarding'
+  const [stack, setStack] = useState<ScreenId[]>(() =>
+    profileStore.getSnapshot().onboarded ? ['home'] : ['onboarding']
+  );
+  const screen = stack[stack.length - 1] as ScreenId;
+  const setScreen = useCallback(
+    (next: ScreenId) =>
+      setStack((current) => (current.at(-1) === next ? current : [...current, next])),
+    []
+  );
+  const replace = useCallback(
+    (next: ScreenId) => setStack((current) => [...current.slice(0, -1), next]),
+    []
+  );
+  const back = useCallback(
+    () => setStack((current) => (current.length > 1 ? current.slice(0, -1) : current)),
+    []
   );
   const [result, setResult] = useState<MatchResult | null>(null);
   const [summary, setSummary] = useState<ProgressSummary | null>(null);
@@ -72,15 +100,15 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     handled.current = snapshot.resultId;
     setResult(finished);
     setSummary(progression.recordMatch(finished));
-    setScreen('result');
-  }, [snapshot.result, snapshot.resultId]);
+    replace('result');
+  }, [snapshot.result, snapshot.resultId, replace]);
 
   const play = useCallback(
     (rules: MatchRules) => {
       engine?.play(rules);
       setScreen('playing');
     },
-    [engine]
+    [engine, setScreen]
   );
 
   const startQuick = useCallback(
@@ -130,7 +158,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       profileStore.startDemo(level);
       setResult(null);
       setSummary(null);
-      setScreen('home');
+      setStack(['home']);
     },
     [engine]
   );
@@ -140,7 +168,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     profileStore.endDemo();
     setResult(null);
     setSummary(null);
-    setScreen('home');
+    setStack(['home']);
   }, [engine]);
 
   const pickMode = useCallback(
@@ -163,24 +191,30 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
           break;
       }
     },
-    [play]
+    [play, setScreen]
   );
 
   const quitToMenu = useCallback(() => {
     engine?.quitToMenu();
-    setScreen('home');
+    setStack(['home']);
   }, [engine]);
 
   const replay = useCallback(() => {
     engine?.replay();
-    setScreen('playing');
-  }, [engine]);
+    replace('playing');
+  }, [engine, replace]);
 
-  /** Leave the result card for a menu, tidying the finished match away. */
+  /**
+   * Leave the result card for a menu, tidying the finished match away.
+   *
+   * The match that got here is over, so the screens that led to it are not
+   * worth stepping back through: the stack is rebuilt as the menu itself,
+   * reached from Home.
+   */
   const leaveResult = useCallback(
     (next: ScreenId) => {
       engine?.quitToMenu();
-      setScreen(next);
+      setStack(next === 'home' ? ['home'] : ['home', next]);
     },
     [engine]
   );
@@ -188,6 +222,9 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   return {
     screen,
     go: setScreen,
+    replace,
+    back,
+    canGoBack: stack.length > 1,
     result,
     summary,
     pickMode,
