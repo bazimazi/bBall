@@ -1,8 +1,9 @@
 /*
  * The in-game ability buttons.
  *
- * Bottom-right, where a thumb rests. In portrait the court is drawn rotated,
- * so that corner is behind the player's *own* goal line - the one part of the
+ * A bottom corner, where a thumb rests - left by default, right if the
+ * player asks for it on the profile screen. In portrait the court is drawn
+ * rotated, so both bottom corners are behind the player's *own* goal line - the one part of the
  * field the ball only reaches once the point is already decided. The buttons
  * are translucent over it either way, and nothing else is added to the HUD.
  *
@@ -23,6 +24,11 @@
   gap: 10px;
   /* Only the buttons take input - the rest of the strip belongs to the game. */
   pointer-events: none;
+}
+
+.left {
+  right: auto;
+  left: calc(var(--safe-l) + 12px);
 }
 
 .button {
@@ -329,6 +335,11 @@
     gap: 8px;
     right: calc(var(--safe-r) + 6px);
     bottom: calc(var(--safe-b) + 6px);
+  }
+
+  .left {
+    right: auto;
+    left: calc(var(--safe-l) + 6px);
   }
 
   .button {

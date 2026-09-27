@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 
+import type { SkillSide } from '../core/settings/store';
 import type { AbilityView } from '../game/types';
 import styles from './AbilityBar.module.css';
 import { TalentIcon } from './icons/TalentIcon';
@@ -8,6 +9,8 @@ interface AbilityBarProps {
   abilities: readonly AbilityView[];
   /** Hidden outside a live match, so the menus are never crowded. */
   show: boolean;
+  /** The screen edge the buttons sit on - the player's choice, per device. */
+  side: SkillSide;
   onUse: (slot: number) => void;
 }
 
@@ -204,15 +207,15 @@ function AbilityButton({ ability, index, onUse }: AbilityButtonProps) {
 /**
  * The equipped active skills, during play.
  *
- * Bottom corner, thumb-sized, and deliberately outside the court: the field
+ * Bottom corner on the side the player picked, thumb-sized, and deliberately outside the court: the field
  * is centred and letterboxed on every screen, so this sits in space the ball
  * can never occupy. Nothing else is added to the gameplay HUD.
  */
-export function AbilityBar({ abilities, show, onUse }: AbilityBarProps) {
+export function AbilityBar({ abilities, show, side, onUse }: AbilityBarProps) {
   if (!show || abilities.length === 0) return null;
 
   return (
-    <div className={styles.bar}>
+    <div className={side === 'left' ? `${styles.bar} ${styles.left}` : styles.bar}>
       {abilities.map((ability, index) => (
         <AbilityButton key={ability.id} ability={ability} index={index} onUse={onUse} />
       ))}

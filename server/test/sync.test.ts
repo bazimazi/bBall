@@ -14,6 +14,7 @@ import { after, before, describe, it } from 'node:test';
 import { MAX_SYNC_OPS } from '../../shared/protocol';
 import type { ClaimResponse, SyncOp, SyncPushResponse } from '../../shared/protocol';
 import { createProfile } from '../../src/core/profile/defaults';
+import { CLAIM_LIMITS } from '../src/domain/claim';
 import type { PlayerProfile } from '../../src/core/profile/types';
 import { PROFILE_VERSION } from '../../src/core/profile/schema';
 import {
@@ -166,7 +167,7 @@ describe('claiming a guest save', () => {
     // Two matches can be worth at most twice the per-match ceiling, plus
     // whatever achievements those two matches genuinely earned.
     assert.ok(
-      body.profile.xp < 2000,
+      body.profile.xp < 2 * CLAIM_LIMITS.xpPerMatch + 400,
       `expected the claim to be trimmed, got ${body.profile.xp} XP`
     );
     assert.ok(body.claim.notes.some((note) => note.toLowerCase().includes('xp')));

@@ -101,7 +101,7 @@ export function computeMatchXp(result: MatchResult, context: XpContext): XpAward
 
 function botMultiplier(result: MatchResult): number {
   // Rank 1..5 maps onto the same factors the bot catalogue advertises.
-  const factors = [0.7, 0.9, 1.15, 1.4, 1.75];
+  const factors = [0.7, 1.5, 2.5, 3.5, 5];
   return factors[Math.min(factors.length, Math.max(1, result.botRank)) - 1]!;
 }
 

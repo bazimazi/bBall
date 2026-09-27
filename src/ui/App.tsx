@@ -15,6 +15,7 @@ import { useBackHandler } from './hooks/useBackHandler';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useGameFlow, type GameFlow } from './hooks/useGameFlow';
 import { useDemoLevel, useLoadout, useProfile, useTheme } from './hooks/useProfile';
+import { useSettings } from './hooks/useSettings';
 import { ExitPanel } from './panels/ExitPanel';
 import { PausePanel } from './panels/PausePanel';
 import { AccountScreen } from './screens/AccountScreen';
@@ -78,6 +79,7 @@ export function App() {
   const { canvasRef, snapshot, engine } = useGameEngine(theme);
   const flow = useGameFlow(engine, snapshot);
   const account = useAccount();
+  const settings = useSettings();
   const openAccount = useCallback(() => flow.go('account'), [flow]);
   const accountLink = useAccountLink(openAccount);
   const [leaving, setLeaving] = useState(false);
@@ -141,6 +143,7 @@ export function App() {
       <AbilityBar
         abilities={snapshot.abilities}
         show={playing && !paused}
+        side={settings.skillSide}
         onUse={(slot) => engine?.useAbility(slot)}
       />
 
@@ -163,13 +166,9 @@ export function App() {
           account={account}
           demoLevel={demoLevel}
           onPick={flow.pickMode}
-          onDemo={() => flow.go('demo')}
           onExitDemo={flow.exitDemo}
-          onAccount={openAccount}
           onProfile={() => flow.go('profile')}
           onTalents={() => flow.go('talents')}
-          onAchievements={() => flow.go('achievements')}
-          onCustomize={() => flow.go('customize')}
         />
       )}
 
@@ -203,7 +202,7 @@ export function App() {
           onAccount={openAccount}
           onAchievements={() => flow.go('achievements')}
           onCustomize={() => flow.go('customize')}
-          onTalents={() => flow.go('talents')}
+          onDemo={() => flow.go('demo')}
           onBack={flow.back}
         />
       )}

@@ -116,11 +116,6 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         </button>
       }
     >
-      <div className={styles.points} aria-live="polite">
-        <span className={styles.pointsLabel}>Points left</span>
-        <span className={styles.pointsValue}>{save.points}</span>
-      </div>
-
       {/* --------------------------------------------------------- actives */}
       <p className={screens.sectionLabel}>Active skills</p>
       <div className={styles.slots}>
@@ -185,6 +180,11 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
       )}
 
       {/* ----------------------------------------------------------- trees */}
+      <div className={styles.points} aria-live="polite">
+        <span className={styles.pointsLabel}>Points left</span>
+        <span className={styles.pointsValue}>{save.points}</span>
+      </div>
+
       <div className={styles.trees}>
         {TALENT_BRANCHES.map((branch) => (
           <TalentTree

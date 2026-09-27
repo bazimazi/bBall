@@ -46,11 +46,11 @@ export const CLAIM_LIMITS = {
    * a long rally, shutout and comeback - against a Legend, with the largest
    * multiplier a build can reach. Real matches pay a fraction of it.
    */
-  xpPerMatch: 600,
+  xpPerMatch: 1700,
   /** An endless run's ceiling: survival, a long rally and capped returns. */
   xpPerEndlessRun: 500,
   xpPerChallengeClear: 500,
-  xpPerCupWon: 800,
+  xpPerCupWon: 2300,
   /** Every cup round, win or lose, is worth at most this. */
   xpPerCupPlayed: 250,
   /**
@@ -59,7 +59,7 @@ export const CLAIM_LIMITS = {
    * A five-point match is a minute or two of real time; this allows for one
    * every ten seconds, which no human reaches and no cheat can hide behind.
    */
-  xpPerSecond: 60,
+  xpPerSecond: 170,
   /** The fastest a ranked match could conceivably be finished. */
   secondsPerMatch: 8,
   /** Returns a player could make per second of play, generously. */

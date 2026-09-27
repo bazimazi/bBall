@@ -10,7 +10,6 @@ import type { AccountState } from '../../core/account/store';
 import { ProfileChip } from '../components/ProfileChip';
 import { SyncBadge } from '../components/SyncBadge';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
-import accountStyles from '../Account.module.css';
 import styles from '../Screens.module.css';
 
 interface HomeScreenProps {
@@ -19,13 +18,9 @@ interface HomeScreenProps {
   /** The level being demoed, or null when the real save is in play. */
   demoLevel: number | null;
   onPick: (mode: ModeId) => void;
-  onDemo: () => void;
   onExitDemo: () => void;
-  onAccount: () => void;
   onProfile: () => void;
   onTalents: () => void;
-  onAchievements: () => void;
-  onCustomize: () => void;
 }
 
 /** A one-line hint per mode, so nothing needs a sub-menu to be understood. */
@@ -54,13 +49,9 @@ export function HomeScreen({
   account,
   demoLevel,
   onPick,
-  onDemo,
   onExitDemo,
-  onAccount,
   onProfile,
-  onTalents,
-  onAchievements,
-  onCustomize
+  onTalents
 }: HomeScreenProps) {
   const coarse = useCoarsePointer();
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
@@ -95,22 +86,6 @@ export function HomeScreen({
 
           <ProfileChip profile={profile} onClick={onProfile} />
 
-          {/* One row, always in the same place: signed in or not, a player can
-              see at a glance where their progress is going. Demo mode hides it,
-              because nothing a demo does is saved anywhere. */}
-          {demoLevel === null && (
-            <button type="button" className={accountStyles.entry} onClick={onAccount}>
-              <span className={accountStyles.entryText}>
-                {account.status === 'authenticated'
-                  ? (account.email ?? 'Your account')
-                  : 'Sign in or create an account'}
-              </span>
-              <span className={accountStyles.entryMeta}>
-                {account.status === 'authenticated' ? 'Account' : 'Optional'}
-              </span>
-            </button>
-          )}
-
           {demoLevel === null && <SyncBadge account={account} />}
 
           <div className={styles.grid}>
@@ -136,17 +111,6 @@ export function HomeScreen({
         <button type="button" className={styles.ghost} onClick={onTalents}>
           Talents
           {points > 0 && <span className={styles.badge}>{points}</span>}
-        </button>
-        <div className={styles.buttonRow}>
-          <button type="button" className={styles.ghost} onClick={onAchievements}>
-            Achievements
-          </button>
-          <button type="button" className={styles.ghost} onClick={onCustomize}>
-            Customise
-          </button>
-        </div>
-        <button type="button" className={styles.ghost} onClick={onDemo}>
-          {demoLevel === null ? 'Demo a level' : 'Change demo level'}
         </button>
         <p className={styles.note}>
           {coarse ? 'Drag anywhere to move' : 'Move the mouse or use ↑ ↓'}
