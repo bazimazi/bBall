@@ -169,6 +169,7 @@ export class GameEngine {
     this.keys.up = false;
     this.keys.down = false;
     this.pointerId = null;
+    this.audio.restartMusic();
     startMatch(this.world, rules);
     this.publish();
   };
@@ -356,7 +357,11 @@ export class GameEngine {
     fx.timeScale += (1 - fx.timeScale) * Math.min(1, dt * 3);
     if (fx.timeScale > 0.999) fx.timeScale = 1;
 
-    if (match.status === 'play' || match.status === 'serve') this.applyKeys(dt);
+    const live = match.status === 'play' || match.status === 'serve';
+    if (live) this.applyKeys(dt);
+    // The soundtrack plays through a match only: never behind the menus, and
+    // it drops out on pause and when the final point lands.
+    this.audio.updateMusic(live);
 
     this.accumulator += dt * fx.timeScale;
     let steps = 0;
