@@ -4,7 +4,7 @@ Identity, authoritative progression and cloud saves for bBall.
 
 The game stays exactly what it was: a local simulation that runs at 120 Hz and
 never waits for anything. This adds an account behind it, so a player's level,
-build and records follow them to another device — and so the numbers that
+build and records follow them to another device - and so the numbers that
 matter cannot be edited in a browser console.
 
 ```bash
@@ -29,14 +29,14 @@ authority for anything that can be gained.**
 
 | Owned by the client                 | Owned by the server                          |
 | ----------------------------------- | -------------------------------------------- |
-| The simulation — physics, input, AI | XP, level, talent points                     |
+| The simulation - physics, input, AI | XP, level, talent points                     |
 | What happened in a match            | What that match was worth                    |
 | Which talent the player wants       | Whether they can afford it                   |
 | Cosmetic preferences                | Which cosmetics are unlocked                 |
 | Menus and presentation              | Achievements, cup progress, lifetime records |
 
-A match submission carries evidence — score, rally, returns, duration, what
-the build did — and no rewards at all. The server re-derives the award from
+A match submission carries evidence - score, rally, returns, duration, what
+the build did - and no rewards at all. The server re-derives the award from
 the same pure functions the client uses to preview it.
 
 ## Architecture
@@ -70,8 +70,8 @@ Three rules hold the layers apart:
 ### The shared domain model
 
 The server does not re-implement progression. It loads its rows into the
-client's own `PlayerProfile` shape and runs the client's own pure functions —
-`applyMatchResult`, `buyTalent`, `reconcile`, `syncUnlocks` — from
+client's own `PlayerProfile` shape and runs the client's own pure functions -
+`applyMatchResult`, `buyTalent`, `reconcile`, `syncUnlocks` - from
 `src/core/`.
 
 That is the single most important decision here. A server whose rules were a
@@ -100,7 +100,7 @@ directory import needs no package boundary.
 - **Enumeration**: wrong password, unknown address, disabled account and
   deleted account all produce the same `INVALID_CREDENTIALS`. Password reset
   answers `202` whether or not the address exists.
-- **After a password change or reset**, every other session is revoked — that
+- **After a password change or reset**, every other session is revoked - that
   is the action someone takes when they think their account is not theirs any
   more.
 
@@ -113,7 +113,7 @@ that does not work. `GET /v1/auth/oauth/providers` is what the client draws
 its buttons from.
 
 The flow is the authorization code flow with PKCE, and it is the same code for
-every provider — `createOidcProvider` in `services/oauth/oidc.ts`. Google and
+every provider - `createOidcProvider` in `services/oauth/oidc.ts`. Google and
 Apple differ in four URLs, a scope string, and how the client authenticates at
 the token endpoint. Adding Microsoft, Discord or a corporate IdP is another
 config object in `providers.ts` and a line in the registry; there is no second
@@ -124,16 +124,16 @@ Two decisions worth knowing:
 **Tokens never travel in a URL.** The provider redirects to the callback,
 which redirects the browser home with a one-time _handoff code_; the game
 exchanges that over POST for a session. A URL ends up in browser history, in a
-screenshot and in whatever gets pasted into a bug report — and this also makes
+screenshot and in whatever gets pasted into a bug report - and this also makes
 the flow work identically whether or not cookies survived the round trip.
 
 **An unverified address is never linked.** Account matching goes: a linked
 `(provider, subject)` wins outright; otherwise an address the provider says it
 has _verified_ may be linked to an existing account with that address;
 otherwise a new account is created. An unverified address is refused with an
-explanation. Skipping that check is the classic pre-hijack attack — register
+explanation. Skipping that check is the classic pre-hijack attack - register
 at the provider with someone else's address, never confirm it, sign in as
-them — and there is a test named after it.
+them - and there is a test named after it.
 
 The ID token is verified in full before any of that: signature against the
 provider's published JWKS (algorithm taken from the key, so `alg: none` and
@@ -149,7 +149,7 @@ authorization, which is taken there or lost for good.
 An account created this way has no password. It cannot be signed in to with
 one, and deleting it asks only for confirmation, since there is no password to
 re-enter and the live session is the whole proof available. A provider whose
-account has no address at all gets a `@no-email.bball.invalid` placeholder —
+account has no address at all gets a `@no-email.bball.invalid` placeholder -
 `.invalid` is reserved by RFC 2606 and can never resolve.
 
 ### Callback URLs to register
@@ -165,8 +165,8 @@ served together. See `.env.example` for where each credential comes from.
 
 ### Signing in from the packaged game
 
-The desktop and mobile builds cannot host a provider in their own webview —
-providers refuse to render in embedded webviews — so they open the system
+The desktop and mobile builds cannot host a provider in their own webview -
+providers refuse to render in embedded webviews - so they open the system
 browser and come back over a URL scheme. The client says which kind it is when
 it starts the flow (`{ "client": "native" }`), that answer is stored on the
 flow row, and the callback redirects to `NATIVE_RETURN_URL`
@@ -174,8 +174,8 @@ flow row, and the callback redirects to `NATIVE_RETURN_URL`
 
 Both addresses are configuration. The request picks between them and can never
 supply one, which is the difference between a scheme handoff and an open
-redirect. The shells' own origins — `tauri://localhost` and
-`http://tauri.localhost` — are allowed by CORS unconditionally, since no web
+redirect. The shells' own origins - `tauri://localhost` and
+`http://tauri.localhost` - are allowed by CORS unconditionally, since no web
 page can send a request bearing them. See `docs/packaging.md`.
 
 Both companies publish sign-in button guidelines covering mark, wording and
@@ -185,7 +185,7 @@ release should check the current guidelines rather than trust that comment.
 ## Anti-cheat
 
 The client is untrusted and always will be. Nothing here tries to make it
-unmodifiable — that is unwinnable, and chasing it produces false rejections
+unmodifiable - that is unwinnable, and chasing it produces false rejections
 for honest players on bad connections. What it does is make the server's
 numbers impossible to dictate.
 
@@ -215,15 +215,15 @@ later without moving anything else.
 The local save is not a fallback; it is where the game reads from. The cloud
 is what makes it survive a lost phone.
 
-- **Guest** — everything on the device, no account, no network. The game makes
+- **Guest** - everything on the device, no account, no network. The game makes
   no requests at all.
-- **Guest becoming an account** — the local save is offered once, validated
+- **Guest becoming an account** - the local save is offered once, validated
   with the client's own repair pass, clamped against its own evidence, and
   merged. Nothing is ever subtracted.
-- **Signed in and online** — the server is authoritative; the local copy is a
+- **Signed in and online** - the server is authoritative; the local copy is a
   cache under that account's own key. The guest save is parked, not destroyed,
   and comes back untouched on sign out.
-- **Signed in and offline** — play continues against the cache, every change
+- **Signed in and offline** - play continues against the cache, every change
   goes into a durable outbox, and `/v1/sync/push` drains it on reconnect.
   Operations carry client-generated ids and apply at most once.
 
@@ -236,7 +236,7 @@ every match behind it.
 
 This is the one place the server keeps a number it cannot derive: a guest has
 been playing offline, so there are no match records to recompute from. Either
-the progress is imported on trust or it is thrown away — and throwing it away
+the progress is imported on trust or it is thrown away - and throwing it away
 at the exact moment someone is being asked to make an account is a reason
 never to make one.
 
@@ -280,8 +280,8 @@ Everything is under `/v1`. Full request and response types are in
 | GET      | `/health`, `/health/live`                | Readiness and liveness                              |
 
 The grain is chosen around what the game does. Recording a match is one call
-carrying the whole post-match batch — stats, XP, level, points, achievements,
-unlocks and cup progress land in a single transaction — because the
+carrying the whole post-match batch - stats, XP, level, points, achievements,
+unlocks and cup progress land in a single transaction - because the
 alternative would put several round trips between the last point and the
 result card. Menu actions are small calls because that is how a player
 performs them. Nothing here runs during a rally.
@@ -311,7 +311,7 @@ refused rather than applied to state it never saw.
 
 ### Backups
 
-The database is one file, so a backup is a copy — but not with `cp`, which can
+The database is one file, so a backup is a copy - but not with `cp`, which can
 catch a torn page mid-write. Use SQLite's own online backup:
 
 ```bash
@@ -335,7 +335,7 @@ Everything is read once, at startup, by `config/env.ts`; nothing else touches
   call sites, so "what does production do" is answerable from that file alone.
 
 `CORS_ORIGINS` is an allowlist. It is never `*` and never reflects the
-caller's own origin — with credentials enabled, the first is forbidden by the
+caller's own origin - with credentials enabled, the first is forbidden by the
 specification and the second is the same hole with extra steps.
 
 Production also gets HSTS, a strict CSP (this server returns JSON; it never
@@ -358,7 +358,7 @@ facing detail goes to the log and never to the wire.
 npm run server:test
 ```
 
-181 tests over an in-memory database, driven through `app.inject()` — real
+181 tests over an in-memory database, driven through `app.inject()` - real
 routing, real plugins, real middleware, real SQLite, no sockets. Nothing below
 the HTTP boundary is mocked.
 
@@ -367,15 +367,15 @@ the HTTP boundary is mocked.
 | `auth.test.ts`        | Registration, sign-in, rotation, reuse detection, expiry, verification, reset, deletion, authorization, rate limits |
 | `oauth.test.ts`       | The whole social flow against a stand-in provider, plus ID token verification with generated keys                   |
 | `progression.test.ts` | XP, levels, talents, cosmetics, cups, duplicates, idempotency, version conflicts                                    |
-| `antiCheat.test.ts`   | Every rejection rule — and that honest matches still pass                                                           |
+| `antiCheat.test.ts`   | Every rejection rule - and that honest matches still pass                                                           |
 | `sync.test.ts`        | Claiming, merging, clamping, pushing, pulling                                                                       |
 | `concurrency.test.ts` | Ten matches at once, double-submitted matches, racing purchases                                                     |
 | `database.test.ts`    | Migrations, checksums, rollback, constraints, cascades, health                                                      |
 | `journey.test.ts`     | The whole flow, with the real client modules                                                                        |
 
-`journey.test.ts` is the one worth reading. It installs a fake browser —
+`journey.test.ts` is the one worth reading. It installs a fake browser -
 localStorage as a Map, `fetch` routed at `app.inject` with a cookie jar, a
-network switch — and then runs the _actual_ client code: the real profile
+network switch - and then runs the _actual_ client code: the real profile
 store, the real outbox, the real fetch wrapper with its retries and token
 refresh. Guest play, account creation with a claim, online sync, offline play,
 a simulated restart, reconnection, a second device, and sign-out restoring the
@@ -392,7 +392,7 @@ NODE_ENV=production AUTH_SECRET=... DATABASE_FILE=/var/lib/bball/bball.db \
   node server/dist/main.js
 ```
 
-Serve it behind TLS. Behind a proxy, set `TRUST_PROXY=true` — and only there,
+Serve it behind TLS. Behind a proxy, set `TRUST_PROXY=true` - and only there,
 since a client can otherwise forge its own address and escape rate limiting.
 Put `DATABASE_FILE` on a volume that is actually backed up. `SIGTERM` drains
 in-flight requests before exiting, so a deploy cannot cut a match submission
@@ -403,13 +403,13 @@ in half.
 The shape was chosen with these in mind, and each is a feature rather than a
 restructuring:
 
-- **Leaderboards** — `profiles(xp DESC)` is already indexed; per-mode
+- **Leaderboards** - `profiles(xp DESC)` is already indexed; per-mode
   statistics are already their own table.
-- **Friends and social** — `auth_identities` and `profiles` are separate, so a
+- **Friends and social** - `auth_identities` and `profiles` are separate, so a
   relationship table joins to `users` without touching progression.
-- **Seasons** — `progression_events` and `matches` are both time-ordered with
+- **Seasons** - `progression_events` and `matches` are both time-ordered with
   sortable primary keys, so a season is a window over them.
-- **Multiplayer and matchmaking** — a match already arrives as one validated
+- **Multiplayer and matchmaking** - a match already arrives as one validated
   submission; a server-authoritative result would arrive at the same service
   from a different producer.
-- **Cross-device** — already here.
+- **Cross-device** - already here.

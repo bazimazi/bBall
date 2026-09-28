@@ -3,7 +3,7 @@
 A fast, minimal bouncing-ball duel. Drag to move your paddle, keep the ball
 alive, and take the points off the bot before it takes them off you.
 
-Built with Vite, React and TypeScript. No game assets — every pixel is drawn on
+Built with Vite, React and TypeScript. No game assets - every pixel is drawn on
 a canvas and every sound is synthesised. No runtime dependencies beyond React.
 
 ## Getting started
@@ -51,7 +51,7 @@ prerequisites, signing, deep links, and what the shell is allowed to do.
 
 | Input                              | Action                                                                 |
 | ---------------------------------- | ---------------------------------------------------------------------- |
-| Drag / move pointer                | Move your paddle (anywhere on screen — the paddle mirrors your finger) |
+| Drag / move pointer                | Move your paddle (anywhere on screen - the paddle mirrors your finger) |
 | `↑` `↓` or `W` `S`                 | Move your paddle                                                       |
 | Tap / `Space`                      | Serve immediately instead of waiting                                   |
 | `1` `2` `3` `4` or `Q` `E` `R` `F` | Use the ability in that slot (or tap the buttons in the corner)        |
@@ -78,7 +78,7 @@ rally lasts, so rallies tend to end themselves.
 
 Home screen → **Demo a level** takes a level typed into a number field (1 to 999) and drops you into the game as it is there: the talent points that level
 has earned, its skill slots, its cup tiers and its cosmetics. Nothing a demo
-does is kept — matches, XP, builds and cosmetic changes all live in memory
+does is kept - matches, XP, builds and cosmetic changes all live in memory
 only, and **Exit** hands your real save back exactly as it was.
 
 It works by parking the real profile and swapping in a throwaway one whose `xp`
@@ -97,13 +97,13 @@ fast or the rally is long. A return placed wide enough always scores.
 ### Progression
 
 Matches, wins, rallies, challenges and cup rounds pay XP; XP levels you up.
-Levels and achievements unlock cosmetics — colours, ball and paddle styles,
-trails and arenas — which change nothing about how the game plays. Levels also
+Levels and achievements unlock cosmetics - colours, ball and paddle styles,
+trails and arenas - which change nothing about how the game plays. Levels also
 pay **one talent point each** up to level 50, which very much do. Practice pays
 nothing, quitting pays nothing, and the award is halved after 25 ranked matches
 in a day, so there is nothing worth farming.
 
-Levelling itself has no cap — the curve just keeps going — but what a level
+Levelling itself has no cap - the curve just keeps going - but what a level
 buys does: talent points stop at level 50 and paddle speed reaches its ceiling
 at level 53. Past that a level is a record of how much you have played, never
 an advantage over someone who has played less.
@@ -113,7 +113,7 @@ Three things are kept strictly apart, and the whole balance model rests on it:
 > Difficulty makes the ball harder to handle. Progression makes your paddle
 > more capable. Talents decide how you handle that difficulty.
 
-A stronger opponent means a faster ball — never a slower paddle for you, and
+A stronger opponent means a faster ball - never a slower paddle for you, and
 never a secret nerf to something you earned. Your paddle speed comes from your
 level and your build, and from nothing else. Every number behind all three
 lives in `src/core/balance/config.ts`; nothing outside that file hard-codes a
@@ -121,7 +121,7 @@ speed, a cooldown or a cap.
 
 ### Talents
 
-One point per level to level 50 — 49 in total — against 35 talents that cost 93
+One point per level to level 50 - 49 in total - against 35 talents that cost 93
 points to fill. A build is a set of choices, not a checklist, and with points
 this scarce every one of them has to change a rally.
 
@@ -144,7 +144,7 @@ Five branches:
 | **Mastery**  | More skills, sooner: cooldowns, a skill slot, a paddle that feeds on them | **Echo**       |
 
 Each branch is a three-wide grid with its **ultimate** in the middle of the
-bottom row — eight points of commitment to reach, four more to buy. Twelve of
+bottom row - eight points of commitment to reach, four more to buy. Twelve of
 your forty-nine, for one talent, which is the point: an ultimate is the reason a
 build goes deep rather than wide.
 
@@ -165,14 +165,14 @@ bottom of all five.
 A few talents are worth knowing by name, because they change how a rally plays
 rather than how a number reads:
 
-- **Foresight** marks where the ball will reach your line — and, at rank two,
+- **Foresight** marks where the ball will reach your line - and, at rank two,
   draws its whole path, wall bounces included.
 - **Swerve** bends your returns in the last stretch of their flight, after the
   opponent has already read them. **Bank Shot** sends them off a wall steeper.
 - **Heavy Impact** makes every return harder for the opponent to read; charged
   and critical returns are heavier still.
 - **Reckless** is a keystone: far bigger criticals, and in exchange nothing can
-  save you — Shield, Bastion, Adrenaline, Aegis, Second Chance and Zenith's
+  save you - Shield, Bastion, Adrenaline, Aegis, Second Chance and Zenith's
   refund all stand down.
 - **Perfect Guard** is a parry: time it and the ball comes back charged, even
   one that would have just cleared your paddle.
@@ -184,8 +184,8 @@ rather than how a number reads:
 - **Versatility** buys a skill slot outright, and **Tempo** winds every cooldown
   back each time you return the ball.
 
-Eight talents unlock **active skills** — Power Strike, Dash and Perfect Guard,
-plus the five ultimates — of which you equip two, three from level 15, four
+Eight talents unlock **active skills** - Power Strike, Dash and Perfect Guard,
+plus the five ultimates - of which you equip two, three from level 15, four
 from level 30 and five from level 50 (one more with Versatility). Each has a
 cooldown, a ring on its button, and a distinct reaction on the court.
 Everything else is passive. With more skills than slots, which ones you carry is
@@ -194,31 +194,31 @@ a decision in its own right.
 Certain pairs turn into named **synergies** (Power Strike + Momentum, Swerve +
 Bank Shot, Long Reach + Dash, Perfect Guard + Shield, Combo Drive + Adrenaline,
 Cooldown Mastery + two actives). They are additive rewards for committing to an
-idea, never a gate: every branch works on its own. Respec is free — one branch
-at a time from its own panel, or the lot from the footer — because a build is
+idea, never a gate: every branch works on its own. Respec is free - one branch
+at a time from its own panel, or the lot from the footer - because a build is
 meant to be tried rather than regretted.
 
 Three rules keep builds from collapsing the game. Every multiplier a build can
-stack is capped once, in the balance config — paddle length above all, since it
+stack is capped once, in the balance config - paddle length above all, since it
 is the stat that saves the most points. Every skill keeps a real-time recast
 lockout that Tempo, Echo and Zenith can hurry a cooldown towards but never past.
 And every ultimate is bounded by a count as well as a clock: four returns, two
 saves, one refunded point.
 
-The profile — name, avatar, level, lifetime stats, achievements, unlocks, your
+The profile - name, avatar, level, lifetime stats, achievements, unlocks, your
 talent ranks, unspent points and equipped skills, the cup you are part-way
-through — lives in `localStorage` under `bball.profile`, in a versioned
+through - lives in `localStorage` under `bball.profile`, in a versioned
 envelope (currently v2; v1 saves migrate and are handed the points their level
 already earned). A save that is corrupt, half-written or from an older schema
 is repaired field by field rather than thrown away; anything genuinely
 unreadable is parked under `bball.profile.broken` and the game starts fresh.
-Unspent points are never trusted from the file — they are recomputed from your
+Unspent points are never trusted from the file - they are recomputed from your
 level and what you have spent, every time the profile is read.
 
 ### Accounts
 
 An account is optional and the game never asks for one. There is a row on the
-home screen offering it, and everything works without it — you can play, level
+home screen offering it, and everything works without it - you can play, level
 up, fill a talent tree and win a Gold Cup having never typed an email address.
 
 What an account adds is **somewhere else for your save to live**. Sign in on a
@@ -226,7 +226,7 @@ second device and your level, build, records and cup come with you; lose the
 phone and nothing is lost with it.
 
 You can make one with an email address and a password, or with **Google,
-Apple or any other provider the server has been given credentials for** — the
+Apple or any other provider the server has been given credentials for** - the
 buttons are drawn from what the server actually offers, so a deployment with
 no Apple credentials simply shows no Apple button.
 
@@ -238,7 +238,7 @@ The local save stays in charge of how the game feels:
   replaced, and comes back untouched if you sign out.
 - **Signed in and online**, the server is the authority and the local copy is a
   cache. A match is applied locally the instant it ends and confirmed a moment
-  later — the result card never waits for the network.
+  later - the result card never waits for the network.
 - **Signed in and offline**, you keep playing. Every change goes into a durable
   queue that survives a closed tab, and drains when the connection comes back.
 
@@ -248,8 +248,8 @@ only place the account intrudes.
 The other half of having a server is that progression stops being editable.
 XP, levels, talent points, unlocks, achievements and competitive records are
 all computed server-side from what a match reports, using the same code this
-client uses to preview them. A finished match sends evidence — score, rally,
-returns, duration — and no rewards at all.
+client uses to preview them. A finished match sends evidence - score, rally,
+returns, duration - and no rewards at all.
 
 All of it lives in [`server/`](server/README.md), which has its own README
 covering the security model, the schema and the anti-cheat rules.
@@ -261,7 +261,7 @@ npm run server     # the API,  http://127.0.0.1:8787
 ```
 
 The dev server proxies `/v1` to the API, so the two run on one origin exactly
-as they do in production — no CORS, and the session cookie behaves the same in
+as they do in production - no CORS, and the session cookie behaves the same in
 both. Point a build somewhere else with `VITE_API_URL`.
 
 Without a server running, the game is exactly the guest experience above: the
@@ -313,7 +313,7 @@ The split is the point. `game/` is a plain TypeScript simulation driven by
 touches the canvas; `ui/` is a React tree that sees neither directly. The engine
 publishes a small immutable `GameSnapshot` and `useGameEngine` feeds it to React
 through `useSyncExternalStore`, so a component re-renders only when something it
-displays actually changed — never at 60 Hz. The profile store is the same shape:
+displays actually changed - never at 60 Hz. The profile store is the same shape:
 a plain observable object the UI subscribes to.
 
 A match flows one way: the UI hands the engine a `MatchRules`, the engine plays
@@ -346,7 +346,7 @@ A few decisions worth knowing before changing things:
   `resolveLoadout` turns a saved build into a flat bag of pre-capped numbers
   once, when the build changes; the simulation only ever reads fields off that
   bag and never looks a talent up by id. A new talent is an object in
-  `core/talents/catalog.ts` and one line in `effects.ts` — its tile, its rank
+  `core/talents/catalog.ts` and one line in `effects.ts` - its tile, its rank
   badge, its arrows and its tier gate all fall out of the `tier`/`column` it
   declares. A new active skill adds one `case` in `game/abilities.ts` and gets
   its HUD button, cooldown, equip slot and persistence for free.
@@ -364,8 +364,8 @@ A few decisions worth knowing before changing things:
   it stays upright on a portrait phone.
 - **One copy of the rules, shared.** The server does not re-implement
   progression; it loads its rows into this client's own `PlayerProfile` shape
-  and runs these same pure functions — `applyMatchResult`, `buyTalent`,
-  `reconcile` — from `core/`. A server whose rules were a hand-copied
+  and runs these same pure functions - `applyMatchResult`, `buyTalent`,
+  `reconcile` - from `core/`. A server whose rules were a hand-copied
   approximation would start rejecting honest matches within a release or two,
   and every balance change would become a two-place edit with a silent failure
   mode. `shared/protocol.ts` is imported by both sides for the same reason: a
