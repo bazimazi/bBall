@@ -1,7 +1,7 @@
 import type { BotProfile } from '../core/bots/types';
 import { BALL_R, FIELD_H } from './constants';
 import { movePaddle } from './physics';
-import type { BotBrain, Paddle } from './types';
+import type { BotBrain, Paddle, Vec2 } from './types';
 import { clamp, lerp } from './utils/math';
 import type { World } from './world';
 
@@ -18,12 +18,21 @@ import type { World } from './world';
  * the paddle cannot physically cross the court in time always scores.
  */
 
-/** How fast the ball is, 0..1, relative to this match's limits. */
+/**
+ * How fast the ball is relative to this match's limits: 0 at the serve, 1 at
+ * the top speed - and past 1 for a ball driven *over* the top speed, which
+ * only a Power build can do. A ball faster than anything the match normally
+ * throws is harder to handle than one merely at the limit; without that,
+ * pace past the ceiling was pace nobody noticed.
+ */
 function pace(world: World): number {
   const { serveSpeed, maxSpeed } = world.tuning;
   const span = Math.max(1, maxSpeed - serveSpeed);
-  return clamp((world.ball.speed - serveSpeed) / span, 0, 1);
+  return clamp((world.ball.speed - serveSpeed) / span, 0, OVER_PACE);
 }
+
+/** How much harder than "at the limit" an over-the-limit ball may get. */
+const OVER_PACE = 1.5;
 
 /** Where the ball will cross a given x, accounting for wall bounces. */
 export function predictY(world: World, targetX: number): number {
@@ -37,6 +46,51 @@ export function predictY(world: World, targetX: number): number {
   if (m < 0) m += span * 2;
   if (m > span) m = span * 2 - m;
   return m + BALL_R;
+}
+
+/**
+ * The ball's path to a given x, as the corners it will turn: its position
+ * now, every wall it will bounce off, and where it crosses `targetX`.
+ * Written into `out` (reused, so the renderer never allocates); returns the
+ * number of points, 0 when the ball is not heading that way.
+ *
+ * The same straight-line-and-mirror model as {@link predictY}, so a path
+ * drawn from this ends exactly where a dash or a bot would aim.
+ */
+export function tracePath(world: World, targetX: number, out: Vec2[]): number {
+  const { ball } = world;
+  if (Math.abs(ball.vx) < 1) return 0;
+  let t = (targetX - ball.x) / ball.vx;
+  if (t <= 0) return 0;
+
+  const top = BALL_R;
+  const bottom = FIELD_H - BALL_R;
+  let x = ball.x;
+  let y = ball.y;
+  let vy = ball.vy;
+  let n = 0;
+  const put = (px: number, py: number) => {
+    const point = out[n] ?? (out[n] = { x: 0, y: 0 });
+    point.x = px;
+    point.y = py;
+    n++;
+  };
+
+  put(x, y);
+  // A ball can only bounce so many times on the way across; the cap is a
+  // guard against a pathological near-vertical ball, not a real limit.
+  for (let bounce = 0; bounce < 12; bounce++) {
+    const wall = vy > 0 ? bottom : vy < 0 ? top : Number.NaN;
+    const hit = Number.isNaN(wall) ? Infinity : (wall - y) / vy;
+    if (hit >= t) break;
+    x += ball.vx * hit;
+    y = wall;
+    vy = -vy;
+    t -= hit;
+    put(x, y);
+  }
+  put(targetX, clamp(y + vy * t, top, bottom));
+  return n;
 }
 
 /** The same crossing, as read by someone who has not seen the wall coming. */
@@ -83,6 +137,8 @@ function aimError(world: World, brain: BotBrain, fast: number, correcting: boole
     (1 + (1 - p.pressure) * fast * 1.3) *
     (1 + tired) *
     (brain.misread ? 1.7 : 1) *
+    // A heavy return is harder to read than its speed alone would make it.
+    (1 + world.ball.heft) *
     // A second look tidies the read up, but a tired bot tidies it up less.
     (correcting ? Math.min(1, 0.45 + tired * 0.18) : 1);
   return (Math.random() + Math.random() - 1) * spread;

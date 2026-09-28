@@ -72,36 +72,44 @@ export interface TalentDef {
 
 export type TalentId =
   // power
-  | 'power-strike'
-  | 'overdrive'
   | 'heavy-impact'
+  | 'power-strike'
   | 'critical-strike'
+  | 'bank-shot'
+  | 'overdrive'
   | 'momentum'
+  | 'reckless'
   | 'overload'
   // control
-  | 'quick-hands'
-  | 'swift-recovery'
+  | 'long-reach'
+  | 'foresight'
   | 'precision'
   | 'dash'
+  | 'swerve'
+  | 'blink-strike'
   | 'perfect-guard'
   | 'slipstream'
   // defense
+  | 'bastion'
   | 'shield'
+  | 'clutch'
+  | 'fortify'
+  | 'counterstrike'
   | 'second-chance'
-  | 'stabilizer'
-  | 'resilience'
   | 'aegis'
   // momentum
+  | 'hot-hand'
   | 'combo-drive'
   | 'adrenaline'
-  | 'clutch'
   | 'flow-state'
+  | 'unbroken'
   | 'zenith'
   // utility
+  | 'tempo'
   | 'cooldown-mastery'
-  | 'experience-boost'
-  | 'talent-synergy'
+  | 'afterglow'
   | 'versatility'
+  | 'talent-synergy'
   | 'echo';
 
 /** Lifetime talent numbers, kept for the profile screen. */
@@ -163,51 +171,83 @@ export interface TalentSave {
  * Everything the simulation needs, pre-multiplied and pre-capped. The engine
  * reads fields; it never looks up a talent, and never multiplies two of these
  * together without a cap from {@link BALANCE}.
+ *
+ * Nothing here is a flat paddle-speed bonus. Measured against every bot, the
+ * paddle is already faster than the court is tall, so speed stopped deciding
+ * points long before the tree ran out of it. What does decide a point is
+ * *reach* (a longer paddle, a dash), *the read* (knowing where the ball will
+ * arrive), *placement* (angle, corners, a late break) and *saves* - so that is
+ * what every field below buys.
  */
 export interface TalentEffects {
-  // paddle ---------------------------------------------------------------
-  /** Always-on paddle speed multiplier. */
-  paddleMul: number;
-  /** Extra multiplier while recovering off a wall. */
-  edgeBoost: number;
-  edgeSeconds: number;
+  // reach ----------------------------------------------------------------
+  /** Always-on change to the paddle's length, as a fraction. Can be negative. */
+  length: number;
+  /** Combo Drive: length per step of drive, the returns a step takes, and the most steps. */
+  comboLength: number;
+  comboEvery: number;
+  comboSteps: number;
+  /** Clutch: extra length, and ball pace taken off each return, one point from losing. */
+  clutchLength: number;
+  clutchGrowth: number;
+  /** Clutch: how much slower the ball's clock runs in the player's half, one point from losing. */
+  clutchSlow: number;
+  /** Afterglow: extra length for a moment after any skill is used. */
+  afterglowLength: number;
+  afterglowSeconds: number;
+  /** Foresight: 0 off, 1 marks the arrival once the ball is in your half, 2 draws the whole path. */
+  foresight: number;
 
-  // returns --------------------------------------------------------------
-  /** Added to the ball's per-return growth on the player's hits. */
-  hitGrowth: number;
+  // placement ------------------------------------------------------------
+  /**
+   * Heavy Impact: how much harder than its speed says the player's every
+   * return is for the opponent to read. Charged and critical returns add
+   * their own on top.
+   */
+  heft: number;
   critChance: number;
   critGrowth: number;
-  /** Growth added per consecutive return within one rally, and its cap. */
-  momentumPerReturn: number;
-  momentumCap: number;
-  /** 0..1: how far a wide, weak hit is pulled back towards a clean angle. */
-  stabilise: number;
+  /** How much harder to read a critical return is. Reckless doubles it. */
+  critHeft: number;
+  /** Momentum: every n-th return of a rally leaves charged. 0 is off. */
+  momentumEvery: number;
   /** Multiplier on how much paddle motion drags the return off line. */
   spinMul: number;
   /** Multiplier on the usable bounce-angle range - deliberate placement. */
   angleMul: number;
+  /** Swerve: sideways acceleration on the player's returns past the centre line, in units/s². */
+  swerve: number;
+  /** Bank Shot: how much steeper a player's return leaves a wall. */
+  bankShot: number;
+  /** Hot Hand: returns charged at the start of a rally after a won point. 0 is off. */
+  hotHand: number;
+  /** Hot Hand's top rank: those returns are critical as well. */
+  hotHandCrit: boolean;
+  /** Counterstrike: 0 off; otherwise a saved ball leaves cornered, with this much extra pace. */
+  counterPace: number;
 
-  // rally scaling --------------------------------------------------------
-  /** Paddle bonus per five returns in the current rally, and its cap. */
-  resiliencePerFive: number;
-  resilienceCap: number;
-  /** Returns since the last conceded point needed for adrenaline. */
-  adrenalineAt: number;
-  adrenalinePaddle: number;
-  adrenalineSeconds: number;
-  /** Paddle bonus once the player is a point from losing. */
-  clutchPaddle: number;
-  clutchGrowth: number;
-  /** Rally length at which flow starts, and what each return past it adds. */
+  // rallies --------------------------------------------------------------
+  /** Rally length at which flow starts. */
   flowFrom: number;
-  flowPaddle: number;
-  flowCap: number;
   /** Usable return angle gained per stack of flow. */
   flowAngle: number;
   /** Extra cooldown recovery rate at full flow. */
   flowRecharge: number;
+  /** How much harder to read the player's returns get per stack of flow. */
+  flowHeft: number;
+  /** Adrenaline: every n returns on a drive banks one spare save. 0 is off. */
+  adrenalineEvery: number;
+  /** Unbroken: the share of the drive a conceded point leaves standing. */
+  driveKeep: number;
 
   // defence --------------------------------------------------------------
+  /** Bastion: units from each wall where a ball reaching the player's line is turned back. */
+  bastion: number;
+  /**
+   * Reckless: nothing saves this player. Shield, Bastion, Adrenaline, Aegis,
+   * Second Chance and Zenith's refund all stand down.
+   */
+  unsaved: boolean;
   shieldCharges: number;
   shieldRecharge: number;
   shieldSaveSpeed: number;
@@ -217,18 +257,27 @@ export interface TalentEffects {
 
   // abilities ------------------------------------------------------------
   cooldownMul: number;
+  /** Tempo: seconds every cooldown loses whenever the player returns the ball. */
+  tempo: number;
+  /** Skill slots on top of the ones level has opened. */
+  extraSlots: number;
   powerStrikeSpeed: number;
   powerStrikeWindow: number;
   powerStrikeCooldown: number;
-  /** Blitz: a power strike also quickens the paddle for a moment. */
-  powerStrikePaddle: number;
-  powerStrikePaddleSeconds: number;
+  /** Returns one Power Strike charges: two once Overdrive is maxed. */
+  powerStrikeHits: number;
+  /** Blitz: a charged return is a critical one, too. */
+  chargedCrits: boolean;
   dashDistance: number;
   dashCooldown: number;
   dashSeconds: number;
+  /** Blink Strike: seconds after a dash in which a return leaves charged. 0 is off. */
+  blinkSeconds: number;
+  /** Blink Strike's top rank: that return is critical as well. */
+  blinkCrit: boolean;
   guardWindow: number;
-  guardPaddle: number;
-  guardSeconds: number;
+  /** Units past the paddle's ends that a Perfect Guard still reaches. */
+  guardReach: number;
   guardCooldown: number;
 
   // capstones -------------------------------------------------------------
@@ -245,17 +294,12 @@ export interface TalentEffects {
   aegisSaves: number;
   aegisCooldown: number;
   zenithSeconds: number;
-  zenithPaddle: number;
+  /** Fraction the paddle lengthens by while Zenith runs. 0 when not owned. */
+  zenithGrow: number;
   /** Extra cooldown recovery rate while Zenith or Echo is running. */
   zenithRecharge: number;
   zenithCooldown: number;
   echoSeconds: number;
   echoRecharge: number;
   echoCooldown: number;
-
-  // rewards --------------------------------------------------------------
-  xpMul: number;
-  /** Extra XP multiplier per return of the best drive, and its cap. */
-  drivePerReturn: number;
-  driveCap: number;
 }

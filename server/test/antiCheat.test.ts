@@ -14,6 +14,10 @@ import { after, before, describe, it } from 'node:test';
 
 import { validateMatch } from '../src/domain/matchValidation';
 import { createProfile } from '../../src/core/profile/defaults';
+import type { PlayerProfile } from '../../src/core/profile/types';
+import { xpToReach } from '../../src/core/progression/levels';
+import { reconcile } from '../../src/core/talents/save';
+import type { AbilityId, TalentId } from '../../src/core/talents/types';
 import type { MatchSubmissionDto } from '../../shared/protocol';
 import {
   auth,
@@ -197,15 +201,111 @@ describe('build claims', () => {
     );
   });
 
-  it('refuses a drive longer than the longest rally', async () => {
+  it('refuses a drive longer than the returns played', async () => {
     const user = await register(server.app);
     assert.equal(
       await submit(user.accessToken, {
-        bestRally: 10,
+        hits: 40,
         talent: { ...matchSubmission().talent, bestDrive: 99 }
       }),
       422
     );
+  });
+});
+
+/** A level-50 profile owning exactly `ranks`, with `equipped` in its slots. */
+function buildProfile(
+  ranks: Partial<Record<TalentId, number>>,
+  equipped: AbilityId[] = []
+): PlayerProfile {
+  const profile = createProfile();
+  profile.xp = xpToReach(50);
+  const slots: (AbilityId | null)[] = [null, null, null, null, null];
+  equipped.forEach((id, i) => (slots[i] = id));
+  profile.talents = reconcile({ ...profile.talents, ranks, equipped: slots }, 50);
+  return profile;
+}
+
+function verdictFor(profile: PlayerProfile, patch: Partial<MatchSubmissionDto>) {
+  return validateMatch(matchSubmission(patch), { profile, recentPlaySeconds: 0, now: Date.now() });
+}
+
+/**
+ * Honest matches the validator used to refuse. Each of these is a build
+ * playing exactly as the engine lets it - the other half of anti-cheat.
+ */
+describe('honest builds', () => {
+  const overloadBuild = {
+    'power-strike': 1,
+    overdrive: 2,
+    'heavy-impact': 3,
+    momentum: 2,
+    overload: 1
+  } as const;
+
+  it('accepts an Overload whose four charged returns are all critical', () => {
+    const profile = buildProfile(overloadBuild, ['overload']);
+    assert.equal(profile.talents.ranks.overload, 1);
+    // One cast, four critical returns - and no Critical Strike owned.
+    const verdict = verdictFor(profile, {
+      talent: { ...matchSubmission().talent, abilitiesUsed: 1, ultimates: 1, crits: 4 }
+    });
+    assert.equal(verdict.ok, true);
+  });
+
+  it('accepts one Power Strike cast charging two returns at Overdrive two', () => {
+    const profile = buildProfile(overloadBuild, ['power-strike']);
+    const verdict = verdictFor(profile, {
+      talent: { ...matchSubmission().talent, abilitiesUsed: 1, powerStrikes: 2 }
+    });
+    assert.equal(verdict.ok, true);
+  });
+
+  it('still refuses more Power Strike returns than the casts could charge', () => {
+    const profile = buildProfile(overloadBuild, ['power-strike']);
+    const verdict = verdictFor(profile, {
+      talent: { ...matchSubmission().talent, abilitiesUsed: 1, powerStrikes: 5 }
+    });
+    assert.equal(verdict.ok, false);
+  });
+
+  it('accepts a drive that ran across several won points', () => {
+    const profile = buildProfile({});
+    // Three points won on short rallies: a 12-return drive, a 6-long best rally.
+    const verdict = verdictFor(profile, {
+      bestRally: 6,
+      hits: 30,
+      talent: { ...matchSubmission().talent, bestDrive: 12 }
+    });
+    assert.equal(verdict.ok, true);
+  });
+
+  it('counts Aegis saves toward what the build could have saved', () => {
+    const profile = buildProfile(
+      { shield: 1, counterstrike: 1, bastion: 2, clutch: 2, fortify: 1, aegis: 1 },
+      ['aegis']
+    );
+    assert.equal(profile.talents.ranks.aegis, 1);
+    const verdict = verdictFor(profile, {
+      seconds: 200,
+      // More than one Shield charge could recharge in 200s; Aegis covers the rest.
+      talent: { ...matchSubmission().talent, abilitiesUsed: 3, ultimates: 3, shieldSaves: 9 }
+    });
+    assert.equal(verdict.ok, true);
+  });
+
+  it('refuses saves from a Reckless build, which has none', () => {
+    const profile = buildProfile({
+      'heavy-impact': 3,
+      'critical-strike': 1,
+      reckless: 1,
+      shield: 2
+    });
+    assert.equal(profile.talents.ranks.reckless, 1);
+    const verdict = verdictFor(profile, {
+      talent: { ...matchSubmission().talent, shieldSaves: 1 }
+    });
+    assert.equal(verdict.ok, false);
   });
 });
 

@@ -57,6 +57,8 @@ function fireDash(world: World, hue: number): void {
   player.vy = 0;
   talents.dashFx = loadout.effects.dashSeconds;
   talents.stats.dashes++;
+  // Blink Strike: the return this dash was for goes back on the attack.
+  if (loadout.effects.blinkSeconds > 0) talents.blink = loadout.effects.blinkSeconds;
   // The first afterimage has to be taken at the *old* position: by the next
   // step the paddle is already at the far end of the streak.
   world.ghosts.mark(from, player.half);
@@ -87,6 +89,7 @@ function fireDash(world: World, hue: number): void {
 function firePowerStrike(world: World, hue: number): void {
   const { talents, loadout, player } = world;
   talents.strikeArmed = loadout.effects.powerStrikeWindow;
+  talents.strikeHits = loadout.effects.powerStrikeHits;
 
   // Arcs collapsing onto the paddle rather than flying off it: the charge is
   // being taken *on*, which is what tells a held buff from a spent one.
@@ -203,7 +206,7 @@ export function fireAbility(world: World, slot: number): boolean {
   if (status !== 'play' && status !== 'serve') return false;
 
   const entry = world.talents.slots[slot];
-  if (!entry?.id || entry.cooldown > 0) return false;
+  if (!entry?.id || entry.cooldown > 0 || entry.lockout > 0) return false;
 
   const def = abilityById(entry.id);
   if (!def) return false;
@@ -211,7 +214,12 @@ export function fireAbility(world: World, slot: number): boolean {
   const span = def.cooldown(world.loadout.effects);
   entry.cooldown = span;
   entry.span = span;
+  entry.lockout = BALANCE.talents.minRecast;
   world.talents.stats.abilitiesUsed++;
+  // Afterglow: any skill used lends the paddle a little length.
+  if (world.loadout.effects.afterglowLength > 0) {
+    world.talents.afterglow = world.loadout.effects.afterglowSeconds;
+  }
   if (def.ultimate) world.talents.stats.ultimates++;
   fire(world, def);
   return true;

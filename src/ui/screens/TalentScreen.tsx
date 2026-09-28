@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
-import { abilitySlotsForLevel, nextSlotLevel } from '../../core/balance/config';
+import { BALANCE, nextSlotLevel } from '../../core/balance/config';
 import * as progression from '../../core/account/progression';
 import type { PlayerProfile } from '../../core/profile/types';
 import { levelOf } from '../../core/progression/levels';
@@ -29,6 +29,15 @@ import { TalentTree } from '../components/TalentTree';
 import { TalentIcon } from '../icons/TalentIcon';
 import screens from '../Screens.module.css';
 import styles from '../Talents.module.css';
+
+const BALANCE_SLOTS_MAX = BALANCE.talents.slots.max;
+
+/** "+14%", "-12%", or "standard" for a paddle the build leaves alone. */
+function lengthLabel(length: number): string {
+  if (Math.abs(length) < 0.0005) return 'standard';
+  const pct = Math.round(length * 1000) / 10;
+  return `${pct > 0 ? '+' : ''}${pct}%`;
+}
 
 interface TalentScreenProps {
   profile: PlayerProfile;
@@ -65,8 +74,10 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
   const spend = useMemo(() => branchSpend(save), [save]);
   const spent = spentPoints(save);
   const owned = ownedAbilities(save);
-  const slots = abilitySlotsForLevel(level);
-  const nextSlot = nextSlotLevel(level);
+  const slots = loadout.slots;
+  // `slots` already counts Versatility's, so once the build is at the cap no
+  // level can promise another.
+  const nextSlot = slots < BALANCE_SLOTS_MAX ? nextSlotLevel(level) : null;
   const synergies = activeSynergies(save.ranks, loadout.equipped);
   const activeIds = new Set(synergies.map((entry) => entry.id));
 
@@ -145,7 +156,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         <div className={styles.picker}>
           {owned.length === 0 && (
             <p className={screens.note}>
-              Learn Power Strike, Dash or Perfect Guard to fill a slot.
+              Learn Power Strike, Dash or Perfect Guard - or any ultimate - to fill a slot.
             </p>
           )}
           {ABILITY_DEFS.filter((def) => owned.includes(def.id)).map((def) => (
@@ -226,8 +237,8 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
       })}
 
       <p className={screens.note}>
-        Paddle speed {Math.round(loadout.paddleSpeed)} · {Math.round(loadout.basePaddleSpeed)} from
-        level, ×{loadout.effects.paddleMul.toFixed(2)} from talents.
+        Paddle length {lengthLabel(loadout.effects.length)} · speed{' '}
+        {Math.round(loadout.paddleSpeed)} from level.
       </p>
 
       {/* ------------------------------------------------------ the tooltip */}

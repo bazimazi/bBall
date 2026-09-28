@@ -121,60 +121,89 @@ speed, a cooldown or a cap.
 
 ### Talents
 
-One point per level to level 50 — 49 in total — against 27 talents that cost 86
-points to fill. A build is a set of choices, not a checklist. Five short
-branches:
+One point per level to level 50 — 49 in total — against 35 talents that cost 93
+points to fill. A build is a set of choices, not a checklist, and with points
+this scarce every one of them has to change a rally.
 
-| Branch       | What it makes you                                                     | Ultimate       |
-| ------------ | --------------------------------------------------------------------- | -------------- |
-| **Power**    | Heavy returns: charged strikes, criticals, a ball that keeps climbing | **Overload**   |
-| **Control**  | A faster, tidier paddle with wider deliberate angles                  | **Slipstream** |
-| **Defense**  | Saves at your own line, steadier returns, a comeback in hand          | **Aegis**      |
-| **Momentum** | Streaks that pay: drives, adrenaline, clutch, flow                    | **Zenith**     |
-| **Mastery**  | Cooldowns, XP, and bonuses shaped by whatever else you picked         | **Echo**       |
+That is a measured claim, not a hope. Paddle speed turned out to decide almost
+nothing: the paddle is already faster than the court is tall, and a talent that
+only added speed measured as no better than no talent at all. What does decide a
+point is **reach** (a longer paddle, a dash), **the read** (knowing where the
+ball will arrive), **placement** (angle, corners, a late break, a ball that is
+hard to read) and **saves**. Every talent buys one of those. None pays XP, and
+none is a flat speed bonus.
 
-Each branch ends in an **ultimate** on its bottom row — eight points of
-commitment to reach, four more to buy. Twelve of your twenty-nine, for one
-talent, which is the point: an ultimate is the reason a build goes deep rather
-than wide. Two is the most any player can hold, and only by giving up almost
-everything else.
+Five branches:
 
-| Ultimate       | What it does                                                             |
-| -------------- | ------------------------------------------------------------------------ |
-| **Overload**   | Your next four returns are charged, critical, and driven into a corner   |
-| **Slipstream** | Seven seconds of a paddle that is longer _and_ faster than any cap       |
-| **Aegis**      | The next two balls to reach your line are saved for you                  |
-| **Zenith**     | Peak form: full Flow, and once a match the point you drop is given back  |
-| **Echo**       | Clears every other equipped skill's cooldown, then recharges them faster |
+| Branch       | What it makes you                                                         | Ultimate       |
+| ------------ | ------------------------------------------------------------------------- | -------------- |
+| **Power**    | Heavy returns: charged, critical, cornered, banked, hard to read          | **Overload**   |
+| **Control**  | A longer paddle, a read on the ball, wider angles, a dash and a parry     | **Slipstream** |
+| **Defense**  | Saves at your own line, walled corners, a counter-attack out of a save    | **Aegis**      |
+| **Momentum** | Streaks that pay: a growing paddle, banked saves, a drive that survives   | **Zenith**     |
+| **Mastery**  | More skills, sooner: cooldowns, a skill slot, a paddle that feeds on them | **Echo**       |
 
-Each branch is a grid, and depth is bought with commitment rather than with
-level: a row only opens once two points per row already sit in _that_ branch,
-so the bottom of a tree costs six points before you may spend the seventh.
-Arrows run from a talent to whatever it unlocks. Points spent elsewhere never
-open a row here, which is what stops a max-level player simply owning the
+Each branch is a three-wide grid with its **ultimate** in the middle of the
+bottom row — eight points of commitment to reach, four more to buy. Twelve of
+your forty-nine, for one talent, which is the point: an ultimate is the reason a
+build goes deep rather than wide.
+
+| Ultimate       | What it does                                                                |
+| -------------- | --------------------------------------------------------------------------- |
+| **Overload**   | Your next four returns are charged, critical, and driven into a corner      |
+| **Slipstream** | Eight seconds of a paddle half again as long, and lighter with it           |
+| **Aegis**      | The next two balls to reach your line are saved for you                     |
+| **Zenith**     | Peak form: full Flow, a longer paddle, and once a match a point handed back |
+| **Echo**       | Clears every other equipped skill's cooldown, then recharges them faster    |
+
+A row only opens once two points per row already sit in _that_ branch, so the
+bottom of a tree costs eight points before you may spend the ninth. Arrows run
+from a talent to whatever it unlocks, down clear lanes. Points spent elsewhere
+never open a row here, which is what stops a max-level player simply owning the
 bottom of all five.
+
+A few talents are worth knowing by name, because they change how a rally plays
+rather than how a number reads:
+
+- **Foresight** marks where the ball will reach your line — and, at rank two,
+  draws its whole path, wall bounces included.
+- **Swerve** bends your returns in the last stretch of their flight, after the
+  opponent has already read them. **Bank Shot** sends them off a wall steeper.
+- **Heavy Impact** makes every return harder for the opponent to read; charged
+  and critical returns are heavier still.
+- **Reckless** is a keystone: far bigger criticals, and in exchange nothing can
+  save you — Shield, Bastion, Adrenaline, Aegis, Second Chance and Zenith's
+  refund all stand down.
+- **Perfect Guard** is a parry: time it and the ball comes back charged, even
+  one that would have just cleared your paddle.
+- **Bastion** walls the corners of your line; **Counterstrike** turns every save
+  into a cornered, charged winner.
+- **Combo Drive** grows your paddle while you keep scoring, **Adrenaline** banks
+  a save every so many returns, and **Unbroken** keeps half the drive when you
+  drop a point.
+- **Versatility** buys a skill slot outright, and **Tempo** winds every cooldown
+  back each time you return the ball.
 
 Eight talents unlock **active skills** — Power Strike, Dash and Perfect Guard,
 plus the five ultimates — of which you equip two, three from level 15, four
-from level 30 and five from level 50. Each has a cooldown, a ring on its button, and a distinct
-reaction on the court. Everything else is passive. With more skills than slots,
-which ones you carry is a decision in its own right.
+from level 30 and five from level 50 (one more with Versatility). Each has a
+cooldown, a ring on its button, and a distinct reaction on the court.
+Everything else is passive. With more skills than slots, which ones you carry is
+a decision in its own right.
 
-Certain pairs turn into named **synergies** (Power Strike + Momentum, Quick
-Hands + Dash, Perfect Guard + Stabilizer, Combo Drive + Adrenaline, Cooldown
-Mastery + two actives). They are additive rewards for committing to an idea,
-never a gate: every branch works on its own. Respec is free — one branch at a
-time from its own panel, or the lot from the footer — because a build is meant
-to be tried rather than regretted.
+Certain pairs turn into named **synergies** (Power Strike + Momentum, Swerve +
+Bank Shot, Long Reach + Dash, Perfect Guard + Shield, Combo Drive + Adrenaline,
+Cooldown Mastery + two actives). They are additive rewards for committing to an
+idea, never a gate: every branch works on its own. Respec is free — one branch
+at a time from its own panel, or the lot from the footer — because a build is
+meant to be tried rather than regretted.
 
 Three rules keep builds from collapsing the game. Every multiplier a build can
-stack is capped once, in the balance config, so no combination escapes the
-ranges the simulation is tested against. The pace a Power build _adds_ mostly
-bleeds off when the opponent returns the ball — otherwise the extra speed comes
-straight back at the player who chose it, and the aggressive build is a trap
-rather than a style. And every ultimate is bounded by a count as well as a
-clock: four returns, two saves, one refunded point. A window on its own turned
-out to be worth more than any four points should buy.
+stack is capped once, in the balance config — paddle length above all, since it
+is the stat that saves the most points. Every skill keeps a real-time recast
+lockout that Tempo, Echo and Zenith can hurry a cooldown towards but never past.
+And every ultimate is bounded by a count as well as a clock: four returns, two
+saves, one refunded point.
 
 The profile — name, avatar, level, lifetime stats, achievements, unlocks, your
 talent ranks, unspent points and equipped skills, the cup you are part-way

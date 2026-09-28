@@ -1,10 +1,10 @@
-import { abilitySlotsForLevel } from '../../core/balance/config';
 import { botProfile } from '../../core/bots/levels';
 import { MODES, type ModeInfo } from '../../core/modes/catalog';
 import { CHALLENGES } from '../../core/modes/challenges';
 import type { ModeId } from '../../core/modes/types';
 import { levelOf } from '../../core/progression/levels';
 import type { PlayerProfile } from '../../core/profile/types';
+import { abilitySlots } from '../../core/talents/save';
 import { roundFor, tierById, tierForLevel } from '../../core/tournament/bracket';
 import type { AccountState } from '../../core/account/store';
 import { ProfileChip } from '../components/ProfileChip';
@@ -57,8 +57,11 @@ export function HomeScreen({
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
   const points = profile.talents.points;
   const skills = profile.talents.equipped.filter(Boolean).length;
-  // The hint lists exactly the keys this level has slots for.
-  const keys = Array.from({ length: abilitySlotsForLevel(levelOf(profile.xp)) }, (_, i) => i + 1);
+  // The hint lists exactly the keys this build has slots for.
+  const keys = Array.from(
+    { length: abilitySlots(profile.talents, levelOf(profile.xp)) },
+    (_, i) => i + 1
+  );
 
   return (
     <section className={styles.screen}>

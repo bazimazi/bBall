@@ -41,6 +41,22 @@ function Glyph({ id }: TalentIconProps) {
           stroke="none"
         />
       );
+    case 'bank-shot':
+      return (
+        <>
+          <path d="M2 3h20" />
+          <path d="M4 21 12 4.5 20 21" />
+          <circle cx="12" cy="4.5" r="2" fill="currentColor" stroke="none" />
+        </>
+      );
+    case 'reckless':
+      return (
+        <>
+          <circle cx="10.5" cy="14" r="7" fill="currentColor" stroke="none" />
+          <path d="M15 9l3-3" />
+          <path d="M20 1.5v2M22.5 4h-2M21.8 2.2l-1.3 1.3" />
+        </>
+      );
     case 'momentum':
       return (
         <>
@@ -51,18 +67,36 @@ function Glyph({ id }: TalentIconProps) {
       );
 
     // -------------------------------------------------------------- control
-    case 'quick-hands':
+    case 'long-reach':
       return (
         <>
-          <rect x="15" y="4" width="5" height="16" rx="2.5" fill="currentColor" stroke="none" />
-          <path d="M3 8h8M2 12h9M3 16h8" />
+          <rect x="10" y="6.5" width="4" height="11" rx="2" fill="currentColor" stroke="none" />
+          <path d="M12 1.5v3M9.5 4 12 1.5 14.5 4M12 22.5v-3M9.5 20l2.5 2.5 2.5-2.5" />
         </>
       );
-    case 'swift-recovery':
+    case 'foresight':
       return (
         <>
-          <path d="M20 12a8 8 0 1 1-3-6.2" />
-          <path d="M20 4v5h-5" />
+          <path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z" />
+          <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+        </>
+      );
+    case 'swerve':
+      return (
+        <>
+          <path d="M3 20c4-1 6-6 8-10s5-6 9-6" />
+          <path d="M15.5 2.5 20 4l-1.5 4.5" />
+        </>
+      );
+    case 'blink-strike':
+      return (
+        <>
+          <rect x="3.5" y="3.5" width="4.5" height="17" rx="2.25" strokeDasharray="2.2 2.4" />
+          <path
+            d="M18 2.5 12 12h4.5L13.5 21.5 21 10.5h-4.5L18 2.5Z"
+            fill="currentColor"
+            stroke="none"
+          />
         </>
       );
     case 'precision':
@@ -90,6 +124,27 @@ function Glyph({ id }: TalentIconProps) {
       );
 
     // -------------------------------------------------------------- defense
+    case 'bastion':
+      return (
+        <>
+          <path d="M3 3v7M3 3h7M3 21v-7M3 21h7" />
+          <circle cx="15" cy="12" r="3.2" fill="currentColor" stroke="none" />
+        </>
+      );
+    case 'fortify':
+      return (
+        <>
+          <path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6Z" />
+          <path d="M12 8.5v7M8.5 12h7" />
+        </>
+      );
+    case 'counterstrike':
+      return (
+        <>
+          <path d="M8 2.5 3 5v6.5c0 4.3 2.2 7.5 5 9" />
+          <path d="M9.5 12h12M17.5 8l4 4-4 4" />
+        </>
+      );
     case 'shield':
       return (
         <path
@@ -106,24 +161,23 @@ function Glyph({ id }: TalentIconProps) {
           <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
         </>
       );
-    case 'stabilizer':
-      return (
-        <>
-          <path d="M2 12h20" />
-          <path d="M5 7v10M19 7v10" />
-          <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
-        </>
-      );
-    case 'resilience':
-      return (
-        <>
-          <path d="M4 18a8 8 0 0 1 16 0" />
-          <path d="M8 18a4 4 0 0 1 8 0" />
-          <path d="M12 3v4" />
-        </>
-      );
-
     // ------------------------------------------------------------- momentum
+    case 'hot-hand':
+      return (
+        <path
+          d="M12 1.5c1 4 6.5 6.5 6.5 12.5a6.5 6.5 0 0 1-13 0c0-3.2 2-5.4 3.2-6.4 0 2.2 1 3.4 2.3 3.4 0-4-1.4-6.2 1-9.5Z"
+          fill="currentColor"
+          stroke="none"
+        />
+      );
+    case 'unbroken':
+      return (
+        <>
+          <path d="M9.5 14.5 7.3 16.7a3.6 3.6 0 0 1-5-5l3-3a3.6 3.6 0 0 1 5 0" />
+          <path d="M14.5 9.5l2.2-2.2a3.6 3.6 0 0 1 5 5l-3 3a3.6 3.6 0 0 1-5 0" />
+          <path d="M9 15l6-6" />
+        </>
+      );
     case 'combo-drive':
       return (
         <>
@@ -151,20 +205,26 @@ function Glyph({ id }: TalentIconProps) {
       );
 
     // -------------------------------------------------------------- mastery
+    case 'tempo':
+      return (
+        <>
+          <path d="M8 21.5h8L13.4 3h-2.8Z" />
+          <path d="M12 16l5.5-9.5" />
+        </>
+      );
+    case 'afterglow':
+      return (
+        <>
+          <rect x="10" y="4" width="4" height="16" rx="2" fill="currentColor" stroke="none" />
+          <path d="M6 8v8M18 8v8M2.5 10v4M21.5 10v4" />
+        </>
+      );
     case 'cooldown-mastery':
       return (
         <>
           <circle cx="12" cy="13" r="8.5" />
           <path d="M12 8.5V13l3 2" />
           <path d="M9 2h6" />
-        </>
-      );
-    case 'experience-boost':
-      return (
-        <>
-          <path d="M12 21V5" />
-          <path d="M6 11l6-6 6 6" />
-          <path d="m19 15 .8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8Z" fill="currentColor" />
         </>
       );
     case 'talent-synergy':
@@ -176,11 +236,10 @@ function Glyph({ id }: TalentIconProps) {
       );
     case 'versatility':
       return (
-        <path
-          d="M12 1.5 14 10l8.5 2-8.5 2-2 8.5-2-8.5L1.5 12 10 10Z"
-          fill="currentColor"
-          stroke="none"
-        />
+        <>
+          <rect x="2.5" y="6" width="19" height="12" rx="3.5" />
+          <path d="M12 9v6M9 12h6" />
+        </>
       );
 
     // ------------------------------------------------------------ capstones

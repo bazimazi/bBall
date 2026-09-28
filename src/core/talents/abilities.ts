@@ -50,7 +50,7 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     talent: 'power-strike',
     cooldown: (effects) => effects.powerStrikeCooldown,
     summary: (effects) =>
-      `Next return +${pct(effects.powerStrikeSpeed)} ball speed · holds ${seconds(effects.powerStrikeWindow)}`
+      `Next ${effects.powerStrikeHits > 1 ? `${effects.powerStrikeHits} returns` : 'return'} +${pct(effects.powerStrikeSpeed)} ball speed, driven wide · holds ${seconds(effects.powerStrikeWindow)}`
   },
   {
     id: 'dash',
@@ -59,17 +59,20 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     blurb: 'Jumps the paddle where you are heading',
     talent: 'dash',
     cooldown: (effects) => effects.dashCooldown,
-    summary: (effects) => `${Math.round(effects.dashDistance)} units, instantly`
+    summary: (effects) =>
+      effects.blinkSeconds > 0
+        ? `${Math.round(effects.dashDistance)} units, instantly · the next return leaves charged`
+        : `${Math.round(effects.dashDistance)} units, instantly`
   },
   {
     id: 'perfect-guard',
     hue: 104,
     name: 'Perfect Guard',
-    blurb: 'A timing window that rewards the read',
+    blurb: 'Time it, and nothing gets by',
     talent: 'perfect-guard',
     cooldown: (effects) => effects.guardCooldown,
     summary: (effects) =>
-      `${seconds(effects.guardWindow)} window · +${pct(effects.guardPaddle)} paddle for ${seconds(effects.guardSeconds)}`
+      `${seconds(effects.guardWindow)} window · parries anything within ${Math.round(effects.guardReach)} units, charged`
   },
 
   // ------------------------------------------------------------- capstones
@@ -87,12 +90,12 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     id: 'slipstream',
     hue: 232,
     name: 'Slipstream',
-    blurb: 'A longer, far faster paddle',
+    blurb: 'A far longer, lighter paddle',
     talent: 'slipstream',
     ultimate: true,
     cooldown: (effects) => effects.slipstreamCooldown,
     summary: (effects) =>
-      `+${pct(effects.slipstreamPaddle)} speed, +${pct(effects.slipstreamGrow)} length for ${seconds(effects.slipstreamSeconds)}`
+      `+${pct(effects.slipstreamGrow)} length, +${pct(effects.slipstreamPaddle)} speed for ${seconds(effects.slipstreamSeconds)}`
   },
   {
     id: 'aegis',
@@ -114,7 +117,7 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     ultimate: true,
     cooldown: (effects) => effects.zenithCooldown,
     summary: (effects) =>
-      `Peak form for ${seconds(effects.zenithSeconds)} · +${pct(effects.zenithPaddle)} paddle, one point refunded`
+      `Peak form for ${seconds(effects.zenithSeconds)} · +${pct(effects.zenithGrow)} length, one point refunded`
   },
   {
     id: 'echo',

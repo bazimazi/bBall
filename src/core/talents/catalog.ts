@@ -39,9 +39,17 @@ function shieldRecharge(rank: number): number {
   );
 }
 
-/** The most paddle speed Flow State can be holding at `rank`, stacks included. */
-function flowPeak(rank: number): number {
-  return Math.min(rank * E.flowState.cap, rank * E.flowState.paddle * E.flowState.stacks);
+/** "every 4th", "every 6th": how the rhythm talents name their beat. */
+function nth(n: number): string {
+  const tail =
+    n % 10 === 1 && n !== 11
+      ? 'st'
+      : n % 10 === 2 && n !== 12
+        ? 'nd'
+        : n % 10 === 3 && n !== 13
+          ? 'rd'
+          : 'th';
+  return `${n}${tail}`;
 }
 
 /**
@@ -58,7 +66,7 @@ export const TALENT_BRANCHES: readonly Branch[] = [
   {
     id: 'power',
     name: 'Power',
-    blurb: 'Push the ball harder than it wants to go',
+    blurb: 'Put the ball where they cannot follow',
     hue: 14,
     crest: 'power-strike'
   },
@@ -81,19 +89,38 @@ export const TALENT_BRANCHES: readonly Branch[] = [
     name: 'Momentum',
     blurb: 'Turn a good streak into a better one',
     hue: 44,
-    crest: 'adrenaline'
+    crest: 'combo-drive'
   },
   {
     id: 'utility',
     name: 'Mastery',
-    blurb: 'Bend the rest of the build to your shape',
+    blurb: 'More skills, sooner, and more of them at once',
     hue: 150,
-    crest: 'versatility'
+    crest: 'tempo'
   }
 ];
 
+/*
+ * Every branch is a three-wide grid with its ultimate in the middle of the
+ * bottom row. A prerequisite always sits straight above what it opens, or one
+ * column across, and the cells an arrow runs down are left empty - so no
+ * arrow ever passes behind a tile it has nothing to do with.
+ */
 export const TALENTS: readonly TalentDef[] = [
   // ------------------------------------------------------------------ power
+  {
+    id: 'heavy-impact',
+    branch: 'power',
+    name: 'Heavy Impact',
+    blurb: 'Every return is harder to read',
+    maxRank: 3,
+    costs: [1, 1, 1],
+    tier: 0,
+    column: 0,
+    requires: [],
+    rankText: (rank) =>
+      `Your returns land heavy: the opponent misjudges where they will arrive by ${pct(rank * E.heavyImpact.heft)} more. Charged and critical returns are heavier still.`
+  },
   {
     id: 'power-strike',
     branch: 'power',
@@ -106,59 +133,72 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [],
     ability: 'power-strike',
     rankText: () =>
-      `Unlocks Power Strike. The next return leaves ${pct(E.powerStrike.speed)} faster. ${E.powerStrike.cooldown}s cooldown.`
-  },
-  {
-    id: 'overdrive',
-    branch: 'power',
-    name: 'Overdrive',
-    blurb: 'Power Strike hits harder and returns sooner',
-    maxRank: 3,
-    costs: [1, 1, 1],
-    tier: 3,
-    column: 1,
-    requires: [{ talent: 'power-strike', rank: 1 }],
-    rankText: (rank) =>
-      `Power Strike leaves +${pct(rank * E.overdrive.speed)} faster and comes back ${sec(rank * Math.abs(E.overdrive.cooldown))} sooner.`
-  },
-  {
-    id: 'heavy-impact',
-    branch: 'power',
-    name: 'Heavy Impact',
-    blurb: 'Every return accelerates the ball more',
-    maxRank: 3,
-    costs: [1, 1, 1],
-    tier: 0,
-    column: 0,
-    requires: [],
-    rankText: (rank) =>
-      `Your returns add +${pct(rank * E.heavyImpact.growth)} to the ball's speed gain.`
+      `Unlocks Power Strike. Your next return leaves ${pct(E.powerStrike.speed)} faster and is driven wide of centre. ${E.powerStrike.cooldown}s cooldown.`
   },
   {
     id: 'critical-strike',
     branch: 'power',
     name: 'Critical Strike',
-    blurb: 'Some returns land noticeably heavier',
+    blurb: 'Some returns are driven into the corner',
     maxRank: 3,
     costs: [1, 1, 1],
+    tier: 0,
+    column: 2,
+    requires: [],
+    rankText: (rank) =>
+      `${pct(Math.min(E.criticalStrike.chanceCap, rank * E.criticalStrike.chance))} chance of a critical return: +${pct(E.criticalStrike.growth + rank * E.criticalStrike.growthPerRank)} ball speed, driven into a corner.`
+  },
+  {
+    id: 'bank-shot',
+    branch: 'power',
+    name: 'Bank Shot',
+    blurb: 'Off the wall, and steeper than it should be',
+    maxRank: 2,
+    costs: [1, 1],
     tier: 1,
     column: 0,
     requires: [],
     rankText: (rank) =>
-      `${pct(Math.min(E.criticalStrike.chanceCap, rank * E.criticalStrike.chance))} chance of a critical return, each worth +${pct(E.criticalStrike.growth + rank * E.criticalStrike.growthPerRank)} ball speed and a wider angle.`
+      `Your returns leave a wall ${pct(rank * E.bankShot.angle)} steeper, so a banked shot lands further from the opponent than it looked like it would.`
+  },
+  {
+    id: 'overdrive',
+    branch: 'power',
+    name: 'Overdrive',
+    blurb: 'Power Strike hits harder, sooner - and twice',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 1,
+    column: 1,
+    requires: [{ talent: 'power-strike', rank: 1 }],
+    rankText: (rank) =>
+      `Power Strike leaves +${pct(rank * E.overdrive.speed)} faster and comes back ${sec(rank * Math.abs(E.overdrive.cooldown))} sooner${rank >= 2 ? ', and charges two returns in a row' : ''}.`
   },
   {
     id: 'momentum',
     branch: 'power',
     name: 'Momentum',
-    blurb: 'Long rallies build extra acceleration',
-    maxRank: 3,
-    costs: [1, 1, 1],
+    blurb: 'A long rally charges your returns for free',
+    maxRank: 2,
+    costs: [1, 1],
     tier: 2,
     column: 0,
     requires: [],
     rankText: (rank) =>
-      `Each return in a rally adds +${pct(rank * E.momentum.perReturn)} ball speed, up to +${pct(rank * E.momentum.cap)} more.`
+      `Every ${nth(E.momentum.start - rank * E.momentum.step)} return you make in a rally leaves charged, exactly as if Power Strike had been used - no skill, no cooldown.`
+  },
+  {
+    id: 'reckless',
+    branch: 'power',
+    name: 'Reckless',
+    blurb: 'Keystone: all offence, and nothing saves you',
+    maxRank: 1,
+    costs: [2],
+    tier: 2,
+    column: 2,
+    requires: [],
+    rankText: () =>
+      `+${pct(E.reckless.chance)} critical chance, and every critical return hits ${pct(E.reckless.growth)} harder and lands twice as heavy - but nothing can save you: Shield, Bastion, Adrenaline, Aegis, Second Chance and Zenith's refund all stand down.`
   },
   {
     id: 'overload',
@@ -177,29 +217,31 @@ export const TALENTS: readonly TalentDef[] = [
 
   // ---------------------------------------------------------------- control
   {
-    id: 'quick-hands',
+    id: 'long-reach',
     branch: 'control',
-    name: 'Quick Hands',
-    blurb: 'A faster paddle, all the time',
-    maxRank: 5,
-    costs: [1, 1, 1, 1, 1],
+    name: 'Long Reach',
+    blurb: 'A longer paddle, all the time',
+    maxRank: 3,
+    costs: [1, 1, 1],
     tier: 0,
     column: 0,
     requires: [],
-    rankText: (rank) => `+${pct(rank * E.quickHands.paddle)} paddle speed, always.`
+    rankText: (rank) => `Your paddle is ${pct(rank * E.longReach.length)} longer.`
   },
   {
-    id: 'swift-recovery',
+    id: 'foresight',
     branch: 'control',
-    name: 'Swift Recovery',
-    blurb: 'Peel off the wall without losing the point',
+    name: 'Foresight',
+    blurb: 'See where the ball will arrive',
     maxRank: 2,
-    costs: [1, 1],
+    costs: [2, 2],
     tier: 0,
     column: 1,
     requires: [],
     rankText: (rank) =>
-      `+${pct(rank * E.swiftRecovery.edgeBoost)} paddle speed for ${sec(rank * E.swiftRecovery.seconds)} after leaving an edge.`
+      rank >= 2
+        ? `From the moment the opponent strikes it, the ball's whole path to your line is drawn - wall bounces included - with its landing marked.`
+        : `Once the ball crosses into your half, a marker shows exactly where it will reach your line.`
   },
   {
     id: 'precision',
@@ -208,8 +250,8 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Wider deliberate angles, less accidental spin',
     maxRank: 3,
     costs: [1, 1, 1],
-    tier: 1,
-    column: 1,
+    tier: 0,
+    column: 2,
     requires: [],
     rankText: (rank) =>
       `+${pct(rank * E.precision.angle)} usable return angle, ${pct(rank * Math.abs(E.precision.spin))} less unintended spin.`
@@ -221,38 +263,62 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'Active: jump the paddle a short distance',
     maxRank: 1,
     costs: [2],
-    tier: 2,
+    tier: 1,
     column: 0,
-    requires: [{ talent: 'quick-hands', rank: 2 }],
+    requires: [{ talent: 'long-reach', rank: 1 }],
     ability: 'dash',
     rankText: () =>
-      `Unlocks Dash: ${E.dash.distance} units towards where you are heading. ${E.dash.cooldown}s cooldown.`
+      `Unlocks Dash: ${E.dash.distance} units towards where you are heading - or, standing still, towards where the ball will arrive. ${E.dash.cooldown}s cooldown.`
+  },
+  {
+    id: 'swerve',
+    branch: 'control',
+    name: 'Swerve',
+    blurb: 'Your returns break late',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 1,
+    column: 2,
+    requires: [{ talent: 'precision', rank: 1 }],
+    rankText: (rank) =>
+      `In the last stretch of their flight your returns break further the way they left your paddle${rank >= 2 ? ', twice as hard' : ''} - after the opponent has already read them.`
+  },
+  {
+    id: 'blink-strike',
+    branch: 'control',
+    name: 'Blink Strike',
+    blurb: 'The ball a dash saves goes back on the attack',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 2,
+    column: 0,
+    requires: [{ talent: 'dash', rank: 1 }],
+    rankText: (rank) =>
+      `A return within ${sec(E.blinkStrike.seconds)} of a dash leaves charged${rank >= 2 ? ' and critical' : ''}, and Dash comes back ${sec(rank * Math.abs(E.blinkStrike.cooldown))} sooner.`
   },
   {
     id: 'perfect-guard',
     branch: 'control',
     name: 'Perfect Guard',
-    blurb: 'Active: a timing window that rewards the read',
+    blurb: 'Active: time it, and nothing gets by',
     maxRank: 3,
     costs: [2, 1, 1],
-    tier: 3,
+    tier: 2,
     column: 1,
-    requires: [{ talent: 'precision', rank: 1 }],
+    requires: [{ talent: 'foresight', rank: 1 }],
     ability: 'perfect-guard',
     rankText: (rank) => {
       const window = sec(E.perfectGuard.baseWindow + (rank - 1) * E.perfectGuard.window);
-      const paddle = pct(E.perfectGuard.basePaddle + (rank - 1) * E.perfectGuard.paddle);
-      const span = sec(E.perfectGuard.seconds + (rank - 1) * E.perfectGuard.secondsStep);
-      return rank === 1
-        ? `Unlocks Perfect Guard: a ${window} window. A return inside it is absorbed clean and grants +${paddle} paddle speed for ${span}.`
-        : `A ${window} window, and a guard grants +${paddle} paddle speed for ${span}.`;
+      const reach = E.perfectGuard.baseReach + (rank - 1) * E.perfectGuard.reach;
+      const cooldown = E.perfectGuard.cooldown + (rank - 1) * E.perfectGuard.cooldownStep;
+      return `${rank === 1 ? 'Unlocks Perfect Guard: a' : 'A'} ${window} window. A ball arriving inside it is parried - returned charged, even if it would have cleared your paddle by up to ${reach} units. ${cooldown}s cooldown.`;
     }
   },
   {
     id: 'slipstream',
     branch: 'control',
     name: 'Slipstream',
-    blurb: 'Ultimate: a longer, far faster paddle',
+    blurb: 'Ultimate: a far longer, lighter paddle',
     maxRank: 1,
     costs: [ULTIMATE_COST],
     tier: ULTIMATE_TIER,
@@ -260,10 +326,23 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [{ talent: 'perfect-guard', rank: 1 }],
     ability: 'slipstream',
     rankText: () =>
-      `Unlocks Slipstream. For ${E.slipstream.seconds}s your paddle is ${pct(E.slipstream.grow)} longer and up to ${pct(E.slipstream.paddle)} faster, past the speed anything else can reach. ${E.slipstream.cooldown}s cooldown.`
+      `Unlocks Slipstream. For ${E.slipstream.seconds}s your paddle is ${pct(E.slipstream.grow)} longer - past the length anything else can reach - and ${pct(E.slipstream.paddle)} faster. ${E.slipstream.cooldown}s cooldown.`
   },
 
   // ---------------------------------------------------------------- defense
+  {
+    id: 'bastion',
+    branch: 'defense',
+    name: 'Bastion',
+    blurb: 'The corners of your line are walled',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 0,
+    column: 0,
+    requires: [],
+    rankText: (rank) =>
+      `A ball reaching your line within ${rank * E.bastion.reach} units of either wall is turned back - every time, for free.`
+  },
   {
     id: 'shield',
     branch: 'defense',
@@ -271,11 +350,50 @@ export const TALENTS: readonly TalentDef[] = [
     blurb: 'A miss that should have cost the point, saved',
     maxRank: 2,
     costs: [2, 2],
-    tier: 1,
-    column: 0,
+    tier: 0,
+    column: 1,
     requires: [],
     rankText: (rank) =>
       `${rank} shield charge${rank === 1 ? '' : 's'}. Each saves one ball at your line, then recharges over ${sec(shieldRecharge(rank))}.`
+  },
+  {
+    id: 'clutch',
+    branch: 'defense',
+    name: 'Clutch',
+    blurb: 'Bigger, and slower to beat, when nearly lost',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 0,
+    column: 2,
+    requires: [],
+    rankText: (rank) =>
+      `While one point - or one life - from losing, your paddle is ${pct(rank * E.clutch.length)} longer, the ball crosses your half ${pct(rank * E.clutch.slow)} slower, and your returns add ${pct(rank * Math.abs(E.clutch.growth))} less pace.`
+  },
+  {
+    id: 'fortify',
+    branch: 'defense',
+    name: 'Fortify',
+    blurb: 'Shield charges come back sooner',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 1,
+    column: 0,
+    requires: [{ talent: 'shield', rank: 1 }],
+    rankText: (rank) =>
+      `Shield charges take ${pct(rank * E.fortify.recharge)} less time to come back.`
+  },
+  {
+    id: 'counterstrike',
+    branch: 'defense',
+    name: 'Counterstrike',
+    blurb: 'A save goes back as an attack',
+    maxRank: 1,
+    costs: [2],
+    tier: 1,
+    column: 1,
+    requires: [{ talent: 'shield', rank: 1 }],
+    rankText: () =>
+      `Every ball you save - by Shield, Aegis or Adrenaline - goes back as a winner: driven into a corner, ${pct(E.counterstrike.pace)} faster than it came and far harder to read. Your next return leaves charged, too.`
   },
   {
     id: 'second-chance',
@@ -283,38 +401,12 @@ export const TALENTS: readonly TalentDef[] = [
     name: 'Second Chance',
     blurb: 'Take a conceded point back while you are behind',
     maxRank: 1,
-    costs: [3],
-    tier: 3,
-    column: 0,
-    requires: [{ talent: 'shield', rank: 1 }],
+    costs: [2],
+    tier: 2,
+    column: 2,
+    requires: [{ talent: 'clutch', rank: 1 }],
     rankText: () =>
       `Once a match, refunds a conceded point - or your last life - while you are not ahead.`
-  },
-  {
-    id: 'stabilizer',
-    branch: 'defense',
-    name: 'Stabilizer',
-    blurb: 'Scrambled returns come off straighter',
-    maxRank: 3,
-    costs: [1, 1, 1],
-    tier: 0,
-    column: 1,
-    requires: [],
-    rankText: (rank) =>
-      `Pulls ${pct(rank * E.stabilizer.pull)} of a wide edge-hit back towards a clean angle, with ${pct(rank * Math.abs(E.stabilizer.spin))} less spin on it.`
-  },
-  {
-    id: 'resilience',
-    branch: 'defense',
-    name: 'Resilience',
-    blurb: 'The longer the rally, the steadier you get',
-    maxRank: 3,
-    costs: [1, 1, 1],
-    tier: 2,
-    column: 1,
-    requires: [{ talent: 'stabilizer', rank: 1 }],
-    rankText: (rank) =>
-      `+${pct(rank * E.resilience.perFive)} paddle speed per five returns in a rally, up to +${pct(rank * E.resilience.cap)} more.`
   },
   {
     id: 'aegis',
@@ -324,8 +416,8 @@ export const TALENTS: readonly TalentDef[] = [
     maxRank: 1,
     costs: [ULTIMATE_COST],
     tier: ULTIMATE_TIER,
-    column: 0,
-    requires: [{ talent: 'second-chance', rank: 1 }],
+    column: 1,
+    requires: [{ talent: 'counterstrike', rank: 1 }],
     ability: 'aegis',
     rankText: () =>
       `Unlocks Aegis. The next ${E.aegis.saves} balls to reach your line are saved for you, within ${E.aegis.seconds}s and without spending a shield charge. ${E.aegis.cooldown}s cooldown.`
@@ -333,56 +425,69 @@ export const TALENTS: readonly TalentDef[] = [
 
   // --------------------------------------------------------------- momentum
   {
+    id: 'hot-hand',
+    branch: 'momentum',
+    name: 'Hot Hand',
+    blurb: 'Win a point, open the next rally charged',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 0,
+    column: 0,
+    requires: [],
+    rankText: (rank) =>
+      `After you win a point, your first ${E.hotHand.returns + (rank - 1) * E.hotHand.step} returns of the next rally leave charged${rank >= 2 ? ' and critical' : ''}.`
+  },
+  {
     id: 'combo-drive',
     branch: 'momentum',
     name: 'Combo Drive',
-    blurb: 'Returns without conceding build a multiplier',
+    blurb: 'Your paddle grows while you keep scoring',
     maxRank: 3,
     costs: [1, 1, 1],
     tier: 0,
     column: 1,
     requires: [],
     rankText: (rank) =>
-      `Each return on your drive is worth +${pct(rank * E.comboDrive.xpPerReturn)} match XP, up to +${pct(rank * E.comboDrive.cap)} more.`
+      `Every ${E.comboDrive.every} returns on your drive, your paddle grows ${pct(rank * E.comboDrive.length)} - up to ${pct(rank * E.comboDrive.length * E.comboDrive.steps)} - until you concede.`
   },
   {
     id: 'adrenaline',
     branch: 'momentum',
     name: 'Adrenaline',
-    blurb: 'A drive threshold quickens the paddle',
-    maxRank: 3,
-    costs: [1, 1, 1],
-    tier: 2,
-    column: 1,
-    requires: [{ talent: 'combo-drive', rank: 2 }],
-    rankText: (rank) =>
-      `+${pct(Math.min(E.adrenaline.cap, rank * E.adrenaline.paddle))} paddle speed for ${sec(E.adrenaline.seconds + (rank - 1) * E.adrenaline.secondsStep)} every ${E.adrenaline.threshold} returns on a drive.`
-  },
-  {
-    id: 'clutch',
-    branch: 'momentum',
-    name: 'Clutch',
-    blurb: 'Sharper when the match is nearly lost',
+    blurb: 'A long drive banks a save',
     maxRank: 2,
     costs: [1, 1],
     tier: 1,
-    column: 0,
-    requires: [],
+    column: 1,
+    requires: [{ talent: 'combo-drive', rank: 1 }],
     rankText: (rank) =>
-      `+${pct(rank * E.clutch.paddle)} paddle speed, and ${pct(rank * Math.abs(E.clutch.growth))} less ball acceleration, while one point - or one life - from losing.`
+      `Every ${E.adrenaline.start - rank * E.adrenaline.step} returns on your drive bank a spare save, one at a time. It catches the next ball that beats you.`
   },
   {
     id: 'flow-state',
     branch: 'momentum',
     name: 'Flow State',
-    blurb: 'Sustained rallies sharpen paddle and cooldowns',
+    blurb: 'The longer the rally, the harder you are to read',
     maxRank: 3,
     costs: [1, 1, 1],
-    tier: 3,
+    tier: 1,
+    column: 2,
+    requires: [],
+    rankText: (rank) =>
+      `Past ${E.flowState.from} returns in a rally, each return makes your returns ${pct(rank * E.flowState.heft)} harder to read and ${pct(rank * E.flowState.angle)} wider - up to ${pct(rank * E.flowState.heft * E.flowState.stacks)} and ${pct(rank * E.flowState.angle * E.flowState.stacks)} - and recharges skills up to ${pct(rank * E.flowState.recharge)} faster.`
+  },
+  {
+    id: 'unbroken',
+    branch: 'momentum',
+    name: 'Unbroken',
+    blurb: 'A dropped point only dents your drive',
+    maxRank: 1,
+    costs: [2],
+    tier: 2,
     column: 1,
     requires: [{ talent: 'adrenaline', rank: 1 }],
-    rankText: (rank) =>
-      `Past ${E.flowState.from} returns, each return adds +${pct(rank * E.flowState.paddle)} paddle speed - up to +${pct(flowPeak(rank))} - and recharges abilities up to ${pct(rank * E.flowState.recharge)} faster.`
+    rankText: () =>
+      `Conceding a point keeps ${pct(E.unbroken.keep)} of your drive instead of ending it.`
   },
   {
     id: 'zenith',
@@ -393,13 +498,26 @@ export const TALENTS: readonly TalentDef[] = [
     costs: [ULTIMATE_COST],
     tier: ULTIMATE_TIER,
     column: 1,
-    requires: [{ talent: 'flow-state', rank: 1 }],
+    requires: [{ talent: 'unbroken', rank: 1 }],
     ability: 'zenith',
     rankText: () =>
-      `Unlocks Zenith. For ${E.zenith.seconds}s you are in peak form: Flow State runs at full stacks, +${pct(E.zenith.paddle)} paddle speed, abilities recharge ${E.zenith.recharge}x faster, and once a match the first point you would concede is given back. ${E.zenith.cooldown}s cooldown.`
+      `Unlocks Zenith. For ${E.zenith.seconds}s you are in peak form: Flow State at full stacks, your paddle ${pct(E.zenith.grow)} longer, skills recharging ${E.zenith.recharge}x faster and a drive that cannot break - and once a match, the first point you would concede is given back. ${E.zenith.cooldown}s cooldown.`
   },
 
   // ---------------------------------------------------------------- utility
+  {
+    id: 'tempo',
+    branch: 'utility',
+    name: 'Tempo',
+    blurb: 'Every return winds your skills back',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 0,
+    column: 0,
+    requires: [],
+    rankText: (rank) =>
+      `Every return you make takes ${sec(rank * E.tempo.perReturn)} off every skill cooldown - half that off an ultimate.`
+  },
   {
     id: 'cooldown-mastery',
     branch: 'utility',
@@ -414,16 +532,30 @@ export const TALENTS: readonly TalentDef[] = [
       `${pct(rank * Math.abs(E.cooldownMastery.cooldown))} off every ability cooldown.`
   },
   {
-    id: 'experience-boost',
+    id: 'afterglow',
     branch: 'utility',
-    name: 'Experience Boost',
-    blurb: 'Meaningful matches are worth a little more',
-    maxRank: 3,
-    costs: [1, 1, 1],
+    name: 'Afterglow',
+    blurb: 'Using a skill lengthens the paddle',
+    maxRank: 2,
+    costs: [1, 1],
     tier: 0,
+    column: 2,
+    requires: [],
+    rankText: (rank) =>
+      `Using any skill makes your paddle ${pct(rank * E.afterglow.length)} longer for ${sec(E.afterglow.seconds)}.`
+  },
+  {
+    id: 'versatility',
+    branch: 'utility',
+    name: 'Versatility',
+    blurb: 'One more skill slot',
+    maxRank: 1,
+    costs: [2],
+    tier: 1,
     column: 0,
     requires: [],
-    rankText: (rank) => `+${pct(rank * E.experienceBoost.xp)} XP from ranked matches.`
+    rankText: () =>
+      `+${E.versatility.slots} skill slot on top of the ones your level has opened, up to ${BALANCE.talents.slots.max}.`
   },
   {
     id: 'talent-synergy',
@@ -431,25 +563,12 @@ export const TALENTS: readonly TalentDef[] = [
     name: 'Talent Synergy',
     blurb: 'Combinations you already own pay out more',
     maxRank: 2,
-    costs: [2, 2],
-    tier: 3,
-    column: 0,
-    requires: [],
-    rankText: (rank) =>
-      `+${pct(rank * E.talentSynergy.magnitude)} to every active synergy, and +${pct(rank * E.talentSynergy.paddlePerSynergy)} paddle speed per active synergy.`
-  },
-  {
-    id: 'versatility',
-    branch: 'utility',
-    name: 'Versatility',
-    blurb: 'A bonus shaped by whatever you invest in most',
-    maxRank: 2,
     costs: [1, 1],
     tier: 1,
-    column: 0,
+    column: 2,
     requires: [],
     rankText: (rank) =>
-      `+${pct(rank * E.versatility.bonus)} to the signature stat of your deepest branch.`
+      `+${pct(rank * E.talentSynergy.magnitude)} to every active synergy, and ${pct(rank * E.talentSynergy.lengthPerSynergy)} more paddle length per active synergy.`
   },
   {
     id: 'echo',
@@ -460,7 +579,7 @@ export const TALENTS: readonly TalentDef[] = [
     costs: [ULTIMATE_COST],
     tier: ULTIMATE_TIER,
     column: 1,
-    requires: [{ talent: 'cooldown-mastery', rank: 3 }],
+    requires: [{ talent: 'cooldown-mastery', rank: 2 }],
     ability: 'echo',
     rankText: () =>
       `Unlocks Echo. Instantly clears the cooldown of your other equipped skills, then recharges them ${E.echo.recharge}x faster for ${E.echo.seconds}s. ${E.echo.cooldown}s cooldown.`
@@ -501,7 +620,7 @@ export const TOTAL_TALENT_COST = TALENTS.reduce(
 );
 
 /** Every branch grid is this many columns wide. */
-export const BRANCH_COLUMNS = 2;
+export const BRANCH_COLUMNS = 3;
 
 /** True for a branch's capstone - the bottom row, and only ever one rank. */
 export function isUltimate(talent: TalentDef): boolean {

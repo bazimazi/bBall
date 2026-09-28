@@ -221,7 +221,7 @@ export function drawPlayerAura(ctx: CanvasRenderingContext2D, world: World): voi
   }
 
   // The passives sit outside every skill ring, so the two never touch.
-  if (paddleBuffed(runtime)) {
+  if (paddleBuffed(world)) {
     const pad = outer + 5;
     ctx.save();
     ctx.globalAlpha = 0.34;

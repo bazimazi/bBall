@@ -91,7 +91,8 @@ function createBall(): Ball {
     speed: BALANCE.ball.serve,
     squash: 0,
     squashAngle: 0,
-    owner: 'you'
+    owner: 'you',
+    heft: 0
   };
 }
 

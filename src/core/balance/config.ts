@@ -95,7 +95,7 @@ export const BALANCE = {
      * The last level that pays a talent point.
      *
      * Levelling itself never stops, but power from it does: 49 points against
-     * a tree that costs 86 keeps a build a set of choices rather than a
+     * a tree that costs 93 keeps a build a set of choices rather than a
      * checklist, however long someone plays.
      */
     pointsUntilLevel: 50,
@@ -115,8 +115,21 @@ export const BALANCE = {
     respecFree: true,
     /** Floor on the combined cooldown multiplier. Stops infinite loops. */
     minCooldownMul: 0.45,
-    /** Ceiling on every paddle-speed source multiplied together. */
-    maxPaddleMul: 1.6,
+    /**
+     * Seconds that must pass between two uses of the same skill, whatever is
+     * hurrying its cooldown along. Tempo, Echo and Zenith all shorten a
+     * cooldown faster than time does; this is the one number none of them can
+     * get under, and the server's cast ceiling is built from it.
+     */
+    minRecast: 1.5,
+    /**
+     * Ceiling on how much longer - or shorter - talents may make the paddle
+     * outside an ultimate. Length is the stat that saves points most directly,
+     * so it is the one that needs a lid most. An ultimate may go past it, up
+     * to the paddle's own hard limit.
+     */
+    maxLength: 0.3,
+    minLength: -0.15,
     /** Ceiling on the ball-speed growth a single return may reach. */
     maxHitGrowth: 1.2
   },
@@ -124,79 +137,136 @@ export const BALANCE = {
   /**
    * Per-rank talent magnitudes. Every value is "per rank" unless the name
    * says otherwise, and every one of them is capped somewhere above.
+   *
+   * Tuned against a headless run of the real engine: each talent was played
+   * alone, for thousands of points against two opponents, and kept only if
+   * its point share moved by more than the noise. The bands it was tuned to
+   * are roughly +2 points of point share per talent point for an ordinary
+   * talent, and +8 to +12 for an ultimate with its path.
    */
   effects: {
     // -- power ------------------------------------------------------------
-    powerStrike: { speed: 0.22, window: 4, cooldown: 9 },
-    overdrive: { speed: 0.08, cooldown: -0.9 },
-    heavyImpact: { growth: 0.014 },
     /**
-     * `angle` widens the contact offset on a heavy return, so power lands
-     * the ball further from the opponent rather than only faster. Speed
-     * alone barely troubles a composed bot; speed plus angle wins points,
-     * which is what makes the branch worth investing in.
+     * `minAngle` is the floor on how far off centre a charged return leaves.
+     * Pace alone barely troubles a composed opponent - it is pace sent
+     * somewhere awkward that wins the point.
      */
+    powerStrike: { speed: 0.25, window: 4, cooldown: 8, minAngle: 0.62, stretch: 0.3, heft: 0.25 },
+    /** Rank two also charges the return after, so one press buys two. */
+    overdrive: { speed: 0.06, cooldown: -1.5 },
+    /**
+     * Heft: how much wider the opponent's read of every player return goes.
+     *
+     * This used to be pace, and pace measured as nothing - raised growth,
+     * then a raised ceiling, then a ball allowed past the ceiling. A bot's
+     * error is dominated by its read, not by the ball's speed, so "a heavy
+     * ball" is modelled as what it does to the read.
+     */
+    heavyImpact: { heft: 0.12 },
     criticalStrike: {
-      chance: 0.08,
+      chance: 0.1,
       /** A crit's own bonus, before ranks. Overload crits with this alone. */
       growth: 0.1,
       /** Added to `growth` per rank: a deeper investment hits harder, too. */
       growthPerRank: 0.04,
-      /** Above three ranks' worth, so Versatility still buys crit chance. */
-      chanceCap: 0.3,
-      angle: 0.16
+      /** Above three ranks' worth, so Reckless still buys crit chance. */
+      chanceCap: 0.4,
+      /** A critical return is driven at least this far off centre. */
+      minAngle: 0.55,
+      angle: 0.16,
+      heft: 0.3
     },
-    momentum: { perReturn: 0.005, cap: 0.05 },
+    /** A return off a wall leaves this much steeper, per rank. */
+    bankShot: { angle: 0.04 },
+    /** Every `start - rank * step`-th return of a rally leaves charged. */
+    momentum: { start: 7, step: 2 },
+    /**
+     * The keystone: more crits, heavier crits - and no saves of any kind to
+     * pay for them. A shorter paddle was tried first; length is worth so much
+     * that it cancelled the whole bonus, and a keystone that nets to nothing
+     * is not a decision.
+     */
+    reckless: { chance: 0.2, growth: 0.15, heft: 0.25 },
 
     // -- control ----------------------------------------------------------
-    quickHands: { paddle: 0.035 },
-    /** `seconds` is per rank as well: rank two holds the boost twice as long. */
-    swiftRecovery: { edgeBoost: 0.22, seconds: 0.5 },
-    precision: { angle: 0.05, spin: -0.12 },
-    dash: { distance: 110, cooldown: 5, seconds: 0.12 },
+    longReach: { length: 0.05 },
+    precision: { angle: 0.07, spin: -0.12 },
+    /**
+     * Units per second squared, applied only once the ball is `from` of the
+     * way across: the break comes after the opponent has already read it,
+     * which is the whole trick. Its direction is set at contact and never
+     * changes mid-flight.
+     */
+    swerve: { accel: 90, from: 0.62 },
+    dash: { distance: 110, cooldown: 6, seconds: 0.12 },
+    /** Seconds after a dash in which a return leaves charged, and what each rank takes off the dash. */
+    blinkStrike: { seconds: 1.2, cooldown: -1.5 },
+    /**
+     * A parry. A ball arriving inside the window is returned even when it
+     * would have cleared the paddle by up to `reach` units, and it goes back
+     * charged. It used to flatten and slow the return instead - which made
+     * the one skill about reading the ball measurably worse than not owning
+     * it.
+     */
     perfectGuard: {
       baseWindow: 0.25,
-      window: 0.06,
-      basePaddle: 0.14,
-      paddle: 0.06,
-      seconds: 3,
-      /** Added to `seconds` per rank past the first. */
-      secondsStep: 0.75,
-      cooldown: 8
+      window: 0.05,
+      baseReach: 10,
+      reach: 15,
+      cooldown: 8,
+      /** Added to `cooldown` per rank past the first. */
+      cooldownStep: -1
     },
 
     // -- defense ----------------------------------------------------------
-    /** `rechargeStep` is added per rank past the first, so charges return sooner. */
-    shield: { charges: 1, rechargeSeconds: 48, rechargeStep: -8, minRecharge: 24, saveSpeed: 0.92 },
+    /** Units from each wall, per rank, where Bastion turns a ball back at the line. */
+    bastion: { reach: 40 },
+    /**
+     * `rechargeStep` is added per rank past the first, so charges return
+     * sooner. A charge used to come back every 48 seconds, which made a
+     * two-point talent worth more than most ultimates.
+     */
+    shield: {
+      charges: 1,
+      rechargeSeconds: 130,
+      rechargeStep: -30,
+      minRecharge: 50,
+      saveSpeed: 0.92
+    },
+    /** `slow` is time, not pace: the ball's clock in the player's half, one point from losing. */
+    clutch: { length: 0.2, growth: -0.015, slow: 0.1 },
+    /** Fraction off each shield charge's recharge, per rank. */
+    fortify: { recharge: 0.25 },
+    counterstrike: { pace: 0.25, minAngle: 0.6, heft: 0.6 },
     secondChance: { uses: 1 },
-    stabilizer: { pull: 0.2, spin: -0.12 },
-    resilience: { perFive: 0.016, cap: 0.07 },
 
     // -- momentum ---------------------------------------------------------
-    comboDrive: { xpPerReturn: 0.005, cap: 0.07 },
-    /** `secondsStep` is added per rank past the first: longer, as well as stronger. */
-    adrenaline: { threshold: 6, paddle: 0.07, seconds: 3.25, secondsStep: 0.75, cap: 0.21 },
-    clutch: { paddle: 0.12, growth: -0.015 },
+    /** Returns charged at the start of the rally after a won point, and what rank two adds. */
+    hotHand: { returns: 2, step: 1 },
+    comboDrive: { every: 5, length: 0.03, steps: 3 },
+    /** Every `start - rank * step` returns on a drive bank one spare save. */
+    adrenaline: { start: 24, step: 4 },
     flowState: {
-      from: 6,
+      from: 2,
       /** Returns past `from` that Flow State keeps counting. */
-      stacks: 10,
-      paddle: 0.004,
-      cap: 0.06,
+      stacks: 8,
       /**
-       * Placement, not just pace. Paddle speed alone stops mattering once a
-       * build is deep - a wider deliberate angle is what still wins points,
-       * and it is what gives the Momentum branch teeth of its own.
+       * Placement, not pace. A wider deliberate angle is what still wins
+       * points once a rally is long, so that is what flow builds.
        */
-      angle: 0.005,
-      recharge: 0.1
+      angle: 0.015,
+      recharge: 0.1,
+      /** Heft per stack: a long rally wears the opponent's read down. */
+      heft: 0.02
     },
+    unbroken: { keep: 0.5 },
 
     // -- utility ----------------------------------------------------------
+    tempo: { perReturn: 0.5 },
     cooldownMastery: { cooldown: -0.1 },
-    experienceBoost: { xp: 0.05 },
-    talentSynergy: { magnitude: 0.5, paddlePerSynergy: 0.02 },
-    versatility: { bonus: 0.035 },
+    afterglow: { length: 0.1, seconds: 3 },
+    versatility: { slots: 1 },
+    talentSynergy: { magnitude: 0.5, lengthPerSynergy: 0.025 },
 
     /*
      * The capstones.
@@ -219,21 +289,25 @@ export const BALANCE = {
      * the fast ball on the way back too. Placement is what wins points here.
      */
     overload: { hits: 4, minAngle: 0.62, angle: 0.35, cooldown: 30 },
-    slipstream: { seconds: 7, paddle: 0.6, grow: 0.4, cooldown: 30 },
+    /**
+     * Length is the half of this that wins points; the speed is there so the
+     * longer paddle still feels light. Speed on its own measured as nothing.
+     */
+    slipstream: { seconds: 8, paddle: 0.6, grow: 0.5, cooldown: 25 },
     /**
      * Bounded twice over: a window *and* a count. Six seconds of saving
      * everything measured at nearly twenty points of win rate over an
      * already-strong defensive build - far past what a capstone should buy.
      */
-    aegis: { saves: 2, seconds: 8, cooldown: 40 },
+    aegis: { saves: 2, seconds: 6, cooldown: 80 },
     /**
      * `refunds` is per *match*, not per casting. Re-castable insurance every
      * thirty-five seconds measured at more than twice the baseline win rate -
      * the same trap Aegis fell into. The window is repeatable; the safety net
      * is not.
      */
-    zenith: { seconds: 8, paddle: 0.35, recharge: 2, refunds: 1, cooldown: 35 },
-    echo: { seconds: 6, recharge: 2.5, cooldown: 45 }
+    zenith: { seconds: 8, grow: 0.3, recharge: 2, refunds: 1, cooldown: 35 },
+    echo: { seconds: 6, recharge: 4, cooldown: 45 }
   },
 
   /** What a finished match is allowed to add on top of the base XP rules. */
@@ -256,11 +330,14 @@ export function paddleSpeedForLevel(level: number): number {
   return Math.min(BALANCE.paddle.max, BALANCE.paddle.base + steps * BALANCE.paddle.perLevel);
 }
 
-/** How many active abilities the player may equip at `level`. */
-export function abilitySlotsForLevel(level: number): number {
+/**
+ * How many active abilities the player may equip at `level`. `bonus` is the
+ * slots a build buys on top (Versatility); the hard maximum still holds.
+ */
+export function abilitySlotsForLevel(level: number, bonus = 0): number {
   const { base, extraAtLevels, max } = BALANCE.talents.slots;
   const extra = extraAtLevels.filter((at) => level >= at).length;
-  return Math.min(max, base + extra);
+  return Math.min(max, base + extra + Math.max(0, bonus));
 }
 
 /** The level that opens the next slot, or null once they are all open. */

@@ -1,4 +1,5 @@
 import { BALANCE } from '../core/balance/config';
+import { abilityById } from '../core/talents/abilities';
 import { resolveLoadout, type ResolvedLoadout } from '../core/talents/effects';
 import { createTalentSave } from '../core/talents/save';
 import type { TalentMatchStats } from '../core/talents/types';
@@ -22,6 +23,9 @@ import type { World } from './world';
 
 const E = BALANCE.effects;
 
+/** The steepest a Swerve or a Bank Shot may bend a ball: short of vertical. */
+const MAX_BEND_ANGLE = 1.1;
+
 /** A build with nothing bought, for the attract demo and the first frame. */
 export const DEFAULT_LOADOUT: ResolvedLoadout = resolveLoadout(createTalentSave(), 1);
 
@@ -29,7 +33,8 @@ function emptySlots(): AbilitySlot[] {
   return Array.from({ length: BALANCE.talents.slots.max }, () => ({
     id: null,
     cooldown: 0,
-    span: 0
+    span: 0,
+    lockout: 0
   }));
 }
 
@@ -39,20 +44,21 @@ export function createRuntime(): TalentRuntime {
     bestDrive: 0,
     rallyReturns: 0,
     surge: 0,
-    adrenaline: 0,
-    guard: 0,
-    strikeRush: 0,
-    edgeRecovery: 0,
-    edgeSide: 0,
+    spareSave: 0,
+    primed: 0,
+    swerveDir: 0,
+    afterglow: 0,
     shield: 0,
     shieldMax: 0,
     shieldTimer: 0,
     guardShielded: false,
     secondChances: 0,
     strikeArmed: 0,
+    strikeHits: 0,
     guardWindow: 0,
     dashFx: 0,
     dashFrom: 0,
+    blink: 0,
     overload: 0,
     slipstream: 0,
     aegis: 0,
@@ -83,15 +89,16 @@ export function resetRuntime(world: World): void {
   runtime.bestDrive = 0;
   runtime.rallyReturns = 0;
   runtime.surge = 0;
-  runtime.adrenaline = 0;
-  runtime.guard = 0;
-  runtime.strikeRush = 0;
-  runtime.edgeRecovery = 0;
-  runtime.edgeSide = 0;
+  runtime.spareSave = 0;
+  runtime.primed = 0;
+  runtime.swerveDir = 0;
+  runtime.afterglow = 0;
   runtime.strikeArmed = 0;
+  runtime.strikeHits = 0;
   runtime.guardWindow = 0;
   runtime.dashFx = 0;
   runtime.dashFrom = 0;
+  runtime.blink = 0;
   runtime.overload = 0;
   runtime.slipstream = 0;
   runtime.aegis = 0;
@@ -100,7 +107,6 @@ export function resetRuntime(world: World): void {
   runtime.zenithRefunds = BALANCE.effects.zenith.refunds;
   runtime.echo = 0;
   runtime.guardShielded = false;
-  growPaddle(world.player, 0);
 
   runtime.shieldMax = effects.shieldCharges;
   runtime.shield = effects.shieldCharges;
@@ -112,6 +118,7 @@ export function resetRuntime(world: World): void {
     slot.id = equipped[i] ?? null;
     slot.cooldown = 0;
     slot.span = 0;
+    slot.lockout = 0;
   }
 
   runtime.stats.abilitiesUsed = 0;
@@ -122,6 +129,11 @@ export function resetRuntime(world: World): void {
   runtime.stats.shieldSaves = 0;
   runtime.stats.secondChances = 0;
   runtime.stats.ultimates = 0;
+
+  // No resize here: the paddle's base was just reset by `setPaddleBase`, and
+  // `updateRuntime` measures the build's length on the very first serve
+  // step. Sizing it now would hand the attract demo the player's build,
+  // because a return to the menu resets the runtime before it is a menu.
 }
 
 /** A new rally is about to start. */
@@ -129,23 +141,30 @@ export function resetRally(world: World): void {
   world.talents.rallyReturns = 0;
   world.talents.surge = 0;
   world.talents.guardShielded = false;
+  world.talents.swerveDir = 0;
 }
 
 /**
- * The player conceded. The drive is over; the match state is not.
+ * The player conceded. The rally's counters are over; the match is not.
  *
- * Unless Zenith is running - holding the streak through a dropped point is
- * the whole reason that capstone exists.
+ * The drive survives in part with Unbroken, and in full while Zenith is
+ * running - holding the streak through a dropped point is the whole reason
+ * that capstone exists.
  */
 export function resetDrive(world: World): void {
   const runtime = world.talents;
+  const { effects } = world.loadout;
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
-  if (runtime.zenith <= 0) runtime.drive = 0;
+  if (runtime.zenith <= 0) runtime.drive = Math.floor(runtime.drive * effects.driveKeep);
   runtime.rallyReturns = 0;
   runtime.surge = 0;
-  runtime.adrenaline = 0;
-  runtime.strikeRush = 0;
-  runtime.guard = 0;
+  runtime.primed = 0;
+}
+
+/** The player won the point. Hot Hand arms the first returns of the next one. */
+export function wonPoint(world: World): void {
+  const { hotHand } = world.loadout.effects;
+  if (hotHand > 0) world.talents.primed = Math.max(world.talents.primed, hotHand);
 }
 
 /** True when a single point - or a single life - would end the match. */
@@ -170,44 +189,24 @@ function flowStacks(world: World): number {
 
 /** The same thing as 0..1, for cooldown recovery. */
 function flowProgress(world: World): number {
-  if (world.loadout.effects.flowPaddle <= 0 && world.talents.zenith <= 0) return 0;
+  if (world.loadout.effects.flowAngle <= 0 && world.talents.zenith <= 0) return 0;
   return flowStacks(world) / BALANCE.effects.flowState.stacks;
 }
 
 /**
  * The player's paddle speed right now.
  *
- * Level sets the floor, the build multiplies it, and the in-match buffs add
- * on top. Nothing in this function can see the opponent or the ball's speed:
- * a harder match never quietly hands the player a faster paddle.
+ * Level sets it and nothing in the build multiplies it: the paddle is
+ * already faster than the court is tall, so a talent that only added speed
+ * was a talent that did nothing. Slipstream is the exception, because a
+ * paddle half again as long has to still feel light.
  */
 export function playerPaddleSpeed(world: World): number {
   const { effects, paddleSpeed } = world.loadout;
-  const runtime = world.talents;
-  let mul = 1;
-
-  if (runtime.adrenaline > 0) mul += effects.adrenalinePaddle;
-  if (runtime.guard > 0) mul += effects.guardPaddle;
-  if (runtime.strikeRush > 0) mul += effects.powerStrikePaddle;
-  if (runtime.edgeRecovery > 0) mul += effects.edgeBoost;
-  if (inClutch(world)) mul += effects.clutchPaddle;
-
-  // A capstone is the one thing allowed past the everyday ceiling.
-  let ceiling: number = BALANCE.paddle.max;
-  if (runtime.slipstream > 0) {
-    mul += effects.slipstreamPaddle;
-    ceiling = BALANCE.paddle.burst;
+  if (world.talents.slipstream > 0) {
+    return Math.min(BALANCE.paddle.burst, paddleSpeed * (1 + effects.slipstreamPaddle));
   }
-  if (runtime.zenith > 0) {
-    mul += effects.zenithPaddle;
-    ceiling = BALANCE.paddle.burst;
-  }
-
-  const rally = runtime.rallyReturns;
-  mul += Math.min(effects.resilienceCap, Math.floor(rally / 5) * effects.resiliencePerFive);
-  mul += Math.min(effects.flowCap, flowStacks(world) * effects.flowPaddle);
-
-  return Math.min(ceiling, paddleSpeed * mul);
+  return paddleSpeed;
 }
 
 /** Keyboard travel, derived from whatever the paddle can do right now. */
@@ -215,22 +214,39 @@ export function playerKeySpeed(world: World): number {
   return playerPaddleSpeed(world) * BALANCE.paddle.keyboardShare;
 }
 
-/** Notice the paddle peeling off a wall, so Swift Recovery can fire. */
-function trackEdges(world: World, dt: number): void {
-  const runtime = world.talents;
+/**
+ * How much longer than its base the player's paddle is right now.
+ *
+ * Length is what saves points, so it is what the build buys: always-on from
+ * Long Reach, earned from a drive, lent by Clutch or a skill just used. The
+ * everyday sources share one ceiling; an ultimate may go past it, up to the
+ * paddle's own hard limit in `resizePaddle`.
+ */
+export function playerLength(world: World): number {
   const { effects } = world.loadout;
-  const paddle = world.player;
-  const band = BALANCE.paddle.edgeBand;
+  const runtime = world.talents;
+  const { talents } = BALANCE;
 
-  let side: -1 | 0 | 1 = 0;
-  if (paddle.y <= paddle.half + band) side = -1;
-  else if (paddle.y >= FIELD_H - paddle.half - band) side = 1;
+  let length = clamp(effects.length + boostLength(world), talents.minLength, talents.maxLength);
+  // Clutch is a last stand rather than an everyday source, so like an
+  // ultimate it may go past the everyday ceiling.
+  if (effects.clutchLength > 0 && inClutch(world)) length += effects.clutchLength;
+  if (runtime.slipstream > 0) length += effects.slipstreamGrow;
+  if (runtime.zenith > 0) length += effects.zenithGrow;
+  return length;
+}
 
-  if (side === 0 && runtime.edgeSide !== 0 && effects.edgeBoost > 0) {
-    runtime.edgeRecovery = effects.edgeSeconds;
+/** The everyday part of the paddle's length that comes and goes: a drive, a skill's afterglow. */
+function boostLength(world: World): number {
+  const { effects } = world.loadout;
+  const runtime = world.talents;
+  let length = 0;
+  if (effects.comboLength > 0) {
+    const steps = Math.min(effects.comboSteps, Math.floor(runtime.drive / effects.comboEvery));
+    length += steps * effects.comboLength;
   }
-  runtime.edgeSide = side;
-  runtime.edgeRecovery = Math.max(0, runtime.edgeRecovery - dt);
+  if (runtime.afterglow > 0) length += effects.afterglowLength;
+  return length;
 }
 
 /**
@@ -238,30 +254,29 @@ function trackEdges(world: World, dt: number): void {
  *
  * Cooldowns run faster while the player is in flow, which is the whole point
  * of the talent - but `BALANCE.talents.minCooldownMul` already floored the
- * cooldowns themselves, so the two together still cannot produce an ability
- * that is permanently available.
+ * cooldowns themselves, and every slot keeps a real-time lockout, so the two
+ * together still cannot produce an ability that is permanently available.
  */
 export function updateRuntime(world: World, dt: number): void {
   const runtime = world.talents;
   const { effects } = world.loadout;
 
-  runtime.adrenaline = Math.max(0, runtime.adrenaline - dt);
-  runtime.guard = Math.max(0, runtime.guard - dt);
-  runtime.strikeRush = Math.max(0, runtime.strikeRush - dt);
   runtime.strikeArmed = Math.max(0, runtime.strikeArmed - dt);
+  if (runtime.strikeArmed <= 0) runtime.strikeHits = 0;
   runtime.guardWindow = Math.max(0, runtime.guardWindow - dt);
   runtime.dashFx = Math.max(0, runtime.dashFx - dt);
+  runtime.blink = Math.max(0, runtime.blink - dt);
+  runtime.afterglow = Math.max(0, runtime.afterglow - dt);
 
   runtime.aegis = Math.max(0, runtime.aegis - dt);
   runtime.zenith = Math.max(0, runtime.zenith - dt);
   runtime.echo = Math.max(0, runtime.echo - dt);
-
-  // Slipstream lengthens the paddle, so the size has to settle the moment it
-  // starts and again the moment it ends.
   runtime.slipstream = Math.max(0, runtime.slipstream - dt);
-  growPaddle(world.player, runtime.slipstream > 0 ? effects.slipstreamGrow : 0);
 
-  trackEdges(world, dt);
+  // Every length source can change from one step to the next - a drive
+  // ticking over, a skill's glow fading - so the paddle is re-measured here
+  // rather than whenever one of them happens to move.
+  growPaddle(world.player, playerLength(world));
 
   // Zenith and Echo both hurry cooldowns along; they never stack, and the
   // capstone cooldown floor in `effects.ts` still bounds what that can mean.
@@ -272,6 +287,7 @@ export function updateRuntime(world: World, dt: number): void {
   const recovery = dt * hurry * (1 + effects.flowRecharge * flowProgress(world));
   for (const slot of runtime.slots) {
     if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - recovery);
+    if (slot.lockout > 0) slot.lockout = Math.max(0, slot.lockout - dt);
   }
 
   if (runtime.shieldMax > 0 && runtime.shield < runtime.shieldMax) {
@@ -283,11 +299,22 @@ export function updateRuntime(world: World, dt: number): void {
   }
 }
 
+/** Tempo: a return winds every cooldown back a notch - an ultimate by half as much. */
+function applyTempo(world: World): void {
+  const tempo = world.loadout.effects.tempo;
+  if (tempo <= 0) return;
+  for (const slot of world.talents.slots) {
+    if (!slot.id || slot.cooldown <= 0) continue;
+    const share = abilityById(slot.id)?.ultimate ? 0.5 : 1;
+    slot.cooldown = Math.max(0, slot.cooldown - tempo * share);
+  }
+}
+
 // ------------------------------------------------------------------ returns
 
 /** How a single return is modified. Built fresh for every contact. */
 export interface ReturnMods {
-  /** Contact offset after Stabilizer and Perfect Guard have had their say. */
+  /** Contact offset after the build has had its say. */
   readonly off: number;
   /** Multiplier on the ball's speed for this return. */
   readonly growth: number;
@@ -301,6 +328,8 @@ export interface ReturnMods {
   readonly guarded: boolean;
   /** An Overload return: its pace stays on the ball rather than bleeding. */
   readonly overloaded: boolean;
+  /** How much harder than its speed says the return is to read. */
+  readonly heft: number;
 }
 
 /** The plain return: what every contact did before talents existed. */
@@ -314,14 +343,27 @@ export function plainReturn(world: World, off: number): ReturnMods {
     crit: false,
     charged: false,
     guarded: false,
-    overloaded: false
+    overloaded: false,
+    heft: 0
   };
+}
+
+/**
+ * Push a contact offset out to at least `min` of the paddle's half-length.
+ *
+ * The side is the one the player was already leaning towards; a dead-centre
+ * contact goes away from the opponent. `stretch` widens whatever was
+ * already wide on top of the floor.
+ */
+function corner(world: World, off: number, min: number, stretch: number): number {
+  const side = off !== 0 ? Math.sign(off) : world.bot.y < FIELD_H / 2 ? 1 : -1;
+  return side * Math.min(1, Math.max(Math.abs(off) * (1 + stretch), min));
 }
 
 /**
  * The player's return, with the build folded in.
  *
- * Also the point at which the momentum counters tick, because "a successful
+ * Also the point at which the drive counters tick, because "a successful
  * return" is exactly what they count. Passive growth is capped first, then a
  * charged strike is added on top of the cap - an active ability is allowed to
  * beat the passive ceiling, but never the hard one.
@@ -332,23 +374,26 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   const { tuning } = world;
 
   // Contact offset is measured as a fraction of the paddle's length, so a
-  // paddle that Slipstream has lengthened would quietly flatten every return
-  // - more reach bought with worse placement. Scaling by the stretch keeps
-  // the angle a given contact produces exactly where it was.
+  // paddle the build has lengthened would quietly flatten every return -
+  // more reach bought with worse placement. Scaling by the stretch keeps the
+  // angle a given contact produces exactly where it was.
   const rawOff = clamp(offset * world.player.grow, -1, 1);
 
   runtime.drive++;
   runtime.rallyReturns++;
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
+  applyTempo(world);
 
-  if (effects.adrenalinePaddle > 0 && runtime.drive % effects.adrenalineAt === 0) {
-    runtime.adrenaline = effects.adrenalineSeconds;
+  if (effects.adrenalineEvery > 0 && runtime.drive % effects.adrenalineEvery === 0) {
+    runtime.spareSave = 1;
   }
 
+  // A return inside the guard window is a parry - and a parry goes back as a
+  // counter. It used to be absorbed flat instead, which made reading the
+  // ball well a way to hand the opponent an easy one.
   const guarded = runtime.guardWindow > 0;
   if (guarded) {
     runtime.guardWindow = 0;
-    runtime.guard = effects.guardSeconds;
     runtime.stats.perfectGuards++;
     if (effects.guardGrantsShield && !runtime.guardShielded && runtime.shieldMax > 0) {
       runtime.guardShielded = true;
@@ -361,56 +406,61 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   const overloaded = runtime.overload > 0;
   if (overloaded) runtime.overload--;
 
-  const charged = runtime.strikeArmed > 0 || overloaded;
-  if (charged) {
-    runtime.strikeArmed = 0;
+  // Only a charge that Power Strike itself put there counts as one of its
+  // uses: the server holds `powerStrikes` to the casts the match reported,
+  // and a free charge from Momentum or Hot Hand is not a cast.
+  const struck = !overloaded && runtime.strikeArmed > 0 && runtime.strikeHits > 0;
+  if (struck) {
+    runtime.strikeHits--;
+    if (runtime.strikeHits <= 0) runtime.strikeArmed = 0;
     runtime.stats.powerStrikes++;
-    if (effects.powerStrikePaddle > 0) runtime.strikeRush = effects.powerStrikePaddleSeconds;
   }
 
+  const rhythm = effects.momentumEvery > 0 && runtime.rallyReturns % effects.momentumEvery === 0;
+  const primed = runtime.primed > 0;
+  if (primed) runtime.primed--;
+  // Blink Strike: the return a dash just rescued goes straight back on the attack.
+  const blinked = runtime.blink > 0;
+  runtime.blink = 0;
+
+  const charged = overloaded || struck || guarded || rhythm || primed || blinked;
   const crit =
-    overloaded || (!guarded && effects.critChance > 0 && Math.random() < effects.critChance);
+    overloaded ||
+    (primed && effects.hotHandCrit) ||
+    (blinked && effects.blinkCrit) ||
+    (charged && effects.chargedCrits) ||
+    (effects.critChance > 0 && Math.random() < effects.critChance);
   if (crit) runtime.stats.crits++;
 
   // Passive sources, capped together.
-  let growth = tuning.speedPerHit + effects.hitGrowth;
-  growth += Math.min(effects.momentumCap, runtime.rallyReturns * effects.momentumPerReturn);
+  let growth = tuning.speedPerHit;
   if (inClutch(world)) growth += effects.clutchGrowth;
-  if (crit) growth += effects.critGrowth;
   growth = Math.min(growth, BALANCE.talents.maxHitGrowth);
 
-  let ceiling = tuning.maxSpeed;
-  if (guarded) {
-    // A read return is absorbed rather than accelerated - that is the trade.
-    growth = 1;
-  } else if (charged) {
-    growth += effects.powerStrikeSpeed;
-    ceiling = tuning.maxSpeed * (1 + effects.powerStrikeSpeed);
-  }
+  // A heavy return may outrun the match's top speed by exactly what made it
+  // heavy - a crit its own bonus, a charge its own - and never the hard cap.
+  let lift = 0;
+  if (crit) lift += effects.critGrowth;
+  if (charged) lift += effects.powerStrikeSpeed;
+  growth += lift;
+  const ceiling = tuning.maxSpeed * (1 + lift);
 
-  // Stabilizer only touches the wide, scrambled end of the paddle, where a
-  // contact is an accident rather than a placement.
-  const magnitude = Math.abs(rawOff);
-  const wide = clamp((magnitude - 0.6) / 0.4, 0, 1);
-  let off = rawOff * (1 - effects.stabilise * wide);
-  if (guarded) off *= 0.5;
-  // A heavy return also leaves at a wider angle. Speed on its own barely
-  // troubles a composed opponent; speed sent somewhere awkward does.
-  if (overloaded) {
-    // Overload does not merely widen the angle, it guarantees one: every one
-    // of its returns is driven into a corner, whichever side the player
-    // was already leaning towards.
-    const side = off < 0 ? -1 : 1;
-    off = side * Math.min(1, Math.max(Math.abs(off) * (1 + E.overload.angle), E.overload.minAngle));
-  } else if (crit || charged) {
-    off = clamp(off * (1 + E.criticalStrike.angle), -1, 1);
-  }
+  let heft = effects.heft + flowStacks(world) * effects.flowHeft;
+  if (charged) heft += E.powerStrike.heft;
+  if (crit) heft += effects.critHeft;
+
+  // Where the ball goes matters more than how fast it gets there: every
+  // heavy return is also a wide one, and the heavier it is the wider.
+  let off = rawOff;
+  if (overloaded) off = corner(world, off, E.overload.minAngle, E.overload.angle);
+  else if (crit) off = corner(world, off, E.criticalStrike.minAngle, E.criticalStrike.angle);
+  else if (charged) off = corner(world, off, E.powerStrike.minAngle, E.powerStrike.stretch);
 
   return {
     off,
     growth: Math.max(0.5, growth),
     ceiling: Math.min(BALANCE.ball.hardMax, ceiling),
-    spin: guarded ? 0 : effects.spinMul,
+    spin: effects.spinMul,
     angleLimit: Math.min(
       1.15,
       MAX_BOUNCE_ANGLE * (effects.angleMul + flowStacks(world) * effects.flowAngle)
@@ -418,8 +468,81 @@ export function playerReturn(world: World, offset: number): ReturnMods {
     crit,
     charged,
     guarded,
-    overloaded
+    overloaded,
+    heft
   };
+}
+
+// ------------------------------------------------------------ ball in flight
+
+/** Re-point the ball's velocity at `angle` off the long axis, keeping its speed and direction of travel. */
+function aim(world: World, angle: number): void {
+  const { ball } = world;
+  const dir = ball.vx >= 0 ? 1 : -1;
+  ball.vx = Math.cos(angle) * ball.speed * dir;
+  ball.vy = Math.sin(angle) * ball.speed;
+}
+
+/**
+ * Swerve: the player's return bends in the last stretch of its flight.
+ *
+ * Late on purpose. By then the opponent has taken its looks and committed,
+ * so the break lands after the read rather than before it. Bending earlier
+ * and softer only beat the bots that never look twice.
+ */
+export function swerveBall(world: World, dt: number): void {
+  const { ball, talents: runtime } = world;
+  const accel = world.loadout.effects.swerve;
+  if (accel <= 0 || runtime.swerveDir === 0 || ball.vx <= 0) return;
+  if (ball.x < world.view.w * E.swerve.from) return;
+
+  const vy = ball.vy + runtime.swerveDir * accel * dt;
+  const angle = clamp(Math.atan2(vy, Math.abs(ball.vx)), -MAX_BEND_ANGLE, MAX_BEND_ANGLE);
+  aim(world, angle);
+}
+
+/**
+ * The ball just hit a wall: a player's return comes off it steeper with Bank
+ * Shot. A swerve keeps its own direction through the bounce, the way spin
+ * does - flipping it with every wall steepened the ball into a zigzag that
+ * measured at more than forty points of win rate on its own.
+ */
+export function bankBall(world: World): void {
+  const { ball } = world;
+  if (ball.owner !== 'you' || ball.vx <= 0) return;
+
+  const bank = world.loadout.effects.bankShot;
+  if (bank <= 0) return;
+  const angle = Math.atan2(ball.vy, Math.abs(ball.vx));
+  aim(world, clamp(angle * (1 + bank), -MAX_BEND_ANGLE, MAX_BEND_ANGLE));
+}
+
+/**
+ * How fast the ball's clock runs right now. Below 1 only under Clutch, while
+ * the ball is in the player's half and heading for their line.
+ *
+ * Time, not pace. Taking pace off the ball measured as a loss: the player's
+ * own return is built from whatever speed arrives, so a slower ball in meant
+ * a slower ball out, and the opponent got the time back.
+ */
+export function ballTimeScale(world: World): number {
+  const slow = world.loadout.effects.clutchSlow;
+  const { ball } = world;
+  if (slow <= 0 || ball.vx >= 0 || ball.x > world.view.w / 2 || !inClutch(world)) return 1;
+  return 1 - slow;
+}
+
+/** The ripple a slowed ball makes as it crosses into the player's half. */
+export function slowCrossing(world: World): void {
+  if (ballTimeScale(world) >= 1) return;
+  const { ball } = world;
+  world.particles.emit(
+    ball.x,
+    ball.y,
+    10,
+    { speed: 120, life: 0.35, size: 2.4, color: hsla(sideHue(world.theme, 'you'), 60, 80, 0.7) },
+    world.motion
+  );
 }
 
 // ------------------------------------------------------------------ defence
@@ -427,42 +550,62 @@ export function playerReturn(world: World, offset: number): ReturnMods {
 /**
  * Catch a ball that has crossed the player's line.
  *
- * Returns true when a shield charge was spent and the ball is back in play.
- * The ball keeps a little less speed than it arrived with, so a save is a
- * reprieve rather than a free winner.
+ * Returns true when a save was spent and the ball is back in play. Aegis is
+ * spent first, then a save Adrenaline banked, then a Shield charge - the
+ * one that recharges is the one worth keeping. The ball keeps a little less
+ * speed than it arrived with, so a save is a reprieve rather than a free
+ * winner - unless Counterstrike turns it into one.
  */
 export function tryShield(world: World): boolean {
   const runtime = world.talents;
   if (world.match.status !== 'play') return false;
-  // Aegis saves everything for its window, and spends no charge doing it.
-  const free = runtime.aegis > 0 && runtime.aegisSaves > 0;
-  if (!free && runtime.shield <= 0) return false;
+  const aegis = runtime.aegis > 0 && runtime.aegisSaves > 0;
+  const spare = !aegis && runtime.spareSave > 0;
+  if (!aegis && !spare && runtime.shield <= 0) return false;
 
   const { ball } = world;
   const { effects } = world.loadout;
-  if (free) {
+  if (aegis) {
     runtime.aegisSaves--;
+  } else if (spare) {
+    runtime.spareSave = 0;
   } else {
     runtime.shield--;
     runtime.shieldTimer = effects.shieldRecharge;
   }
   runtime.stats.shieldSaves++;
-  // A save is not a return: the drive - and everything riding on it - stops.
+  // A save is not a return, so it adds nothing to the drive - but the point
+  // was not lost either, so it does not end it.
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
-  runtime.drive = 0;
 
   ball.x = BALL_R;
   ball.px = ball.x;
-  ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed * effects.shieldSaveSpeed);
   ball.vx = Math.abs(ball.vx);
   ball.owner = 'you';
   ball.squash = 0.9;
   ball.squashAngle = 0;
+  ball.heft = 0;
+  runtime.swerveDir = 0;
+
+  if (effects.counterPace > 0) {
+    // Counterstrike: out of the save and straight into the far corner.
+    const before = ball.speed;
+    ball.speed = Math.min(BALANCE.ball.hardMax, ball.speed * (1 + effects.counterPace));
+    runtime.surge += ball.speed - before;
+    const side = world.bot.y < FIELD_H / 2 ? 1 : -1;
+    aim(world, side * E.counterstrike.minAngle * MAX_BOUNCE_ANGLE);
+    ball.heft = E.counterstrike.heft;
+    // ...and the player's next return goes back charged, too.
+    runtime.primed = Math.max(runtime.primed, 1);
+  } else {
+    ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed * effects.shieldSaveSpeed);
+    aim(world, Math.atan2(ball.vy, ball.vx));
+  }
 
   // A Shield charge is the player's own colour; an Aegis save is Aegis's,
   // and lights the whole barrier rather than one point on it. The two are
   // never mistaken for each other, which matters when both are equipped.
-  const hue = free ? aegisSaveCast(world, ball.y) : sideHue(world.theme, 'you');
+  const hue = aegis ? aegisSaveCast(world, ball.y) : sideHue(world.theme, 'you');
   world.particles.emit(
     0,
     ball.y,
@@ -471,6 +614,49 @@ export function tryShield(world: World): boolean {
     world.motion
   );
   world.audio.shield();
+  return true;
+}
+
+/**
+ * Bastion: a ball reaching the player's line close to a wall is turned back.
+ *
+ * Free and unlimited, but only in the corners - which is exactly where a
+ * ball that has been banked off a wall arrives, and exactly where a paddle
+ * sent the wrong way is furthest from. Not a save: it spends nothing, feeds
+ * nothing, and Counterstrike does not answer it.
+ */
+export function tryBastion(world: World): boolean {
+  const reach = world.loadout.effects.bastion;
+  if (reach <= 0 || world.match.status !== 'play') return false;
+  const { ball } = world;
+  if (ball.y > reach + BALL_R && ball.y < FIELD_H - reach - BALL_R) return false;
+
+  ball.x = BALL_R;
+  ball.px = ball.x;
+  ball.vx = Math.abs(ball.vx);
+  ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed * world.loadout.effects.shieldSaveSpeed);
+  aim(world, Math.atan2(ball.vy, ball.vx));
+  ball.owner = 'you';
+  ball.heft = 0;
+  ball.squash = 0.9;
+  ball.squashAngle = 0;
+  world.talents.swerveDir = 0;
+
+  world.particles.emit(
+    0,
+    ball.y,
+    16,
+    {
+      angle: 0,
+      spread: 1.4,
+      speed: 240,
+      life: 0.45,
+      size: 3,
+      color: hsla(sideHue(world.theme, 'you'), 70, 82, 0.9)
+    },
+    world.motion
+  );
+  world.audio.wall(0.6);
   return true;
 }
 
@@ -484,7 +670,9 @@ export function tryShield(world: World): boolean {
  */
 export function tryZenith(world: World): boolean {
   const runtime = world.talents;
-  if (runtime.zenith <= 0 || runtime.zenithRefunds <= 0) return false;
+  if (runtime.zenith <= 0 || runtime.zenithRefunds <= 0 || world.loadout.effects.unsaved) {
+    return false;
+  }
   runtime.zenithRefunds--;
   zenithRefundCast(world);
   world.audio.secondChance();
@@ -528,14 +716,14 @@ export function matchStats(world: World): TalentMatchStats {
   };
 }
 
-/** True while any paddle buff is running - the renderer tints the paddle. */
-export function paddleBuffed(runtime: TalentRuntime): boolean {
-  return (
-    runtime.adrenaline > 0 ||
-    runtime.guard > 0 ||
-    runtime.strikeRush > 0 ||
-    runtime.edgeRecovery > 0
-  );
+/**
+ * True while something the player earned mid-match is holding the paddle
+ * longer - the renderer rings it. Long Reach is always there, so it is
+ * never worth a ring; a drive, Clutch or a skill's afterglow is news.
+ */
+export function paddleBuffed(world: World): boolean {
+  if (world.match.status === 'menu') return false;
+  return boostLength(world) > 0 || (world.loadout.effects.clutchLength > 0 && inClutch(world));
 }
 
 /** Clamp a paddle's target inside the court. Shared with the dash. */

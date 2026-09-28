@@ -30,7 +30,7 @@ export interface Paddle {
   baseHalf: number;
   /** Lasting size change - the "melting" challenge eats into this. */
   scale: number;
-  /** Momentary size change. Slipstream is the only thing that moves it. */
+  /** The build's size change: Long Reach, a drive, Clutch, an ultimate. Re-measured every step. */
   grow: number;
   /** 0..1 hit highlight, decays every step. */
   flash: number;
@@ -67,6 +67,12 @@ export interface Ball {
   squashAngle: number;
   /** Who touched it last; tints the glow and the trail. */
   owner: Side;
+  /**
+   * How much harder than its speed says this ball is to read: 0 for a plain
+   * return, more for a heavy, charged or critical one from the player. Widens
+   * the opponent's aim error. Cleared by any other contact.
+   */
+  heft: number;
 }
 
 /**
@@ -94,6 +100,12 @@ export interface AbilitySlot {
   cooldown: number;
   /** The full cooldown it is counting down from, for the HUD ring. */
   span: number;
+  /**
+   * Seconds, in real time, before this slot may fire again whatever its
+   * cooldown says. Tempo and Echo wind a cooldown down faster than the clock
+   * does; this is what keeps "faster" from becoming "every frame".
+   */
+  lockout: number;
 }
 
 /**
@@ -115,13 +127,14 @@ export interface TalentRuntime {
    */
   surge: number;
 
-  /** Seconds left on each timed paddle buff. */
-  adrenaline: number;
-  guard: number;
-  strikeRush: number;
-  edgeRecovery: number;
-  /** Which wall the paddle was last parked against, so it fires once. */
-  edgeSide: -1 | 0 | 1;
+  /** Adrenaline's banked save: 1 while one is held. */
+  spareSave: number;
+  /** Returns still to leave charged: Hot Hand after a won point, or Counterstrike after a save. */
+  primed: number;
+  /** Swerve: which way the ball in flight bends. 0 once it is not the player's. */
+  swerveDir: -1 | 0 | 1;
+  /** Seconds left of Afterglow's extra length. */
+  afterglow: number;
 
   /** Shield charges in hand, and the countdown to the next one. */
   shield: number;
@@ -131,13 +144,16 @@ export interface TalentRuntime {
   guardShielded: boolean;
   secondChances: number;
 
-  /** Seconds the next return stays charged by Power Strike. */
+  /** Seconds the next return stays charged by Power Strike, and how many returns it charges. */
   strikeArmed: number;
+  strikeHits: number;
   /** Seconds left on the Perfect Guard window. */
   guardWindow: number;
   /** Seconds left of the dash's visual streak, and where it started. */
   dashFx: number;
   dashFrom: number;
+  /** Seconds left in which a return, after a dash, leaves charged (Blink Strike). */
+  blink: number;
 
   /** Capstones. Overload counts returns; the rest count down seconds. */
   overload: number;

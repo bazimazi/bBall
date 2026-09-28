@@ -1,5 +1,6 @@
 import type { ResolvedTheme } from '../../core/cosmetics/theme';
-import { BALL_R, PADDLE_W, SERVE_DELAY } from '../constants';
+import { tracePath } from '../ai';
+import { BALL_R, FIELD_H, PADDLE_W, SERVE_DELAY } from '../constants';
 import { isMatchPoint } from '../match';
 import { BACKDROP, CANVAS_FONT, heatHue, hsla } from '../palette';
 import type { Paddle, Side, Vec2 } from '../types';
@@ -30,6 +31,8 @@ const PUNCH_ZOOM = 0.045;
 export class Renderer {
   private readonly edgeA: Vec2[] = [];
   private readonly edgeB: Vec2[] = [];
+  /** Foresight's path, reused every frame. */
+  private readonly path: Vec2[] = [];
 
   private bgHeatBucket = -1;
   private bg: CanvasGradient | null = null;
@@ -164,6 +167,8 @@ export class Renderer {
     if (world.match.status !== 'menu') this.drawPips(world);
 
     this.drawShieldWall(world);
+    this.drawBastion(world);
+    this.drawForesight(world);
     this.drawTrail(world);
     drawGhosts(ctx, world);
     drawDashStreak(ctx, world);
@@ -276,9 +281,11 @@ export class Renderer {
   private drawShieldWall(world: World): void {
     const { ctx } = this;
     const { talents: runtime, view } = world;
-    if (runtime.shieldMax <= 0 || runtime.shield <= 0 || world.match.status === 'menu') return;
+    // A save Adrenaline banked guards the same line, so it lights the same wall.
+    const held = runtime.shield + runtime.spareSave;
+    if (held <= 0 || world.match.status === 'menu') return;
 
-    const strength = runtime.shield / runtime.shieldMax;
+    const strength = Math.min(1, held / Math.max(1, runtime.shieldMax));
     const hue = hueOf(world, 'you');
     const width = 30;
     const glow = ctx.createLinearGradient(0, 0, width, 0);
@@ -290,6 +297,76 @@ export class Renderer {
     ctx.fillRect(0, 0, width, view.h);
     ctx.fillStyle = hsla(hue, 100, 78, 0.5 * strength);
     ctx.fillRect(0, 0, 2.5, view.h);
+    ctx.restore();
+  }
+
+  /** Bastion's two walled corners, lit along the player's line. */
+  private drawBastion(world: World): void {
+    const { ctx } = this;
+    const reach = world.loadout.effects.bastion;
+    if (reach <= 0 || world.match.status === 'menu') return;
+
+    const hue = hueOf(world, 'you');
+    const h = world.view.h;
+    const span = reach + BALL_R;
+    ctx.save();
+    ctx.fillStyle = hsla(hue, 70, 82, 0.55);
+    ctx.fillRect(0, 0, 3.5, span);
+    ctx.fillRect(0, h - span, 3.5, span);
+    ctx.fillStyle = hsla(hue, 70, 72, 0.12);
+    ctx.fillRect(0, 0, 18, span);
+    ctx.fillRect(0, h - span, 18, span);
+    ctx.restore();
+  }
+
+  /**
+   * Foresight: where the incoming ball will reach the player's line.
+   *
+   * Rank one marks the arrival once the ball is in the player's half; rank
+   * two draws the whole path from the moment the opponent strikes it. Both
+   * are drawn faint and behind the ball - it is a read, not a target, and
+   * the ball itself must stay the brightest thing on the court.
+   */
+  private drawForesight(world: World): void {
+    const { ctx } = this;
+    const { ball, player, view, match } = world;
+    const rank = world.loadout.effects.foresight;
+    if (rank <= 0 || match.status !== 'play' || ball.vx >= 0) return;
+    if (rank < 2 && ball.x > view.w / 2) return;
+
+    const n = tracePath(world, player.x + PADDLE_W / 2 + BALL_R, this.path);
+    if (n < 2) return;
+    const end = this.path[n - 1]!;
+    const hue = hueOf(world, 'you');
+    // Fades in over the first stretch of the approach, so it arrives as a
+    // hint rather than popping on.
+    const fade = clamp((view.w - ball.x) / (view.w * 0.25), 0, 1);
+
+    ctx.save();
+    if (rank >= 2) {
+      ctx.globalAlpha = 0.28 * fade;
+      ctx.strokeStyle = hsla(hue, 90, 76, 1);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 9]);
+      ctx.beginPath();
+      ctx.moveTo(this.path[0]!.x, this.path[0]!.y);
+      for (let i = 1; i < n; i++) ctx.lineTo(this.path[i]!.x, this.path[i]!.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    const y = clamp(end.y, BALL_R, FIELD_H - BALL_R);
+    ctx.globalAlpha = 0.6 * fade;
+    ctx.strokeStyle = hsla(hue, 100, 78, 1);
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(player.x, y, BALL_R + 3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.35 * fade;
+    ctx.beginPath();
+    ctx.moveTo(4, y);
+    ctx.lineTo(player.x - BALL_R - 6, y);
+    ctx.stroke();
     ctx.restore();
   }
 

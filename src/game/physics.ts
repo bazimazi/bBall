@@ -3,7 +3,17 @@ import { abilityById } from '../core/talents/abilities';
 import { BALL_R, COMBO_STEPS, FIELD_H, PADDLE_W, SPIN_INFLUENCE } from './constants';
 import { scorePoint } from './match';
 import { hsla } from './palette';
-import { plainReturn, playerReturn, tryShield, type ReturnMods } from './talents';
+import {
+  bankBall,
+  ballTimeScale,
+  slowCrossing,
+  plainReturn,
+  playerReturn,
+  swerveBall,
+  tryBastion,
+  tryShield,
+  type ReturnMods
+} from './talents';
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
 import { shrinkPaddle } from './paddle';
@@ -86,6 +96,10 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   ball.vx = Math.cos(angle) * ball.speed * dir;
   ball.vy = Math.sin(angle) * ball.speed;
   ball.owner = paddle.side;
+  ball.heft = talented ? mods.heft : 0;
+  // Swerve bends the ball the way it just left - and only the player's.
+  world.talents.swerveDir =
+    talented && world.loadout.effects.swerve > 0 ? (ball.vy >= 0 ? 1 : -1) : 0;
 
   const p = power(world);
   paddle.flash = mods.crit || mods.charged ? 1.35 : 1;
@@ -98,7 +112,7 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   if (paddle.side === 'you' && match.status !== 'menu') {
     match.hits++;
     // "Melting"-style challenges eat into the paddle with every return.
-    if (tuning.shrinkPerHit > 0) shrinkPaddle(paddle, tuning.shrinkPerHit);
+    if (tuning.shrinkPerHit > 0) shrinkPaddle(world.player, tuning.shrinkPerHit);
     if (mods.charged || mods.crit) world.audio.impact(mods.charged);
     else if (mods.guarded) world.audio.guardHit();
     // The skills that pay off *on contact* rather than on a timer get their
@@ -215,24 +229,33 @@ function resolveOverlap(world: World, paddle: Paddle): void {
  * Swept paddle test: the ball is checked against the paddle face along its
  * path rather than at its final position, so it cannot tunnel through at
  * speed. `dir` is the direction the ball leaves in - +1 for the left paddle,
- * -1 for the right one.
+ * -1 for the right one. Returns true when the paddle struck the ball.
+ *
+ * A Perfect Guard window stretches the player's reach past the paddle's
+ * ends: that is the parry. The contact is still measured against the real
+ * paddle, so a parry at full stretch leaves at the steepest angle there is.
  */
-function sweepPaddle(world: World, paddle: Paddle, dir: 1 | -1, dt: number): void {
+function sweepPaddle(world: World, paddle: Paddle, dir: 1 | -1, dt: number): boolean {
   const { ball } = world;
   const face = dir > 0 ? paddle.x + PADDLE_W / 2 + BALL_R : paddle.x - PADDLE_W / 2 - BALL_R;
   const crossed = dir > 0 ? ball.px >= face && ball.x <= face : ball.px <= face && ball.x >= face;
-  if (!crossed) return;
+  if (!crossed) return false;
 
   const span = ball.px - ball.x;
   const t = Math.abs(span) < 0.0001 ? 0 : (ball.px - face) / span;
   const contactY = ball.py + (ball.y - ball.py) * t;
-  const reach = paddle.half + BALL_R * 0.55;
-  if (contactY <= paddle.y - reach || contactY >= paddle.y + reach) return;
+  const parry =
+    paddle.side === 'you' && world.talents.guardWindow > 0 && world.match.status !== 'menu'
+      ? world.loadout.effects.guardReach
+      : 0;
+  const reach = paddle.half + BALL_R * 0.55 + parry;
+  if (contactY <= paddle.y - reach || contactY >= paddle.y + reach) return false;
 
   onPaddleHit(world, paddle, contactY, dir);
   const rest = (1 - clamp(t, 0, 1)) * dt;
   ball.x = face + ball.vx * rest;
   ball.y = contactY + ball.vy * rest;
+  return true;
 }
 
 function onWallBounce(world: World): void {
@@ -255,15 +278,23 @@ function onWallBounce(world: World): void {
     },
     world.motion
   );
-  if (match.status !== 'menu') world.audio.wall(p);
+  if (match.status !== 'menu') {
+    world.audio.wall(p);
+    bankBall(world);
+  }
 }
 
 export function stepBall(world: World, dt: number): void {
   const { ball, view } = world;
+  const live = world.match.status !== 'menu';
+  if (live) swerveBall(world, dt);
+  // Clutch runs the ball's clock slow in the player's half. Its speed is
+  // untouched, so the pace it carries back out is exactly the pace it had.
+  const travel = live ? dt * ballTimeScale(world) : dt;
   ball.px = ball.x;
   ball.py = ball.y;
-  ball.x += ball.vx * dt;
-  ball.y += ball.vy * dt;
+  ball.x += ball.vx * travel;
+  ball.y += ball.vy * travel;
 
   if (ball.y - BALL_R < 0) {
     ball.y = BALL_R + (BALL_R - ball.y);
@@ -275,6 +306,9 @@ export function stepBall(world: World, dt: number): void {
     onWallBounce(world);
   }
   ball.y = clamp(ball.y, BALL_R, FIELD_H - BALL_R);
+
+  // The moment the ball enters a slowed half, it says so.
+  if (live && ball.vx < 0 && ball.px >= view.w / 2 && ball.x < view.w / 2) slowCrossing(world);
 
   // Swept test only against the paddle the ball is heading for...
   if (ball.vx < 0) sweepPaddle(world, world.player, 1, dt);
@@ -291,7 +325,8 @@ export function stepBall(world: World, dt: number): void {
 
   // A Shield charge catches the ball at the player's line, before the point
   // is ever awarded - so a save keeps the rally alive rather than undoing it.
-  if (ball.vx < 0 && ball.x <= BALL_R) tryShield(world);
+  // Bastion guards the corners for free, so it answers before a charge is spent.
+  if (ball.vx < 0 && ball.x <= BALL_R && !tryBastion(world)) tryShield(world);
 
   world.trailTick += dt;
   if (world.trailTick >= 1 / 90) {

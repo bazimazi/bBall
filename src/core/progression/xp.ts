@@ -25,7 +25,8 @@ export interface XpContext {
   readonly firstChallengeClear: boolean;
   /**
    * The build's XP multiplier, already capped by
-   * `BALANCE.rewards.maxXpMul`. 1 when the player has spent no points on it.
+   * `BALANCE.rewards.maxXpMul`. Always 1 today: no talent pays XP, so the
+   * hook is kept only for the wire format and a future source of it.
    */
   readonly talentXpMul: number;
 }

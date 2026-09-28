@@ -70,6 +70,17 @@ export function rankOf(save: TalentSave, id: TalentId): number {
   return Math.max(0, save.ranks[id] ?? 0);
 }
 
+/**
+ * Skill slots open to this build: what level has opened, plus Versatility's.
+ *
+ * Worked out from the rank directly rather than through `resolveLoadout`,
+ * which itself depends on this module.
+ */
+export function abilitySlots(save: TalentSave, level: number): number {
+  const bonus = Math.min(1, rankOf(save, 'versatility') * BALANCE.effects.versatility.slots);
+  return abilitySlotsForLevel(level, bonus);
+}
+
 /** Points sunk into the current build. */
 export function spentPoints(save: TalentSave): number {
   let total = 0;
@@ -153,7 +164,7 @@ export function reconcile(save: TalentSave, level: number): TalentSave {
   for (let i = 0; i < slots; i++) {
     const id = next.equipped[i] ?? null;
     // An ability may only be slotted once, and only if the build owns it.
-    if (id && owned.has(id) && !seen.has(id) && i < abilitySlotsForLevel(level)) {
+    if (id && owned.has(id) && !seen.has(id) && i < abilitySlots(next, level)) {
       seen.add(id);
       equipped.push(id);
     } else {
@@ -228,7 +239,7 @@ export function buyTalent(save: TalentSave, level: number, id: TalentId): Talent
   // A first rank that unlocks an ability drops it into a free slot, so the
   // player never buys an active skill and then wonders where it went.
   if (talent.ability && state.rank === 0) {
-    const slots = abilitySlotsForLevel(level);
+    const slots = abilitySlots(next, level);
     const free = next.equipped.findIndex((slot, index) => index < slots && slot === null);
     if (free >= 0) next.equipped[free] = talent.ability;
   }
@@ -273,7 +284,7 @@ export function equipAbility(
   slot: number,
   id: AbilityId | null
 ): TalentSave | null {
-  const slots = abilitySlotsForLevel(level);
+  const slots = abilitySlots(save, level);
   if (slot < 0 || slot >= slots) return null;
 
   const next = cloneTalentSave(save);

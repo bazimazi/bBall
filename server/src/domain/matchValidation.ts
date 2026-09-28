@@ -37,9 +37,10 @@ import {
 import type { MatchResult, MatchRules } from '../../../src/core/modes/types';
 import type { PlayerProfile } from '../../../src/core/profile/types';
 import { levelOf } from '../../../src/core/progression/levels';
-import { resolveLoadout } from '../../../src/core/talents/effects';
-import { ownedAbilities, rankOf } from '../../../src/core/talents/save';
-import { abilitySlotsForLevel } from '../../../src/core/balance/config';
+import { canCrit, canSave, resolveLoadout } from '../../../src/core/talents/effects';
+import { abilityById } from '../../../src/core/talents/abilities';
+import { ownedAbilities } from '../../../src/core/talents/save';
+import { BALANCE } from '../../../src/core/balance/config';
 import { TOURNAMENT_ROUNDS } from '../../../src/core/tournament/bracket';
 import type { MatchSubmissionDto } from '../../../shared/protocol';
 
@@ -58,8 +59,12 @@ export const LIMITS = {
   maxSeconds: 4 * 60 * 60,
   maxScore: 99,
   maxHits: 100_000,
-  /** The shortest any ability's cooldown can be made by any build. */
-  minAbilityCooldown: 2,
+  /**
+   * The shortest gap between two uses of one skill, whatever the build.
+   * Read from the balance file's recast lockout rather than restated, so
+   * the two can never drift apart.
+   */
+  minAbilityCooldown: BALANCE.talents.minRecast,
   /** Ranked matches accepted in one hour, before the budget check bites. */
   playBudgetWindowMs: 60 * 60 * 1000,
   /** Seconds of play accepted per hour of wall clock. */
@@ -294,33 +299,37 @@ function checkTalentUse(submission: MatchSubmissionDto, profile: PlayerProfile):
   if (stats.perfectGuards > 0 && !owned.has('perfect-guard')) {
     return reject('ability-not-owned', 'Perfect Guard is not part of that build.');
   }
-  if (stats.crits > 0 && rankOf(profile.talents, 'critical-strike') === 0) {
-    return reject('ability-not-owned', 'Critical Strike is not part of that build.');
+  // Overload's returns are critical by definition, and Hot Hand and Blitz
+  // can make one too - "owns Critical Strike" used to be the whole test, and
+  // it rejected every honest Overload match.
+  if (stats.crits > 0 && !canCrit(loadout.effects)) {
+    return reject('ability-not-owned', 'Nothing in that build can land a critical return.');
   }
-  if (stats.shieldSaves > 0 && loadout.effects.shieldCharges === 0) {
-    return reject('ability-not-owned', 'Shield is not part of that build.');
+  // Aegis and Adrenaline save balls as well as Shield does, and all three
+  // are reported as one count.
+  const aegisEquipped = equipped.includes('aegis');
+  if (stats.shieldSaves > 0 && !canSave(loadout.effects) && !aegisEquipped) {
+    return reject('ability-not-owned', 'Nothing in that build can save a ball.');
   }
   if (stats.secondChances > 0 && loadout.effects.secondChances === 0) {
     return reject('ability-not-owned', 'Second Chance is not part of that build.');
   }
 
-  const ultimatesEquipped = equipped.some((id) =>
-    (['overload', 'slipstream', 'aegis', 'zenith', 'echo'] as const).includes(
-      id as 'overload' | 'slipstream' | 'aegis' | 'zenith' | 'echo'
-    )
-  );
+  const ultimatesEquipped = equipped.some((id) => abilityById(id)?.ultimate === true);
   if (stats.ultimates > 0 && !ultimatesEquipped) {
     return reject('ability-not-owned', 'No ultimate was equipped for that match.');
   }
 
   // Every cast bumps abilitiesUsed exactly once, and each specific counter is
-  // a subset of the casts, so the parts can never outweigh the whole.
-  const parts = stats.dashes + stats.ultimates + stats.powerStrikes + stats.perfectGuards;
+  // a subset of the casts, so the parts can never outweigh the whole. Power
+  // Strike is the one skill whose single cast may charge two returns.
+  const strikeCasts = Math.ceil(stats.powerStrikes / Math.max(1, loadout.effects.powerStrikeHits));
+  const parts = stats.dashes + stats.ultimates + strikeCasts + stats.perfectGuards;
   if (parts > stats.abilitiesUsed) {
     return reject('impossible-talent-stats', 'More skill effects than skills used.');
   }
 
-  const slots = Math.max(1, abilitySlotsForLevel(level));
+  const slots = Math.max(1, loadout.slots);
   const castCeiling = slots * Math.ceil(submission.seconds / LIMITS.minAbilityCooldown + 1);
   if (stats.abilitiesUsed > castCeiling) {
     return reject('impossible-ability-use', 'More skills used than cooldowns allow.');
@@ -332,19 +341,26 @@ function checkTalentUse(submission: MatchSubmissionDto, profile: PlayerProfile):
   if (stats.powerStrikes > submission.hits || stats.perfectGuards > submission.hits) {
     return reject('impossible-talent-stats', 'More skill returns than returns played.');
   }
-  if (stats.bestDrive > Math.max(submission.bestRally, 0)) {
-    return reject('impossible-talent-stats', 'That drive is longer than the longest rally.');
+  // A drive runs across every point won in a row, so it can outlast any one
+  // rally - it is bounded by the returns played, not by the longest rally.
+  if (stats.bestDrive > Math.max(submission.hits, 0)) {
+    return reject('impossible-talent-stats', 'That drive is longer than the returns played.');
   }
   if (stats.secondChances > loadout.effects.secondChances) {
     return reject('impossible-talent-stats', 'More second chances than the build carries.');
   }
 
-  // Charges in hand, plus everything the recharge timer could return.
+  // Charges in hand, plus everything the recharge timer could return - and
+  // every save Aegis and Adrenaline could have added on top.
+  const { effects } = loadout;
   const shieldCeiling =
-    loadout.effects.shieldCharges +
-    (loadout.effects.shieldRecharge > 0
-      ? Math.ceil(submission.seconds / loadout.effects.shieldRecharge) + 1
-      : 0);
+    (effects.shieldCharges > 0
+      ? effects.shieldCharges + Math.ceil(submission.seconds / effects.shieldRecharge) + 1
+      : 0) +
+    (aegisEquipped
+      ? effects.aegisSaves * (Math.ceil(submission.seconds / effects.aegisCooldown) + 1)
+      : 0) +
+    (effects.adrenalineEvery > 0 ? Math.floor(submission.hits / effects.adrenalineEvery) : 0);
   if (stats.shieldSaves > shieldCeiling) {
     return reject('impossible-talent-stats', 'More shield saves than the build could recharge.');
   }

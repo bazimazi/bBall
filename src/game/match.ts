@@ -9,7 +9,8 @@ import {
   resetRally,
   resetRuntime,
   trySecondChance,
-  tryZenith
+  tryZenith,
+  wonPoint
 } from './talents';
 import type { Side } from './types';
 import { clamp } from './utils/math';
@@ -167,7 +168,8 @@ export function scorePoint(world: World, scorer: Side): void {
   }
 
   pointFx(world, scorer, won);
-  if (!won) resetDrive(world);
+  if (won) wonPoint(world);
+  else resetDrive(world);
 
   // Endless: the run is measured in lives, not points. A miss by the wall
   // simply restarts the rally.

@@ -24,23 +24,35 @@ export const SYNERGIES: readonly SynergyDef[] = [
   {
     id: 'blitz',
     name: 'Blitz',
-    blurb: 'Power Strike + Momentum · hit first, hit fastest',
+    blurb: 'Power Strike + Momentum · every charged return is critical',
     requires: [
       { talent: 'power-strike', rank: 1 },
-      { talent: 'momentum', rank: 2 }
+      { talent: 'momentum', rank: 1 }
     ],
     apply: (effects, magnitude) => {
-      effects.powerStrikePaddle += 0.08 * magnitude;
-      effects.powerStrikePaddleSeconds = 3;
-      effects.momentumCap += 0.03 * magnitude;
+      effects.chargedCrits = true;
+      effects.powerStrikeCooldown *= 1 - 0.1 * magnitude;
+    }
+  },
+  {
+    id: 'riptide',
+    name: 'Riptide',
+    blurb: 'Swerve + Bank Shot · curve it into the wall',
+    requires: [
+      { talent: 'swerve', rank: 1 },
+      { talent: 'bank-shot', rank: 1 }
+    ],
+    apply: (effects, magnitude) => {
+      effects.swerve *= 1 + 0.3 * magnitude;
+      effects.bankShot += 0.05 * magnitude;
     }
   },
   {
     id: 'glider',
     name: 'Glider',
-    blurb: 'Quick Hands + Dash · never out of position',
+    blurb: 'Long Reach + Dash · never out of position',
     requires: [
-      { talent: 'quick-hands', rank: 3 },
+      { talent: 'long-reach', rank: 2 },
       { talent: 'dash', rank: 1 }
     ],
     apply: (effects, magnitude) => {
@@ -51,14 +63,14 @@ export const SYNERGIES: readonly SynergyDef[] = [
   {
     id: 'bulwark',
     name: 'Bulwark',
-    blurb: 'Perfect Guard + Stabilizer · the wall that reads',
+    blurb: 'Perfect Guard + Shield · a parry hands back a charge',
     requires: [
       { talent: 'perfect-guard', rank: 1 },
-      { talent: 'stabilizer', rank: 2 }
+      { talent: 'shield', rank: 1 }
     ],
     apply: (effects, magnitude) => {
       effects.guardGrantsShield = true;
-      effects.stabilise += 0.1 * magnitude;
+      effects.guardReach += 15 * magnitude;
     }
   },
   {
@@ -70,8 +82,8 @@ export const SYNERGIES: readonly SynergyDef[] = [
       { talent: 'adrenaline', rank: 1 }
     ],
     apply: (effects, magnitude) => {
-      effects.adrenalineSeconds *= 1 + 0.5 * magnitude;
-      effects.adrenalineAt = Math.max(4, Math.round(effects.adrenalineAt - 2 * magnitude));
+      effects.adrenalineEvery = Math.max(4, Math.round(effects.adrenalineEvery - 2 * magnitude));
+      effects.comboLength += 0.01 * magnitude;
     }
   },
   {

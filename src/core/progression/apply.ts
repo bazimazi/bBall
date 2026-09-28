@@ -1,10 +1,8 @@
 import { ACHIEVEMENTS, type Achievement } from '../achievements/catalog';
-import { BALANCE } from '../balance/config';
 import { COSMETICS, isUnlocked, type Cosmetic } from '../cosmetics/catalog';
 import type { MatchResult } from '../modes/types';
 import { createStats } from '../profile/defaults';
 import type { PlayerProfile } from '../profile/types';
-import { resolveLoadout } from '../talents/effects';
 import { cloneTalentSave, reconcile } from '../talents/save';
 import { advanceTournament, TOURNAMENT_ROUNDS, type TournamentSave } from '../tournament/bracket';
 import { levelFromXp, levelOf } from './levels';
@@ -191,19 +189,6 @@ function applyTournament(profile: PlayerProfile, result: MatchResult): Tournamen
   return next;
 }
 
-/**
- * The XP multiplier this build has earned.
- *
- * Experience Boost and Combo Drive are multiplied together and then capped
- * once, so no combination of the two can turn into a farming loop - the cap
- * is the promise that a build changes *how* you play, not how fast you level.
- */
-function talentXpMul(profile: PlayerProfile, result: MatchResult): number {
-  const { effects } = resolveLoadout(profile.talents, levelOf(profile.xp));
-  const drive = Math.min(effects.driveCap, result.talent.bestDrive * effects.drivePerReturn);
-  return Math.min(BALANCE.rewards.maxXpMul, effects.xpMul * (1 + drive));
-}
-
 /** Fold what the build did this match into the lifetime talent numbers. */
 function applyTalentStats(profile: PlayerProfile, result: MatchResult): void {
   const from = result.talent;
@@ -262,7 +247,9 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   const award = computeMatchXp(result, {
     matchesToday: profile.daily.matches,
     firstChallengeClear: challengeCleared,
-    talentXpMul: talentXpMul(profile, result)
+    // No talent pays XP any more: with points this scarce, every one of them
+    // buys something that changes a rally, never how fast the next arrives.
+    talentXpMul: 1
   });
   profile.xp += award.total;
   profile.daily.matches += 1;

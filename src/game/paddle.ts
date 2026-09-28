@@ -37,9 +37,12 @@ export function shrinkPaddle(paddle: Paddle, fraction: number): void {
   resizePaddle(paddle);
 }
 
-/** Lengthen a paddle by a fraction, or back to normal with 0. */
+/**
+ * Lengthen a paddle by a fraction, or back to normal with 0. A negative
+ * fraction shortens it - Reckless is the one thing that asks for that.
+ */
 export function growPaddle(paddle: Paddle, fraction: number): void {
-  const grow = 1 + Math.max(0, fraction);
+  const grow = 1 + Math.max(-0.5, fraction);
   if (paddle.grow === grow) return;
   paddle.grow = grow;
   resizePaddle(paddle);
