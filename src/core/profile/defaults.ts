@@ -2,6 +2,7 @@ import { DEFAULT_BOT } from '../bots/levels';
 import { DEFAULT_EQUIPPED, DEFAULT_UNLOCKS } from '../cosmetics/catalog';
 import { dayKey } from '../progression/xp';
 import { createTalentSave } from '../talents/save';
+import { createProgress } from './progress';
 import { AVATARS, type AvatarId, type LifetimeStats, type PlayerProfile } from './types';
 
 export const NAME_MAX = 14;
@@ -65,6 +66,7 @@ export function createProfile(now = Date.now()): PlayerProfile {
     tournament: null,
     lastTournament: null,
     daily: { day: dayKey(new Date(now)), matches: 0 },
+    progress: createProgress(),
     preferences: { lastBot: DEFAULT_BOT, lastPracticeBot: DEFAULT_BOT }
   };
 }

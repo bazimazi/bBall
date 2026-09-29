@@ -2,6 +2,7 @@ import type { BotLevelId } from '../bots/types';
 import type { Equipped } from '../cosmetics/catalog';
 import type { TalentSave } from '../talents/types';
 import type { TournamentSave } from '../tournament/bracket';
+import type { ProgressState } from './progress';
 
 /** The six simple avatars. Each one is drawn as an inline SVG glyph. */
 export const AVATARS = ['orb', 'ring', 'spark', 'wedge', 'grid', 'bolt'] as const;
@@ -78,6 +79,9 @@ export interface PlayerProfile {
   lastTournament: TournamentSave | null;
 
   daily: DailyCounter;
+
+  /** Journey stars, the daily streak, quests and the Gauntlet. */
+  progress: ProgressState;
 
   preferences: {
     /** Last bot picked in Quick Match, so the choice sticks. */

@@ -16,6 +16,7 @@ import {
 } from '../talents/save';
 import type { AbilityId, BranchId, TalentId } from '../talents/types';
 import { createTournament, type TournamentSave } from '../tournament/bracket';
+import { abandonRunOn, pickBoonOn, startRunOn } from '../run/ops';
 import { cleanName, createProfile } from './defaults';
 import { clampDemoLevel, createDemoProfile } from './demo';
 import { PROFILE_SPEC } from './schema';
@@ -382,6 +383,30 @@ class ProfileStore {
       draft.lastTournament = { ...current, finished: true, champion: false };
       draft.tournament = null;
     });
+  }
+
+  // ------------------------------------------------------------ gauntlet
+
+  /** Start a Gauntlet run. Returns false when one is already under way. */
+  startRun(seed: string, pressure: number): boolean {
+    const next = startRunOn(this.profile, seed, pressure);
+    if (!next) return false;
+    this.commit(next);
+    return true;
+  }
+
+  pickBoon(id: string): boolean {
+    const next = pickBoonOn(this.profile, id);
+    if (!next) return false;
+    this.commit(next);
+    return true;
+  }
+
+  abandonRun(): boolean {
+    const next = abandonRunOn(this.profile);
+    if (!next) return false;
+    this.commit(next);
+    return true;
   }
 
   // --------------------------------------------------------- progression

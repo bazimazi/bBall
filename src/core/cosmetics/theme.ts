@@ -30,6 +30,8 @@ export interface ResolvedTheme {
   courtBottom: string;
   lineAlpha: number;
   dash: readonly [number, number];
+  /** Strength of the rippling floor grid. */
+  gridAlpha: number;
 
   ballFill: string;
   ballGlow: number;
@@ -74,6 +76,7 @@ export function resolveTheme(equipped: Equipped): ResolvedTheme {
     courtBottom: arena.courtBottom,
     lineAlpha: arena.lineAlpha,
     dash: arena.dash,
+    gridAlpha: arena.grid,
     ballFill: ball.fill,
     ballGlow: ball.glow,
     ballRing: ball.ring,

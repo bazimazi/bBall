@@ -9,6 +9,12 @@ export interface XpLine {
 
 export interface XpAward {
   readonly lines: readonly XpLine[];
+  /**
+   * One-off rewards on top of the match itself - Journey stars, a daily
+   * clear, a finished quest. Already in {@link total}, and never multiplied
+   * by difficulty or halved by the daily damper.
+   */
+  readonly extras: readonly XpLine[];
   /** Difficulty multiplier, already applied to {@link total}. */
   readonly multiplier: number;
   /** The build's own multiplier - Experience Boost and Combo Drive. */
@@ -36,6 +42,7 @@ export const DAILY_SOFT_CAP = 25;
 
 export const EMPTY_AWARD: XpAward = {
   lines: [],
+  extras: [],
   multiplier: 1,
   talentMultiplier: 1,
   total: 0,
@@ -97,7 +104,7 @@ export function computeMatchXp(result: MatchResult, context: XpContext): XpAward
   const damped = context.matchesToday >= DAILY_SOFT_CAP;
   const total = Math.max(0, Math.round(raw * (damped ? 0.5 : 1)));
 
-  return { lines, multiplier, talentMultiplier, total, damped };
+  return { lines, extras: [], multiplier, talentMultiplier, total, damped };
 }
 
 function botMultiplier(result: MatchResult): number {

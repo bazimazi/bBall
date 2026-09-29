@@ -42,6 +42,7 @@ export function cloudToProfile(dto: CloudProfileDto): PlayerProfile {
     tournament: dto.tournament,
     lastTournament: dto.lastTournament,
     daily: dto.daily,
+    progress: dto.progress,
     preferences: dto.preferences
   });
   return repaired ?? createProfile(dto.createdAt);

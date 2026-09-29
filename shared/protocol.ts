@@ -14,6 +14,7 @@
 import type { BotLevelId } from '../src/core/bots/types';
 import type { Equipped } from '../src/core/cosmetics/catalog';
 import type { ModeId } from '../src/core/modes/types';
+import type { ProgressState } from '../src/core/profile/progress';
 import type { AvatarId, ChallengeRecord, LifetimeStats } from '../src/core/profile/types';
 import type { AbilityId, BranchId, TalentId, TalentStats } from '../src/core/talents/types';
 import type { TournamentSave } from '../src/core/tournament/bracket';
@@ -280,6 +281,12 @@ export interface CloudProfileDto {
   readonly lastTournament: TournamentSave | null;
 
   readonly daily: { readonly day: string; readonly matches: number };
+  /**
+   * Journey stars, the daily streak, quests and the Gauntlet. Optional on
+   * the wire so a server from before these modes still reads as a profile
+   * with none of them played.
+   */
+  readonly progress?: ProgressState | undefined;
   readonly preferences: {
     readonly lastBot: BotLevelId;
     readonly lastPracticeBot: BotLevelId;
@@ -338,6 +345,16 @@ export interface MatchSubmissionDto {
   readonly challengeId?: string | undefined;
   readonly tournamentRound?: number | undefined;
   readonly tournamentTier?: number | undefined;
+  /** The Journey stage played. */
+  readonly stageId?: string | undefined;
+  /** The day whose daily challenge was played. */
+  readonly dailyKey?: string | undefined;
+  /** The Gauntlet encounter played. */
+  readonly runStage?: number | undefined;
+  /** The player's local calendar day, `YYYY-MM-DD`. Quests are kept by it. */
+  readonly day?: string | undefined;
+  /** Flicks landed. Optional: a client from before flicks reports none. */
+  readonly flicks?: number | undefined;
   readonly talent: {
     readonly abilitiesUsed: number;
     readonly powerStrikes: number;
@@ -514,6 +531,21 @@ export type SyncOp =
     }
   | {
       readonly kind: 'tournament.abandon';
+      readonly opId: string;
+      readonly payload: Record<string, never>;
+    }
+  | {
+      readonly kind: 'run.start';
+      readonly opId: string;
+      readonly payload: { readonly seed: string; readonly pressure: number };
+    }
+  | {
+      readonly kind: 'run.pick';
+      readonly opId: string;
+      readonly payload: { readonly boonId: string };
+    }
+  | {
+      readonly kind: 'run.abandon';
       readonly opId: string;
       readonly payload: Record<string, never>;
     };

@@ -58,6 +58,13 @@ prerequisites, signing, deep links, and what the shell is allowed to do.
 | `Esc` or `P`                       | Pause                                                                  |
 | `M`                                | Mute                                                                   |
 
+**Flick.** Strike the ball with the outer part of the paddle while the paddle
+is already moving that way, and the return leaves a little quicker and much
+harder to read. It is the one piece of technique every player has from the
+first match - no talent, no button, just the wrist - and a word pops off the
+paddle when you land one. Catch a ball on the very tip and the clock slows for
+a beat so you can see the save.
+
 Your paddle is the aqua one (or whatever colour you equip); the bot's is rose.
 The dots beside each end count that side's points. The faint number in the
 middle of the court is the current rally, and a long enough rally lights up a
@@ -68,11 +75,73 @@ rally lasts, so rallies tend to end themselves.
 
 | Mode            | What it is                                                         |
 | --------------- | ------------------------------------------------------------------ |
+| **Journey**     | Five worlds of six stages, three stars each, seven bosses          |
+| **Daily**       | One court a day, the same for everyone, with a forgiving streak    |
+| **Gauntlet**    | A roguelite run: nine matches, three hearts, a boon for every win  |
 | **Quick Match** | The classic duel, first to five, against any of five bots          |
 | **Endless**     | Three lives, one growing rally, a wall that barely misses          |
 | **Challenge**   | Six short matches with a twist: small paddle, fast ball, 0-2 down… |
 | **Tournament**  | Three rounds against progressively stronger bots, for a trophy     |
+| **Versus**      | Two players on one screen - a half each, or W S against the arrows |
 | **Practice**    | Any bot, nothing recorded, no XP                                   |
+
+### Courts and bosses
+
+Some matches are played on a court that is itself a rule: **bumpers** standing
+or orbiting in the middle, a **wind** that blows across the court and turns
+every few seconds (the chevrons on the touchlines flash the other way just
+before it does), a **gravity well** that bends every pass towards the centre,
+and **brick walls** in front of a goal that break one brick per hit. Two
+things keep every court fair. A force bends the ball but never changes its
+speed, so the difficulty contract below still holds; and nothing may turn the
+ball short of vertical, so no court can stall a rally. The bots read a bending
+ball the way they read a bounce - the good ones well, the weak ones barely.
+
+A **boss** is a bot brain with a court of its own, a trait, and phases: every
+boss changes when you are winning, with a banner that says so. Colossus has a
+paddle half again as long; Orbiter spins bumpers round the centre; Tempest
+throws the wind about; Bastion hides behind an armoured wall; Singularity is a
+gravity well; Trickster's returns bend after you have read them; Apex is all
+of it. Each phase can sharpen the brain, change the paddle or strengthen the
+court - never slow yours down.
+
+### Journey
+
+Thirty stages in five worlds, each built around one idea and closed by a boss:
+the flick, bumpers, a court that bends the ball, walls you have to break, and
+all of it at once. Every stage has three stars - the win, and two goals picked
+to make you use that world's idea (win by two, keep a clean sheet, hold a long
+rally, land flicks, be quick). A stage opens when the one before it is
+cleared; a world opens when the last one's boss is down and about sixty per
+cent of the stars on offer are banked - never all of them, so one stubborn star
+never walls you in. New stars pay XP once, and each world's boss unlocks a
+cosmetic.
+
+### Daily
+
+The date rolls a court, a twist and an opponent, the same for everyone that
+day. Play it as often as you like; the first clear pays a bonus and moves your
+streak. Every seven days of streak banks a freeze (two at most), and a missed
+day quietly spends one - a busy evening never throws away a month. A cleared
+daily can be shared as a spoiler-free line of stars.
+
+Three **daily quests** - one easy, one medium, one hard - sit on the home screen
+and pay the moment they are done, with a bonus for all three.
+
+### Gauntlet
+
+Three acts of two matches and a boss, rolled from one seed: the opponents, the
+courts and the bosses are different every run. Win a match and draft one of
+three **boons** - a longer paddle, a heavier ball, a curveball, a shield, a
+shorter opponent - that last until the run ends. Take two of the right ones
+deep enough and a **duo boon** turns up in the next draft: Comet, Citadel,
+Executioner. Lose a match and a heart goes, and the same opponent waits for a
+rematch. Boons are folded into your build through the same caps as talents, so
+a run can feel wild but never leave the ranges the game is tested against.
+
+Clearing a run opens **Pressure**: five cumulative ranks - a faster ball, fewer
+hearts, a hazard court every match, smaller drafts, a point down every match -
+each unlocked by clearing the one below it.
 
 ### Demo mode
 
@@ -207,9 +276,10 @@ saves, one refunded point.
 
 The profile - name, avatar, level, lifetime stats, achievements, unlocks, your
 talent ranks, unspent points and equipped skills, the cup you are part-way
-through - lives in `localStorage` under `bball.profile`, in a versioned
-envelope (currently v2; v1 saves migrate and are handed the points their level
-already earned). A save that is corrupt, half-written or from an older schema
+through, your Journey stars, daily streak, quests and any Gauntlet run - lives
+in `localStorage` under `bball.profile`, in a versioned envelope (currently v3;
+v1 saves migrate and are handed the points their level already earned, and v2
+saves arrive with the newer modes unplayed). A save that is corrupt, half-written or from an older schema
 is repaired field by field rather than thrown away; anything genuinely
 unreadable is parked under `bball.profile.broken` and the game starts fresh.
 Unspent points are never trusted from the file - they are recomputed from your
@@ -282,6 +352,8 @@ src/
     simulation.ts    one fixed timestep
     physics.ts       ball, walls, swept paddle collisions
     ai.ts            bot behaviour: reaction, reads, placement, pressure
+    arena.ts         court hazards and boss phases: bumpers, wind, wells, bricks
+    effects.ts       rings, popups, confetti and the rippling floor grid
     talents.ts       the build at runtime: buffs, drives, shields, returns
     abilities.ts     what each active skill does to the world
     match.ts         serving, scoring, match lifecycle, results
@@ -293,7 +365,12 @@ src/
     balance/         every tuning number in the game, in one file
     bots/            difficulty profiles
     talents/         the tree, the actives, synergies, and resolving a build
-    modes/           mode rules, modifiers, challenges, objectives
+    modes/           mode rules, modifiers, challenges, objectives, courts,
+                     bosses and star goals
+    campaign/        the Journey: worlds, stages, stars and gates
+    daily/           the daily challenge and its streak
+    quests/          daily quests
+    run/             the Gauntlet: encounters, boons, drafts, Pressure
     tournament/      cup tiers and brackets
     progression/     XP curve, awards, applying a result to a profile
     achievements/    achievement catalogue
@@ -380,6 +457,27 @@ A few decisions worth knowing before changing things:
   buffer and gradients are cached until the geometry, the theme or the heat
   bucket changes, which keeps low-end phones smooth. Cosmetics are resolved to
   plain numbers once, when they are equipped.
+
+### Feel
+
+Every contact lands: hit-stop that grows with the pace the ball carries, a
+shockwave ring, streaking sparks, a short camera kick along the ball's line,
+and a pitch that climbs a pentatonic step every other return so a long rally
+audibly winds itself up. The court floor is a faint lattice that ripples away
+from every impact and pulses with the soundtrack's beat. A goal flashes the
+breached line in the scorer's colour and bows the whole floor; a match point
+brings a slow heartbeat in from the edges of the screen; a won match ends in
+confetti. None of it costs a `shadowBlur` in the frame loop: glows are
+pre-rendered sprites stamped with `drawImage`, and every effect is a
+fixed-size pool.
+
+`scripts/sim.ts` plays the real engine headless - a bot on your paddle against
+every stage, boss and daily court - and prints win rate, rally length and
+match length per court, along with any stall or broken ball:
+
+```bash
+npx tsx scripts/sim.ts 30 pro
+```
 
 Effects respect `prefers-reduced-motion`: shake, particles, hit-stop, and
 slow-motion are scaled down or switched off, and the menu transitions with them.

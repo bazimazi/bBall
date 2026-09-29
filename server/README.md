@@ -198,6 +198,14 @@ been played under, and against physics:
 - Endless against anything but the wall; the wall on the ranked ladder.
 - A challenge against the wrong opponent, or one that does not exist.
 - A cup round that has already been played, or a cup that is not running.
+- A Journey stage that is not open yet - by the stars and boss clears the
+  server holds, not the client's word - or played against the wrong opponent.
+- A daily challenge more than a day either side of the server's own date.
+- A Gauntlet match that is not the run's next encounter, or one played while
+  a draft is still waiting. The encounter, its court and the run's boons are
+  all re-derived from the run's seed, so the opponent and the build are the
+  server's. A pick must be one of the boons the server itself rolled.
+- A two-player match, which is never recorded; more flicks than returns.
 - Abilities fired by a build that does not own them, or more often than the
   cooldowns allow, with the caps taken from `resolveLoadout` so a deeper build
   is allowed more without a number being duplicated.
@@ -279,6 +287,10 @@ Everything is under `/v1`. Full request and response types are in
 | GET      | `/config`, `/config/talents`             | Catalogues and balance, with a version              |
 | GET      | `/health`, `/health/live`                | Readiness and liveness                              |
 
+A Gauntlet run is started, drafted and abandoned through `/sync/push` only,
+as the `run.start`, `run.pick` and `run.abandon` operations - they are
+always made from a menu the game may have drawn offline.
+
 The grain is chosen around what the game does. Recording a match is one call
 carrying the whole post-match batch - stats, XP, level, points, achievements,
 unlocks and cup progress land in a single transaction - because the
@@ -297,6 +309,12 @@ later is a driver rather than a rewrite.
 Migrations live in `src/db/migrations.ts` as ordered SQL, applied once each
 inside a transaction and recorded with a checksum. Editing an applied
 migration is a startup error; the fix is always a new one.
+
+The newer modes - Journey stars, the daily streak, quests and the Gauntlet -
+live in `profile_progress` as one JSON document per player (migration 5).
+They are always read and written whole and never queried by field, and the
+shared validator repairs the document on every load, so a new mode adds a
+field rather than a migration.
 
 The schema is normalised rather than a JSON blob: talent ranks, achievements,
 unlocks, challenge records, per-mode statistics, cup runs, matches and the
@@ -358,7 +376,7 @@ facing detail goes to the log and never to the wire.
 npm run server:test
 ```
 
-181 tests over an in-memory database, driven through `app.inject()` - real
+200 tests over an in-memory database, driven through `app.inject()` - real
 routing, real plugins, real middleware, real SQLite, no sockets. Nothing below
 the HTTP boundary is mocked.
 
@@ -371,6 +389,7 @@ the HTTP boundary is mocked.
 | `sync.test.ts`        | Claiming, merging, clamping, pushing, pulling                                                                       |
 | `concurrency.test.ts` | Ten matches at once, double-submitted matches, racing purchases                                                     |
 | `database.test.ts`    | Migrations, checksums, rollback, constraints, cascades, health                                                      |
+| `modes.test.ts`       | Journey stars and stage gates, the daily window and streak, Gauntlet drafts and picks                               |
 | `journey.test.ts`     | The whole flow, with the real client modules                                                                        |
 
 `journey.test.ts` is the one worth reading. It installs a fake browser -

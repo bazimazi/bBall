@@ -23,6 +23,7 @@ import {
 import { isModeId, MODES } from '../../../src/core/modes/catalog';
 import type { ModeId } from '../../../src/core/modes/types';
 import { createStats } from '../../../src/core/profile/defaults';
+import { progressOf } from '../../../src/core/profile/progress';
 import type { AvatarId, ChallengeRecord, PlayerProfile } from '../../../src/core/profile/types';
 import { AVATARS } from '../../../src/core/profile/types';
 import { levelOf } from '../../../src/core/progression/levels';
@@ -269,6 +270,16 @@ export function loadProfile(db: Db, userId: string): ServerProfile | null {
     };
   }
 
+  const progressRow = db
+    .prepare('SELECT data_json FROM profile_progress WHERE user_id = ?')
+    .get(userId) as { data_json: string } | undefined;
+  let progressData: unknown;
+  try {
+    progressData = progressRow ? JSON.parse(progressRow.data_json) : {};
+  } catch {
+    progressData = {};
+  }
+
   const profile: PlayerProfile = {
     id: row.user_id,
     name: row.display_name,
@@ -288,6 +299,9 @@ export function loadProfile(db: Db, userId: string): ServerProfile | null {
     tournament: parseTournament(activeRow),
     lastTournament: parseTournament(lastRow),
     daily: { day: row.daily_day, matches: row.daily_matches },
+    // Repaired on the way in, like everything else: a document written by a
+    // newer release, or truncated, still loads as the parts this one knows.
+    progress: progressOf(progressData),
     preferences: {
       lastBot: isBotLevelId(row.last_bot) ? row.last_bot : DEFAULT_BOT,
       lastPracticeBot: isBotLevelId(row.last_practice_bot) ? row.last_practice_bot : DEFAULT_BOT
@@ -441,6 +455,11 @@ export function saveProfile(
 function writeChildren(db: Db, server: ServerProfile, now = Date.now()): void {
   const userId = server.userId;
   const { profile } = server;
+
+  db.prepare(
+    `INSERT INTO profile_progress (user_id, data_json, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT (user_id) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`
+  ).run(userId, JSON.stringify(profile.progress), now);
 
   db.prepare('DELETE FROM profile_bot_wins WHERE user_id = ?').run(userId);
   const insertBotWin = db.prepare(

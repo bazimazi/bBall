@@ -1,4 +1,5 @@
 import type { BotProfile } from '../core/bots/types';
+import { arenaCurves, bend, brickAt, wallFor } from './arena';
 import { BALL_R, FIELD_H } from './constants';
 import { movePaddle } from './physics';
 import type { BotBrain, Paddle, Vec2 } from './types';
@@ -34,10 +35,75 @@ function pace(world: World): number {
 /** How much harder than "at the limit" an over-the-limit ball may get. */
 const OVER_PACE = 1.5;
 
+/** Seconds of flight a bent path is followed before the read gives up. */
+const SIM_SECONDS = 3;
+const SIM_DT = 1 / 90;
+/** Steps between two corners of a drawn bent path. */
+const SIM_SAMPLE = 5;
+const simV: Vec2 = { x: 0, y: 0 };
+
+/**
+ * Follow a ball the court is bending - wind, a gravity well - step by step
+ * until it crosses `targetX`. Returns the crossing height; when `out` is
+ * given, the path is written into it as a polyline and its length returned
+ * through `count`.
+ */
+function simulate(world: World, targetX: number, out?: Vec2[], count?: { n: number }): number {
+  const { ball } = world;
+  let x = ball.x;
+  let y = ball.y;
+  simV.x = ball.vx;
+  simV.y = ball.vy;
+  const speed = ball.speed;
+  const top = BALL_R;
+  const bottom = FIELD_H - BALL_R;
+  const side = Math.sign(targetX - x);
+  let n = 0;
+  const put = (px: number, py: number) => {
+    if (!out) return;
+    const point = out[n] ?? (out[n] = { x: 0, y: 0 });
+    point.x = px;
+    point.y = py;
+    n++;
+  };
+  put(x, y);
+  const steps = Math.ceil(SIM_SECONDS / SIM_DT);
+  for (let i = 0; i < steps; i++) {
+    bend(world, x, y, simV, speed, SIM_DT);
+    const nx = x + simV.x * SIM_DT;
+    let ny = y + simV.y * SIM_DT;
+    if (ny < top) {
+      ny = top + (top - ny);
+      simV.y = Math.abs(simV.y);
+    } else if (ny > bottom) {
+      ny = bottom - (ny - bottom);
+      simV.y = -Math.abs(simV.y);
+    }
+    if (Math.sign(targetX - nx) !== side) {
+      const t = (targetX - x) / (nx - x || 1);
+      const cross = clamp(y + (ny - y) * t, top, bottom);
+      put(targetX, cross);
+      if (count) count.n = n;
+      return cross;
+    }
+    x = nx;
+    y = ny;
+    if (i % SIM_SAMPLE === 0) put(x, y);
+  }
+  if (count) count.n = n;
+  return y;
+}
+
+const simCount = { n: 0 };
+
 /** Where the ball will cross a given x, accounting for wall bounces. */
 export function predictY(world: World, targetX: number): number {
   const { ball } = world;
   if (Math.abs(ball.vx) < 1) return ball.y;
+  if (arenaCurves(world)) {
+    if ((targetX - ball.x) * ball.vx <= 0) return ball.y;
+    return simulate(world, targetX);
+  }
   const t = (targetX - ball.x) / ball.vx;
   if (t <= 0) return ball.y;
 
@@ -62,6 +128,10 @@ export function tracePath(world: World, targetX: number, out: Vec2[]): number {
   if (Math.abs(ball.vx) < 1) return 0;
   let t = (targetX - ball.x) / ball.vx;
   if (t <= 0) return 0;
+  if (arenaCurves(world)) {
+    simulate(world, targetX, out, simCount);
+    return simCount.n;
+  }
 
   const top = BALL_R;
   const bottom = FIELD_H - BALL_R;
@@ -221,7 +291,13 @@ function travel(paddle: Paddle, brain: BotBrain, dt: number, speed: number): voi
 export function driveAi(world: World, paddle: Paddle, brain: BotBrain, dt: number): void {
   const { ball, match } = world;
   const p = brain.profile;
-  const incoming = paddle.side === 'bot' ? ball.vx > 0 : ball.vx < 0;
+  let incoming = paddle.side === 'bot' ? ball.vx > 0 : ball.vx < 0;
+  // A ball about to bounce off this side's own brick wall is not coming.
+  if (incoming) {
+    const wall = wallFor(world, paddle.side);
+    const before = wall !== null && (paddle.side === 'bot' ? ball.x < wall : ball.x > wall);
+    if (before && brickAt(world, paddle.side, predictY(world, wall))) incoming = false;
+  }
   const fast = pace(world);
 
   if (!incoming || match.status === 'serve') {

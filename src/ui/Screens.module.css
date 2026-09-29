@@ -108,6 +108,16 @@
   display: none;
 }
 
+/*
+ * The body scrolls, so its children must never shrink to fit it. Flex items
+ * default to `flex-shrink: 1`, and anything with its own overflow (a tab
+ * strip, a clipped card) has a min-height of 0 - on a short screen those get
+ * squashed flat instead of the body growing a scroll.
+ */
+.body > * {
+  flex-shrink: 0;
+}
+
 .footer {
   flex: 0 0 auto;
   display: flex;
@@ -825,6 +835,22 @@ button.unlockRow {
 
   .ghost {
     min-height: 42px;
+  }
+
+  /* Stacked, two footer buttons would take half of a landscape screen. */
+  .footer {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .footer > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .footer > .note {
+    flex-basis: 100%;
   }
 
   .resultTitle {

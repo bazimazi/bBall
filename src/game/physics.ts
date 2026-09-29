@@ -1,4 +1,5 @@
 import { BALANCE } from '../core/balance/config';
+import { applyArenaForces, bossReturned, collideArena, playerReturned } from './arena';
 import { abilityById } from '../core/talents/abilities';
 import { BALL_R, COMBO_STEPS, FIELD_H, PADDLE_W, SPIN_INFLUENCE } from './constants';
 import { scorePoint } from './match';
@@ -17,7 +18,21 @@ import {
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
 import { shrinkPaddle } from './paddle';
-import { addShake, ballHue, hueOf, pushTrail, type World } from './world';
+import { addKick, addShake, ballHue, hueOf, isHuman, pushTrail, type World } from './world';
+
+/**
+ * A flick: the ball struck on the paddle's outer part while the paddle is
+ * already moving the way that end sends it. It is the one piece of technique
+ * every player has from the first match - no talent, no button, just the
+ * wrist - and it pays in the only currency that wins points against a
+ * composed opponent: a return that is harder to read.
+ */
+const FLICK_EDGE = 0.55;
+const FLICK_SPEED = 650;
+const FLICK_PACE = 1.06;
+const FLICK_HEFT = 0.12;
+/** Contact this far out is an edge save: a beat of slow motion to see it. */
+const EDGE_SAVE = 0.88;
 
 /** How hard the ball is currently travelling, on a 0..1 scale. */
 function power(world: World): number {
@@ -62,16 +77,21 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   // The player's returns go through their build; the bot's never do. Attract
   // mode plays the plain game, so the demo behind the menus is always the
   // game as it ships rather than as the player has shaped it.
-  const talented = paddle.side === 'you' && match.status !== 'menu';
+  const talented = paddle.side === 'you' && match.status !== 'menu' && !world.rules.versus;
   const mods = talented ? playerReturn(world, raw) : plainReturn(world, raw);
   const off = mods.off;
 
   const before = ball.speed;
-  ball.speed = clamp(
-    before * mods.growth,
-    BALANCE.ball.hardMin,
-    Math.min(BALANCE.ball.hardMax, mods.ceiling)
-  );
+  const ceiling = Math.min(BALANCE.ball.hardMax, mods.ceiling);
+  ball.speed = clamp(before * mods.growth, BALANCE.ball.hardMin, ceiling);
+
+  const human = isHuman(world, paddle.side);
+  const flick =
+    human &&
+    Math.abs(raw) >= FLICK_EDGE &&
+    Math.abs(paddle.vy) >= FLICK_SPEED &&
+    Math.sign(paddle.vy) === Math.sign(raw);
+  if (flick) ball.speed = Math.min(ceiling, ball.speed * FLICK_PACE);
 
   if (talented) {
     // Book the pace this build added over a plain return, so the opponent
@@ -96,18 +116,49 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   ball.vx = Math.cos(angle) * ball.speed * dir;
   ball.vy = Math.sin(angle) * ball.speed;
   ball.owner = paddle.side;
-  ball.heft = talented ? mods.heft : 0;
+  ball.heft = (talented ? mods.heft : 0) + (flick && paddle.side === 'you' ? FLICK_HEFT : 0);
   // Swerve bends the ball the way it just left - and only the player's.
   world.talents.swerveDir =
     talented && world.loadout.effects.swerve > 0 ? (ball.vy >= 0 ? 1 : -1) : 0;
+  if (paddle.side === 'bot' && match.status !== 'menu') bossReturned(world);
+  else playerReturned(world);
 
   const p = power(world);
   paddle.flash = mods.crit || mods.charged ? 1.35 : 1;
   ball.squash = 1;
   ball.squashAngle = 0; // compressed along the long axis
   match.rally++;
-  fx.freeze = (0.012 + p * 0.03) * (mods.charged ? 2.2 : 1) * world.motion;
+  // Hit-stop grows with the pace the ball carries - a rally that has built
+  // up to a scream lands every contact harder than the serve did.
+  fx.freeze =
+    (0.012 + Math.pow(p, 1.5) * 0.045) * (mods.charged ? 2.2 : flick ? 1.5 : 1) * world.motion;
   addShake(world, (2.6 + p * 4) * (mods.crit || mods.charged ? 1.8 : 1));
+  addKick(world, dir * (2 + p * 4) * (isSpecial(mods) || flick ? 1.6 : 1));
+
+  const paddleHue = hueOf(world, paddle.side);
+  world.rings.spawn(
+    ball.x - dir * BALL_R * 0.4,
+    contactY,
+    isSpecial(mods) ? 26 : paddleHue,
+    BALL_R * (4 + p * 3) * (isSpecial(mods) || flick ? 1.5 : 1),
+    0.26 + p * 0.1,
+    3 + p * 3
+  );
+  world.grid.impulse(paddle.x, contactY, 140 + p * 260, 120 + p * 60);
+
+  if (human && match.status !== 'menu') {
+    if (flick) {
+      if (paddle.side === 'you') match.flicks++;
+      world.popups.spawn('FLICK', ball.x, contactY, paddleHue, 22);
+      world.audio.flick();
+    } else if (Math.abs(raw) >= EDGE_SAVE) {
+      world.popups.spawn('EDGE', ball.x, contactY, paddleHue, 18);
+      if (fx.edgeCooldown <= 0 && p > 0.35) {
+        fx.edgeCooldown = 3.5;
+        fx.timeScale = Math.min(fx.timeScale, world.motion > 0.5 ? 0.55 : 1);
+      }
+    }
+  }
 
   if (paddle.side === 'you' && match.status !== 'menu') {
     match.hits++;
@@ -151,9 +202,13 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
 
   // The attract demo plays silently and never raises a combo banner.
   if (match.status !== 'menu') {
-    world.audio.hit(p);
+    world.audio.hit(p, match.rally);
     checkCombo(world);
   }
+}
+
+function isSpecial(mods: ReturnMods): boolean {
+  return mods.charged || mods.crit;
 }
 
 /**
@@ -264,6 +319,9 @@ function onWallBounce(world: World): void {
   ball.squash = 0.8;
   ball.squashAngle = Math.PI / 2; // compressed against the wall
   addShake(world, 1.6 + p * 2.4);
+  const wallY = ball.vy > 0 ? 0 : FIELD_H;
+  world.rings.spawn(ball.x, wallY, ballHue(world), BALL_R * (2.6 + p * 2), 0.22, 2.4);
+  world.grid.impulse(ball.x, wallY, 90 + p * 150, 110);
   world.particles.emit(
     ball.x,
     ball.y,
@@ -291,6 +349,7 @@ export function stepBall(world: World, dt: number): void {
   // Clutch runs the ball's clock slow in the player's half. Its speed is
   // untouched, so the pace it carries back out is exactly the pace it had.
   const travel = live ? dt * ballTimeScale(world) : dt;
+  if (live) applyArenaForces(world, travel);
   ball.px = ball.x;
   ball.py = ball.y;
   ball.x += ball.vx * travel;
@@ -313,6 +372,9 @@ export function stepBall(world: World, dt: number): void {
   // Swept test only against the paddle the ball is heading for...
   if (ball.vx < 0) sweepPaddle(world, world.player, 1, dt);
   else sweepPaddle(world, world.bot, -1, dt);
+
+  // Bumpers and brick walls stand between the paddles.
+  if (live) collideArena(world);
 
   // A contact can nudge the ball past a wall; pull it back without reflecting,
   // so the real bounce still plays next step.

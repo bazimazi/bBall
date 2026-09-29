@@ -10,6 +10,9 @@ const ULTIMATE_DUCK = 1.3;
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
 /** The capstones' own chords, in Hz. See {@link GameAudio.ultimate}. */
+/** Semitones a rally's hits climb through: a major pentatonic, capped. */
+const RALLY_STEPS = [0, 2, 4, 7, 9, 12, 14, 16, 19] as const;
+
 const ULTIMATE_CHORDS: Record<string, readonly number[]> = {
   overload: [147, 185, 220, 294],
   slipstream: [294, 440, 587, 880],
@@ -144,10 +147,71 @@ export class GameAudio {
     this.tone(360, 0.07, 'sine', 0.12, 520);
   }
 
-  hit(power: number): void {
-    const f = 250 + power * 340;
+  /**
+   * A return. The pitch climbs a pentatonic step every other hit of the
+   * rally, so a long exchange audibly winds itself up and the point that ends
+   * it lands from the top of the scale.
+   */
+  hit(power: number, rally = 0): void {
+    const step = RALLY_STEPS[Math.min(RALLY_STEPS.length - 1, Math.floor(rally / 2))]!;
+    const f = (250 + power * 340) * Math.pow(2, step / 12);
     this.tone(f, 0.085, 'triangle', 0.3, f * 0.62);
     this.tone(f * 2, 0.035, 'sine', 0.08);
+  }
+
+  /** A flick: the normal hit with a bright whip-crack on top. */
+  flick(): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.voice({ freq: 1400, to: 2600, type: 'sine', gain: 0.07, dur: 0.07, attack: 0.002 });
+    synth.noise({
+      gain: 0.06,
+      dur: 0.06,
+      attack: 0.002,
+      filter: { type: 'highpass', freq: 4200 }
+    });
+  }
+
+  /** A ball glancing off an arena bumper: a round, bell-like knock. */
+  bumper(power: number): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.bell(330 + power * 220, 0.12, 0.28, { send: 0.25 });
+  }
+
+  /** A brick shattering. */
+  brick(): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.noise({ gain: 0.1, dur: 0.12, attack: 0.002, filter: { type: 'bandpass', freq: 2400 } });
+    synth.voice({ freq: 880, to: 440, type: 'square', gain: 0.05, dur: 0.08 });
+  }
+
+  /** A boss moving into its next phase: a low swell and a hit. */
+  phase(): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.stack({ freq: 98, type: 'sawtooth', gain: 0.08, dur: 0.9, attack: 0.25, send: 0.4 });
+    synth.voice({ freq: 196, to: 98, type: 'triangle', gain: 0.18, dur: 0.4, delay: 0.25 });
+    this.music?.duck(0.6);
+  }
+
+  /** A star earned, rising with its index. */
+  star(index: number): void {
+    const synth = this.live;
+    if (!synth) return;
+    const base = [784, 988, 1175][Math.min(2, Math.max(0, index))]!;
+    synth.bell(base, 0.12, 0.6, { send: 0.35 });
+    synth.bell(base * 1.5, 0.05, 0.5, { delay: 0.05, send: 0.35 });
+  }
+
+  /**
+   * 0..1, peaking on each beat of the soundtrack and decaying before the
+   * next - the court pulses with the song without an analyser node.
+   */
+  beat(): number {
+    if (!this.context || !this.music || this.mutedFlag) return 0;
+    return this.music.pulse(this.context.currentTime);
   }
 
   wall(power: number): void {

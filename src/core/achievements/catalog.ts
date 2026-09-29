@@ -1,3 +1,5 @@
+import { JOURNEY, totalStars, TOTAL_STARS, worldCleared } from '../campaign/journey';
+import { BOSSES } from '../modes/bosses';
 import { CHALLENGES } from '../modes/challenges';
 import type { MatchResult } from '../modes/types';
 import type { PlayerProfile } from '../profile/types';
@@ -10,7 +12,8 @@ export interface AchievementContext {
   readonly result: MatchResult | null;
 }
 
-export type AchievementGroup = 'play' | 'rally' | 'skill' | 'cup' | 'level';
+export type AchievementGroup =
+  'play' | 'rally' | 'skill' | 'cup' | 'level' | 'journey' | 'daily' | 'gauntlet';
 
 export interface Achievement {
   readonly id: string;
@@ -26,6 +29,22 @@ export interface Achievement {
 
 const ratio = (value: number, target: number): number =>
   target <= 0 ? 1 : Math.max(0, Math.min(1, value / target));
+
+/** One achievement per Journey world, for beating its boss. */
+function worldAchievement(world: number, id: string, name: string, xp: number): Achievement {
+  const def = JOURNEY.find((item) => item.id === world)!;
+  return {
+    id,
+    name,
+    description: `Clear ${def.name}`,
+    group: 'journey',
+    xp,
+    check: ({ profile }) => worldCleared(profile.progress.journey, def)
+  };
+}
+
+const bossesBeaten = (profile: AchievementContext['profile']): number =>
+  Object.values(profile.progress.bosses).filter((wins) => wins > 0).length;
 
 export const ACHIEVEMENTS: readonly Achievement[] = [
   {
@@ -191,6 +210,116 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     group: 'cup',
     xp: 400,
     check: ({ profile }) => profile.stats.bestCupTier >= 2
+  },
+  worldAchievement(1, 'journey-w1', 'Daybreak', 120),
+  worldAchievement(2, 'journey-w2', 'Pinball Wizard', 160),
+  worldAchievement(3, 'journey-w3', 'Storm Chaser', 200),
+  worldAchievement(4, 'journey-w4', 'Forged', 240),
+  worldAchievement(5, 'journey-w5', 'Apex Predator', 400),
+  {
+    id: 'journey-stars-45',
+    name: 'Stargazer',
+    description: 'Earn 45 Journey stars',
+    group: 'journey',
+    xp: 200,
+    check: ({ profile }) => totalStars(profile.progress.journey) >= 45,
+    progress: ({ profile }) => ratio(totalStars(profile.progress.journey), 45)
+  },
+  {
+    id: 'journey-stars-all',
+    name: 'Constellation',
+    description: 'Earn every Journey star',
+    group: 'journey',
+    xp: 500,
+    check: ({ profile }) => totalStars(profile.progress.journey) >= TOTAL_STARS,
+    progress: ({ profile }) => ratio(totalStars(profile.progress.journey), TOTAL_STARS)
+  },
+  {
+    id: 'boss-4',
+    name: 'Boss Hunter',
+    description: 'Beat four different bosses',
+    group: 'journey',
+    xp: 200,
+    check: ({ profile }) => bossesBeaten(profile) >= 4,
+    progress: ({ profile }) => ratio(bossesBeaten(profile), 4)
+  },
+  {
+    id: 'boss-all',
+    name: 'Nemesis',
+    description: 'Beat every boss',
+    group: 'journey',
+    xp: 350,
+    check: ({ profile }) => bossesBeaten(profile) >= BOSSES.length,
+    progress: ({ profile }) => ratio(bossesBeaten(profile), BOSSES.length)
+  },
+  {
+    id: 'flick-100',
+    name: 'Wristy',
+    description: 'Land 100 flicks',
+    group: 'skill',
+    xp: 120,
+    check: ({ profile }) => profile.progress.flicks >= 100,
+    progress: ({ profile }) => ratio(profile.progress.flicks, 100)
+  },
+  {
+    id: 'daily-first',
+    name: 'Daily Bread',
+    description: 'Clear a daily challenge',
+    group: 'daily',
+    xp: 60,
+    check: ({ profile }) => profile.progress.daily.clears >= 1
+  },
+  {
+    id: 'daily-7',
+    name: 'Regular Hours',
+    description: 'Reach a 7-day daily streak',
+    group: 'daily',
+    xp: 200,
+    check: ({ profile }) => profile.progress.daily.bestStreak >= 7,
+    progress: ({ profile }) => ratio(profile.progress.daily.bestStreak, 7)
+  },
+  {
+    id: 'daily-30',
+    name: 'Devotion',
+    description: 'Reach a 30-day daily streak',
+    group: 'daily',
+    xp: 500,
+    check: ({ profile }) => profile.progress.daily.bestStreak >= 30,
+    progress: ({ profile }) => ratio(profile.progress.daily.bestStreak, 30)
+  },
+  {
+    id: 'quest-sweep',
+    name: 'Full Set',
+    description: "Finish all three of a day's quests",
+    group: 'daily',
+    xp: 80,
+    check: ({ profile }) => profile.progress.questSweeps >= 1
+  },
+  {
+    id: 'run-clear',
+    name: 'Gauntlet Runner',
+    description: 'Clear the Gauntlet',
+    group: 'gauntlet',
+    xp: 300,
+    check: ({ profile }) => profile.progress.runRecords.clears >= 1
+  },
+  {
+    id: 'run-pressure-3',
+    name: 'Under Pressure',
+    description: 'Clear the Gauntlet at Pressure 3',
+    group: 'gauntlet',
+    xp: 400,
+    check: ({ profile }) => profile.progress.runRecords.bestPressure >= 3,
+    progress: ({ profile }) => ratio(profile.progress.runRecords.bestPressure + 1, 4)
+  },
+  {
+    id: 'run-pressure-5',
+    name: 'Diamond',
+    description: 'Clear the Gauntlet at Pressure 5',
+    group: 'gauntlet',
+    xp: 600,
+    check: ({ profile }) => profile.progress.runRecords.bestPressure >= 5,
+    progress: ({ profile }) => ratio(profile.progress.runRecords.bestPressure + 1, 6)
   },
   {
     id: 'level-5',

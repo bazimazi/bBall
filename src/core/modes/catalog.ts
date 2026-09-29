@@ -12,6 +12,27 @@ export interface ModeInfo {
 
 export const MODES: readonly ModeInfo[] = [
   {
+    id: 'campaign',
+    name: 'Journey',
+    blurb: 'Five worlds, thirty stages, seven bosses.',
+    picksBot: false,
+    ranked: true
+  },
+  {
+    id: 'daily',
+    name: 'Daily',
+    blurb: "Today's court, the same for everyone.",
+    picksBot: false,
+    ranked: true
+  },
+  {
+    id: 'run',
+    name: 'Gauntlet',
+    blurb: 'Nine matches, three hearts, a boon a win.',
+    picksBot: false,
+    ranked: true
+  },
+  {
     id: 'quick',
     name: 'Quick Match',
     blurb: 'First to 5. The classic duel.',
@@ -38,6 +59,13 @@ export const MODES: readonly ModeInfo[] = [
     blurb: 'Three rounds, one trophy.',
     picksBot: false,
     ranked: true
+  },
+  {
+    id: 'versus',
+    name: 'Versus',
+    blurb: 'Two players, one screen.',
+    picksBot: false,
+    ranked: false
   },
   {
     id: 'practice',

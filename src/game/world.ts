@@ -5,7 +5,9 @@ import { quickMatchRules } from '../core/modes/rules';
 import type { MatchRules } from '../core/modes/types';
 import type { ResolvedLoadout } from '../core/talents/effects';
 import type { GameAudio } from './audio';
+import { createArena, type ArenaState } from './arena';
 import { CastSystem, GhostTrail } from './casts';
+import { ConfettiSystem, CourtGrid, PopupSystem, RingSystem } from './effects';
 import { FIELD_H, PADDLE_H, PADDLE_INSET, TRAIL_MAX } from './constants';
 import { setPaddleBase } from './paddle';
 import { ParticleSystem } from './particles';
@@ -44,13 +46,29 @@ export interface World {
   readonly casts: CastSystem;
   /** The player paddle's afterimages, while a movement skill is running. */
   readonly ghosts: GhostTrail;
+  /** Shockwaves left by hits, walls and goals. Presentation only. */
+  readonly rings: RingSystem;
+  /** Words that rise off a special return. Presentation only. */
+  readonly popups: PopupSystem;
+  /** The winning point's confetti, in screen space. Presentation only. */
+  readonly confetti: ConfettiSystem;
+  /** The court floor's rippling lattice. Presentation only. */
+  readonly grid: CourtGrid;
+  /** Bumpers, walls, wind and a boss's phase: the court as a rule. */
+  readonly arena: ArenaState;
   readonly audio: GameAudio;
   /** The mode being played. Replaced whenever a new match is configured. */
   rules: MatchRules;
   /** Difficulty: speeds and sizes for this match. Never the player's doing. */
   tuning: Tuning;
-  /** Progression: the player's resolved build. Never the opponent's doing. */
+  /**
+   * Progression: the build this match is played with. Never the opponent's
+   * doing. Usually {@link baseLoadout}; a Gauntlet match folds the run's
+   * boons in, and a versus match plays with no build at all.
+   */
   loadout: ResolvedLoadout;
+  /** The player's own resolved build, as React last handed it over. */
+  baseLoadout: ResolvedLoadout;
   /** What that build is doing right now. Lives for one match. */
   talents: TalentRuntime;
   /** Colours from the player's equipped cosmetics. */
@@ -128,6 +146,7 @@ function createMatch(rules: MatchRules): MatchState {
     bestThisMatch: 0,
     points: 0,
     hits: 0,
+    flicks: 0,
     elapsed: 0,
     score: { you: 0, bot: 0 },
     winScore: rules.winScore,
@@ -159,6 +178,17 @@ function createFx(): FxState {
     castTimer: 0,
     castHue: 0,
     castId: 0,
+    kick: 0,
+    shakeRot: 0,
+    goalFlash: 0,
+    goalSide: 'you',
+    pipPopYou: 0,
+    pipPopBot: 0,
+    edgeCooldown: 0,
+    bannerText: '',
+    bannerSub: '',
+    bannerHue: 0,
+    bannerTimer: 0,
     burst: 0,
     burstX: 0,
     burstY: 0,
@@ -210,10 +240,16 @@ export function createWorld(audio: GameAudio, motion: number): World {
     particles: new ParticleSystem(),
     casts: new CastSystem(),
     ghosts: new GhostTrail(),
+    rings: new RingSystem(),
+    popups: new PopupSystem(),
+    confetti: new ConfettiSystem(),
+    grid: new CourtGrid(),
+    arena: createArena(),
     audio,
     rules,
     tuning: tuningFor(rules),
     loadout: DEFAULT_LOADOUT,
+    baseLoadout: DEFAULT_LOADOUT,
     talents: createRuntime(),
     theme: DEFAULT_THEME,
     botBrain: createBrain(rules.bot),
@@ -283,6 +319,24 @@ export function rescaleField(world: World, k: number): void {
 
 export function addShake(world: World, amount: number): void {
   world.fx.shake = Math.min(18, world.fx.shake + amount * world.motion);
+}
+
+/**
+ * A short shove of the camera along the field's long axis - the direction
+ * the ball just went. Shake says something happened; the kick says which way.
+ */
+export function addKick(world: World, amount: number): void {
+  const kick = world.fx.kick + amount * world.motion;
+  world.fx.kick = Math.max(-14, Math.min(14, kick));
+}
+
+/**
+ * Is a person holding this paddle? The player's always, outside the attract
+ * demo - and in a versus match the other one too.
+ */
+export function isHuman(world: World, side: Side): boolean {
+  if (world.match.status === 'menu') return false;
+  return side === 'you' || world.rules.versus === true;
 }
 
 /** The hue a side is drawn in under the equipped theme. */

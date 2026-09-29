@@ -1,4 +1,5 @@
 import { abilitySlotsForLevel, BALANCE, paddleSpeedForLevel } from '../balance/config';
+import { applyBoonEffects, type BoonRanks } from '../run/boons';
 import { TALENTS } from './catalog';
 import { branchSpend, dominantBranch } from './save';
 import { activeSynergies, type SynergyDef } from './synergy';
@@ -244,21 +245,7 @@ function applyReckless(effects: TalentEffects): void {
 
 /** The one place a resolved bag is allowed to leave its ranges. It cannot. */
 function applyCaps(effects: TalentEffects): void {
-  const { talents } = BALANCE;
-
-  effects.length = clamp(effects.length, talents.minLength, talents.maxLength);
-  effects.cooldownMul = clamp(effects.cooldownMul, talents.minCooldownMul, 1);
-  effects.critChance = clamp(effects.critChance, 0, E.criticalStrike.chanceCap);
-  effects.spinMul = clamp(effects.spinMul, 0.25, 1);
-  effects.angleMul = clamp(effects.angleMul, 1, 1.25);
-  effects.flowRecharge = clamp(effects.flowRecharge, 0, 0.6);
-  effects.heft = clamp(effects.heft, 0, 0.6);
-  effects.clutchSlow = clamp(effects.clutchSlow, 0, 0.3);
-  effects.bastion = clamp(effects.bastion, 0, 120);
-  effects.bankShot = clamp(effects.bankShot, 0, 0.4);
-  effects.swerve = clamp(effects.swerve, 0, 1000);
-  effects.tempo = clamp(effects.tempo, 0, 1);
-  effects.extraSlots = clamp(effects.extraSlots, 0, 1);
+  clampEffects(effects);
 
   // Abilities: cooldown mastery and synergies fold in here, never below a
   // floor - an ability that is always available stops being a decision.
@@ -274,6 +261,29 @@ function applyCaps(effects: TalentEffects): void {
   effects.aegisCooldown = ultimate(effects.aegisCooldown);
   effects.zenithCooldown = ultimate(effects.zenithCooldown);
   effects.echoCooldown = ultimate(effects.echoCooldown);
+}
+
+/**
+ * Every range a bag must sit inside. Idempotent - clamping twice changes
+ * nothing - which is what lets a run's boons be folded into a build that
+ * was already resolved and capped.
+ */
+function clampEffects(effects: TalentEffects): void {
+  const { talents } = BALANCE;
+
+  effects.length = clamp(effects.length, talents.minLength, talents.maxLength);
+  effects.cooldownMul = clamp(effects.cooldownMul, talents.minCooldownMul, 1);
+  effects.critChance = clamp(effects.critChance, 0, E.criticalStrike.chanceCap);
+  effects.spinMul = clamp(effects.spinMul, 0.25, 1);
+  effects.angleMul = clamp(effects.angleMul, 1, 1.25);
+  effects.flowRecharge = clamp(effects.flowRecharge, 0, 0.6);
+  effects.heft = clamp(effects.heft, 0, 0.6);
+  effects.clutchSlow = clamp(effects.clutchSlow, 0, 0.3);
+  effects.bastion = clamp(effects.bastion, 0, 120);
+  effects.bankShot = clamp(effects.bankShot, 0, 0.4);
+  effects.swerve = clamp(effects.swerve, 0, 1000);
+  effects.tempo = clamp(effects.tempo, 0, 1);
+  effects.extraSlots = clamp(effects.extraSlots, 0, 1);
 
   effects.slipstreamPaddle = clamp(effects.slipstreamPaddle, 0, 1);
   effects.slipstreamGrow = clamp(effects.slipstreamGrow, 0, 0.6);
@@ -321,6 +331,23 @@ export function resolveLoadout(save: TalentSave, level: number): ResolvedLoadout
     slots,
     level
   };
+}
+
+/**
+ * A resolved build with a Gauntlet run's boons folded in.
+ *
+ * Boons go through the same Reckless rule and the same clamps as talents, so
+ * a run can stack a build high but never past the ranges the game is tested
+ * against. The server resolves a run match's build through this too, which
+ * is how a Guard Wall save on a build with no Shield talent is believed.
+ */
+export function withBoons(loadout: ResolvedLoadout, boons: BoonRanks): ResolvedLoadout {
+  if (Object.keys(boons).length === 0) return loadout;
+  const effects: TalentEffects = { ...loadout.effects };
+  applyBoonEffects(effects, boons);
+  applyReckless(effects);
+  clampEffects(effects);
+  return { ...loadout, effects };
 }
 
 /**

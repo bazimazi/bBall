@@ -99,6 +99,9 @@ export class Music {
   private readonly context: AudioContext;
   private readonly muffle: BiquadFilterNode;
   private readonly ducker: GainNode;
+  /** Audio-clock times of the last few scheduled beats, for {@link pulse}. */
+  private readonly beats = new Float64Array(8);
+  private beatHead = 0;
 
   constructor(context: AudioContext, destination: AudioNode) {
     this.context = context;
@@ -146,6 +149,20 @@ export class Music {
   restart(): void {
     this.step = 0;
     this.nextTime = 0;
+    this.beats.fill(0);
+  }
+
+  /**
+   * 0..1: how close `now` is to the beat that just went by. The scheduler
+   * already knows when every beat lands, so the visuals can pulse in time
+   * without listening to the output at all.
+   */
+  pulse(now: number): number {
+    if (!this.playing) return 0;
+    let latest = 0;
+    for (const beat of this.beats) if (beat <= now && beat > latest) latest = beat;
+    if (latest <= 0) return 0;
+    return Math.exp(-(now - latest) * 7);
   }
 
   /**
@@ -186,6 +203,10 @@ export class Music {
     const barInSection = bar % BARS_PER_SECTION;
     const chord = section.chords[barInSection]!;
     const barLength = STEP * STEPS_PER_BAR;
+    if (s % 4 === 0) {
+      this.beats[this.beatHead] = t;
+      this.beatHead = (this.beatHead + 1) % this.beats.length;
+    }
 
     if (s === 0) {
       this.pad(chord, t, barLength);

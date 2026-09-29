@@ -14,11 +14,12 @@ import type { StoreSpec } from '../storage/localStore';
 import { talentSaveOf } from '../talents/save';
 import { TOURNAMENT_ROUNDS, TOURNAMENT_TIERS, type TournamentSave } from '../tournament/bracket';
 import { cleanName, createProfile, createStats } from './defaults';
+import { progressOf } from './progress';
 import { AVATARS, type AvatarId, type ChallengeRecord, type PlayerProfile } from './types';
 
 export const PROFILE_KEY = 'bball.profile';
-/** 1: the original profile. 2: adds the talent build. */
-export const PROFILE_VERSION = 2;
+/** 1: the original profile. 2: adds the talent build. 3: adds the Journey, daily, quests and Gauntlet. */
+export const PROFILE_VERSION = 3;
 
 type Bag = Record<string, unknown>;
 
@@ -181,6 +182,7 @@ export function validateProfile(data: unknown): PlayerProfile | null {
       day: text(bag(source.daily).day, dayKey()),
       matches: num(bag(source.daily).matches, 0)
     },
+    progress: progressOf(source.progress),
     preferences: {
       lastBot: isBotLevelId(preferences.lastBot) ? preferences.lastBot : DEFAULT_BOT,
       lastPracticeBot: isBotLevelId(preferences.lastPracticeBot)
@@ -212,6 +214,10 @@ function migrateProfile(data: unknown, from: number): unknown {
     // more after the update rather than less.
     case 1:
       return { ...source, talents: talentSaveOf(source.talents, levelOf(num(source.xp, 0))) };
+    // 2 -> 3: the new modes arrive with nothing played in them. The repair
+    // pass builds the empty record; the step exists so the version is honest.
+    case 2:
+      return { ...source, progress: source.progress ?? null };
     default:
       return source;
   }

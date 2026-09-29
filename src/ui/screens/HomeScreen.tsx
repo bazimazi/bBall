@@ -1,15 +1,24 @@
+import type { CSSProperties } from 'react';
+
 import { botProfile } from '../../core/bots/levels';
+import { nextStage, TOTAL_STARS, totalStars, worldById } from '../../core/campaign/journey';
+import { dailySpec, streakAlive } from '../../core/daily/daily';
 import { MODES, type ModeInfo } from '../../core/modes/catalog';
 import { CHALLENGES } from '../../core/modes/challenges';
 import type { ModeId } from '../../core/modes/types';
 import { levelOf } from '../../core/progression/levels';
+import { dayKey } from '../../core/progression/xp';
 import type { PlayerProfile } from '../../core/profile/types';
+import { actOf, isRunActive, RUN_STAGES } from '../../core/run/run';
 import { abilitySlots } from '../../core/talents/save';
 import { roundFor, tierById, tierForLevel } from '../../core/tournament/bracket';
 import type { AccountState } from '../../core/account/store';
 import { ProfileChip } from '../components/ProfileChip';
+import { QuestList } from '../components/QuestList';
 import { SyncBadge } from '../components/SyncBadge';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
+import { FlameIcon, HeartIcon, MapIcon, StarIcon, StarRow, SwordsIcon } from '../icons/ModeIcons';
+import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
 
 interface HomeScreenProps {
@@ -22,6 +31,9 @@ interface HomeScreenProps {
   onProfile: () => void;
   onTalents: () => void;
 }
+
+/** The three modes that get a card of their own rather than a row. */
+const FEATURED: readonly ModeId[] = ['campaign', 'daily', 'run'];
 
 /** A one-line hint per mode, so nothing needs a sub-menu to be understood. */
 function metaFor(mode: ModeInfo, profile: PlayerProfile): string {
@@ -39,9 +51,120 @@ function metaFor(mode: ModeInfo, profile: PlayerProfile): string {
       if (active) return roundFor(active.round).name;
       return tierForLevel(levelOf(profile.xp)).name;
     }
+    case 'versus':
+      return '2 players';
     case 'practice':
       return 'No XP';
+    default:
+      return '';
   }
+}
+
+const accent = (hue: number): CSSProperties =>
+  ({ '--accent': `hsl(${hue} 90% 66%)` }) as CSSProperties;
+
+function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
+  const journey = profile.progress.journey;
+  const stars = totalStars(journey);
+  const next = nextStage(journey);
+  const world = worldById(next?.world ?? 5);
+  return (
+    <button
+      type="button"
+      className={modes.feature}
+      style={accent(world?.hue ?? 171)}
+      onClick={onPick}
+    >
+      <span className={modes.featureTop}>
+        <span className={modes.featureIcon}>
+          <MapIcon />
+        </span>
+        <span className={modes.featureTitle}>
+          <span className={modes.featureName}>Journey</span>
+          <span className={modes.featureSub}>
+            {next
+              ? `${next.world}-${next.index + 1} · ${next.name}${next.boss ? ' · Boss' : ''}`
+              : 'Every stage cleared'}
+          </span>
+        </span>
+        <span className={modes.featureMeta}>
+          <StarIcon />
+          {stars}/{TOTAL_STARS}
+        </span>
+      </span>
+      <span className={modes.featureBar}>
+        <span className={modes.featureFill} style={{ width: `${(stars / TOTAL_STARS) * 100}%` }} />
+      </span>
+    </button>
+  );
+}
+
+function DailyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
+  const today = dayKey();
+  const spec = dailySpec(today);
+  const record = profile.progress.daily;
+  const medals = record.day === today ? record.medals : 0;
+  const alive = streakAlive(record, today);
+  return (
+    <button type="button" className={modes.feature} style={accent(28)} onClick={onPick}>
+      <span className={modes.featureTop}>
+        <span className={modes.featureIcon}>
+          <FlameIcon />
+        </span>
+        <span className={modes.featureTitle}>
+          <span className={modes.featureName}>Daily</span>
+          <span className={modes.featureSub}>
+            {spec.title} · vs {botProfile(spec.bot).name}
+          </span>
+        </span>
+        <span className={modes.featureMeta}>
+          <FlameIcon />
+          {alive ? record.streak : 0}
+        </span>
+      </span>
+      {medals & 1 ? (
+        <StarRow mask={medals} className={modes.stars} on={modes.starOn} />
+      ) : (
+        <span className={`${modes.featureTag} ${modes.pulse}`}>Today's challenge is open</span>
+      )}
+    </button>
+  );
+}
+
+function GauntletCard({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
+  const run = profile.progress.run;
+  const records = profile.progress.runRecords;
+  const live = isRunActive(run);
+  return (
+    <button type="button" className={modes.feature} style={accent(340)} onClick={onPick}>
+      <span className={modes.featureTop}>
+        <span className={modes.featureIcon}>
+          <SwordsIcon />
+        </span>
+        <span className={modes.featureTitle}>
+          <span className={modes.featureName}>Gauntlet</span>
+          <span className={modes.featureSub}>
+            {live
+              ? `Act ${actOf(run.stage) + 1} · match ${run.stage + 1} of ${RUN_STAGES}`
+              : records.clears > 0
+                ? `Cleared ${records.clears}× · best Pressure ${records.bestPressure}`
+                : records.runs > 0
+                  ? `Best ${records.bestStage} of ${RUN_STAGES}`
+                  : 'Nine matches, three hearts'}
+          </span>
+        </span>
+        {live && (
+          <span className={modes.featureMeta}>
+            <HeartIcon />
+            {run.hearts}
+          </span>
+        )}
+      </span>
+      {live && run.offer && (
+        <span className={`${modes.featureTag} ${modes.pulse}`}>A boon is waiting</span>
+      )}
+    </button>
+  );
 }
 
 export function HomeScreen({
@@ -77,7 +200,7 @@ export function HomeScreen({
       </p>
 
       <div className={styles.body}>
-        <div className={styles.stack}>
+        <div className={`${styles.stack} ${modes.stagger}`}>
           {demoLevel !== null && (
             <div className={styles.demoBar}>
               <span>Demo · level {demoLevel}</span>
@@ -91,8 +214,16 @@ export function HomeScreen({
 
           {demoLevel === null && <SyncBadge account={account} />}
 
+          <div className={modes.features}>
+            <JourneyCard profile={profile} onPick={() => onPick('campaign')} />
+            <DailyCard profile={profile} onPick={() => onPick('daily')} />
+            <GauntletCard profile={profile} onPick={() => onPick('run')} />
+          </div>
+
+          <QuestList profile={profile} />
+
           <div className={styles.grid}>
-            {MODES.map((mode) => (
+            {MODES.filter((mode) => !FEATURED.includes(mode.id)).map((mode) => (
               <button
                 key={mode.id}
                 type="button"
@@ -117,6 +248,7 @@ export function HomeScreen({
         </button>
         <p className={styles.note}>
           {coarse ? 'Drag anywhere to move' : 'Move the mouse or use ↑ ↓'}
+          {' · flick the paddle as you hit to whip the ball'}
           {skills > 0 &&
             (coarse ? ' · tap the corner for skills' : ` · ${keys.join(' ')} for skills`)}
         </p>

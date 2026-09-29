@@ -191,6 +191,17 @@ export const matchSubmissionSchema = z
     challengeId: z.string().min(1).max(64).optional(),
     tournamentRound: z.number().int().min(0).max(8).optional(),
     tournamentTier: z.number().int().min(0).max(8).optional(),
+    stageId: z.string().min(1).max(16).optional(),
+    dailyKey: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    runStage: z.number().int().min(0).max(16).optional(),
+    day: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    flicks: count(100_000).optional(),
     talent: talentMatchStatsSchema,
     playedAt: z.number().int().min(0)
   })
@@ -299,6 +310,36 @@ export const syncOpSchema = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('tournament.abandon'),
+      opId,
+      payload: z.object({}).strict()
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('run.start'),
+      opId,
+      payload: z
+        .object({
+          seed: z
+            .string()
+            .min(1)
+            .max(40)
+            .regex(/^[A-Za-z0-9-]+$/),
+          pressure: z.number().int().min(0).max(5)
+        })
+        .strict()
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('run.pick'),
+      opId,
+      payload: z.object({ boonId: z.string().min(1).max(32) }).strict()
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('run.abandon'),
       opId,
       payload: z.object({}).strict()
     })

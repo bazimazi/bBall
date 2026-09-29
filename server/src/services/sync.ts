@@ -52,12 +52,15 @@ import {
 } from '../repositories/progression';
 import type { ServiceContext } from './context';
 import {
+  abandonRun,
   abandonTournament,
   equipAbilitySlot,
+  pickRunBoon,
   equipCosmetic,
   purchaseTalent,
   recordMatch,
   respecTalents,
+  startRun,
   startTournament,
   updateProfile
 } from './progression';
@@ -287,6 +290,15 @@ function applyOne(context: ServiceContext, userId: string, op: SyncOp): SyncOpRe
         break;
       case 'tournament.abandon':
         abandonTournament(context, userId);
+        break;
+      case 'run.start':
+        startRun(context, userId, op.payload.seed, op.payload.pressure);
+        break;
+      case 'run.pick':
+        pickRunBoon(context, userId, op.payload.boonId);
+        break;
+      case 'run.abandon':
+        abandonRun(context, userId);
         break;
     }
 

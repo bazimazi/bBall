@@ -53,6 +53,7 @@ function quickWin(overrides: Partial<MatchResult> = {}): MatchResult {
     livesLeft: 0,
     objectiveMet: true,
     objective: null,
+    flicks: 0,
     talent: {
       abilitiesUsed: 0,
       powerStrikes: 0,

@@ -465,6 +465,10 @@
   right: calc(var(--safe-r) + 10px);
   bottom: calc(var(--safe-b) + 10px);
   max-width: 460px;
+  /* Never taller than the screen: a landscape phone scrolls the sheet. */
+  max-height: calc(100% - var(--safe-t) - var(--safe-b) - 20px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -477,6 +481,11 @@
   backdrop-filter: blur(16px);
   box-shadow: 0 -12px 44px rgba(0, 0, 0, 0.6);
   animation: rise 0.22s cubic-bezier(0.18, 0.9, 0.24, 1);
+}
+
+/* It scrolls, so its rows keep their height rather than squash to fit. */
+.sheet > * {
+  flex-shrink: 0;
 }
 
 @keyframes rise {

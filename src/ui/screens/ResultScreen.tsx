@@ -1,7 +1,17 @@
+import { useEffect, useState, type CSSProperties } from 'react';
+
 import { botProfile } from '../../core/bots/levels';
+import { stageById } from '../../core/campaign/journey';
+import { dailySpec } from '../../core/daily/daily';
+import { bossById } from '../../core/modes/bosses';
+import { starGoalLabel, type StarGoal } from '../../core/modes/stars';
 import type { MatchResult } from '../../core/modes/types';
 import type { ProgressSummary } from '../../core/progression/apply';
+import { QUEST_BONUS_XP, QUEST_XP } from '../../core/quests/quests';
+import { RUN_STAGES } from '../../core/run/run';
 import { XpBar } from '../components/XpBar';
+import { CheckIcon, CrownIcon, FlameIcon, HeartIcon, StarIcon } from '../icons/ModeIcons';
+import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
 
 interface ResultScreenProps {
@@ -14,12 +24,41 @@ interface ResultScreenProps {
   onSecondary: () => void;
   /** Offered only when there is something to spend. */
   onTalents: () => void;
+  /** A star has just landed on the card - the engine plays its chime. */
+  onStar?: (index: number) => void;
 }
 
-function title(result: MatchResult): string {
+const REDUCED =
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+function title(result: MatchResult, summary: ProgressSummary | null): string {
+  if (result.mode === 'versus') return result.won ? 'Player 1 wins' : 'Player 2 wins';
   if (result.mode === 'endless') return 'Run over';
   if (result.mode === 'challenge') return result.objectiveMet ? 'Challenge clear' : 'Not quite';
+  if (result.mode === 'run') {
+    if (summary?.run?.cleared) return 'Gauntlet cleared';
+    if (result.won) return result.bossId ? 'Boss down' : 'Match won';
+    return summary?.run?.ended ? 'Run over' : 'Heart lost';
+  }
+  if (result.won && result.bossId)
+    return `${bossById(result.bossId)?.spec.name ?? 'Boss'} defeated`;
+  if (result.mode === 'campaign') return result.won ? 'Stage clear' : 'Not quite';
+  if (result.mode === 'daily') return result.won ? 'Daily clear' : 'Not quite';
   return result.won ? 'You win' : 'Bot wins';
+}
+
+function opponent(result: MatchResult): string {
+  if (result.mode === 'endless') return 'Longest rally';
+  if (result.mode === 'versus') return 'Player 1 : Player 2';
+  if (result.bossId) return `vs ${bossById(result.bossId)?.spec.name ?? 'the boss'}`;
+  return `vs ${botProfile(result.botId).name}`;
+}
+
+/** The two star goals a Journey stage or a daily set, if this match had them. */
+function goalsOf(result: MatchResult): readonly [StarGoal, StarGoal] | null {
+  if (result.mode === 'campaign' && result.stageId) return stageById(result.stageId)?.goals ?? null;
+  if (result.mode === 'daily' && result.dailyKey) return dailySpec(result.dailyKey).goals;
+  return null;
 }
 
 function duration(seconds: number): string {
@@ -37,9 +76,80 @@ function Stat({ value, label }: { value: string | number; label: string }) {
   );
 }
 
+/** A number that counts up to its value, eased, the first time it is shown. */
+function CountUp({ value, delay = 250 }: { value: number; delay?: number }) {
+  const [shown, setShown] = useState(REDUCED ? value : 0);
+  useEffect(() => {
+    if (REDUCED) return;
+    let frame = 0;
+    const start = performance.now() + delay;
+    const span = Math.min(1100, 400 + value * 0.9);
+    const tick = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - start) / span));
+      const eased = 1 - Math.pow(1 - t, 3);
+      setShown(Math.round(value * eased));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value, delay]);
+  return <>{shown}</>;
+}
+
 /**
- * Result, performance, XP, unlocks, next action - in that order, on one
- * scrollable card, with the next action pinned under the thumb.
+ * Three stars, lit one after another with a chime each. Stars this match did
+ * not earn stay dark; stars earned on an earlier attempt are not re-shown -
+ * the card is about this match.
+ */
+function StarReveal({
+  mask,
+  onStar
+}: {
+  mask: number;
+  onStar?: ((index: number) => void) | undefined;
+}) {
+  const [lit, setLit] = useState(REDUCED ? 3 : 0);
+  useEffect(() => {
+    if (REDUCED) return;
+    const timers: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      timers.push(
+        window.setTimeout(
+          () => {
+            setLit(i + 1);
+            if (mask & (1 << i)) onStar?.(i);
+          },
+          380 + i * 330
+        )
+      );
+    }
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [mask, onStar]);
+
+  return (
+    <div
+      className={modes.bigStars}
+      aria-label={`${(mask & 1) + ((mask >> 1) & 1) + ((mask >> 2) & 1)} of 3 stars`}
+    >
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={
+            i < lit && mask & (1 << i) ? `${modes.bigStar} ${modes.bigStarOn}` : modes.bigStar
+          }
+        >
+          <StarIcon />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Result, stars, performance, rewards, next action - in that order, on one
+ * scrollable card, with the next action pinned under the thumb. Everything
+ * rises in one after another, so the card reads as a reveal rather than a
+ * table.
  */
 export function ResultScreen({
   result,
@@ -49,23 +159,25 @@ export function ResultScreen({
   secondaryLabel,
   onPrimary,
   onSecondary,
-  onTalents
+  onTalents,
+  onStar
 }: ResultScreenProps) {
   const endless = result.mode === 'endless';
   const award = summary?.award;
   const levelled = (summary?.levelsGained ?? 0) > 0;
   const points = summary?.talentPointsAvailable ?? 0;
   const gained = summary?.talentPoints ?? 0;
+  const goals = goalsOf(result);
+  const good = result.won || (result.mode === 'challenge' && result.objectiveMet);
+  const run = summary?.run;
 
   return (
     <section className={styles.screen}>
-      <div className={styles.body}>
+      <div className={`${styles.body} ${modes.stagger}`}>
         <div className={styles.resultHead}>
           <p className={styles.subtitle}>{label}</p>
-          <h2
-            className={`${styles.resultTitle} ${result.won || result.objectiveMet ? styles.win : styles.lose}`}
-          >
-            {title(result)}
+          <h2 className={`${styles.resultTitle} ${good ? styles.win : styles.lose}`}>
+            {title(result, summary)}
           </h2>
           {endless ? (
             <p className={styles.scoreLine}>
@@ -78,24 +190,108 @@ export function ResultScreen({
               <span className={styles.scoreBot}>{result.scoreBot}</span>
             </p>
           )}
-          <p className={styles.subtitle}>
-            {endless ? 'Longest rally' : `vs ${botProfile(result.botId).name}`}
-          </p>
+          <p className={styles.subtitle}>{opponent(result)}</p>
         </div>
+
+        {goals && summary && (
+          <div className={styles.card}>
+            <StarReveal mask={summary.stars} onStar={onStar} />
+            <div className={modes.goals} style={{ marginTop: 10 }}>
+              {[
+                { bit: 1, label: 'Win the match' },
+                { bit: 2, label: starGoalLabel(goals[0]) },
+                { bit: 4, label: starGoalLabel(goals[1]) }
+              ].map((goal) => (
+                <span
+                  key={goal.bit}
+                  className={
+                    summary.stars & goal.bit ? `${modes.goal} ${modes.goalOn}` : modes.goal
+                  }
+                >
+                  <StarIcon />
+                  {goal.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className={styles.stats}>
           <Stat value={result.bestRally} label="Best rally" />
           <Stat value={result.hits} label="Returns" />
-          <Stat value={duration(result.seconds)} label="Time" />
+          {result.flicks > 0 ? (
+            <Stat value={result.flicks} label="Flicks" />
+          ) : (
+            <Stat value={duration(result.seconds)} label="Time" />
+          )}
         </div>
 
-        {result.objective && !endless && (
+        {result.objective && result.mode === 'challenge' && (
           <div
             className={styles.unlockRow}
             style={result.objectiveMet ? undefined : { opacity: 0.6 }}
           >
             <span>{result.objectiveMet ? '✓' : '·'}</span>
             <span>{result.objective.label}</span>
+          </div>
+        )}
+
+        {summary?.bossBeaten && result.bossId && (
+          <div
+            className={modes.resultRow}
+            style={
+              {
+                '--accent': `hsl(${bossById(result.bossId)?.spec.hue ?? 48} 90% 66%)`
+              } as CSSProperties
+            }
+          >
+            <CrownIcon />
+            <span>{bossById(result.bossId)?.spec.name} defeated</span>
+          </div>
+        )}
+
+        {summary?.dailyCleared && (
+          <div
+            className={modes.resultRow}
+            style={{ '--accent': 'hsl(28 95% 64%)' } as CSSProperties}
+          >
+            <FlameIcon />
+            <span>Daily streak</span>
+            <span>
+              {summary.dailyStreak} day{summary.dailyStreak === 1 ? '' : 's'}
+            </span>
+          </div>
+        )}
+
+        {run && !run.ended && (
+          <div
+            className={modes.resultRow}
+            style={{ '--accent': 'hsl(340 90% 66%)' } as CSSProperties}
+          >
+            <HeartIcon />
+            <span>
+              {run.save.offer
+                ? 'A boon is waiting'
+                : `Rematch - ${run.save.hearts} heart${run.save.hearts === 1 ? '' : 's'} left`}
+            </span>
+            <span>
+              {run.save.stage} / {RUN_STAGES}
+            </span>
+          </div>
+        )}
+
+        {summary?.questsDone.map((quest) => (
+          <div key={quest.id} className={modes.resultRow}>
+            <CheckIcon />
+            <span>{quest.label}</span>
+            <span>+{QUEST_XP[quest.tier]}</span>
+          </div>
+        ))}
+        {summary?.questBonus && (
+          <div className={modes.resultRow}>
+            <CheckIcon />
+            <span>All three of today's quests</span>
+            <span>+{QUEST_BONUS_XP}</span>
           </div>
         )}
 
@@ -147,10 +343,18 @@ export function ResultScreen({
                   <span>×0.5</span>
                 </p>
               )}
+              {award.extras.map((line) => (
+                <p key={`extra-${line.label}`} className={styles.xpLine}>
+                  <span>{line.label}</span>
+                  <span>+{line.xp}</span>
+                </p>
+              ))}
             </div>
             <p className={styles.xpTotal}>
               <span>XP earned</span>
-              <span>+{award.total}</span>
+              <span>
+                +<CountUp value={award.total} />
+              </span>
             </p>
             <div style={{ marginTop: 12 }}>
               <XpBar xp={summary.xpAfter} from={summary.xpBefore} />
@@ -158,7 +362,11 @@ export function ResultScreen({
           </div>
         ) : (
           <p className={styles.note}>
-            {result.ranked ? 'No XP from this one' : 'Practice · nothing recorded'}
+            {result.mode === 'versus'
+              ? 'Two-player matches are just for fun'
+              : result.ranked
+                ? 'No XP from this one'
+                : 'Practice · nothing recorded'}
           </p>
         )}
 

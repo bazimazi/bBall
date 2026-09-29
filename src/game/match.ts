@@ -1,9 +1,13 @@
 import { objectiveMet } from '../core/modes/rules';
+import { dayKey } from '../core/progression/xp';
 import type { MatchResult, MatchRules } from '../core/modes/types';
 import { BALL_R, FIELD_H, SERVE_DELAY } from './constants';
+import { arenaServe, BANNER_TIME, checkBossPhase, setupArena } from './arena';
 import { clearAbilityFx } from './casts';
 import { hsla } from './palette';
+import { withBoons } from '../core/talents/effects';
 import {
+  DEFAULT_LOADOUT,
   matchStats,
   resetDrive,
   resetRally,
@@ -14,7 +18,9 @@ import {
 } from './talents';
 import type { Side } from './types';
 import { clamp } from './utils/math';
+import { toScreenX, toScreenY } from './view';
 import {
+  addKick,
   addShake,
   applyPaddleSizes,
   attractRules,
@@ -33,6 +39,7 @@ export function beginServe(world: World, dir: 1 | -1): void {
   match.status = 'serve';
   centreBall(world);
   resetRally(world);
+  arenaServe(world);
   for (const brain of [botBrain, demoBrain]) {
     brain.aimed = false;
     brain.reads = 0;
@@ -63,12 +70,30 @@ export function launchBall(world: World): void {
 
 /** The match is over. The result itself is published a beat later. */
 function endMatch(world: World, won: boolean): void {
-  const { match } = world;
+  const { match, fx, view, motion } = world;
   match.winner = won ? 'you' : 'bot';
   match.status = 'over';
-  match.overTimer = 0.9;
+  match.overTimer = 1.1;
   match.overShown = false;
   world.audio.matchOver(won);
+
+  // A two-player match has a winner either way, and they both deserve it.
+  const celebrate = won || world.rules.versus === true;
+  if (!celebrate) return;
+  fx.punch = Math.max(fx.punch, 0.8 * motion);
+  const winner = won ? 'you' : 'bot';
+  const hue = hueOf(world, winner);
+  const hues = [hue, (hue + 36) % 360, 48, (hue + 320) % 360];
+  const count = Math.round(34 * Math.max(0.35, motion));
+  world.confetti.burst(view.vw * 0.22, view.vh * 0.98, count, hues);
+  world.confetti.burst(view.vw * 0.78, view.vh * 0.98, count, hues);
+  world.confetti.burst(
+    toScreenX(view, won ? view.w : 0, FIELD_H / 2),
+    toScreenY(view, won ? view.w : 0, FIELD_H / 2),
+    Math.round(count * 0.6),
+    hues,
+    0.8
+  );
 }
 
 function buildResult(world: World, won: boolean, abandoned: boolean): MatchResult {
@@ -89,7 +114,13 @@ function buildResult(world: World, won: boolean, abandoned: boolean): MatchResul
     challengeId: rules.challengeId,
     tournamentRound: rules.tournamentRound,
     tournamentTier: rules.tournamentTier,
+    stageId: rules.stageId,
+    dailyKey: rules.dailyKey,
+    runStage: rules.runStage,
+    bossId: rules.boss?.id,
+    day: dayKey(),
     talent: matchStats(world),
+    flicks: match.flicks,
     shutout: won && match.score.bot === 0,
     comeback: won && match.deficit >= 2,
     abandoned
@@ -121,6 +152,18 @@ function pointFx(world: World, scorer: Side, won: boolean): void {
   fx.flash = won ? 0.5 : 0.35;
   fx.timeScale = world.motion > 0.5 ? 0.32 : 1;
   addShake(world, 10);
+  addKick(world, won ? 9 : -9);
+
+  // The line that was breached lights up in the scorer's colour, and the
+  // floor bows away from where the ball went through it.
+  const lineX = won ? view.w : 0;
+  const y = clamp(ball.y, BALL_R, FIELD_H - BALL_R);
+  const hue = hueOf(world, scorer);
+  fx.goalFlash = 1;
+  fx.goalSide = won ? 'bot' : 'you';
+  world.rings.spawn(lineX, y, hue, 190, 0.62, 9, 78);
+  world.rings.spawn(lineX, y, hue, 110, 0.4, 5, 86);
+  world.grid.impulse(lineX, y, 900, 230);
 
   particles.emit(
     won ? view.w : 0,
@@ -187,6 +230,9 @@ export function scorePoint(world: World, scorer: Side): void {
 
   match.score[scorer]++;
   match.points++;
+  if (won) world.fx.pipPopYou = 1;
+  else world.fx.pipPopBot = 1;
+  if (won && match.score.you < match.winScore) checkBossPhase(world);
   match.deficit = Math.max(match.deficit, match.score.bot - match.score.you);
 
   if (match.score[scorer] >= match.winScore) {
@@ -203,6 +249,13 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   const { match, fx } = world;
   world.rules = rules;
   world.tuning = tuningFor(rules);
+  // The build this match is played with: none at all in a two-player match,
+  // the run's boons folded in for a Gauntlet one, the player's own otherwise.
+  world.loadout = rules.versus
+    ? DEFAULT_LOADOUT
+    : rules.boons
+      ? withBoons(world.baseLoadout, rules.boons)
+      : world.baseLoadout;
   applyPaddleSizes(world);
   setBrainProfile(world.botBrain, rules.bot);
   // Shields, charges and cooldowns all start a match full and cold.
@@ -220,11 +273,13 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   match.rally = 0;
   match.bestThisMatch = 0;
   match.hits = 0;
+  match.flicks = 0;
   match.elapsed = 0;
   match.winner = null;
   match.overShown = false;
   match.result = null;
 
+  clearEffects(world);
   fx.heat = 0;
   fx.timeScale = 1;
   fx.freeze = 0;
@@ -233,7 +288,32 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   centrePaddles(world);
   world.particles.clear();
   clearAbilityFx(world);
+  setupArena(world);
   beginServe(world, Math.random() < 0.5 ? 1 : -1);
+  introBanner(world);
+}
+
+/**
+ * A boss announces itself, and a named stage says its name, over a first
+ * serve held a beat longer so the card can be read.
+ */
+function introBanner(world: World): void {
+  const { rules, fx, match } = world;
+  const boss = rules.boss;
+  if (boss) {
+    fx.bannerText = boss.name;
+    fx.bannerSub = boss.title;
+    fx.bannerHue = boss.hue;
+  } else if (rules.intro) {
+    fx.bannerText = rules.intro.title;
+    fx.bannerSub = rules.intro.sub;
+    fx.bannerHue = hueOf(world, 'you');
+  } else {
+    return;
+  }
+  fx.bannerTimer = BANNER_TIME;
+  match.serveTimer += 1.1;
+  if (boss) world.audio.phase();
 }
 
 /** Drop back to the attract-mode demo behind the menus. */
@@ -241,6 +321,7 @@ export function returnToMenu(world: World): void {
   const { match, fx } = world;
   world.rules = attractRules();
   world.tuning = tuningFor(world.rules);
+  world.loadout = world.baseLoadout;
   applyPaddleSizes(world);
   setBrainProfile(world.botBrain, world.rules.bot);
   resetRuntime(world);
@@ -258,16 +339,35 @@ export function returnToMenu(world: World): void {
   match.rally = 0;
   match.bestThisMatch = 0;
   match.hits = 0;
+  match.flicks = 0;
   match.elapsed = 0;
   match.deficit = 0;
   match.result = null;
   match.overShown = false;
+  clearEffects(world);
   fx.heat = 0;
   fx.timeScale = 1;
   world.particles.clear();
   clearAbilityFx(world);
+  setupArena(world);
   centreBall(world);
   match.serveTimer = 0.35;
+}
+
+/** Every lingering presentation effect, gone - a new match starts clean. */
+function clearEffects(world: World): void {
+  const { fx } = world;
+  world.rings.clear();
+  world.popups.clear();
+  world.confetti.clear();
+  world.grid.clear();
+  fx.kick = 0;
+  fx.goalFlash = 0;
+  fx.pipPopYou = 0;
+  fx.pipPopBot = 0;
+  fx.edgeCooldown = 0;
+  fx.punch = 0;
+  fx.bannerTimer = 0;
 }
 
 export function isMatchPoint(world: World): boolean {

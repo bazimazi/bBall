@@ -69,6 +69,13 @@ export function toScreenY(view: View, fx: number, fy: number): number {
   return view.cy + (view.rotated ? -a : b);
 }
 
+/** Screen point in CSS pixels -> the field's long-axis coordinate. */
+export function screenToFieldX(view: View, sx: number, sy: number): number {
+  const ux = (sx - view.cx) / view.scale;
+  const uy = (sy - view.cy) / view.scale;
+  return (view.rotated ? -uy : ux) + view.w / 2;
+}
+
 /** Screen point in CSS pixels -> the field's cross-axis coordinate. */
 export function screenToFieldY(view: View, sx: number, sy: number): number {
   const ux = (sx - view.cx) / view.scale;

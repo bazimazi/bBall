@@ -6,12 +6,14 @@ import { GameAudio } from './audio';
 import { FIELD_H, FIXED_DT, MAX_FRAME_DT, MAX_STEPS_PER_FRAME, STORAGE_KEYS } from './constants';
 import { publishResult, returnToMenu, startMatch } from './match';
 import { Renderer } from './render/renderer';
+import { rescaleArena } from './arena';
+import { wobble } from './effects';
 import { step } from './simulation';
 import { playerKeySpeed, resetRuntime } from './talents';
-import type { AbilityView, GameSnapshot } from './types';
+import type { AbilityView, GameSnapshot, Paddle, Side } from './types';
 import { clamp } from './utils/math';
 import { readStored } from './utils/storage';
-import { layoutView, screenToFieldY } from './view';
+import { layoutView, screenToFieldX, screenToFieldY } from './view';
 import {
   applyPaddleSizes,
   centreBall,
@@ -97,6 +99,10 @@ export class GameEngine {
   private readonly listeners = new Set<Listener>();
   private readonly motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
   private readonly keys = { up: false, down: false };
+  /** The second player's keys in a versus match: the arrows. */
+  private readonly keys2 = { up: false, down: false };
+  /** Which paddle each finger is steering, in a versus match. */
+  private readonly fingers = new Map<number, Side>();
 
   private snapshot: GameSnapshot;
   /** Cached ability view, rebuilt only when what the HUD shows changes. */
@@ -166,9 +172,7 @@ export class GameEngine {
   play = (rules: MatchRules): void => {
     this.audio.unlock();
     this.audio.ui();
-    this.keys.up = false;
-    this.keys.down = false;
-    this.pointerId = null;
+    this.clearInput();
     this.audio.restartMusic();
     startMatch(this.world, rules);
     this.publish();
@@ -184,9 +188,7 @@ export class GameEngine {
     if (match.status !== 'play' && match.status !== 'serve') return;
     match.resumeTo = match.status;
     match.status = 'paused';
-    this.keys.up = false;
-    this.keys.down = false;
-    this.pointerId = null;
+    this.clearInput();
     this.audio.ui();
     this.publish();
   };
@@ -231,11 +233,20 @@ export class GameEngine {
    * stored - a match is always played with the build it started under.
    */
   setLoadout = (loadout: ResolvedLoadout): void => {
-    if (this.world.loadout === loadout) return;
-    this.world.loadout = loadout;
+    if (this.world.baseLoadout === loadout) return;
+    this.world.baseLoadout = loadout;
     const { status } = this.world.match;
-    if (status === 'menu' || status === 'over') resetRuntime(this.world);
+    if (status === 'menu') {
+      this.world.loadout = loadout;
+      resetRuntime(this.world);
+    }
     this.publish();
+  };
+
+  /** A star landing on the result card: the reward's own sound. */
+  chime = (index: number): void => {
+    this.audio.unlock();
+    this.audio.star(index);
   };
 
   /** Fire the ability in `slot`. Ignored when it is empty or cooling down. */
@@ -330,6 +341,8 @@ export class GameEngine {
     const k = layoutView(this.world.view, this.canvas);
     rescaleField(this.world, k);
     placePaddles(this.world);
+    this.world.grid.resize(this.world.view.w);
+    rescaleArena(this.world);
     this.renderer.invalidate();
   };
 
@@ -373,11 +386,16 @@ export class GameEngine {
     if (steps >= MAX_STEPS_PER_FRAME) this.accumulator = 0;
 
     if (fx.shake > 0) {
-      fx.shakeX = (Math.random() - 0.5) * fx.shake;
-      fx.shakeY = (Math.random() - 0.5) * fx.shake;
+      // Smooth noise rather than a fresh random offset per frame: a shudder
+      // the eye can follow instead of a picture that merely jitters.
+      const t = now * 0.038;
+      fx.shakeX = wobble(t, 1.3) * fx.shake * 0.55;
+      fx.shakeY = wobble(t, 7.9) * fx.shake * 0.55;
+      fx.shakeRot = wobble(t * 0.7, 4.2) * fx.shake * 0.0011;
     } else {
       fx.shakeX = 0;
       fx.shakeY = 0;
+      fx.shakeRot = 0;
     }
 
     // The result card waits a beat so the winning point can be seen.
@@ -392,20 +410,43 @@ export class GameEngine {
 
   // -------------------------------------------------------------- input
 
-  private applyKeys(dt: number): void {
-    if (!this.keys.up && !this.keys.down) return;
-    const { player } = this.world;
-    const dir = (this.keys.down ? 1 : 0) - (this.keys.up ? 1 : 0);
-    const speed = playerKeySpeed(this.world);
-    player.target = clamp(player.target + dir * speed * dt, player.half, FIELD_H - player.half);
+  private clearInput(): void {
+    this.keys.up = false;
+    this.keys.down = false;
+    this.keys2.up = false;
+    this.keys2.down = false;
+    this.pointerId = null;
+    this.fingers.clear();
   }
 
-  private trackPointer(event: PointerEvent): void {
-    const { player, view } = this.world;
-    player.target = clamp(
+  private get versus(): boolean {
+    return this.world.rules.versus === true;
+  }
+
+  private applyKeys(dt: number): void {
+    const speed = playerKeySpeed(this.world);
+    const steer = (paddle: Paddle, keys: { up: boolean; down: boolean }) => {
+      if (!keys.up && !keys.down) return;
+      const dir = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+      paddle.target = clamp(paddle.target + dir * speed * dt, paddle.half, FIELD_H - paddle.half);
+    };
+    steer(this.world.player, this.keys);
+    if (this.versus) steer(this.world.bot, this.keys2);
+  }
+
+  /** The paddle on whichever half of the court a point on screen falls. */
+  private sideAt(event: PointerEvent): Side {
+    const { view } = this.world;
+    return screenToFieldX(view, event.clientX, event.clientY) < view.w / 2 ? 'you' : 'bot';
+  }
+
+  private trackPointer(event: PointerEvent, side: Side = 'you'): void {
+    const { view } = this.world;
+    const paddle = side === 'you' ? this.world.player : this.world.bot;
+    paddle.target = clamp(
       screenToFieldY(view, event.clientX, event.clientY),
-      player.half,
-      FIELD_H - player.half
+      paddle.half,
+      FIELD_H - paddle.half
     );
   }
 
@@ -414,19 +455,33 @@ export class GameEngine {
     const { match } = this.world;
     if (match.status !== 'play' && match.status !== 'serve') return;
 
-    this.pointerId = event.pointerId;
     try {
       this.canvas.setPointerCapture(event.pointerId);
     } catch {
       /* capture is a nicety, not a requirement */
     }
-    this.trackPointer(event);
+    if (this.versus) {
+      // Each finger steers the paddle on the half it first landed on, for as
+      // long as it stays down - two thumbs, two paddles, no crossed wires.
+      const side = this.sideAt(event);
+      this.fingers.set(event.pointerId, side);
+      this.trackPointer(event, side);
+    } else {
+      this.pointerId = event.pointerId;
+      this.trackPointer(event);
+    }
     if (match.status === 'serve' && match.serveTimer > 0.05) match.serveTimer = 0;
   };
 
   private onPointerMove = (event: PointerEvent): void => {
     const { status } = this.world.match;
     if (status !== 'play' && status !== 'serve') return;
+    if (this.versus) {
+      const side = this.fingers.get(event.pointerId);
+      if (side) this.trackPointer(event, side);
+      else if (event.pointerType === 'mouse') this.trackPointer(event, this.sideAt(event));
+      return;
+    }
     if (
       event.pointerType === 'mouse' ||
       this.pointerId === null ||
@@ -438,6 +493,7 @@ export class GameEngine {
 
   private onPointerUp = (event: PointerEvent): void => {
     if (event.pointerId === this.pointerId) this.pointerId = null;
+    this.fingers.delete(event.pointerId);
   };
 
   private onContextMenu = (event: Event): void => event.preventDefault();
@@ -450,7 +506,14 @@ export class GameEngine {
     const key = event.key.toLowerCase();
     const { match } = this.world;
 
-    if (key === 'arrowup' || key === 'w') {
+    // In a versus match the arrows belong to the second player.
+    const second = this.versus && (key === 'arrowup' || key === 'arrowdown');
+    if (second) {
+      if (key === 'arrowup') this.keys2.up = true;
+      else this.keys2.down = true;
+      event.preventDefault();
+      this.audio.unlock();
+    } else if (key === 'arrowup' || key === 'w') {
       this.keys.up = true;
       event.preventDefault();
       this.audio.unlock();
@@ -490,6 +553,8 @@ export class GameEngine {
   private onKeyUp = (event: KeyboardEvent): void => {
     if (!event.key) return;
     const key = event.key.toLowerCase();
+    if (key === 'arrowup') this.keys2.up = false;
+    if (key === 'arrowdown') this.keys2.down = false;
     if (key === 'arrowup' || key === 'w') this.keys.up = false;
     else if (key === 'arrowdown' || key === 's') this.keys.down = false;
   };

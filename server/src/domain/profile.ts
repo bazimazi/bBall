@@ -22,6 +22,7 @@ import { DEFAULT_BOT } from '../../../src/core/bots/levels';
 import { DEFAULT_EQUIPPED, DEFAULT_UNLOCKS } from '../../../src/core/cosmetics/catalog';
 import type { ModeId } from '../../../src/core/modes/types';
 import { cleanName, createProfile, createStats } from '../../../src/core/profile/defaults';
+import { cloneProgress } from '../../../src/core/profile/progress';
 import type { PlayerProfile } from '../../../src/core/profile/types';
 import { levelOf } from '../../../src/core/progression/levels';
 import { dayKey } from '../../../src/core/progression/xp';
@@ -141,6 +142,7 @@ export function toCloudProfile(server: ServerProfile): CloudProfileDto {
     lastTournament: profile.lastTournament ? { ...profile.lastTournament } : null,
 
     daily: { ...profile.daily },
+    progress: cloneProgress(profile.progress),
     preferences: { ...profile.preferences },
 
     createdAt: server.createdAt,

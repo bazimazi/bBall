@@ -53,6 +53,8 @@ export interface ArenaCosmetic extends Cosmetic {
   readonly courtBottom: string;
   readonly lineAlpha: number;
   readonly dash: readonly [number, number];
+  /** How strongly the rippling floor grid shows, 0 for none. */
+  readonly grid: number;
 }
 
 export const ACCENTS: readonly AccentCosmetic[] = [
@@ -109,6 +111,15 @@ export const ACCENTS: readonly AccentCosmetic[] = [
     css: '#ffd966',
     unlock: { type: 'achievement', id: 'cup-gold' },
     swatch: ['#ffd966', '#c79a17']
+  },
+  {
+    id: 'accent-dawn',
+    kind: 'accent',
+    name: 'Dawn',
+    hue: 18,
+    css: '#ff8a5c',
+    unlock: { type: 'achievement', id: 'journey-w1' },
+    swatch: ['#ff8a5c', '#b8452a']
   }
 ];
 
@@ -152,6 +163,26 @@ export const BALLS: readonly BallCosmetic[] = [
     ring: 2.4,
     unlock: { type: 'level', level: 14 },
     swatch: ['#0a0d18', '#5c6cff']
+  },
+  {
+    id: 'ball-star',
+    kind: 'ball',
+    name: 'Star',
+    fill: '#fff3b0',
+    glow: 1.4,
+    ring: 2,
+    unlock: { type: 'achievement', id: 'journey-stars-45' },
+    swatch: ['#fff3b0', '#ffc233']
+  },
+  {
+    id: 'ball-comet',
+    kind: 'ball',
+    name: 'Comet',
+    fill: '#e8fbff',
+    glow: 1.85,
+    ring: 1,
+    unlock: { type: 'achievement', id: 'run-clear' },
+    swatch: ['#e8fbff', '#5cc8ff']
   }
 ];
 
@@ -182,6 +213,15 @@ export const PADDLES: readonly PaddleCosmetic[] = [
     glow: 1.9,
     unlock: { type: 'achievement', id: 'challenge-master' },
     swatch: ['#8ffff0', '#2bc5ad']
+  },
+  {
+    id: 'paddle-prism',
+    kind: 'paddle',
+    name: 'Prism',
+    round: 0.6,
+    glow: 2.2,
+    unlock: { type: 'achievement', id: 'boss-all' },
+    swatch: ['#ffffff', '#b77bff']
   }
 ];
 
@@ -212,6 +252,15 @@ export const TRAILS: readonly TrailCosmetic[] = [
     width: 1.35,
     unlock: { type: 'achievement', id: 'endless-60' },
     swatch: ['#ffb545', '#ff5c8a']
+  },
+  {
+    id: 'trail-aurora',
+    kind: 'trail',
+    name: 'Aurora',
+    alpha: 1.4,
+    width: 1.6,
+    unlock: { type: 'achievement', id: 'daily-7' },
+    swatch: ['#7dffb2', '#6b7bff']
   }
 ];
 
@@ -225,6 +274,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
     courtBottom: '#070a14',
     lineAlpha: 0.1,
     dash: [9, 13],
+    grid: 0.05,
     unlock: { type: 'default' },
     swatch: ['#0c1121', '#1b2440']
   },
@@ -237,6 +287,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
     courtBottom: '#0a0714',
     lineAlpha: 0.13,
     dash: [4, 10],
+    grid: 0.045,
     unlock: { type: 'level', level: 7 },
     swatch: ['#160f26', '#3a2568']
   },
@@ -249,6 +300,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
     courtBottom: '#040c0f',
     lineAlpha: 0.22,
     dash: [2, 8],
+    grid: 0.13,
     unlock: { type: 'achievement', id: 'cup-champion' },
     swatch: ['#07161a', '#0f4a52']
   },
@@ -261,8 +313,61 @@ export const ARENAS: readonly ArenaCosmetic[] = [
     courtBottom: '#0d0605',
     lineAlpha: 0.14,
     dash: [9, 13],
+    grid: 0.05,
     unlock: { type: 'level', level: 12 },
     swatch: ['#1d0e0c', '#5c2018']
+  },
+  {
+    id: 'arena-alley',
+    kind: 'arena',
+    name: 'Neon Alley',
+    bgHue: 276,
+    courtTop: '#150d24',
+    courtBottom: '#08050f',
+    lineAlpha: 0.16,
+    dash: [3, 7],
+    grid: 0.1,
+    unlock: { type: 'achievement', id: 'journey-w2' },
+    swatch: ['#150d24', '#6a2cc9']
+  },
+  {
+    id: 'arena-storm',
+    kind: 'arena',
+    name: 'Stormfront',
+    bgHue: 200,
+    courtTop: '#0a1822',
+    courtBottom: '#040a10',
+    lineAlpha: 0.14,
+    dash: [12, 10],
+    grid: 0.08,
+    unlock: { type: 'achievement', id: 'journey-w3' },
+    swatch: ['#0a1822', '#1f6f9c']
+  },
+  {
+    id: 'arena-forge',
+    kind: 'arena',
+    name: 'Forge',
+    bgHue: 14,
+    courtTop: '#1f0c08',
+    courtBottom: '#0c0403',
+    lineAlpha: 0.15,
+    dash: [6, 6],
+    grid: 0.09,
+    unlock: { type: 'achievement', id: 'journey-w4' },
+    swatch: ['#1f0c08', '#a8401c']
+  },
+  {
+    id: 'arena-apex',
+    kind: 'arena',
+    name: 'Apex',
+    bgHue: 44,
+    courtTop: '#1a1508',
+    courtBottom: '#0a0803',
+    lineAlpha: 0.16,
+    dash: [2, 6],
+    grid: 0.11,
+    unlock: { type: 'achievement', id: 'journey-w5' },
+    swatch: ['#1a1508', '#c99a1f']
   }
 ];
 

@@ -14,6 +14,10 @@ import {
   drawPlayerAura,
   drawUltimateBanner
 } from './abilityFx';
+import { BANNER_TIME } from '../arena';
+import { easeOutBack, easeOutCubic, POPUP_LIFE } from '../effects';
+import { drawArena } from './arenaFx';
+import { BAR_H, BAR_PAD, BAR_W, GlowCache } from './glow';
 import { roundRect } from './shapes';
 import { UltimateLayer } from './ultimateFx';
 
@@ -40,6 +44,10 @@ export class Renderer {
   private endGlow: Partial<Record<Side, CanvasGradient>> = {};
   private theme: ResolvedTheme | null = null;
   private readonly ultimate = new UltimateLayer();
+  private readonly glow = new GlowCache();
+  private vignette: CanvasGradient | null = null;
+  /** Match-point heartbeat tint, per side, cached with the vignette. */
+  private pressure: Partial<Record<Side, CanvasGradient>> = {};
 
   private readonly ctx: CanvasRenderingContext2D;
 
@@ -52,6 +60,9 @@ export class Renderer {
     this.bgHeatBucket = -1;
     this.court = null;
     this.endGlow = {};
+    this.vignette = null;
+    this.pressure = {};
+    this.glow.clear();
     this.ultimate.invalidate();
   }
 
@@ -73,7 +84,15 @@ export class Renderer {
     this.ultimate.backdrop(ctx, world);
 
     ctx.save();
-    ctx.translate(fx.shakeX, fx.shakeY);
+    // The kick shoves the camera along the field's long axis, which is the
+    // screen's vertical on a portrait phone.
+    const kick = fx.kick * view.scale;
+    ctx.translate(fx.shakeX + (view.rotated ? 0 : kick), fx.shakeY + (view.rotated ? -kick : 0));
+    if (fx.shakeRot !== 0) {
+      ctx.translate(view.cx, view.cy);
+      ctx.rotate(fx.shakeRot);
+      ctx.translate(-view.cx, -view.cy);
+    }
     // The camera punch takes the court *and* the screen HUD with it - half a
     // zoom would read as the court resizing rather than as an impact.
     if (fx.punch > 0) {
@@ -90,6 +109,9 @@ export class Renderer {
 
     this.drawScreenHud(world);
     ctx.restore();
+
+    this.drawVignette(world);
+    this.drawConfetti(world);
 
     // Over everything, and outside the punch: the wave has to cross the real
     // viewport, not a viewport that is itself being pushed around.
@@ -148,6 +170,8 @@ export class Renderer {
     // A soft wash of colour behind each player's end.
     this.drawEndGlow(world, 0, 'you');
     this.drawEndGlow(world, w, 'bot');
+    this.drawGrid(world);
+    this.drawGoalFlash(world);
 
     ctx.strokeStyle = `rgba(238,242,255,${theme.lineAlpha})`;
     ctx.lineWidth = 2;
@@ -169,6 +193,9 @@ export class Renderer {
     this.drawShieldWall(world);
     this.drawBastion(world);
     this.drawForesight(world);
+    drawArena(ctx, world, this.glow);
+    this.drawRings(world);
+    this.drawSpeedLines(world);
     this.drawTrail(world);
     drawGhosts(ctx, world);
     drawDashStreak(ctx, world);
@@ -212,26 +239,58 @@ export class Renderer {
     }
     if (match.winScore <= 0) return;
 
-    this.drawPipColumn(world, 24, hueOf(world, 'you'), match.winScore, match.score.you);
-    this.drawPipColumn(world, view.w - 24, hueOf(world, 'bot'), match.winScore, match.score.bot);
+    const { fx } = world;
+    this.drawPipColumn(
+      world,
+      24,
+      hueOf(world, 'you'),
+      match.winScore,
+      match.score.you,
+      fx.pipPopYou
+    );
+    this.drawPipColumn(
+      world,
+      view.w - 24,
+      hueOf(world, 'bot'),
+      match.winScore,
+      match.score.bot,
+      fx.pipPopBot
+    );
   }
 
-  private drawPipColumn(world: World, x: number, hue: number, total: number, filled: number): void {
+  private drawPipColumn(
+    world: World,
+    x: number,
+    hue: number,
+    total: number,
+    filled: number,
+    pop = 0
+  ): void {
     const { ctx } = this;
     const gap = 30;
     const top = world.view.h / 2 - ((total - 1) * gap) / 2;
+    const sprite = this.glow.dot(hue, 60, 95);
 
     for (let i = 0; i < total; i++) {
       const y = top + i * gap;
-      ctx.beginPath();
       if (i < filled) {
-        ctx.arc(x, y, 7, 0, Math.PI * 2);
-        ctx.fillStyle = hsla(hue, 95, 66, 1);
-        ctx.shadowColor = hsla(hue, 95, 60, 0.9);
-        ctx.shadowBlur = 14;
+        // The newest pip lands with a little overshoot - a point is scored,
+        // not merely counted.
+        const fresh = i === filled - 1 && pop > 0;
+        const scale = fresh ? 1 + pop * 0.9 * Math.sin((1 - pop) * Math.PI * 1.5 + 0.5) : 1;
+        const r = 7 * Math.max(0.5, scale);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = fresh ? 0.75 + pop * 0.25 : 0.7;
+        const g = r * (fresh ? 4.4 + pop * 3 : 4);
+        ctx.drawImage(sprite, x - g, y - g, g * 2, g * 2);
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = hsla(hue, 95, 66 + (fresh ? pop * 20 : 0), 1);
         ctx.fill();
-        ctx.shadowBlur = 0;
       } else {
+        ctx.beginPath();
         ctx.arc(x, y, 6, 0, Math.PI * 2);
         ctx.strokeStyle = hsla(hue, 60, 60, 0.3);
         ctx.lineWidth = 1.6;
@@ -244,6 +303,7 @@ export class Renderer {
     const { ctx } = this;
     const theme = world.theme;
     const flash = paddle.flash;
+    // Squash on contact: thinner and a touch longer, springing back.
     const w = PADDLE_W * (1 + flash * 0.4);
     const h = paddle.half * 2 * (1 - flash * 0.07);
     // Paddles keep their identity colour at all times - only the ball runs hot.
@@ -252,13 +312,42 @@ export class Renderer {
     const y = paddle.y - h / 2;
     const radius = (w / 2) * theme.paddleRound;
 
-    ctx.save();
-    ctx.shadowColor = hsla(hue, 95, 60, (0.55 + flash * 0.4) * theme.paddleGlow);
-    ctx.shadowBlur = (16 + flash * 26) * theme.paddleGlow;
+    // The halo is a pre-blurred capsule stretched to the paddle: the neon
+    // look without a single shadowBlur in the frame loop.
+    const glow = (0.62 + flash * 0.5) * theme.paddleGlow;
+    if (glow > 0.01) {
+      const core = BAR_W - BAR_PAD * 2;
+      const tall = BAR_H - BAR_PAD * 2;
+      const sx = w / core;
+      const sy = h / tall;
+      const reach = 1 + flash * 0.5;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(1, glow);
+      ctx.drawImage(
+        this.glow.bar(hue, 58),
+        x - BAR_PAD * sx * reach,
+        y - BAR_PAD * sy * reach,
+        (core + BAR_PAD * 2 * reach) * sx,
+        (tall + BAR_PAD * 2 * reach) * sy
+      );
+      ctx.restore();
+    }
+
     ctx.fillStyle = hsla(hue, 92, 62 + flash * 22, 1);
     roundRect(ctx, x, y, w, h, radius);
     ctx.fill();
-    ctx.restore();
+    // A bright spine down the middle reads as a lit tube rather than a bar.
+    ctx.fillStyle = hsla(hue, 100, 88, 0.5 + flash * 0.35);
+    roundRect(
+      ctx,
+      x + w * 0.34,
+      y + 5,
+      w * 0.32,
+      Math.max(0, h - 10),
+      w * 0.16 * theme.paddleRound
+    );
+    ctx.fill();
 
     if (flash > 0.02) {
       ctx.save();
@@ -442,15 +531,15 @@ export class Renderer {
     ctx.save();
     ctx.translate(ball.x, ball.y);
 
-    const reach = BALL_R * 4.2;
-    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
-    glow.addColorStop(0, hsla(hue, 100, 70, 0.5 * theme.ballGlow));
-    glow.addColorStop(0.45, hsla(hue, 100, 60, 0.16 * theme.ballGlow));
-    glow.addColorStop(1, hsla(hue, 100, 60, 0));
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(0, 0, reach, 0, Math.PI * 2);
-    ctx.fill();
+    // Pre-rendered glow, a little bigger and brighter the faster it flies.
+    const reach = BALL_R * (4.2 + speedT * 1.6);
+    if (theme.ballGlow > 0.01) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(1, 0.62 * theme.ballGlow * (1 + speedT * 0.4));
+      ctx.drawImage(this.glow.dot(hue, 62), -reach, -reach, reach * 2, reach * 2);
+      ctx.restore();
+    }
 
     ctx.rotate(angle);
     ctx.beginPath();
@@ -458,7 +547,8 @@ export class Renderer {
     ctx.fillStyle = theme.ballFill;
     ctx.fill();
     ctx.lineWidth = 2.5 * theme.ballRing;
-    ctx.strokeStyle = hsla(hue, 100, 68, 0.9);
+    // The ring runs white-hot as the rally heats up.
+    ctx.strokeStyle = hsla(hue, 100, 68 + world.fx.heat * 18, 0.9);
     ctx.stroke();
     ctx.restore();
   }
@@ -480,20 +570,230 @@ export class Renderer {
     ctx.restore();
   }
 
+  /**
+   * Sparks are drawn as short streaks along their own velocity, so a burst
+   * reads as motion rather than as a spray of dots.
+   */
   private drawParticles(world: World): void {
     const { ctx } = this;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
     for (const p of world.particles.items) {
       if (!p.alive) continue;
       const a = 1 - p.age / p.life;
+      const size = p.size * (0.35 + a * 0.65);
       ctx.globalAlpha = a * (0.45 + a * 0.55);
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * (0.35 + a * 0.65), 0, Math.PI * 2);
-      ctx.fill();
+      const speed = Math.abs(p.vx) + Math.abs(p.vy);
+      if (speed > 60) {
+        const k = 0.028;
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = size * 1.3;
+        ctx.beginPath();
+        ctx.moveTo(p.x - p.vx * k, p.y - p.vy * k);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.restore();
+  }
+
+  /** The floor lattice: faint, warmer with heat, bowed by every impact. */
+  private drawGrid(world: World): void {
+    const { ctx } = this;
+    const { grid, theme, fx, view } = world;
+    if (theme.gridAlpha <= 0) return;
+    if (grid.cols === 0) grid.resize(view.w);
+
+    const beat = world.match.status === 'menu' ? 0 : world.audio.beat();
+    const alpha = theme.gridAlpha * (0.75 + fx.heat * 0.9 + beat * 0.6);
+    const hue = heatHue(theme.bgHue, fx.heat, theme.hotHue);
+    const { cols, rows, dx, dy } = grid;
+    const sx = grid.stepX;
+    const sy = grid.stepY;
+
+    ctx.save();
+    ctx.strokeStyle = hsla(hue, 80, 72, Math.min(0.4, alpha));
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (!grid.active) {
+      for (let r = 1; r < rows - 1; r++) {
+        ctx.moveTo(0, r * sy);
+        ctx.lineTo(view.w, r * sy);
+      }
+      for (let c = 1; c < cols - 1; c++) {
+        ctx.moveTo(c * sx, 0);
+        ctx.lineTo(c * sx, view.h);
+      }
+    } else {
+      for (let r = 1; r < rows - 1; r++) {
+        for (let c = 0; c < cols; c++) {
+          const i = r * cols + c;
+          const px = c * sx + dx[i]!;
+          const py = r * sy + dy[i]!;
+          if (c === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+      }
+      for (let c = 1; c < cols - 1; c++) {
+        for (let r = 0; r < rows; r++) {
+          const i = r * cols + c;
+          const px = c * sx + dx[i]!;
+          const py = r * sy + dy[i]!;
+          if (r === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** The breached goal line, lit in the scorer's colour for a moment. */
+  private drawGoalFlash(world: World): void {
+    const { fx, view } = world;
+    if (fx.goalFlash <= 0) return;
+    const { ctx } = this;
+    const atRight = fx.goalSide === 'bot';
+    const hue = hueOf(world, atRight ? 'you' : 'bot');
+    const x = atRight ? view.w : 0;
+    const width = 90 + (1 - fx.goalFlash) * 60;
+    // Built per frame, but only for the half second a goal flash lasts.
+    const band = ctx.createLinearGradient(x, 0, atRight ? x - width : x + width, 0);
+    band.addColorStop(0, hsla(hue, 100, 70, 0.55 * fx.goalFlash));
+    band.addColorStop(1, hsla(hue, 100, 70, 0));
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = band;
+    ctx.fillRect(atRight ? x - width : x, 0, width, view.h);
+    ctx.fillStyle = hsla(hue, 100, 85, 0.9 * fx.goalFlash);
+    ctx.fillRect(atRight ? x - 3 : x, 0, 3, view.h);
+    ctx.restore();
+  }
+
+  /** Shockwaves: eased out, thinning and fading as they grow. */
+  private drawRings(world: World): void {
+    const { ctx } = this;
+    let open = false;
+    for (const ring of world.rings.items) {
+      if (!ring.alive) continue;
+      if (!open) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        open = true;
+      }
+      const t = ring.age / ring.life;
+      const r = BALL_R + (ring.size - BALL_R) * easeOutCubic(t);
+      ctx.globalAlpha = (1 - t) * 0.85 * Math.max(0.3, world.motion);
+      ctx.strokeStyle = hsla(ring.hue, 100, ring.light, 1);
+      ctx.lineWidth = Math.max(0.5, ring.width * (1 - t));
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (open) ctx.restore();
+  }
+
+  /**
+   * Speed lines behind a ball near the top of its range. They exist only in
+   * that band, so seeing them *means* something: this one is fast.
+   */
+  private drawSpeedLines(world: World): void {
+    const { ball, tuning, fx, match } = world;
+    if (match.status !== 'play' || world.motion < 0.5) return;
+    const span = Math.max(1, tuning.maxSpeed - tuning.serveSpeed);
+    const pace = (ball.speed - tuning.serveSpeed) / span;
+    if (pace < 0.62) return;
+    const strength = clamp((pace - 0.62) / 0.38, 0, 1.4);
+    const v = Math.hypot(ball.vx, ball.vy);
+    if (v < 1) return;
+    const ux = ball.vx / v;
+    const uy = ball.vy / v;
+    const { ctx } = this;
+    // A new pattern every 50 ms: flicker without per-line state.
+    const seed = Math.floor(fx.time * 20);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = hsla(ballHue(world), 100, 80, 1);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const n = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453;
+      const f = n - Math.floor(n);
+      const offset = (f - 0.5) * BALL_R * 5;
+      const back = BALL_R * (2.5 + f * 3);
+      const length = 40 + f * 90 * strength;
+      const sx = ball.x - ux * back - uy * offset;
+      const sy = ball.y - uy * back + ux * offset;
+      ctx.globalAlpha = 0.18 * strength * (0.6 + f * 0.4);
+      ctx.lineWidth = 1.2 + f * 1.3;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx - ux * length, sy - uy * length);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Darkened edges, always; at match point a slow heartbeat of the leading
+   * side's colour creeps in from the rim.
+   */
+  private drawVignette(world: World): void {
+    const { ctx } = this;
+    const { view, match, fx } = world;
+    if (!this.vignette) {
+      const r = Math.hypot(view.vw, view.vh) / 2;
+      const g = ctx.createRadialGradient(view.cx, view.cy, r * 0.55, view.cx, view.cy, r);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,0.5)');
+      this.vignette = g;
+    }
+    ctx.fillStyle = this.vignette;
+    ctx.fillRect(0, 0, view.vw, view.vh);
+
+    const live = match.status === 'play' || match.status === 'serve';
+    if (!live || !isMatchPoint(world)) return;
+    const side: Side = match.score.you === match.winScore - 1 ? 'you' : 'bot';
+    let tint = this.pressure[side];
+    if (!tint) {
+      const r = Math.hypot(view.vw, view.vh) / 2;
+      const hue = hueOf(world, side);
+      tint = ctx.createRadialGradient(view.cx, view.cy, r * 0.5, view.cx, view.cy, r);
+      tint.addColorStop(0, hsla(hue, 90, 50, 0));
+      tint.addColorStop(1, hsla(hue, 90, 50, 0.3));
+      this.pressure[side] = tint;
+    }
+    // Lub-dub: two beats close together, then a rest.
+    const t = (fx.time * 1.15) % 1;
+    const beat = Math.max(Math.exp(-t * 14), Math.exp(-Math.abs(t - 0.22) * 16) * 0.7);
+    ctx.save();
+    ctx.globalAlpha = (0.35 + beat * 0.65) * Math.max(0.4, world.motion);
+    ctx.fillStyle = tint;
+    ctx.fillRect(0, 0, view.vw, view.vh);
+    ctx.restore();
+  }
+
+  /** The winning point's confetti - screen space, so it falls down the glass. */
+  private drawConfetti(world: World): void {
+    const { ctx } = this;
+    for (const piece of world.confetti.items) {
+      if (!piece.alive) continue;
+      const fade = Math.min(1, (piece.life - piece.age) / 0.4);
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.translate(piece.x, piece.y);
+      ctx.rotate(piece.rot);
+      // Tumbling: the visible height breathes as the piece turns over.
+      ctx.scale(1, Math.cos(piece.rot * 1.7));
+      ctx.fillStyle = hsla(piece.hue, 95, 64, 1);
+      ctx.fillRect(-piece.w / 2, -piece.h / 2, piece.w, piece.h);
+      ctx.restore();
+    }
   }
 
   /**
@@ -532,6 +832,8 @@ export class Renderer {
     }
 
     drawUltimateBanner(ctx, world, cx, cy, s, CANVAS_FONT);
+    this.drawBanner(world, cx, cy, s);
+    this.drawPopups(world);
 
     if (match.status === 'serve' && isMatchPoint(world)) {
       ctx.save();
@@ -542,5 +844,67 @@ export class Renderer {
       ctx.fillText('MATCH POINT', cx, cy - 116 * s);
       ctx.restore();
     }
+  }
+
+  /** Words rising off special returns, upright whatever the orientation. */
+  private drawPopups(world: World): void {
+    const { ctx } = this;
+    const { view } = world;
+    for (const popup of world.popups.items) {
+      if (!popup.alive) continue;
+      const t = popup.age / POPUP_LIFE;
+      const grow = popup.age < 0.22 ? 0.55 + easeOutBack(popup.age / 0.22, 2.6) * 0.45 : 1;
+      const rise = easeOutCubic(t) * 34;
+      const fade = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
+      const x = toScreenX(view, popup.x, popup.y);
+      const y = toScreenY(view, popup.x, popup.y) - 26 * view.scale - rise;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(grow, grow);
+      ctx.globalAlpha = fade;
+      ctx.font = `850 ${(popup.size * view.scale).toFixed(1)}px ${CANVAS_FONT}`;
+      ctx.lineWidth = 4 * view.scale;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(6,8,15,0.75)';
+      ctx.strokeText(popup.text, 0, 0);
+      ctx.fillStyle = hsla(popup.hue, 100, 78, 1);
+      ctx.fillText(popup.text, 0, 0);
+      ctx.restore();
+    }
+  }
+
+  /**
+   * The big card across the middle: a stage's name, a boss walking on, a
+   * boss moving into its next phase. Scales in with a little overshoot,
+   * holds, and fades - never while the ball is in the player's face, because
+   * it only ever appears over a serve or on the point a phase begins.
+   */
+  private drawBanner(world: World, cx: number, cy: number, s: number): void {
+    const { fx } = world;
+    if (fx.bannerTimer <= 0 || !fx.bannerText) return;
+    const { ctx } = this;
+    const age = BANNER_TIME - fx.bannerTimer;
+    const grow = age < 0.3 ? 0.7 + easeOutBack(age / 0.3, 2.2) * 0.3 : 1;
+    const fade = Math.min(1, fx.bannerTimer / 0.45, age / 0.12);
+    ctx.save();
+    ctx.translate(cx, cy - 40 * s);
+    ctx.scale(grow, grow);
+    ctx.globalAlpha = fade;
+    // A band of the banner's colour behind the words.
+    const width = 520 * s;
+    ctx.fillStyle = hsla(fx.bannerHue, 70, 12, 0.72);
+    ctx.fillRect(-width / 2, -46 * s, width, 92 * s);
+    ctx.fillStyle = hsla(fx.bannerHue, 100, 66, 0.9);
+    ctx.fillRect(-width / 2, -46 * s, width, 2 * s);
+    ctx.fillRect(-width / 2, 44 * s, width, 2 * s);
+    ctx.font = `850 ${(40 * s).toFixed(1)}px ${CANVAS_FONT}`;
+    ctx.fillStyle = hsla(fx.bannerHue, 100, 80, 1);
+    ctx.fillText(fx.bannerText.toUpperCase(), 0, -8 * s);
+    if (fx.bannerSub) {
+      ctx.font = `650 ${(15 * s).toFixed(1)}px ${CANVAS_FONT}`;
+      ctx.fillStyle = 'rgba(238,242,255,0.72)';
+      ctx.fillText(fx.bannerSub, 0, 26 * s);
+    }
+    ctx.restore();
   }
 }

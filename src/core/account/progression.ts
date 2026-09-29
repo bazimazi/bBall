@@ -22,6 +22,7 @@ import type { MatchResult } from '../modes/types';
 import { profileStore, type ProgressSummary } from '../profile/store';
 import type { AvatarId } from '../profile/types';
 import type { AbilityId, BranchId, TalentId } from '../talents/types';
+import { newRunSeed } from '../run/run';
 import { accountStore } from './store';
 
 function newOpId(prefix: string): string {
@@ -69,6 +70,11 @@ export function toSubmission(result: MatchResult, clientMatchId: string): MatchS
     ...(result.challengeId ? { challengeId: result.challengeId } : {}),
     ...(result.tournamentRound !== undefined ? { tournamentRound: result.tournamentRound } : {}),
     ...(result.tournamentTier !== undefined ? { tournamentTier: result.tournamentTier } : {}),
+    ...(result.stageId ? { stageId: result.stageId } : {}),
+    ...(result.dailyKey ? { dailyKey: result.dailyKey } : {}),
+    ...(result.runStage !== undefined ? { runStage: result.runStage } : {}),
+    flicks: result.flicks,
+    ...(result.day ? { day: result.day } : {}),
     talent: { ...result.talent },
     playedAt: Date.now()
   };
@@ -159,6 +165,25 @@ export function startTournament(tier: number) {
   const save = profileStore.startTournament(tier);
   queue({ kind: 'tournament.start', opId: newOpId('cup'), payload: { tier } });
   return save;
+}
+
+/** Begin a Gauntlet run. Returns false when one is already under way. */
+export function startRun(pressure: number): boolean {
+  const seed = newRunSeed();
+  if (!profileStore.startRun(seed, pressure)) return false;
+  queue({ kind: 'run.start', opId: newOpId('run'), payload: { seed, pressure } });
+  return true;
+}
+
+export function pickBoon(boonId: string): boolean {
+  if (!profileStore.pickBoon(boonId)) return false;
+  queue({ kind: 'run.pick', opId: newOpId('boon'), payload: { boonId } });
+  return true;
+}
+
+export function abandonRun(): void {
+  if (!profileStore.abandonRun()) return;
+  queue({ kind: 'run.abandon', opId: newOpId('run'), payload: {} });
 }
 
 export function abandonTournament(): void {

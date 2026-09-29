@@ -404,9 +404,23 @@ const oauthClient = `
 ALTER TABLE oauth_flows ADD COLUMN client TEXT NOT NULL DEFAULT 'web';
 `;
 
+const progress = `
+-- Journey stars, the daily streak, quests and the Gauntlet, as one JSON
+-- document per player. These are read and written whole, never queried by
+-- field, and the shape is repaired by the shared validator on every load -
+-- so a document rather than a table per mode, and a new mode is a field
+-- rather than a migration.
+CREATE TABLE profile_progress (
+  user_id    TEXT    PRIMARY KEY REFERENCES profiles (user_id) ON DELETE CASCADE,
+  data_json  TEXT    NOT NULL DEFAULT '{}',
+  updated_at INTEGER NOT NULL
+) WITHOUT ROWID;
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'init', up: init },
   { version: 2, name: 'sync_state', up: syncState },
   { version: 3, name: 'oauth', up: oauth },
-  { version: 4, name: 'oauth_client', up: oauthClient }
+  { version: 4, name: 'oauth_client', up: oauthClient },
+  { version: 5, name: 'progress', up: progress }
 ];

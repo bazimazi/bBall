@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { BotLevelId } from '../../core/bots/types';
+import { stageById } from '../../core/campaign/journey';
 import {
+  campaignRules,
   challengeRulesById,
+  dailyRules,
   endlessRules,
   practiceRules,
   quickMatchRules,
-  tournamentRules
+  runRules,
+  tournamentRules,
+  versusRules
 } from '../../core/modes/rules';
+import { dayKey } from '../../core/progression/xp';
+import { isRunActive } from '../../core/run/run';
 import type { MatchResult, MatchRules, ModeId } from '../../core/modes/types';
 import * as progression from '../../core/account/progression';
 import { profileStore, type ProgressSummary } from '../../core/profile/store';
@@ -23,6 +30,9 @@ export type ScreenId =
   | 'practice'
   | 'challenges'
   | 'tournament'
+  | 'journey'
+  | 'daily'
+  | 'gauntlet'
   | 'profile'
   | 'account'
   | 'achievements'
@@ -51,6 +61,14 @@ export interface GameFlow {
   startChallenge: (id: string) => void;
   startCup: (tier?: number) => void;
   abandonCup: () => void;
+  startStage: (id: string) => void;
+  startDaily: () => void;
+  /** Begin a Gauntlet run at `pressure`, straight into its first match. */
+  startRun: (pressure: number) => void;
+  /** Play the run's next match. */
+  playRun: () => void;
+  pickBoon: (id: string) => void;
+  abandonRun: () => void;
   /** Enter Demo mode at `level`. Nothing played there is ever saved. */
   startDemo: (level: number) => void;
   exitDemo: () => void;
@@ -150,6 +168,39 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     progression.abandonTournament();
   }, []);
 
+  const startStage = useCallback(
+    (id: string) => {
+      const stage = stageById(id);
+      if (stage) play(campaignRules(stage));
+    },
+    [play]
+  );
+
+  const startDaily = useCallback(() => play(dailyRules(dayKey())), [play]);
+
+  const playRun = useCallback(() => {
+    const run = profileStore.getSnapshot().progress.run;
+    // A draft must be picked before the next match: the server holds the run
+    // to the same rule, so the client never offers the way round it.
+    if (!isRunActive(run) || run.offer) return;
+    play(runRules(run));
+  }, [play]);
+
+  const startRun = useCallback(
+    (pressure: number) => {
+      if (progression.startRun(pressure)) playRun();
+    },
+    [playRun]
+  );
+
+  const pickBoon = useCallback((id: string) => {
+    progression.pickBoon(id);
+  }, []);
+
+  const abandonRun = useCallback(() => {
+    progression.abandonRun();
+  }, []);
+
   const startDemo = useCallback(
     (level: number) => {
       // A demo swaps the whole profile out, so any match in flight belongs to
@@ -188,6 +239,18 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
           break;
         case 'endless':
           play(endlessRules());
+          break;
+        case 'campaign':
+          setScreen('journey');
+          break;
+        case 'daily':
+          setScreen('daily');
+          break;
+        case 'run':
+          setScreen('gauntlet');
+          break;
+        case 'versus':
+          play(versusRules());
           break;
       }
     },
@@ -233,6 +296,12 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     startChallenge,
     startCup,
     abandonCup,
+    startStage,
+    startDaily,
+    startRun,
+    playRun,
+    pickBoon,
+    abandonRun,
     startDemo,
     exitDemo,
     replay,

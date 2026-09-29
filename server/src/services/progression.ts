@@ -24,6 +24,8 @@ import { levelOf } from '../../../src/core/progression/levels';
 import { cleanName } from '../../../src/core/profile/defaults';
 import type { AvatarId, PlayerProfile } from '../../../src/core/profile/types';
 import { AVATARS } from '../../../src/core/profile/types';
+import { abandonRunOn, pickBoonOn, startRunOn } from '../../../src/core/run/ops';
+import { isRunActive, pressureUnlocked } from '../../../src/core/run/run';
 import {
   buyTalent,
   cloneTalentSave,
@@ -237,7 +239,13 @@ function toSummary(applied: ReturnType<typeof applyMatchResult>): ProgressionSum
     xpBefore: applied.xpBefore,
     xpAfter: applied.xpAfter,
     xpAwarded: applied.award.total,
-    lines: applied.award.lines.map((line) => ({ label: line.label, xp: line.xp })),
+    // The one-off lines (stars, a daily clear, quests) are part of the total,
+    // so they travel with the rest: a summary whose lines do not add up to
+    // its award would be a bug report waiting to happen.
+    lines: [...applied.award.lines, ...applied.award.extras].map((line) => ({
+      label: line.label,
+      xp: line.xp
+    })),
     multiplier: applied.award.multiplier,
     talentMultiplier: applied.award.talentMultiplier,
     damped: applied.award.damped,
@@ -492,6 +500,59 @@ export function abandonTournament(
       lastTournament: { ...current, finished: true, champion: false }
     };
   });
+}
+
+// ------------------------------------------------------------- gauntlet
+
+export function startRun(
+  context: ServiceContext,
+  userId: string,
+  seed: string,
+  pressure: number,
+  baseVersion?: number
+): ServerProfile {
+  const server = mutate(context, userId, baseVersion, (profile) => {
+    if (isRunActive(profile.progress.run)) throw conflict('You already have a run in progress.');
+    // Pressure is earned by clearing the rank below it, so the server owns the gate.
+    if (pressure > pressureUnlocked(profile.progress.runRecords)) {
+      throw rejected('That Pressure is not unlocked yet.', { internal: `pressure=${pressure}` });
+    }
+    const next = startRunOn(profile, seed, pressure, context.now());
+    if (!next) throw rejected('That run cannot be started.');
+    return next;
+  });
+  logProgressionEvent(
+    context.db,
+    { userId, kind: 'run.start', detail: { pressure } },
+    context.now()
+  );
+  return server;
+}
+
+export function pickRunBoon(
+  context: ServiceContext,
+  userId: string,
+  boonId: string,
+  baseVersion?: number
+): ServerProfile {
+  return mutate(context, userId, baseVersion, (profile) => {
+    if (!isRunActive(profile.progress.run)) throw notFound('You have no run in progress.');
+    // The draft was rolled here, from the run's own seed, when the match that
+    // earned it was recorded - so a pick can only ever be one of those.
+    const next = pickBoonOn(profile, boonId);
+    if (!next) {
+      throw rejected('That boon was not on offer.', { internal: `boon=${boonId}` });
+    }
+    return next;
+  });
+}
+
+export function abandonRun(
+  context: ServiceContext,
+  userId: string,
+  baseVersion?: number
+): ServerProfile {
+  return mutate(context, userId, baseVersion, (profile) => abandonRunOn(profile) ?? profile);
 }
 
 // ---------------------------------------------------- rewards and sweeps

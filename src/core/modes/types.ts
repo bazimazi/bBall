@@ -1,7 +1,90 @@
 import type { BotLevelId, BotProfile } from '../bots/types';
+import type { BoonRanks } from '../run/boons';
+import type { StarGoal } from './stars';
+
+/**
+ * A round obstacle in the court. Positions are fractions of the court -
+ * `x` along its length, `y` across it - so a stage looks the same on every
+ * screen shape.
+ */
+export interface BumperSpec {
+  readonly x: number;
+  readonly y: number;
+  /** Radius, in field units. */
+  readonly r: number;
+  /** When set, the bumper circles (x, y) at `radius` field units. */
+  readonly orbit?: { readonly radius: number; readonly speed: number; readonly phase: number };
+}
+
+/**
+ * The court itself as a rule: what stands in it, and what pushes the ball
+ * around. Every hazard is data, read by `game/arena.ts`, so a stage, a boss
+ * or a daily challenge describes its court rather than coding one.
+ */
+export interface ArenaSpec {
+  readonly bumpers?: readonly BumperSpec[];
+  /**
+   * Wind across the court, in field units per second squared. It changes
+   * direction every `period` seconds (0 = never), with a warning first.
+   */
+  readonly wind?: { readonly strength: number; readonly period: number };
+  /** A gravity well: pull at 150 units away, in units per second squared. */
+  readonly well?: { readonly x: number; readonly y: number; readonly strength: number };
+  /**
+   * Brick walls standing in front of each side's goal. A ball that hits a
+   * brick breaks it and bounces back the way it came.
+   */
+  readonly bricks?: {
+    readonly rows: number;
+    /** Which walls stand: both, or only one side's. */
+    readonly sides: 'both' | 'you' | 'bot';
+    /** Bricks that take two hits. */
+    readonly armored?: boolean;
+    /** Rebuild the wall at every serve. */
+    readonly regrow?: boolean;
+  };
+}
+
+/** One step up in a boss's fight, reached when the player's score hits `at`. */
+export interface BossPhase {
+  readonly at: number;
+  /** Shown as a banner when the phase starts. */
+  readonly label: string;
+  /** A sharper brain for the rest of the match. */
+  readonly bot?: BotLevelId;
+  readonly botPaddleScale?: number;
+  /** Multiplier on every hazard's strength and speed. */
+  readonly intensity?: number;
+  /** The boss's returns bend late, like the player's Swerve. Units/s². */
+  readonly swerve?: number;
+}
+
+/**
+ * A boss: an opponent with a name, a court of its own, and phases that make
+ * the second half of the fight a different fight from the first.
+ */
+export interface BossSpec {
+  readonly id: string;
+  readonly name: string;
+  /** A few words under the name on the intro card. */
+  readonly title: string;
+  readonly hue: number;
+  /** From the first serve. */
+  readonly swerve?: number;
+  readonly phases: readonly BossPhase[];
+}
 import type { TalentMatchStats } from '../talents/types';
 
-export type ModeId = 'quick' | 'endless' | 'challenge' | 'tournament' | 'practice';
+export type ModeId =
+  | 'quick'
+  | 'endless'
+  | 'challenge'
+  | 'tournament'
+  | 'practice'
+  | 'campaign'
+  | 'daily'
+  | 'run'
+  | 'versus';
 
 /**
  * Everything a mode is allowed to change about a match. The simulation reads
@@ -19,6 +102,8 @@ export interface MatchModifiers {
   shrinkPerHit: number;
   /** Scoreboard the match opens on - used by the comeback challenge. */
   startScore: { you: number; bot: number };
+  /** What stands in the court and what pushes the ball about. */
+  arena?: ArenaSpec | undefined;
 }
 
 export const NEUTRAL_MODIFIERS: MatchModifiers = {
@@ -57,6 +142,24 @@ export interface MatchRules {
   readonly challengeId?: string | undefined;
   readonly tournamentRound?: number | undefined;
   readonly tournamentTier?: number | undefined;
+  /**
+   * Two people, one screen: both paddles are human and neither has a build.
+   * Never ranked, never recorded.
+   */
+  readonly versus?: boolean | undefined;
+  /** A boss fight: intro card, phases and a court of its own. */
+  readonly boss?: BossSpec | undefined;
+  /** The Journey stage being played. */
+  readonly stageId?: string | undefined;
+  /** The day whose daily challenge this is. */
+  readonly dailyKey?: string | undefined;
+  /** The Gauntlet encounter being played, and the boons the run holds. */
+  readonly runStage?: number | undefined;
+  readonly boons?: BoonRanks | undefined;
+  /** Star goals shown before the match and checked after it. */
+  readonly goals?: readonly [StarGoal, StarGoal] | undefined;
+  /** Shown as a banner on the first serve - a stage name, a daily's title. */
+  readonly intro?: { readonly title: string; readonly sub: string } | undefined;
 }
 
 /** What a finished match reports back. Pure data - no engine references. */
@@ -78,8 +181,21 @@ export interface MatchResult {
   readonly challengeId?: string | undefined;
   readonly tournamentRound?: number | undefined;
   readonly tournamentTier?: number | undefined;
+  readonly stageId?: string | undefined;
+  readonly dailyKey?: string | undefined;
+  readonly runStage?: number | undefined;
+  /** The boss this match was against, if it was one. */
+  readonly bossId?: string | undefined;
+  /**
+   * The player's own calendar day when the match ended. Quests belong to the
+   * player's day, not the server's; the server accepts it within a day of its
+   * own and falls back to its own date otherwise.
+   */
+  readonly day?: string | undefined;
   /** What the player's build did this match. Drives talent statistics. */
   readonly talent: TalentMatchStats;
+  /** Returns whipped off the paddle's end while it moved that way. */
+  readonly flicks: number;
   /** Won without conceding a point. */
   readonly shutout: boolean;
   /** Won after trailing by two or more. */

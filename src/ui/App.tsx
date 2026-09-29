@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { stageById, stageOpen, STAGES } from '../core/campaign/journey';
 import type { MatchResult } from '../core/modes/types';
 import { setExitRequestHandler } from '../core/platform/back';
 import { exitApp, isNativeShell } from '../core/platform/shell';
@@ -22,6 +23,9 @@ import { AccountScreen } from './screens/AccountScreen';
 import { AchievementsScreen } from './screens/AchievementsScreen';
 import { ChallengeScreen } from './screens/ChallengeScreen';
 import { CustomizeScreen } from './screens/CustomizeScreen';
+import { DailyScreen } from './screens/DailyScreen';
+import { GauntletScreen } from './screens/GauntletScreen';
+import { JourneyScreen } from './screens/JourneyScreen';
 import { DemoScreen } from './screens/DemoScreen';
 import { DifficultyScreen } from './screens/DifficultyScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -49,6 +53,54 @@ function resultActions(result: MatchResult, flow: GameFlow): ResultActions {
       primaryLabel: running ? 'Next round' : 'Tournament',
       onPrimary: running ? () => flow.startCup() : () => flow.leaveResult('tournament')
     };
+  }
+
+  if (result.mode === 'campaign') {
+    const journey = profileStore.getSnapshot().progress.journey;
+    const played = result.stageId ? stageById(result.stageId) : undefined;
+    // After a win, the stage straight after this one - which the win may just
+    // have opened - otherwise the same stage again.
+    const after = played ? STAGES[STAGES.indexOf(played) + 1] : undefined;
+    const next = result.won && after && stageOpen(journey, after) ? after : null;
+    return {
+      secondaryLabel: 'Journey',
+      onSecondary: () => flow.leaveResult('journey'),
+      primaryLabel: next ? `Next · ${next.name}` : result.won ? 'Play again' : 'Try again',
+      onPrimary: next ? () => flow.startStage(next.id) : flow.replay
+    };
+  }
+
+  if (result.mode === 'daily') {
+    return {
+      secondaryLabel: 'Daily',
+      onSecondary: () => flow.leaveResult('daily'),
+      primaryLabel: result.won ? 'Play again' : 'Try again',
+      onPrimary: flow.replay
+    };
+  }
+
+  if (result.mode === 'run') {
+    const run = profileStore.getSnapshot().progress.run;
+    if (run && run.offer) {
+      return {
+        ...menu,
+        primaryLabel: 'Choose a boon',
+        onPrimary: () => flow.leaveResult('gauntlet')
+      };
+    }
+    if (run) {
+      return {
+        secondaryLabel: 'Gauntlet',
+        onSecondary: () => flow.leaveResult('gauntlet'),
+        primaryLabel: 'Rematch',
+        onPrimary: flow.playRun
+      };
+    }
+    return { ...menu, primaryLabel: 'Gauntlet', onPrimary: () => flow.leaveResult('gauntlet') };
+  }
+
+  if (result.mode === 'versus') {
+    return { ...menu, primaryLabel: 'Rematch', onPrimary: flow.replay };
   }
 
   if (result.mode === 'challenge') {
@@ -181,6 +233,25 @@ export function App() {
         />
       )}
 
+      {flow.screen === 'journey' && (
+        <JourneyScreen profile={profile} onPlay={flow.startStage} onBack={flow.back} />
+      )}
+
+      {flow.screen === 'daily' && (
+        <DailyScreen profile={profile} onPlay={flow.startDaily} onBack={flow.back} />
+      )}
+
+      {flow.screen === 'gauntlet' && (
+        <GauntletScreen
+          profile={profile}
+          onStart={flow.startRun}
+          onPlay={flow.playRun}
+          onPick={flow.pickBoon}
+          onAbandon={flow.abandonRun}
+          onBack={flow.back}
+        />
+      )}
+
       {flow.screen === 'challenges' && (
         <ChallengeScreen profile={profile} onPick={flow.startChallenge} onBack={flow.back} />
       )}
@@ -237,6 +308,7 @@ export function App() {
           result={flow.result}
           summary={flow.summary}
           label={snapshot.label}
+          onStar={(index) => engine?.chime(index)}
           onTalents={() => flow.leaveResult('talents')}
           {...resultActions(flow.result, flow)}
         />

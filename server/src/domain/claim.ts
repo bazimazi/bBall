@@ -28,6 +28,13 @@
  */
 
 import { ACHIEVEMENTS } from '../../../src/core/achievements/catalog';
+import {
+  STAGES,
+  stageOpen,
+  totalStars,
+  type JourneyProgress
+} from '../../../src/core/campaign/journey';
+import { cloneProgress, type ProgressState } from '../../../src/core/profile/progress';
 import { DEFAULT_UNLOCKS } from '../../../src/core/cosmetics/catalog';
 import { CHALLENGES } from '../../../src/core/modes/challenges';
 import type { PlayerProfile } from '../../../src/core/profile/types';
@@ -63,7 +70,16 @@ export const CLAIM_LIMITS = {
   /** The fastest a ranked match could conceivably be finished. */
   secondsPerMatch: 8,
   /** Returns a player could make per second of play, generously. */
-  hitsPerSecond: 4
+  hitsPerSecond: 4,
+  /** The most a Journey star can pay: the last world's rate. */
+  xpPerStar: 110,
+  /** A daily clear with a full streak and both goals. */
+  xpPerDailyClear: 300,
+  /** A day of quests, all three and the bonus. */
+  xpPerQuestDay: 410,
+  /** A Gauntlet clear at the top Pressure, plus a boss's worth per match. */
+  xpPerRunClear: 1200,
+  xpPerRunPlayed: 810
 } as const;
 
 export interface SanitizedClaim {
@@ -98,8 +114,60 @@ export function maxSupportableXp(profile: PlayerProfile): number {
     stats.cupsPlayed * CLAIM_LIMITS.xpPerCupPlayed +
     achievementXpFor(profile);
 
+  const progress = profile.progress;
+  const fromModes =
+    totalStars(progress.journey) * CLAIM_LIMITS.xpPerStar +
+    progress.daily.clears * CLAIM_LIMITS.xpPerDailyClear +
+    (progress.daily.clears + progress.questSweeps) * CLAIM_LIMITS.xpPerQuestDay +
+    progress.runRecords.clears * CLAIM_LIMITS.xpPerRunClear +
+    progress.runRecords.runs * CLAIM_LIMITS.xpPerRunPlayed;
+
   const fromTime = stats.playSeconds * CLAIM_LIMITS.xpPerSecond;
-  return Math.max(0, Math.min(fromPlay, fromTime));
+  return Math.max(0, Math.min(fromPlay + fromModes, fromTime));
+}
+
+/**
+ * Trim a claimed save's newer-mode progress to what its own record supports.
+ *
+ * Journey stars are walked in order, so a stage only survives if the stages
+ * before it did; a streak cannot outrun its clears, nor clears the matches
+ * played. A run in progress is never imported - it cannot be checked, and
+ * starting a fresh one costs nothing.
+ */
+function sanitizeProgress(
+  source: ProgressState,
+  matches: number,
+  wins: number,
+  hits: number
+): ProgressState {
+  const progress = cloneProgress(source);
+  const journey: JourneyProgress = {};
+  let played = 0;
+  for (const stage of STAGES) {
+    const mask = progress.journey[stage.id] ?? 0;
+    if (mask === 0 || played >= matches) continue;
+    if (!stageOpen(journey, stage)) continue;
+    journey[stage.id] = mask;
+    played += 1;
+  }
+  progress.journey = journey;
+
+  const daily = progress.daily;
+  daily.clears = clamp(daily.clears, matches);
+  daily.bestStreak = clamp(daily.bestStreak, daily.clears);
+  daily.streak = clamp(daily.streak, daily.bestStreak);
+  progress.questSweeps = clamp(progress.questSweeps, Math.floor(matches / 3));
+
+  const records = progress.runRecords;
+  records.runs = clamp(records.runs, matches);
+  records.clears = clamp(records.clears, Math.floor(wins / 9));
+  if (records.clears === 0) records.bestPressure = -1;
+  progress.run = null;
+
+  for (const [id, count] of Object.entries(progress.bosses))
+    progress.bosses[id] = clamp(count, wins);
+  progress.flicks = clamp(progress.flicks, hits);
+  return progress;
 }
 
 function clamp(value: number, max: number): number {
@@ -167,7 +235,11 @@ export function sanitizeClaim(payload: unknown): SanitizedClaim | null {
     }
   }
 
-  const profile: PlayerProfile = { ...parsed, stats };
+  const profile: PlayerProfile = {
+    ...parsed,
+    stats,
+    progress: sanitizeProgress(parsed.progress, stats.matches, stats.wins, stats.rallyHits)
+  };
 
   const ceiling = maxSupportableXp(profile);
   if (profile.xp > ceiling) {
@@ -271,8 +343,38 @@ export function mergeProfiles(cloud: PlayerProfile, local: PlayerProfile): Playe
     // A cup in progress cannot be merged; the cloud's live run wins, and the
     // local one is kept as history rather than dropped.
     tournament: cloud.tournament ?? (localWins ? local.tournament : null),
-    lastTournament: cloud.lastTournament ?? local.lastTournament
+    lastTournament: cloud.lastTournament ?? local.lastTournament,
+    progress: mergeProgress(cloud.progress, local.progress)
   };
 
+  return merged;
+}
+
+/** The better of two newer-mode records, field by field. Nothing is ever lost. */
+function mergeProgress(cloud: ProgressState, local: ProgressState): ProgressState {
+  const merged = cloneProgress(cloud);
+  for (const [id, mask] of Object.entries(local.journey)) {
+    merged.journey[id] = (merged.journey[id] ?? 0) | mask;
+  }
+  // The streak belongs to whichever save cleared a daily most recently.
+  const later = local.daily.lastClear > cloud.daily.lastClear ? local.daily : cloud.daily;
+  merged.daily = {
+    ...later,
+    clears: Math.max(cloud.daily.clears, local.daily.clears),
+    bestStreak: Math.max(cloud.daily.bestStreak, local.daily.bestStreak)
+  };
+  merged.quests = cloud.quests ?? local.quests;
+  merged.questSweeps = Math.max(cloud.questSweeps, local.questSweeps);
+  merged.lastRun = cloud.lastRun ?? local.lastRun;
+  merged.runRecords = {
+    runs: Math.max(cloud.runRecords.runs, local.runRecords.runs),
+    clears: Math.max(cloud.runRecords.clears, local.runRecords.clears),
+    bestStage: Math.max(cloud.runRecords.bestStage, local.runRecords.bestStage),
+    bestPressure: Math.max(cloud.runRecords.bestPressure, local.runRecords.bestPressure)
+  };
+  for (const [id, wins] of Object.entries(local.bosses)) {
+    merged.bosses[id] = Math.max(merged.bosses[id] ?? 0, wins);
+  }
+  merged.flicks = Math.max(cloud.flicks, local.flicks);
   return merged;
 }

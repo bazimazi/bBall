@@ -130,6 +130,7 @@ export type ProgressionEventKind =
   | 'claim'
   | 'tournament.start'
   | 'tournament.abandon'
+  | 'run.start'
   | 'profile.update';
 
 export interface LogEventInput {

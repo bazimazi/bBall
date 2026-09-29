@@ -1,0 +1,172 @@
+import { BALL_R, FIELD_H } from '../constants';
+import { bumperHue, WIND_WARNING } from '../arena';
+import { hsla } from '../palette';
+import type { World } from '../world';
+import type { GlowCache } from './glow';
+import { roundRect } from './shapes';
+
+/**
+ * The court's hazards, drawn under the ball and over the floor.
+ *
+ * Each one is drawn so that what it *does* is visible before it does it: a
+ * bumper glows where it will be, an orbit leaves its track, the wind shows
+ * which way it blows and flashes the other way before it turns, and a
+ * gravity well draws its pull inwards. Nothing here may be brighter than the
+ * ball - the court tells the player what is coming, the ball is still the
+ * thing to watch.
+ */
+export function drawArena(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
+  const spec = world.arena.spec;
+  if (!spec) return;
+  if (spec.well) drawWell(ctx, world, glow);
+  if (spec.wind) drawWind(ctx, world);
+  if (world.arena.bricks.length > 0) drawBricks(ctx, world);
+  if (world.arena.bumpers.length > 0) drawBumpers(ctx, world, glow);
+}
+
+function drawBumpers(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
+  const hue = bumperHue(world);
+  const sprite = glow.dot(hue, 60);
+  const { view } = world;
+
+  // Orbits first, faint, so a moving bumper's path is readable in advance.
+  ctx.save();
+  ctx.strokeStyle = hsla(hue, 70, 70, 0.08);
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 10]);
+  for (const bumper of world.arena.bumpers) {
+    const orbit = bumper.spec.orbit;
+    if (!orbit) continue;
+    ctx.beginPath();
+    ctx.arc(bumper.spec.x * view.w, bumper.spec.y * FIELD_H, orbit.radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  for (const bumper of world.arena.bumpers) {
+    const { x, y, r, flash } = bumper;
+    const g = r * (2.4 + flash * 1.4);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.45 + flash * 0.45;
+    ctx.drawImage(sprite, x - g, y - g, g * 2, g * 2);
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(x, y, r * (1 + flash * 0.12), 0, Math.PI * 2);
+    ctx.fillStyle = hsla(hue, 60, 16 + flash * 20, 0.92);
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = hsla(hue, 100, 70 + flash * 20, 0.95);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.42, 0, Math.PI * 2);
+    ctx.fillStyle = hsla(hue, 100, 74 + flash * 20, 0.55 + flash * 0.4);
+    ctx.fill();
+  }
+}
+
+function drawWell(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
+  const spec = world.arena.spec?.well;
+  if (!spec) return;
+  const { arena, view, fx } = world;
+  const x = spec.x * view.w;
+  const y = spec.y * FIELD_H;
+  const hue = world.rules.boss?.hue ?? 250;
+  const strength = Math.min(1.6, (spec.strength * arena.intensity) / 900);
+
+  // Rings falling inwards forever: the pull, drawn.
+  ctx.save();
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i++) {
+    const t = (fx.time * 0.45 * arena.intensity + i / 4) % 1;
+    const r = 26 + (1 - t) * 150;
+    ctx.globalAlpha = t * 0.22 * strength;
+    ctx.strokeStyle = hsla(hue, 90, 70, 1);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  const g = 70;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.5;
+  ctx.drawImage(glow.dot(hue, 56), x - g, y - g, g * 2, g * 2);
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(x, y, BALL_R * 1.3, 0, Math.PI * 2);
+  ctx.fillStyle = '#05060c';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = hsla(hue, 100, 76, 0.9);
+  ctx.stroke();
+}
+
+function drawWind(ctx: CanvasRenderingContext2D, world: World): void {
+  const spec = world.arena.spec?.wind;
+  if (!spec) return;
+  const { arena, view, fx } = world;
+  const dir = arena.windDir;
+  const warning = spec.period > 0 && arena.windTimer < WIND_WARNING;
+  // Streaks drifting the way the wind blows.
+  const speed = 160 * arena.intensity;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = hsla(195, 70, 80, 1);
+  ctx.lineWidth = 1.6;
+  const columns = Math.max(6, Math.round(view.w / 110));
+  for (let i = 0; i < columns; i++) {
+    const x = ((i + 0.5) / columns) * view.w;
+    const offset = ((fx.time * speed + i * 137) % (FIELD_H + 120)) - 60;
+    const y = dir > 0 ? offset : FIELD_H - offset;
+    const length = 26 + (i % 3) * 12;
+    ctx.globalAlpha = 0.09 + (i % 2) * 0.04;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y - dir * length);
+    ctx.stroke();
+  }
+
+  // Chevrons along both touchlines, pointing the way it blows - or, in the
+  // last moments before it turns, flashing the way it is about to.
+  const pointing = warning ? -dir : dir;
+  const blink = warning ? (Math.sin(fx.time * 26) > 0 ? 1 : 0.25) : 1;
+  ctx.globalAlpha = (warning ? 0.55 : 0.2) * blink;
+  ctx.strokeStyle = warning ? hsla(38, 100, 66, 1) : hsla(195, 80, 80, 1);
+  ctx.lineWidth = 3;
+  for (const edge of [22, view.w - 22]) {
+    for (let k = -1; k <= 1; k++) {
+      const cy = FIELD_H / 2 + k * 70;
+      ctx.beginPath();
+      ctx.moveTo(edge - 10, cy - pointing * 8);
+      ctx.lineTo(edge, cy + pointing * 4);
+      ctx.lineTo(edge + 10, cy - pointing * 8);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawBricks(ctx: CanvasRenderingContext2D, world: World): void {
+  for (const brick of world.arena.bricks) {
+    if (!brick.alive) continue;
+    const hue = world.theme[brick.side === 'you' ? 'youHue' : 'botHue'];
+    const health = brick.hp / brick.maxHp;
+    ctx.fillStyle = hsla(hue, 70, 34 + brick.flash * 40, 0.45 + health * 0.35);
+    roundRect(ctx, brick.x, brick.y, brick.w, brick.h, 5);
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = hsla(hue, 100, 70 + brick.flash * 20, 0.55 + health * 0.35);
+    ctx.stroke();
+    if (brick.maxHp > 1 && brick.hp > 1) {
+      // Armour: an inner line that the first hit knocks off.
+      ctx.strokeStyle = hsla(hue, 100, 82, 0.6);
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, brick.x + 4, brick.y + 4, brick.w - 8, brick.h - 8, 3);
+      ctx.stroke();
+    }
+  }
+}

@@ -1,4 +1,10 @@
 import { ACHIEVEMENTS, type Achievement } from '../achievements/catalog';
+import { stageById, starXp } from '../campaign/journey';
+import { applyDaily, dailySpec } from '../daily/daily';
+import { starCount, starsEarned } from '../modes/stars';
+import { cloneProgress } from '../profile/progress';
+import { applyQuests, QUEST_BONUS_XP, QUEST_XP, type QuestDef } from '../quests/quests';
+import { advanceRun, type RunAdvance } from '../run/run';
 import { COSMETICS, isUnlocked, type Cosmetic } from '../cosmetics/catalog';
 import type { MatchResult } from '../modes/types';
 import { createStats } from '../profile/defaults';
@@ -6,7 +12,7 @@ import type { PlayerProfile } from '../profile/types';
 import { cloneTalentSave, reconcile } from '../talents/save';
 import { advanceTournament, TOURNAMENT_ROUNDS, type TournamentSave } from '../tournament/bracket';
 import { levelFromXp, levelOf } from './levels';
-import { computeMatchXp, dayKey, EMPTY_AWARD, type XpAward } from './xp';
+import { computeMatchXp, dayKey, EMPTY_AWARD, type XpAward, type XpLine } from './xp';
 
 export interface ProgressSummary {
   readonly profile: PlayerProfile;
@@ -26,6 +32,20 @@ export interface ProgressSummary {
   readonly talentPoints: number;
   /** Unspent points afterwards, so the result card can nudge the player. */
   readonly talentPointsAvailable: number;
+  /** Stars this match earned (a mask), in a Journey stage or the daily. */
+  readonly stars: number;
+  /** Of those, how many had never been earned before. */
+  readonly newStars: number;
+  /** The daily was cleared for the first time today; the streak it now stands at. */
+  readonly dailyCleared: boolean;
+  readonly dailyStreak: number;
+  /** Quests this match finished, and whether it finished the day's set. */
+  readonly questsDone: readonly QuestDef[];
+  readonly questBonus: boolean;
+  /** What the match did to a Gauntlet run, if it was a run match. */
+  readonly run: RunAdvance | null;
+  /** A boss fell. */
+  readonly bossBeaten: boolean;
 }
 
 function cloneProfile(profile: PlayerProfile): PlayerProfile {
@@ -44,6 +64,7 @@ function cloneProfile(profile: PlayerProfile): PlayerProfile {
       ? { ...profile.lastTournament, results: [...profile.lastTournament.results] }
       : null,
     daily: { ...profile.daily },
+    progress: cloneProgress(profile.progress),
     preferences: { ...profile.preferences }
   };
 }
@@ -235,7 +256,15 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
       tournament: null,
       cupWon: false,
       talentPoints: 0,
-      talentPointsAvailable: source.talents.points
+      talentPointsAvailable: source.talents.points,
+      stars: 0,
+      newStars: 0,
+      dailyCleared: false,
+      dailyStreak: source.progress.daily.streak,
+      questsDone: [],
+      questBonus: false,
+      run: null,
+      bossBeaten: false
     };
   }
 
@@ -244,13 +273,15 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   const tournament = applyTournament(profile, result);
   applyTalentStats(profile, result);
 
-  const award = computeMatchXp(result, {
+  const base = computeMatchXp(result, {
     matchesToday: profile.daily.matches,
     firstChallengeClear: challengeCleared,
     // No talent pays XP any more: with points this scarce, every one of them
     // buys something that changes a rally, never how fast the next arrives.
     talentXpMul: 1
   });
+  const modes = applyModes(profile, result);
+  const award = withExtraLines(base, modes.lines);
   profile.xp += award.total;
   profile.daily.matches += 1;
 
@@ -281,6 +312,144 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
     tournament,
     cupWon: tournament?.champion ?? false,
     talentPoints: Math.max(0, profile.talents.points - pointsBefore),
-    talentPointsAvailable: profile.talents.points
+    talentPointsAvailable: profile.talents.points,
+    stars: modes.stars,
+    newStars: modes.newStars,
+    dailyCleared: modes.dailyCleared,
+    dailyStreak: profile.progress.daily.streak,
+    questsDone: modes.questsDone,
+    questBonus: modes.questBonus,
+    run: modes.run,
+    bossBeaten: modes.bossBeaten
   };
+}
+
+interface ModesOutcome {
+  lines: XpLine[];
+  stars: number;
+  newStars: number;
+  dailyCleared: boolean;
+  questsDone: readonly QuestDef[];
+  questBonus: boolean;
+  run: RunAdvance | null;
+  bossBeaten: boolean;
+}
+
+/** XP for the Journey, the daily and the Gauntlet. Each is paid once, so none of it is damped. */
+const DAILY_CLEAR_XP = 150;
+const DAILY_STREAK_XP = 10;
+const DAILY_STAR_XP = 40;
+const RUN_WIN_XP = 40;
+const RUN_BOSS_XP = 90;
+const RUN_CLEAR_XP = 400;
+const RUN_PRESSURE_XP = 150;
+
+/**
+ * The newer modes' share of a finished match: Journey stars, the daily and
+ * its streak, a Gauntlet run's next step, bosses, flicks and the day's
+ * quests. Mutates the (already cloned) profile and reports what happened,
+ * with the XP lines it is worth.
+ */
+function applyModes(profile: PlayerProfile, result: MatchResult): ModesOutcome {
+  const progress = profile.progress;
+  const lines: XpLine[] = [];
+  const add = (label: string, xp: number) => {
+    if (xp > 0) lines.push({ label, xp: Math.round(xp) });
+  };
+  let stars = 0;
+  let newStars = 0;
+  let dailyCleared = false;
+  let run: RunAdvance | null = null;
+
+  progress.flicks += Math.max(0, result.flicks);
+
+  if (result.mode === 'campaign' && result.stageId) {
+    const stage = stageById(result.stageId);
+    if (stage) {
+      stars = starsEarned(stage.goals, result);
+      const before = progress.journey[stage.id] ?? 0;
+      const after = before | stars;
+      newStars = starCount(after) - starCount(before);
+      if (after !== before) progress.journey[stage.id] = after;
+      add(newStars > 1 ? `${newStars} new stars` : 'New star', newStars * starXp(stage.world));
+    }
+  }
+
+  if (result.mode === 'daily' && result.dailyKey) {
+    const spec = dailySpec(result.dailyKey);
+    stars = starsEarned(spec.goals, result);
+    const outcome = applyDaily(progress.daily, result.dailyKey, stars);
+    progress.daily = outcome.record;
+    dailyCleared = outcome.firstClear;
+    if (outcome.firstClear) {
+      add('Daily clear', DAILY_CLEAR_XP);
+      add(`Streak ×${outcome.record.streak}`, Math.min(7, outcome.record.streak) * DAILY_STREAK_XP);
+    }
+    const goals = outcome.newMedals - (outcome.firstClear ? 1 : 0);
+    add('Daily stars', Math.max(0, goals) * DAILY_STAR_XP);
+  }
+
+  if (result.mode === 'run' && progress.run && !progress.run.finished) {
+    if (result.runStage === undefined || result.runStage === progress.run.stage) {
+      const pressure = progress.run.pressure;
+      run = advanceRun(progress.run, result.won, result.scoreYou, result.scoreBot);
+      if (result.won) {
+        add(
+          result.bossId ? 'Boss defeated' : 'Gauntlet win',
+          result.bossId ? RUN_BOSS_XP : RUN_WIN_XP
+        );
+      }
+      if (run.cleared) add('Gauntlet cleared', RUN_CLEAR_XP + pressure * RUN_PRESSURE_XP);
+      if (run.ended) {
+        const records = progress.runRecords;
+        records.runs += 1;
+        records.bestStage = Math.max(records.bestStage, run.save.stage);
+        if (run.cleared) {
+          records.clears += 1;
+          records.bestPressure = Math.max(records.bestPressure, pressure);
+        }
+        progress.lastRun = run.save;
+        progress.run = null;
+      } else {
+        progress.run = run.save;
+      }
+    }
+  }
+
+  const bossBeaten = result.won && !!result.bossId;
+  if (bossBeaten && result.bossId) {
+    progress.bosses[result.bossId] = (progress.bosses[result.bossId] ?? 0) + 1;
+  }
+
+  const quests = applyQuests(progress.quests, result.day ?? dayKey(), {
+    result,
+    newStars,
+    bossBeaten,
+    dailyCleared,
+    runWin: result.mode === 'run' && result.won
+  });
+  progress.quests = quests.state;
+  for (const quest of quests.completed) add(`Quest · ${quest.label}`, QUEST_XP[quest.tier] ?? 0);
+  if (quests.bonus) {
+    progress.questSweeps += 1;
+    add('All three quests', QUEST_BONUS_XP);
+  }
+
+  return {
+    lines,
+    stars,
+    newStars,
+    dailyCleared,
+    questsDone: quests.completed,
+    questBonus: quests.bonus,
+    run,
+    bossBeaten
+  };
+}
+
+/** Fold one-off lines into an award. They are never multiplied or damped. */
+function withExtraLines(award: XpAward, lines: readonly XpLine[]): XpAward {
+  if (lines.length === 0) return award;
+  const extra = lines.reduce((sum, line) => sum + line.xp, 0);
+  return { ...award, extras: lines, total: award.total + extra };
 }

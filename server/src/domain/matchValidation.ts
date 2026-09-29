@@ -24,20 +24,27 @@
  */
 
 import { isBotLevelId, SELECTABLE_BOTS } from '../../../src/core/bots/levels';
+import { stageById, stageOpen } from '../../../src/core/campaign/journey';
+import { daysBetween, isDayKey } from '../../../src/core/daily/daily';
+import { dayKey } from '../../../src/core/progression/xp';
+import { isRunActive } from '../../../src/core/run/run';
 import { challengeById } from '../../../src/core/modes/challenges';
 import { isModeId } from '../../../src/core/modes/catalog';
 import {
+  campaignRules,
   challengeRules,
+  dailyRules,
   endlessRules,
   objectiveMet,
   practiceRules,
   quickMatchRules,
+  runRules,
   tournamentRules
 } from '../../../src/core/modes/rules';
 import type { MatchResult, MatchRules } from '../../../src/core/modes/types';
 import type { PlayerProfile } from '../../../src/core/profile/types';
 import { levelOf } from '../../../src/core/progression/levels';
-import { canCrit, canSave, resolveLoadout } from '../../../src/core/talents/effects';
+import { canCrit, canSave, resolveLoadout, withBoons } from '../../../src/core/talents/effects';
 import { abilityById } from '../../../src/core/talents/abilities';
 import { ownedAbilities } from '../../../src/core/talents/save';
 import { BALANCE } from '../../../src/core/balance/config';
@@ -80,6 +87,13 @@ export type RejectionCode =
   | 'unknown-challenge'
   | 'no-active-tournament'
   | 'tournament-mismatch'
+  | 'unknown-stage'
+  | 'stage-locked'
+  | 'unknown-daily'
+  | 'daily-expired'
+  | 'no-active-run'
+  | 'run-mismatch'
+  | 'unranked-mode'
   | 'impossible-score'
   | 'score-below-start'
   | 'inconsistent-outcome'
@@ -127,7 +141,8 @@ const reject = (code: RejectionCode, reason: string): Rejection => ({ ok: false,
 
 function resolveRules(
   submission: MatchSubmissionDto,
-  profile: PlayerProfile
+  profile: PlayerProfile,
+  now: number
 ): MatchRules | Rejection {
   if (!isModeId(submission.mode)) return reject('unknown-mode', 'That game mode does not exist.');
   if (!isBotLevelId(submission.botId))
@@ -180,6 +195,56 @@ function resolveRules(
       }
       return rules;
     }
+
+    case 'campaign': {
+      const stage = submission.stageId ? stageById(submission.stageId) : undefined;
+      if (!stage) return reject('unknown-stage', 'That stage does not exist.');
+      // A stage is opened by the stars and clears the server holds, not by a
+      // client that says it got there.
+      if (!stageOpen(profile.progress.journey, stage)) {
+        return reject('stage-locked', 'That stage is not open yet.');
+      }
+      const rules = campaignRules(stage);
+      if (rules.bot.id !== submission.botId) {
+        return reject('bot-mode-mismatch', 'That stage is not played against that opponent.');
+      }
+      return rules;
+    }
+
+    case 'daily': {
+      const key = submission.dailyKey;
+      if (!key || !isDayKey(key)) return reject('unknown-daily', 'That daily does not exist.');
+      // A day either side of the server's own covers every time zone; a
+      // challenge from last week does not get a second life.
+      const gap = daysBetween(dayKey(new Date(now)), key);
+      if (!Number.isFinite(gap) || Math.abs(gap) > 1) {
+        return reject('daily-expired', 'That daily challenge has closed.');
+      }
+      const rules = dailyRules(key);
+      if (rules.bot.id !== submission.botId) {
+        return reject('bot-mode-mismatch', 'That daily is not played against that opponent.');
+      }
+      return rules;
+    }
+
+    case 'run': {
+      const run = profile.progress.run;
+      if (!isRunActive(run)) return reject('no-active-run', 'You have no run in progress.');
+      if (run.offer) return reject('run-mismatch', 'A boon is waiting to be picked first.');
+      if (submission.runStage !== undefined && submission.runStage !== run.stage) {
+        return reject('run-mismatch', 'That match of the run has already been played.');
+      }
+      // The encounter is re-derived from the run's seed, so the opponent,
+      // the court and the boons in play are the server's, not the report's.
+      const rules = runRules(run);
+      if (rules.bot.id !== submission.botId) {
+        return reject('run-mismatch', 'That is not your next opponent.');
+      }
+      return rules;
+    }
+
+    case 'versus':
+      return reject('unranked-mode', 'Two-player matches are not recorded.');
   }
 }
 
@@ -274,10 +339,17 @@ function checkRallyAndTime(submission: MatchSubmissionDto, rules: MatchRules): R
  * reads - so a deeper build is allowed more without any number being
  * duplicated here.
  */
-function checkTalentUse(submission: MatchSubmissionDto, profile: PlayerProfile): Rejection | null {
+function checkTalentUse(
+  submission: MatchSubmissionDto,
+  profile: PlayerProfile,
+  rules: MatchRules
+): Rejection | null {
   const stats = submission.talent;
   const level = levelOf(profile.xp);
-  const loadout = resolveLoadout(profile.talents, level);
+  // A Gauntlet match is played with the run's boons folded in - a Guard Wall
+  // save is honest on a build that owns no Shield.
+  const base = resolveLoadout(profile.talents, level);
+  const loadout = rules.boons ? withBoons(base, rules.boons) : base;
   const equipped = loadout.equipped.filter((id): id is NonNullable<typeof id> => id !== null);
   const owned = new Set(ownedAbilities(profile.talents));
 
@@ -381,8 +453,12 @@ export function validateMatch(
     return reject('future-timestamp', 'That match is dated in the future.');
   }
 
-  const rules = resolveRules(submission, context.profile);
+  const rules = resolveRules(submission, context.profile, context.now);
   if ('ok' in rules) return rules;
+
+  if ((submission.flicks ?? 0) > submission.hits) {
+    return reject('impossible-rally', 'More flicks than returns played.');
+  }
 
   const scoreProblem = checkScores(submission, rules);
   if (scoreProblem) return scoreProblem;
@@ -390,7 +466,7 @@ export function validateMatch(
   const rallyProblem = checkRallyAndTime(submission, rules);
   if (rallyProblem) return rallyProblem;
 
-  const talentProblem = checkTalentUse(submission, context.profile);
+  const talentProblem = checkTalentUse(submission, context.profile, rules);
   if (talentProblem) return talentProblem;
 
   // The budget is the backstop the per-match checks cannot provide: each
@@ -419,6 +495,17 @@ export function validateMatch(
     challengeId: rules.challengeId,
     tournamentRound: rules.tournamentRound,
     tournamentTier: rules.tournamentTier,
+    stageId: rules.stageId,
+    dailyKey: rules.dailyKey,
+    runStage: rules.runStage,
+    bossId: rules.boss?.id,
+    flicks: submission.flicks ?? 0,
+    // The player's own day keeps their quests on their calendar; a day
+    // further out than time zones explain is ignored for the server's own.
+    day:
+      submission.day && Math.abs(daysBetween(dayKey(new Date(context.now)), submission.day)) <= 1
+        ? submission.day
+        : undefined,
     talent: { ...submission.talent },
     shutout: submission.shutout,
     comeback: submission.comeback,

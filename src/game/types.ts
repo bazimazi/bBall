@@ -223,6 +223,8 @@ export interface MatchState {
   points: number;
   /** Returns the player has hit this match. */
   hits: number;
+  /** Flicks: returns whipped off the paddle's end while it was moving that way. */
+  flicks: number;
   /** Seconds of active play, for stats and the result card. */
   elapsed: number;
   score: Record<Side, number>;
@@ -251,6 +253,8 @@ export interface FxState {
   shake: number;
   shakeX: number;
   shakeY: number;
+  /** A hair of camera roll under heavy shake, in radians. */
+  shakeRot: number;
   flash: number;
   /**
    * The colour of the screen flash, or -1 for the plain white one.
@@ -275,6 +279,22 @@ export interface FxState {
    * two things on screen an ultimate left untouched.
    */
   castId: number;
+  /** Camera shove along the field's long axis, in field units. Decays fast. */
+  kick: number;
+  /** 0..1 flash along the goal line a point was just scored past. */
+  goalFlash: number;
+  /** The side whose line was breached - the flash sits at their end. */
+  goalSide: Side;
+  /** 0..1 pop on each side's newest score pip. */
+  pipPopYou: number;
+  pipPopBot: number;
+  /** Seconds before another edge save may slow the clock. */
+  edgeCooldown: number;
+  /** The big centre banner: a stage's name, a boss's intro, a new phase. */
+  bannerText: string;
+  bannerSub: string;
+  bannerHue: number;
+  bannerTimer: number;
   /** Seconds left of the viewport-wide wave, and where it started from. */
   burst: number;
   burstX: number;
