@@ -379,6 +379,8 @@ export interface GameSnapshot {
   canPause: boolean;
   /** The objective line for challenge and cup matches, if any. */
   objective: string | null;
+  /** The same line for a touch screen, where it differs. */
+  objectiveTouch: string | null;
   /**
    * The equipped abilities. The array is rebuilt only when what it shows
    * changes, so the HUD re-renders on state changes rather than per frame.

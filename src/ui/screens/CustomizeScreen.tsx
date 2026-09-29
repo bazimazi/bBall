@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+
 import { achievementById } from '../../core/achievements/catalog';
 import {
   EQUIP_SLOTS,
@@ -35,7 +37,9 @@ export function CustomizeScreen({ profile, onBack }: CustomizeScreenProps) {
       onBack={onBack}
     >
       {EQUIP_SLOTS.map((slot) => (
-        <div key={slot}>
+        // A fragment, not a wrapper: the label and its grid sit directly in the
+        // body's column and take its gap, like every other section label.
+        <Fragment key={slot}>
           <p className={styles.sectionLabel}>{SECTION_NAMES[slot as CosmeticKind]}</p>
           <div className={styles.swatchGrid}>
             {cosmeticsOfKind(slot as CosmeticKind).map((cosmetic) => {
@@ -71,7 +75,7 @@ export function CustomizeScreen({ profile, onBack }: CustomizeScreenProps) {
               );
             })}
           </div>
-        </div>
+        </Fragment>
       ))}
     </Screen>
   );

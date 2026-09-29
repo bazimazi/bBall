@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.bball" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+        <!-- The game is always dark: no white flash before the page paints. -->
+        <item name="android:windowBackground">@color/game_background</item>
     </style>
 </resources>

@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# MainActivity hands the page its system-bar insets through this bridge.
+-keepclassmembers class games.bazimazi.bball.MainActivity$InsetsBridge {
+   @android.webkit.JavascriptInterface <methods>;
+}

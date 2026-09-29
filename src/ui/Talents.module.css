@@ -57,6 +57,24 @@
   display: none;
 }
 
+/*
+ * On a wide screen the menu is a centred column, so the strip ends mid-air
+ * rather than at the screen edge: fade branches out there instead of cutting
+ * them off.
+ */
+@media (min-width: 620px) {
+  .trees {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 14px,
+      #000 calc(100% - 14px),
+      transparent
+    );
+    mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  }
+}
+
 .tree {
   flex: 0 0 auto;
   scroll-snap-align: center;
@@ -495,8 +513,15 @@
   }
 }
 
+/*
+ * `rise` stays in the list: swapping it out for `purchase` and back again when
+ * the flash ends would restart it, and the whole sheet would blink out and
+ * slide in a second time.
+ */
 .sheetBought {
-  animation: purchase 0.55s cubic-bezier(0.18, 0.9, 0.24, 1);
+  animation:
+    rise 0.22s cubic-bezier(0.18, 0.9, 0.24, 1),
+    purchase 0.55s cubic-bezier(0.18, 0.9, 0.24, 1);
 }
 
 @keyframes purchase {

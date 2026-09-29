@@ -13,6 +13,7 @@ import { UltimateFlare } from './UltimateFlare';
 import { useAccount } from './hooks/useAccount';
 import { useAccountLink } from './hooks/useAccountLink';
 import { useBackHandler } from './hooks/useBackHandler';
+import { useCoarsePointer } from './hooks/useCoarsePointer';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useGameFlow, type GameFlow } from './hooks/useGameFlow';
 import { useDemoLevel, useLoadout, useProfile, useTheme } from './hooks/useProfile';
@@ -132,6 +133,7 @@ export function App() {
   const flow = useGameFlow(engine, snapshot);
   const account = useAccount();
   const settings = useSettings();
+  const coarse = useCoarsePointer();
   const openAccount = useCallback(() => flow.go('account'), [flow]);
   const accountLink = useAccountLink(openAccount);
   const [leaving, setLeaving] = useState(false);
@@ -187,7 +189,9 @@ export function App() {
       <Hud
         muted={snapshot.muted}
         canPause={playing && snapshot.canPause}
-        label={playing && !paused ? snapshot.objective : null}
+        label={
+          playing && !paused ? (coarse && snapshot.objectiveTouch) || snapshot.objective : null
+        }
         onToggleMute={() => engine?.toggleMute()}
         onPause={() => engine?.pause()}
       />

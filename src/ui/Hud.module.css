@@ -73,6 +73,18 @@
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.02em;
+  /* A two-line objective splits evenly instead of leaving one word behind. */
+  text-wrap: balance;
   color: var(--muted);
   pointer-events: none;
+}
+
+/*
+ * Upright, the court is turned and the opponent's score pips run across the
+ * top centre - stop short of them rather than writing over them.
+ */
+@media (orientation: portrait) {
+  .label {
+    max-width: calc(50vw - var(--safe-l) - 80px);
+  }
 }

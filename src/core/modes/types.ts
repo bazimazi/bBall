@@ -122,6 +122,8 @@ export interface MatchObjective {
   readonly id: ObjectiveId;
   /** Shown before the match and on the result card. Keep it to a few words. */
   readonly label: string;
+  /** Shown over the court instead of `label` when the player is on a touch screen. */
+  readonly touchLabel?: string;
   readonly value: number;
 }
 

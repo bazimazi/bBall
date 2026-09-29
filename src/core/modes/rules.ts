@@ -189,10 +189,12 @@ export function versusRules(winScore = QUICK_WIN_SCORE): MatchRules {
     modifiers: modifiers(),
     ranked: false,
     label: 'Versus',
-    // Shown over the court: who steers what, on a touch screen and a keyboard.
+    // Shown over the court: who steers what. A phone is held upright, so its
+    // halves are top and bottom rather than left and right - and it has no keys.
     objective: {
       id: 'win',
       label: 'Player one: left half, W S · Player two: right half, ↑ ↓',
+      touchLabel: 'Each player steers on their own half',
       value: 0
     },
     versus: true

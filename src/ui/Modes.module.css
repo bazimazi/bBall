@@ -373,12 +373,27 @@
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 2px 1px 4px;
-  margin: 0 -1px;
+  /* Bleed to the screen edge, so the strip visibly runs on past it. */
+  padding: 2px 16px 4px;
+  margin: 0 -16px;
 }
 
 .tabs::-webkit-scrollbar {
   display: none;
+}
+
+/* A centred column on a wide screen: fade the ends, as the talent strip does. */
+@media (min-width: 620px) {
+  .tabs {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 16px,
+      #000 calc(100% - 16px),
+      transparent
+    );
+    mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  }
 }
 
 .tab {

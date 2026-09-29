@@ -71,9 +71,35 @@ function onPopState(): void {
   // The entry just consumed is gone, so the net depth is unchanged.
   pushed -= 1;
 
+  dispatchBack();
+}
+
+function dispatchBack(): void {
   const handler = handlers.at(-1);
   if (handler) handler();
   else onExitRequest?.();
+}
+
+/**
+ * On Android, take the back button straight from the shell.
+ *
+ * The history guard alone is not enough there: Chromium skips entries a page
+ * pushed before the user ever touched it, so on a fresh launch
+ * `WebView.canGoBack()` is false and the very first press closes the app with
+ * no prompt. Once a listener is registered, Tauri's app plugin hands every
+ * press to the page instead of the WebView's history. Elsewhere there is no
+ * such event and the registration simply fails.
+ */
+async function listenForNativeBack(): Promise<void> {
+  if (!('__TAURI_INTERNALS__' in window)) return;
+  try {
+    const { onBackButtonPress } = await import('@tauri-apps/api/app');
+    await onBackButtonPress(() => {
+      if (!leaving) dispatchBack();
+    });
+  } catch {
+    // Not a mobile shell: the popstate guard covers it.
+  }
 }
 
 /** Arm the guard and start listening. Safe to call more than once. */
@@ -83,6 +109,7 @@ export function installBackRouting(): void {
   startLength = window.history.length;
   pushGuard();
   window.addEventListener('popstate', onPopState);
+  void listenForNativeBack();
 }
 
 /**

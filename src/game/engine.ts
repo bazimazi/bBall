@@ -75,6 +75,7 @@ export function idleSnapshot(): GameSnapshot {
     muted: readStored(STORAGE_KEYS.muted, '0') === '1',
     canPause: false,
     objective: null,
+    objectiveTouch: null,
     abilities: NO_ABILITIES,
     ultimateCastId: 0,
     ultimateHue: 0,
@@ -311,6 +312,7 @@ export class GameEngine {
       muted: this.audio.muted,
       canPause: status === 'play' || status === 'serve',
       objective: rules.objective?.label ?? null,
+      objectiveTouch: rules.objective?.touchLabel ?? null,
       abilities: this.abilityView(),
       // The chrome sits above the canvas, so it is the one part of the page a
       // capstone cannot reach from the renderer. These four scalars are what
