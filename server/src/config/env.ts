@@ -223,7 +223,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     isTest: env === 'test',
     host: raw.HOST,
     port: raw.PORT,
-    version: process.env.npm_package_version ?? '0.2.0',
+    version: process.env.npm_package_version ?? '0.3.0',
 
     database: {
       file: raw.DATABASE_FILE,
