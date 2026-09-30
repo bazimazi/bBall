@@ -45,6 +45,40 @@ export class ParticleSystem {
     }
   }
 
+  /**
+   * Draw `count` particles *in* towards (x, y) from a ring `radius` out, each
+   * arriving exactly at the centre as it dies - the serve gathering itself.
+   */
+  converge(
+    x: number,
+    y: number,
+    count: number,
+    radius: number,
+    life: number,
+    size: number,
+    color: string,
+    scale = 1
+  ): void {
+    const n = Math.round(count * scale);
+    for (let i = 0; i < n; i++) {
+      const p = this.items[this.head]!;
+      this.head = (this.head + 1) % PARTICLE_MAX;
+      const angle = Math.random() * Math.PI * 2;
+      const reach = radius * (0.7 + Math.random() * 0.5);
+      const span = life * (0.8 + Math.random() * 0.4);
+      p.x = x + Math.cos(angle) * reach;
+      p.y = y + Math.sin(angle) * reach;
+      p.vx = (-Math.cos(angle) * reach) / span;
+      p.vy = (-Math.sin(angle) * reach) / span;
+      p.age = 0;
+      p.life = span;
+      p.size = size * (0.6 + Math.random() * 0.8);
+      p.drag = 1;
+      p.color = color;
+      p.alive = true;
+    }
+  }
+
   update(dt: number): void {
     for (const p of this.items) {
       if (!p.alive) continue;

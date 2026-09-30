@@ -1,5 +1,13 @@
 import type { BotProfile } from '../core/bots/types';
-import { arenaCurves, bend, brickAt, wallFor } from './arena';
+import {
+  arenaCurves,
+  arenaNonLinear,
+  bend,
+  brickAt,
+  portalExit,
+  wallFor,
+  type PortalTrip
+} from './arena';
 import { BALL_R, FIELD_H } from './constants';
 import { movePaddle } from './physics';
 import type { BotBrain, Paddle, Vec2 } from './types';
@@ -41,12 +49,17 @@ const SIM_DT = 1 / 90;
 /** Steps between two corners of a drawn bent path. */
 const SIM_SAMPLE = 5;
 const simV: Vec2 = { x: 0, y: 0 };
+const simTrip: PortalTrip = { x: 0, y: 0, pair: 0, from: 0 };
+/** Simulated steps a portal stays shut after a trip - the ball's own lock, in steps. */
+const SIM_PORTAL_LOCK = 11;
 
 /**
- * Follow a ball the court is bending - wind, a gravity well - step by step
- * until it crosses `targetX`. Returns the crossing height; when `out` is
- * given, the path is written into it as a polyline and its length returned
- * through `count`.
+ * Follow a ball the court is bending - wind, a gravity well - or carrying
+ * through a portal, step by step until it crosses `targetX`. Returns the
+ * crossing height; when `out` is given, the path is written into it as a
+ * polyline and its length returned through `count`. A portal trip breaks
+ * the polyline with a NaN point, so a drawn path jumps rather than streaking
+ * across the court.
  */
 function simulate(world: World, targetX: number, out?: Vec2[], count?: { n: number }): number {
   const { ball } = world;
@@ -67,10 +80,13 @@ function simulate(world: World, targetX: number, out?: Vec2[], count?: { n: numb
     n++;
   };
   put(x, y);
+  const curves = arenaCurves(world);
+  const portals = world.arena.portals.length > 0;
+  let lock = world.arena.portalLock > 0 ? SIM_PORTAL_LOCK : 0;
   const steps = Math.ceil(SIM_SECONDS / SIM_DT);
   for (let i = 0; i < steps; i++) {
-    bend(world, x, y, simV, speed, SIM_DT);
-    const nx = x + simV.x * SIM_DT;
+    if (curves) bend(world, x, y, simV, speed, SIM_DT);
+    let nx = x + simV.x * SIM_DT;
     let ny = y + simV.y * SIM_DT;
     if (ny < top) {
       ny = top + (top - ny);
@@ -86,6 +102,15 @@ function simulate(world: World, targetX: number, out?: Vec2[], count?: { n: numb
       if (count) count.n = n;
       return cross;
     }
+    if (lock > 0) lock--;
+    else if (portals && portalExit(world, nx, ny, simV.x, simV.y, simTrip)) {
+      put(nx, ny);
+      put(Number.NaN, Number.NaN);
+      nx = simTrip.x;
+      ny = simTrip.y;
+      put(nx, ny);
+      lock = SIM_PORTAL_LOCK;
+    }
     x = nx;
     y = ny;
     if (i % SIM_SAMPLE === 0) put(x, y);
@@ -100,7 +125,7 @@ const simCount = { n: 0 };
 export function predictY(world: World, targetX: number): number {
   const { ball } = world;
   if (Math.abs(ball.vx) < 1) return ball.y;
-  if (arenaCurves(world)) {
+  if (arenaNonLinear(world)) {
     if ((targetX - ball.x) * ball.vx <= 0) return ball.y;
     return simulate(world, targetX);
   }
@@ -128,7 +153,7 @@ export function tracePath(world: World, targetX: number, out: Vec2[]): number {
   if (Math.abs(ball.vx) < 1) return 0;
   let t = (targetX - ball.x) / ball.vx;
   if (t <= 0) return 0;
-  if (arenaCurves(world)) {
+  if (arenaNonLinear(world)) {
     simulate(world, targetX, out, simCount);
     return simCount.n;
   }

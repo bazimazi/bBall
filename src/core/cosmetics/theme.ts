@@ -6,11 +6,15 @@ import {
   PADDLES,
   TRAILS,
   type AccentCosmetic,
+  type ArenaAmbient,
   type ArenaCosmetic,
   type BallCosmetic,
+  type BallStyle,
   type Equipped,
   type PaddleCosmetic,
-  type TrailCosmetic
+  type PaddleStyle,
+  type TrailCosmetic,
+  type TrailStyle
 } from './catalog';
 
 /**
@@ -32,16 +36,21 @@ export interface ResolvedTheme {
   dash: readonly [number, number];
   /** Strength of the rippling floor grid. */
   gridAlpha: number;
+  /** What lives on the arena's floor. */
+  ambient: ArenaAmbient;
 
   ballFill: string;
   ballGlow: number;
   ballRing: number;
+  ballStyle: BallStyle;
 
   paddleRound: number;
   paddleGlow: number;
+  paddleStyle: PaddleStyle;
 
   trailAlpha: number;
   trailWidth: number;
+  trailStyle: TrailStyle;
 
   /** CSS colour for the player's accent, mirrored into the React chrome. */
   accentCss: string;
@@ -77,13 +86,17 @@ export function resolveTheme(equipped: Equipped): ResolvedTheme {
     lineAlpha: arena.lineAlpha,
     dash: arena.dash,
     gridAlpha: arena.grid,
+    ambient: arena.ambient,
     ballFill: ball.fill,
     ballGlow: ball.glow,
     ballRing: ball.ring,
+    ballStyle: ball.style,
     paddleRound: paddle.round,
     paddleGlow: paddle.glow,
+    paddleStyle: paddle.style,
     trailAlpha: trail.alpha,
     trailWidth: trail.width,
+    trailStyle: trail.style,
     accentCss: accent.css
   };
 }

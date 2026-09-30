@@ -1,5 +1,5 @@
 import type { BotLevelId } from '../bots/types';
-import { ARENA_PRESETS } from '../modes/arenas';
+import { presetsOn } from '../modes/arenas';
 import { starCount, type StarGoal } from '../modes/stars';
 import type { MatchModifiers } from '../modes/types';
 import { pickOne, seeded } from '../util/random';
@@ -61,7 +61,7 @@ export const MAX_FREEZES = 2;
 
 export function dailySpec(key: string): DailySpec {
   const random = seeded('daily', key);
-  const preset = pickOne(random, ARENA_PRESETS);
+  const preset = pickOne(random, presetsOn(key));
   const twist = pickOne(random, TWISTS);
   const bot = pickOne(random, BOTS);
   const first = pickOne(random, GOALS);

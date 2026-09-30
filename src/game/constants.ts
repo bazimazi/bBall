@@ -46,6 +46,10 @@ export const COMBO_STEPS = [
   { at: 24, label: 'UNREAL' }
 ] as const;
 
+/** The score pips: their distance in from each end line, and the gap between two. */
+export const PIP_INSET = 24;
+export const PIP_GAP = 30;
+
 export const TRAIL_MAX = 20;
 export const PARTICLE_MAX = 320;
 

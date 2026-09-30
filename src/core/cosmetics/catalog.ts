@@ -26,8 +26,31 @@ export interface AccentCosmetic extends Cosmetic {
   readonly css: string;
 }
 
+/**
+ * How a cosmetic is *drawn*, beyond its numbers. Every style is a different
+ * picture of the same object - a pearl shimmers, a void swallows light, a
+ * star turns - and none of them is any easier or harder to see in play than
+ * another: the renderer keeps each one's silhouette and brightness honest.
+ */
+export type BallStyle = 'classic' | 'pearl' | 'nova' | 'void' | 'star' | 'comet' | 'plasma';
+export type TrailStyle = 'comet' | 'ribbon' | 'ember' | 'aurora' | 'pixel';
+export type PaddleStyle = 'capsule' | 'blade' | 'halo' | 'prism' | 'circuit';
+/** The living part of an arena: what drifts, falls or flickers on its floor. */
+export type ArenaAmbient =
+  | 'stars'
+  | 'motes'
+  | 'data'
+  | 'embers'
+  | 'rain'
+  | 'storm'
+  | 'sparks'
+  | 'gold'
+  | 'bubbles'
+  | 'sunset';
+
 export interface BallCosmetic extends Cosmetic {
   readonly kind: 'ball';
+  readonly style: BallStyle;
   readonly fill: string;
   readonly glow: number;
   readonly ring: number;
@@ -35,6 +58,7 @@ export interface BallCosmetic extends Cosmetic {
 
 export interface PaddleCosmetic extends Cosmetic {
   readonly kind: 'paddle';
+  readonly style: PaddleStyle;
   /** Corner radius as a fraction of half the paddle width. 1 is a capsule. */
   readonly round: number;
   readonly glow: number;
@@ -42,12 +66,14 @@ export interface PaddleCosmetic extends Cosmetic {
 
 export interface TrailCosmetic extends Cosmetic {
   readonly kind: 'trail';
+  readonly style: TrailStyle;
   readonly alpha: number;
   readonly width: number;
 }
 
 export interface ArenaCosmetic extends Cosmetic {
   readonly kind: 'arena';
+  readonly ambient: ArenaAmbient;
   readonly bgHue: number;
   readonly courtTop: string;
   readonly courtBottom: string;
@@ -120,6 +146,15 @@ export const ACCENTS: readonly AccentCosmetic[] = [
     css: '#ff8a5c',
     unlock: { type: 'achievement', id: 'journey-w1' },
     swatch: ['#ff8a5c', '#b8452a']
+  },
+  {
+    id: 'accent-sakura',
+    kind: 'accent',
+    name: 'Sakura',
+    hue: 330,
+    css: '#ff85c0',
+    unlock: { type: 'level', level: 26 },
+    swatch: ['#ff85c0', '#c2427f']
   }
 ];
 
@@ -127,6 +162,7 @@ export const BALLS: readonly BallCosmetic[] = [
   {
     id: 'ball-classic',
     kind: 'ball',
+    style: 'classic',
     name: 'Classic',
     fill: '#ffffff',
     glow: 1,
@@ -137,6 +173,7 @@ export const BALLS: readonly BallCosmetic[] = [
   {
     id: 'ball-pearl',
     kind: 'ball',
+    style: 'pearl',
     name: 'Pearl',
     fill: '#f2e9ff',
     glow: 0.75,
@@ -147,6 +184,7 @@ export const BALLS: readonly BallCosmetic[] = [
   {
     id: 'ball-nova',
     kind: 'ball',
+    style: 'nova',
     name: 'Nova',
     fill: '#fff6d8',
     glow: 1.55,
@@ -157,6 +195,7 @@ export const BALLS: readonly BallCosmetic[] = [
   {
     id: 'ball-void',
     kind: 'ball',
+    style: 'void',
     name: 'Void',
     fill: '#0a0d18',
     glow: 1.3,
@@ -167,6 +206,7 @@ export const BALLS: readonly BallCosmetic[] = [
   {
     id: 'ball-star',
     kind: 'ball',
+    style: 'star',
     name: 'Star',
     fill: '#fff3b0',
     glow: 1.4,
@@ -177,12 +217,24 @@ export const BALLS: readonly BallCosmetic[] = [
   {
     id: 'ball-comet',
     kind: 'ball',
+    style: 'comet',
     name: 'Comet',
     fill: '#e8fbff',
     glow: 1.85,
     ring: 1,
     unlock: { type: 'achievement', id: 'run-clear' },
     swatch: ['#e8fbff', '#5cc8ff']
+  },
+  {
+    id: 'ball-plasma',
+    kind: 'ball',
+    style: 'plasma',
+    name: 'Plasma',
+    fill: '#eef4ff',
+    glow: 1.45,
+    ring: 1.5,
+    unlock: { type: 'level', level: 20 },
+    swatch: ['#eef4ff', '#8a6bff']
   }
 ];
 
@@ -190,6 +242,7 @@ export const PADDLES: readonly PaddleCosmetic[] = [
   {
     id: 'paddle-capsule',
     kind: 'paddle',
+    style: 'capsule',
     name: 'Capsule',
     round: 1,
     glow: 1,
@@ -199,6 +252,7 @@ export const PADDLES: readonly PaddleCosmetic[] = [
   {
     id: 'paddle-blade',
     kind: 'paddle',
+    style: 'blade',
     name: 'Blade',
     round: 0.25,
     glow: 0.8,
@@ -208,6 +262,7 @@ export const PADDLES: readonly PaddleCosmetic[] = [
   {
     id: 'paddle-halo',
     kind: 'paddle',
+    style: 'halo',
     name: 'Halo',
     round: 1,
     glow: 1.9,
@@ -217,11 +272,22 @@ export const PADDLES: readonly PaddleCosmetic[] = [
   {
     id: 'paddle-prism',
     kind: 'paddle',
+    style: 'prism',
     name: 'Prism',
     round: 0.6,
     glow: 2.2,
     unlock: { type: 'achievement', id: 'boss-all' },
     swatch: ['#ffffff', '#b77bff']
+  },
+  {
+    id: 'paddle-circuit',
+    kind: 'paddle',
+    style: 'circuit',
+    name: 'Circuit',
+    round: 0.45,
+    glow: 1.2,
+    unlock: { type: 'level', level: 22 },
+    swatch: ['#4ff0d6', '#0c2b28']
   }
 ];
 
@@ -229,6 +295,7 @@ export const TRAILS: readonly TrailCosmetic[] = [
   {
     id: 'trail-comet',
     kind: 'trail',
+    style: 'comet',
     name: 'Comet',
     alpha: 1,
     width: 1,
@@ -238,6 +305,7 @@ export const TRAILS: readonly TrailCosmetic[] = [
   {
     id: 'trail-ribbon',
     kind: 'trail',
+    style: 'ribbon',
     name: 'Ribbon',
     alpha: 1.3,
     width: 0.52,
@@ -247,6 +315,7 @@ export const TRAILS: readonly TrailCosmetic[] = [
   {
     id: 'trail-ember',
     kind: 'trail',
+    style: 'ember',
     name: 'Ember',
     alpha: 1.5,
     width: 1.35,
@@ -256,11 +325,22 @@ export const TRAILS: readonly TrailCosmetic[] = [
   {
     id: 'trail-aurora',
     kind: 'trail',
+    style: 'aurora',
     name: 'Aurora',
     alpha: 1.4,
     width: 1.6,
     unlock: { type: 'achievement', id: 'daily-7' },
     swatch: ['#7dffb2', '#6b7bff']
+  },
+  {
+    id: 'trail-pixel',
+    kind: 'trail',
+    style: 'pixel',
+    name: 'Pixel',
+    alpha: 1.2,
+    width: 1,
+    unlock: { type: 'level', level: 18 },
+    swatch: ['#9bf06a', '#2bc5ad']
   }
 ];
 
@@ -268,6 +348,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-midnight',
     kind: 'arena',
+    ambient: 'stars',
     name: 'Midnight',
     bgHue: 205,
     courtTop: '#0c1121',
@@ -281,6 +362,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-dusk',
     kind: 'arena',
+    ambient: 'motes',
     name: 'Dusk',
     bgHue: 286,
     courtTop: '#160f26',
@@ -294,6 +376,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-grid',
     kind: 'arena',
+    ambient: 'data',
     name: 'Grid',
     bgHue: 178,
     courtTop: '#07161a',
@@ -307,6 +390,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-ember',
     kind: 'arena',
+    ambient: 'embers',
     name: 'Ember',
     bgHue: 18,
     courtTop: '#1d0e0c',
@@ -320,6 +404,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-alley',
     kind: 'arena',
+    ambient: 'rain',
     name: 'Neon Alley',
     bgHue: 276,
     courtTop: '#150d24',
@@ -333,6 +418,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-storm',
     kind: 'arena',
+    ambient: 'storm',
     name: 'Stormfront',
     bgHue: 200,
     courtTop: '#0a1822',
@@ -346,6 +432,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-forge',
     kind: 'arena',
+    ambient: 'sparks',
     name: 'Forge',
     bgHue: 14,
     courtTop: '#1f0c08',
@@ -359,6 +446,7 @@ export const ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-apex',
     kind: 'arena',
+    ambient: 'gold',
     name: 'Apex',
     bgHue: 44,
     courtTop: '#1a1508',
@@ -368,6 +456,34 @@ export const ARENAS: readonly ArenaCosmetic[] = [
     grid: 0.11,
     unlock: { type: 'achievement', id: 'journey-w5' },
     swatch: ['#1a1508', '#c99a1f']
+  },
+  {
+    id: 'arena-abyss',
+    kind: 'arena',
+    ambient: 'bubbles',
+    name: 'Abyss',
+    bgHue: 192,
+    courtTop: '#04161f',
+    courtBottom: '#01080d',
+    lineAlpha: 0.12,
+    dash: [6, 12],
+    grid: 0.06,
+    unlock: { type: 'level', level: 24 },
+    swatch: ['#04161f', '#0f6f86']
+  },
+  {
+    id: 'arena-sunset',
+    kind: 'arena',
+    ambient: 'sunset',
+    name: 'Sunset Drive',
+    bgHue: 318,
+    courtTop: '#1d0a26',
+    courtBottom: '#0a0412',
+    lineAlpha: 0.16,
+    dash: [8, 8],
+    grid: 0.12,
+    unlock: { type: 'level', level: 30 },
+    swatch: ['#2a0f3a', '#ff5fa2']
   }
 ];
 

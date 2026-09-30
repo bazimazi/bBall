@@ -810,6 +810,89 @@ button.unlockRow {
   border-color: rgba(255, 92, 138, 0.4);
 }
 
+/* -------------------------------------------------------------- settings */
+
+.settingStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.sliderLabel {
+  flex: 0 0 64px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.sliderValue {
+  flex: 0 0 44px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A track filled up to the value, and a thumb big enough for a thumb. */
+.range {
+  --fill: 50%;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 6px;
+  margin: 0;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(
+    90deg,
+    var(--you) 0,
+    var(--you) var(--fill),
+    rgba(238, 242, 255, 0.12) var(--fill)
+  );
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.range::-webkit-slider-thumb {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--you);
+  border-radius: 50%;
+  background: #f4f7ff;
+  box-shadow: 0 0 14px rgba(79, 240, 214, 0.35);
+  appearance: none;
+  -webkit-appearance: none;
+  transition: transform 0.12s ease;
+}
+
+.range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--you);
+  border-radius: 50%;
+  background: #f4f7ff;
+  box-shadow: 0 0 14px rgba(79, 240, 214, 0.35);
+}
+
+.range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
 /* ------------------------------------------------------------ responsive */
 
 @media (min-width: 620px) {

@@ -17,6 +17,20 @@ export interface BumperSpec {
 }
 
 /**
+ * A linked pair of portals. A ball that falls into either mouth leaves by
+ * the other at the same speed and on the same heading. Positions are
+ * fractions of the court, like a bumper's; `r` is the mouth's radius in
+ * field units.
+ */
+export interface PortalSpec {
+  readonly a: { readonly x: number; readonly y: number };
+  readonly b: { readonly x: number; readonly y: number };
+  readonly r: number;
+  /** The pair's colour. Two pairs on one court must never read as one. */
+  readonly hue?: number;
+}
+
+/**
  * The court itself as a rule: what stands in it, and what pushes the ball
  * around. Every hazard is data, read by `game/arena.ts`, so a stage, a boss
  * or a daily challenge describes its court rather than coding one.
@@ -30,6 +44,8 @@ export interface ArenaSpec {
   readonly wind?: { readonly strength: number; readonly period: number };
   /** A gravity well: pull at 150 units away, in units per second squared. */
   readonly well?: { readonly x: number; readonly y: number; readonly strength: number };
+  /** Linked pairs of portals that carry the ball from one mouth to the other. */
+  readonly portals?: readonly PortalSpec[];
   /**
    * Brick walls standing in front of each side's goal. A ball that hits a
    * brick breaks it and bounces back the way it came.

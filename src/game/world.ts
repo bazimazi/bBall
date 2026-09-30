@@ -7,10 +7,11 @@ import type { ResolvedLoadout } from '../core/talents/effects';
 import type { GameAudio } from './audio';
 import { createArena, type ArenaState } from './arena';
 import { CastSystem, GhostTrail } from './casts';
-import { ConfettiSystem, CourtGrid, PopupSystem, RingSystem } from './effects';
+import { ConfettiSystem, CourtGrid, OrbSystem, PopupSystem, RingSystem } from './effects';
 import { FIELD_H, PADDLE_H, PADDLE_INSET, TRAIL_MAX } from './constants';
 import { setPaddleBase } from './paddle';
 import { ParticleSystem } from './particles';
+import { ReplayRecorder } from './replay';
 import { sideHue, heatHue } from './palette';
 import { createRuntime, DEFAULT_LOADOUT } from './talents';
 import type {
@@ -26,7 +27,7 @@ import type {
   View
 } from './types';
 import { clamp } from './utils/math';
-import { createView } from './view';
+import { createView, toScreenX } from './view';
 
 /**
  * Every piece of mutable simulation state, in one place. Systems (physics, AI,
@@ -54,6 +55,10 @@ export interface World {
   readonly confetti: ConfettiSystem;
   /** The court floor's rippling lattice. Presentation only. */
   readonly grid: CourtGrid;
+  /** Points flying home to their score pips. Presentation only. */
+  readonly orbs: OrbSystem;
+  /** The last seconds of the point in play, for the match's closing replay. */
+  readonly replay: ReplayRecorder;
   /** Bumpers, walls, wind and a boss's phase: the court as a rule. */
   readonly arena: ArenaState;
   readonly audio: GameAudio;
@@ -79,6 +84,16 @@ export interface World {
   demoBrain: BotBrain;
   /** Effect strength, 1 normally and 0.25 under `prefers-reduced-motion`. */
   motion: number;
+  /**
+   * How far the camera may move - shake, kick and punch - from the player's
+   * own setting. Applied where the camera is placed rather than where a
+   * shake is raised, so nothing that raises one has to know it exists.
+   */
+  camera: number;
+  /** Replay the point that decided the match before the result card. */
+  replays: boolean;
+  /** The player's name, for the card a match opens on. */
+  playerName: string;
   /** Accumulator for trail sampling. */
   trailTick: number;
 }
@@ -94,7 +109,8 @@ function createPaddle(side: Side): Paddle {
     baseHalf: PADDLE_H / 2,
     scale: 1,
     grow: 1,
-    flash: 0
+    flash: 0,
+    hitY: 0
   };
 }
 
@@ -196,7 +212,17 @@ function createFx(): FxState {
     pulseTick: 0,
     echoTick: 0,
     emberTick: 0,
-    time: 0
+    time: 0,
+    rallyPop: 0,
+    vsTimer: 0,
+    vsLeft: '',
+    vsRight: '',
+    vsSub: '',
+    celebrated: false,
+    endFade: 0,
+    flameTick: 0,
+    gatherTick: 0,
+    buzz: 0
   };
 }
 
@@ -244,6 +270,8 @@ export function createWorld(audio: GameAudio, motion: number): World {
     popups: new PopupSystem(),
     confetti: new ConfettiSystem(),
     grid: new CourtGrid(),
+    orbs: new OrbSystem(),
+    replay: new ReplayRecorder(),
     arena: createArena(),
     audio,
     rules,
@@ -255,6 +283,9 @@ export function createWorld(audio: GameAudio, motion: number): World {
     botBrain: createBrain(rules.bot),
     demoBrain: createBrain(botProfile('amateur')),
     motion,
+    camera: 1,
+    replays: true,
+    playerName: 'You',
     trailTick: 0
   };
 }
@@ -317,6 +348,12 @@ export function rescaleField(world: World, k: number): void {
   for (const point of world.trail) point.x *= k;
 }
 
+/** Ask the device for a buzz of `ms`, merged with anything already asked for this frame. */
+export function buzz(world: World, ms: number): void {
+  if (world.match.status === 'menu') return;
+  world.fx.buzz = Math.max(world.fx.buzz, ms);
+}
+
 export function addShake(world: World, amount: number): void {
   world.fx.shake = Math.min(18, world.fx.shake + amount * world.motion);
 }
@@ -337,6 +374,18 @@ export function addKick(world: World, amount: number): void {
 export function isHuman(world: World, side: Side): boolean {
   if (world.match.status === 'menu') return false;
   return side === 'you' || world.rules.versus === true;
+}
+
+/**
+ * Where a field point sits across the *screen*, -1 at the left edge to 1 at
+ * the right, for stereo panning. Screen rather than field, because on an
+ * upright phone the court's long axis runs top to bottom, and a return from
+ * the far paddle comes from above rather than from one side.
+ */
+export function panAt(world: World, x: number, y: number): number {
+  const { view } = world;
+  if (view.vw <= 0) return 0;
+  return clamp((toScreenX(view, x, y) / view.vw) * 2 - 1, -1, 1);
 }
 
 /** The hue a side is drawn in under the equipped theme. */

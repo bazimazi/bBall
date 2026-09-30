@@ -77,6 +77,33 @@ export const CHALLENGES: readonly Challenge[] = [
     objective: { id: 'shutout', label: 'Win 3-0', value: 0 },
     modifiers: {},
     xp: 220
+  },
+  {
+    id: 'wormholes',
+    name: 'Wormholes',
+    blurb: 'Two pairs of portals carry the ball across the court',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'win', label: 'Win the match', value: 0 },
+    modifiers: {
+      arena: {
+        portals: [
+          { a: { x: 0.34, y: 0.22 }, b: { x: 0.34, y: 0.78 }, r: 26 },
+          { a: { x: 0.66, y: 0.22 }, b: { x: 0.66, y: 0.78 }, r: 26 }
+        ]
+      }
+    },
+    xp: 170
+  },
+  {
+    id: 'blitz',
+    name: 'Blitz',
+    blurb: 'Beat the Amateur inside seventy seconds',
+    bot: 'amateur',
+    winScore: 3,
+    objective: { id: 'quick-win', label: 'Win within 70s', value: 70 },
+    modifiers: { serveSpeedScale: 1.1 },
+    xp: 160
   }
 ];
 

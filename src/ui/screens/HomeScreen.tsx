@@ -30,6 +30,7 @@ interface HomeScreenProps {
   onExitDemo: () => void;
   onProfile: () => void;
   onTalents: () => void;
+  onSettings: () => void;
 }
 
 /** The three modes that get a card of their own rather than a row. */
@@ -174,7 +175,8 @@ export function HomeScreen({
   onPick,
   onExitDemo,
   onProfile,
-  onTalents
+  onTalents,
+  onSettings
 }: HomeScreenProps) {
   const coarse = useCoarsePointer();
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
@@ -242,13 +244,18 @@ export function HomeScreen({
       </div>
 
       <footer className={styles.footer}>
-        <button type="button" className={styles.ghost} onClick={onTalents}>
-          Talents
-          {points > 0 && <span className={styles.badge}>{points}</span>}
-        </button>
+        <div className={styles.buttonRow}>
+          <button type="button" className={styles.ghost} onClick={onTalents}>
+            Talents
+            {points > 0 && <span className={styles.badge}>{points}</span>}
+          </button>
+          <button type="button" className={styles.ghost} onClick={onSettings}>
+            Settings
+          </button>
+        </div>
         <p className={styles.note}>
           {coarse ? 'Drag anywhere to move' : 'Move the mouse or use ↑ ↓'}
-          {' · flick the paddle as you hit to whip the ball'}
+          {' · flick the paddle as you hit to whip the ball · your paddle aims your serve'}
           {skills > 0 &&
             (coarse ? ' · tap the corner for skills' : ` · ${keys.join(' ')} for skills`)}
         </p>

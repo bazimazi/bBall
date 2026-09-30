@@ -12,6 +12,12 @@ export interface ArenaPreset {
   /** One line for the card that introduces it. */
   readonly blurb: string;
   readonly arena: ArenaSpec;
+  /**
+   * The first day (`YYYY-MM-DD`) the daily may roll this court. A court added
+   * later joins the rotation from a day that has not started yet, so no day's
+   * challenge ever changes under the players already playing it.
+   */
+  readonly since?: string;
 }
 
 export const ARENA_PRESETS: readonly ArenaPreset[] = [
@@ -72,8 +78,20 @@ export const ARENA_PRESETS: readonly ArenaPreset[] = [
         { x: 0.62, y: 0.74, r: 22 }
       ]
     }
+  },
+  {
+    id: 'wormhole',
+    name: 'Wormhole',
+    blurb: 'Two portals link the top of the court to the bottom',
+    arena: { portals: [{ a: { x: 0.5, y: 0.2 }, b: { x: 0.5, y: 0.8 }, r: 30 }] },
+    since: '2026-10-01'
   }
 ];
+
+/** The courts the daily may roll on `day`. */
+export function presetsOn(day: string): readonly ArenaPreset[] {
+  return ARENA_PRESETS.filter((preset) => !preset.since || preset.since <= day);
+}
 
 const BY_ID = new Map(ARENA_PRESETS.map((preset) => [preset.id, preset]));
 

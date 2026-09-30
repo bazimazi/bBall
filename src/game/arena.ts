@@ -1,11 +1,18 @@
 import { botProfile } from '../core/bots/levels';
-import type { ArenaSpec, BossPhase, BumperSpec } from '../core/modes/types';
+import type { ArenaSpec, BossPhase, BumperSpec, PortalSpec } from '../core/modes/types';
 import { BALL_R, FIELD_H } from './constants';
 import { setPaddleBase } from './paddle';
 import { hsla } from './palette';
 import type { Side, Vec2 } from './types';
 import { clamp } from './utils/math';
-import { addShake, normaliseBallSpeed, setBrainProfile, type World } from './world';
+import {
+  addShake,
+  normaliseBallSpeed,
+  panAt,
+  pushTrail,
+  setBrainProfile,
+  type World
+} from './world';
 
 /**
  * The court as a rule: bumpers, wind, a gravity well and brick walls, plus
@@ -47,6 +54,20 @@ export interface BrickState {
   alive: boolean;
 }
 
+/** One pair of portals, placed on the court. */
+export interface PortalState {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  r: number;
+  hue: number;
+  /** 0..1 glow at each mouth after the ball went through it. */
+  flashA: number;
+  flashB: number;
+  readonly spec: PortalSpec;
+}
+
 export interface ArenaState {
   spec: ArenaSpec | null;
   /** Multiplier on every hazard; a boss's phases raise it. */
@@ -62,6 +83,9 @@ export interface ArenaState {
   /** Late bend on the opponent's returns, units/s². 0 for most matches. */
   bossSwerve: number;
   bossSwerveDir: -1 | 0 | 1;
+  portals: PortalState[];
+  /** Seconds before the ball may take a portal again, so it never ping-pongs. */
+  portalLock: number;
 }
 
 /** Steepest a hazard may turn the ball: short of vertical, so it never stalls. */
@@ -76,6 +100,12 @@ const BRICK_GAP = 7;
 export const WIND_WARNING = 0.8;
 /** How far across the court a boss's bend starts, from its own end. */
 const BOSS_SWERVE_FROM = 0.6;
+/** How deep into a mouth the ball's centre must fall before it is taken. */
+const PORTAL_CATCH = 0.8;
+/** Seconds between two trips through a portal. */
+const PORTAL_LOCK = 0.12;
+/** The pairs' colours when a court does not name one. */
+const PORTAL_HUES = [186, 32, 300] as const;
 
 export function createArena(): ArenaState {
   return {
@@ -88,7 +118,9 @@ export function createArena(): ArenaState {
     bricks: [],
     phase: 0,
     bossSwerve: 0,
-    bossSwerveDir: 0
+    bossSwerveDir: 0,
+    portals: [],
+    portalLock: 0
   };
 }
 
@@ -96,6 +128,15 @@ export function createArena(): ArenaState {
 export function arenaCurves(world: World): boolean {
   const spec = world.arena.spec;
   return !!spec && (!!spec.wind || !!spec.well);
+}
+
+/**
+ * True when the ball's path can only be read by following it: a court that
+ * bends it, or one with portals that move it. A straight line and a mirror
+ * at each wall is no longer the whole story.
+ */
+export function arenaNonLinear(world: World): boolean {
+  return arenaCurves(world) || world.arena.portals.length > 0;
 }
 
 /** Build the court for the match about to start. */
@@ -117,8 +158,32 @@ export function setupArena(world: World): void {
     flash: 0,
     spec: bumper
   }));
+  arena.portals = (spec?.portals ?? []).map((portal, i) => ({
+    ax: 0,
+    ay: 0,
+    bx: 0,
+    by: 0,
+    r: portal.r,
+    hue: portal.hue ?? PORTAL_HUES[i % PORTAL_HUES.length]!,
+    flashA: 0,
+    flashB: 0,
+    spec: portal
+  }));
+  arena.portalLock = 0;
   placeBumpers(world);
+  placePortals(world);
   buildBricks(world);
+}
+
+function placePortals(world: World): void {
+  const { view } = world;
+  for (const portal of world.arena.portals) {
+    const { a, b } = portal.spec;
+    portal.ax = a.x * view.w;
+    portal.ay = clamp(a.y * FIELD_H, portal.r, FIELD_H - portal.r);
+    portal.bx = b.x * view.w;
+    portal.by = clamp(b.y * FIELD_H, portal.r, FIELD_H - portal.r);
+  }
 }
 
 /** Lay the brick walls out afresh - every match, and every serve if they regrow. */
@@ -156,6 +221,7 @@ export function rescaleArena(world: World): void {
     brick.x = cx - BRICK_W / 2;
   }
   placeBumpers(world);
+  placePortals(world);
 }
 
 function placeBumpers(world: World): void {
@@ -186,6 +252,11 @@ export function updateArena(world: World, dt: number): void {
   const arena = world.arena;
   for (const bumper of arena.bumpers) bumper.flash = Math.max(0, bumper.flash - dt * 3);
   for (const brick of arena.bricks) brick.flash = Math.max(0, brick.flash - dt * 4);
+  for (const portal of arena.portals) {
+    portal.flashA = Math.max(0, portal.flashA - dt * 2.5);
+    portal.flashB = Math.max(0, portal.flashB - dt * 2.5);
+  }
+  if (arena.portalLock > 0) arena.portalLock = Math.max(0, arena.portalLock - dt);
   if (!arena.spec) return;
   const live = world.match.status === 'play' || world.match.status === 'serve';
   if (!live) return;
@@ -301,12 +372,117 @@ function rethink(world: World): void {
   brain.wait = brain.profile.reaction * 0.6;
 }
 
-/** Bounce the ball off every bumper and brick it is touching. */
+/** Bounce the ball off every bumper and brick it is touching, and carry it through any portal. */
 export function collideArena(world: World): void {
   const { arena } = world;
   if (!arena.spec) return;
   for (const bumper of arena.bumpers) collideBumper(world, bumper);
   if (arena.bricks.length > 0) collideBricks(world);
+  if (arena.portals.length > 0 && arena.portalLock <= 0) collidePortals(world);
+}
+
+/** Where a portal trip ends, written by {@link portalExit}. */
+export interface PortalTrip {
+  x: number;
+  y: number;
+  /** The pair taken, and which mouth the ball fell into: 0 for a, 1 for b. */
+  pair: number;
+  from: 0 | 1;
+}
+
+/**
+ * Would a ball at (x, y), heading (vx, vy), fall into a portal here? If so,
+ * write where it comes out into `out` and return true.
+ *
+ * Shared by the ball itself and by every read of its path, so a prediction
+ * goes through a portal exactly as the ball will.
+ *
+ * Two rules keep portals fair. The ball leaves the far mouth already clear of
+ * it, moving the way it went in - speed and heading untouched. And a portal
+ * never carries the ball *back* along the court: a mouth whose partner lies
+ * behind the ball's direction of travel is closed to it, or a ball could loop
+ * between the pair forever and the rally would never end.
+ */
+export function portalExit(
+  world: World,
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  out: PortalTrip
+): boolean {
+  const portals = world.arena.portals;
+  const speed = Math.hypot(vx, vy) || 1;
+  for (let i = 0; i < portals.length; i++) {
+    const portal = portals[i]!;
+    const catchR = portal.r * PORTAL_CATCH;
+    for (const end of [0, 1] as const) {
+      const mx = end === 0 ? portal.ax : portal.bx;
+      const my = end === 0 ? portal.ay : portal.by;
+      const dx = x - mx;
+      const dy = y - my;
+      if (dx * dx + dy * dy > catchR * catchR) continue;
+      const tx = end === 0 ? portal.bx : portal.ax;
+      const ty = end === 0 ? portal.by : portal.ay;
+      if ((tx - mx) * Math.sign(vx) < -1) continue;
+      const clear = portal.r + BALL_R + 2;
+      out.x = tx + (vx / speed) * clear;
+      out.y = clamp(ty + (vy / speed) * clear, BALL_R, FIELD_H - BALL_R);
+      out.pair = i;
+      out.from = end;
+      return true;
+    }
+  }
+  return false;
+}
+
+const trip: PortalTrip = { x: 0, y: 0, pair: 0, from: 0 };
+
+function collidePortals(world: World): void {
+  const { ball, arena } = world;
+  if (!portalExit(world, ball.x, ball.y, ball.vx, ball.vy, trip)) return;
+  const portal = arena.portals[trip.pair]!;
+  const inX = ball.x;
+  const inY = ball.y;
+
+  ball.x = trip.x;
+  ball.y = trip.y;
+  // Nothing was crossed on the way: the swept tests must not see a path
+  // from one mouth to the other.
+  ball.px = ball.x;
+  ball.py = ball.y;
+  arena.portalLock = PORTAL_LOCK;
+  // The comet would otherwise draw a streak straight across the court.
+  world.trail.length = 0;
+  pushTrail(world);
+  ball.squash = 0.7;
+  ball.squashAngle = Math.atan2(ball.vy, ball.vx);
+
+  portal.flashA = 1;
+  portal.flashB = 1;
+  const hue = portal.hue;
+  world.rings.spawn(inX, inY, hue, portal.r * 1.6, 0.3, 4, 78);
+  world.rings.spawn(ball.x, ball.y, hue, portal.r * 2.6, 0.45, 5, 74);
+  world.grid.impulse(ball.x, ball.y, 320, 140);
+  world.particles.emit(
+    ball.x,
+    ball.y,
+    16,
+    {
+      angle: Math.atan2(ball.vy, ball.vx),
+      spread: 1.3,
+      speed: 280,
+      life: 0.45,
+      size: 3,
+      color: hsla(hue, 100, 72, 0.95)
+    },
+    world.motion
+  );
+  addShake(world, 2.5);
+  if (world.match.status !== 'menu') {
+    world.audio.portal(panAt(world, inX, inY), panAt(world, ball.x, ball.y));
+  }
+  rethink(world);
 }
 
 function collideBumper(world: World, bumper: BumperState): void {
@@ -357,7 +533,7 @@ function collideBumper(world: World, bumper: BumperState): void {
     world.motion
   );
   addShake(world, 3);
-  world.audio.bumper(0.5);
+  world.audio.bumper(0.5, panAt(world, x, y));
   rethink(world);
 }
 
@@ -403,10 +579,10 @@ function collideBricks(world: World): void {
         world.motion
       );
       world.rings.spawn(cx, cy, hue, brick.h * 0.9, 0.35, 5);
-      world.audio.brick();
+      world.audio.brick(panAt(world, cx, cy));
       addShake(world, 4);
     } else {
-      world.audio.wall(0.6);
+      world.audio.wall(0.6, panAt(world, cx, cy));
       addShake(world, 2);
     }
     world.grid.impulse(cx, ball.y, 300, 130);

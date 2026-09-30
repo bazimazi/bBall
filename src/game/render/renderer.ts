@@ -1,6 +1,6 @@
 import type { ResolvedTheme } from '../../core/cosmetics/theme';
 import { tracePath } from '../ai';
-import { BALL_R, FIELD_H, PADDLE_W, SERVE_DELAY } from '../constants';
+import { BALL_R, FIELD_H, PADDLE_W, PIP_GAP, PIP_INSET, SERVE_DELAY } from '../constants';
 import { isMatchPoint } from '../match';
 import { BACKDROP, CANVAS_FONT, heatHue, hsla } from '../palette';
 import type { Paddle, Side, Vec2 } from '../types';
@@ -17,8 +17,11 @@ import {
 import { BANNER_TIME } from '../arena';
 import { easeOutBack, easeOutCubic, POPUP_LIFE } from '../effects';
 import { drawArena } from './arenaFx';
-import { BAR_H, BAR_PAD, BAR_W, GlowCache } from './glow';
+import { AmbientLayer } from './ambient';
+import { GlowCache } from './glow';
 import { roundRect } from './shapes';
+import { drawOrbs, drawReplayFrame, drawServeAim, drawVersusCard } from './stage';
+import { drawBallStyled, drawPaddleBody, drawTrailStyled } from './styles';
 import { UltimateLayer } from './ultimateFx';
 
 const COURT_RADIUS = 26;
@@ -33,10 +36,21 @@ const PUNCH_ZOOM = 0.045;
  * time on low-end phones.
  */
 export class Renderer {
-  private readonly edgeA: Vec2[] = [];
-  private readonly edgeB: Vec2[] = [];
   /** Foresight's path, reused every frame. */
   private readonly path: Vec2[] = [];
+  /** The arena's living floor. */
+  private readonly ambient = new AmbientLayer();
+  /** Simulated time at the last frame drawn, for the few things drawn that move on their own. */
+  private lastTime = 0;
+  private frameDt = 0;
+  /** How far the ball has rolled, in radians, for the styles that show it. */
+  private ballSpin = 0;
+  /** The static floor lattice, cached until the court changes shape. */
+  private gridPath: Path2D | null = null;
+  private gridKey = '';
+  /** A touch screen says "tap"; a desktop says "click". */
+  private readonly coarse =
+    typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
 
   private bgHeatBucket = -1;
   private bg: CanvasGradient | null = null;
@@ -62,6 +76,7 @@ export class Renderer {
     this.endGlow = {};
     this.vignette = null;
     this.pressure = {};
+    this.gridPath = null;
     this.glow.clear();
     this.ultimate.invalidate();
   }
@@ -77,6 +92,13 @@ export class Renderer {
       this.invalidate();
     }
 
+    // Simulated time, not wall time: a paused game draws a still frame.
+    this.frameDt = clamp(fx.time - this.lastTime, 0, 0.1);
+    this.lastTime = fx.time;
+    const { ball } = world;
+    this.ballSpin += ((ball.vx >= 0 ? 1 : -1) * ball.speed * this.frameDt) / BALL_R;
+    if (ball.vx === 0 && ball.vy === 0) this.ballSpin *= 0.9;
+
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     this.drawBackground(world);
     // Behind the court, so a capstone colours the page without ever sitting
@@ -86,7 +108,7 @@ export class Renderer {
     ctx.save();
     // The kick shoves the camera along the field's long axis, which is the
     // screen's vertical on a portrait phone.
-    const kick = fx.kick * view.scale;
+    const kick = fx.kick * view.scale * world.camera;
     ctx.translate(fx.shakeX + (view.rotated ? 0 : kick), fx.shakeY + (view.rotated ? -kick : 0));
     if (fx.shakeRot !== 0) {
       ctx.translate(view.cx, view.cy);
@@ -95,8 +117,8 @@ export class Renderer {
     }
     // The camera punch takes the court *and* the screen HUD with it - half a
     // zoom would read as the court resizing rather than as an impact.
-    if (fx.punch > 0) {
-      const zoom = 1 + fx.punch * PUNCH_ZOOM;
+    if (fx.punch > 0 && world.camera > 0) {
+      const zoom = 1 + fx.punch * PUNCH_ZOOM * world.camera;
       ctx.translate(view.cx, view.cy);
       ctx.scale(zoom, zoom);
       ctx.translate(-view.cx, -view.cy);
@@ -111,6 +133,7 @@ export class Renderer {
     ctx.restore();
 
     this.drawVignette(world);
+    drawReplayFrame(ctx, world, CANVAS_FONT, this.coarse);
     this.drawConfetti(world);
 
     // Over everything, and outside the punch: the wave has to cross the real
@@ -170,6 +193,7 @@ export class Renderer {
     // A soft wash of colour behind each player's end.
     this.drawEndGlow(world, 0, 'you');
     this.drawEndGlow(world, w, 'bot');
+    this.ambient.draw(ctx, world, this.glow);
     this.drawGrid(world);
     this.drawGoalFlash(world);
 
@@ -196,14 +220,22 @@ export class Renderer {
     drawArena(ctx, world, this.glow);
     this.drawRings(world);
     this.drawSpeedLines(world);
-    this.drawTrail(world);
-    drawGhosts(ctx, world);
-    drawDashStreak(ctx, world);
+    drawTrailStyled(ctx, world, ballHue(world), this.frameDt);
+    // A replay shows the point, not the skills that were running at the end
+    // of it - those belong to a moment that has already passed.
+    const replaying = world.replay.active;
+    if (!replaying) {
+      drawGhosts(ctx, world);
+      drawDashStreak(ctx, world);
+    }
     this.drawPaddle(world, world.player, 1);
     this.drawPaddle(world, world.bot, -1);
-    drawPlayerAura(ctx, world);
-    drawCasts(ctx, world);
+    if (!replaying) {
+      drawPlayerAura(ctx, world);
+      drawCasts(ctx, world);
+    }
     this.drawParticles(world);
+    drawOrbs(ctx, world, this.glow);
     this.drawBall(world);
 
     ctx.restore();
@@ -234,26 +266,27 @@ export class Renderer {
     const { view, match } = world;
 
     if (match.maxLives > 0) {
-      this.drawPipColumn(world, 24, hueOf(world, 'you'), match.maxLives, match.lives);
+      this.drawPipColumn(world, PIP_INSET, hueOf(world, 'you'), match.maxLives, match.lives);
       return;
     }
     if (match.winScore <= 0) return;
 
-    const { fx } = world;
+    // A point's pip stays dark until its orb has flown home to it.
+    const { fx, orbs } = world;
     this.drawPipColumn(
       world,
-      24,
+      PIP_INSET,
       hueOf(world, 'you'),
       match.winScore,
-      match.score.you,
+      match.score.you - (orbs.inFlight('you') ? 1 : 0),
       fx.pipPopYou
     );
     this.drawPipColumn(
       world,
-      view.w - 24,
+      view.w - PIP_INSET,
       hueOf(world, 'bot'),
       match.winScore,
-      match.score.bot,
+      match.score.bot - (orbs.inFlight('bot') ? 1 : 0),
       fx.pipPopBot
     );
   }
@@ -267,7 +300,7 @@ export class Renderer {
     pop = 0
   ): void {
     const { ctx } = this;
-    const gap = 30;
+    const gap = PIP_GAP;
     const top = world.view.h / 2 - ((total - 1) * gap) / 2;
     const sprite = this.glow.dot(hue, 60, 95);
 
@@ -299,65 +332,32 @@ export class Renderer {
     }
   }
 
+  /**
+   * A paddle: bowed where it was struck, in the player's own style for the
+   * player's own paddle. At the end of a match the loser's fades out while
+   * the winner's glows on.
+   */
   private drawPaddle(world: World, paddle: Paddle, dir: 1 | -1): void {
     const { ctx } = this;
-    const theme = world.theme;
-    const flash = paddle.flash;
-    // Squash on contact: thinner and a touch longer, springing back.
-    const w = PADDLE_W * (1 + flash * 0.4);
-    const h = paddle.half * 2 * (1 - flash * 0.07);
+    const { match, fx } = world;
     // Paddles keep their identity colour at all times - only the ball runs hot.
     const hue = hueOf(world, paddle.side);
-    const x = paddle.x - w / 2 + dir * flash * 3;
-    const y = paddle.y - h / 2;
-    const radius = (w / 2) * theme.paddleRound;
-
-    // The halo is a pre-blurred capsule stretched to the paddle: the neon
-    // look without a single shadowBlur in the frame loop.
-    const glow = (0.62 + flash * 0.5) * theme.paddleGlow;
-    if (glow > 0.01) {
-      const core = BAR_W - BAR_PAD * 2;
-      const tall = BAR_H - BAR_PAD * 2;
-      const sx = w / core;
-      const sy = h / tall;
-      const reach = 1 + flash * 0.5;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = Math.min(1, glow);
-      ctx.drawImage(
-        this.glow.bar(hue, 58),
-        x - BAR_PAD * sx * reach,
-        y - BAR_PAD * sy * reach,
-        (core + BAR_PAD * 2 * reach) * sx,
-        (tall + BAR_PAD * 2 * reach) * sy
-      );
-      ctx.restore();
+    const over = match.status === 'over' && match.winner !== null;
+    let alpha = 1;
+    if (over && fx.celebrated) {
+      if (paddle.side === match.winner) {
+        const pulse = 0.5 + 0.5 * Math.sin(fx.time * 4.2);
+        const g = paddle.half * (1.6 + pulse * 0.25);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = (0.22 + pulse * 0.16) * fx.endFade;
+        ctx.drawImage(this.glow.dot(hue, 62), paddle.x - g * 0.55, paddle.y - g, g * 1.1, g * 2);
+        ctx.restore();
+      } else {
+        alpha = 1 - 0.72 * fx.endFade;
+      }
     }
-
-    ctx.fillStyle = hsla(hue, 92, 62 + flash * 22, 1);
-    roundRect(ctx, x, y, w, h, radius);
-    ctx.fill();
-    // A bright spine down the middle reads as a lit tube rather than a bar.
-    ctx.fillStyle = hsla(hue, 100, 88, 0.5 + flash * 0.35);
-    roundRect(
-      ctx,
-      x + w * 0.34,
-      y + 5,
-      w * 0.32,
-      Math.max(0, h - 10),
-      w * 0.16 * theme.paddleRound
-    );
-    ctx.fill();
-
-    if (flash > 0.02) {
-      ctx.save();
-      ctx.globalAlpha = flash * 0.5;
-      ctx.strokeStyle = hsla(hue, 100, 80, 1);
-      ctx.lineWidth = 2;
-      roundRect(ctx, x - 5, y - 5, w + 10, h + 10, radius + 5);
-      ctx.stroke();
-      ctx.restore();
-    }
+    drawPaddleBody(ctx, world, this.glow, paddle, dir, hue, paddle.side === 'you', alpha);
   }
 
   /**
@@ -437,9 +437,20 @@ export class Renderer {
       ctx.strokeStyle = hsla(hue, 90, 76, 1);
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 9]);
+      // A portal trip is written as a NaN break: lift the pen and put it
+      // down again at the far mouth, rather than streaking across the court.
       ctx.beginPath();
-      ctx.moveTo(this.path[0]!.x, this.path[0]!.y);
-      for (let i = 1; i < n; i++) ctx.lineTo(this.path[i]!.x, this.path[i]!.y);
+      let pen = false;
+      for (let i = 0; i < n; i++) {
+        const point = this.path[i]!;
+        if (Number.isNaN(point.x)) {
+          pen = false;
+          continue;
+        }
+        if (pen) ctx.lineTo(point.x, point.y);
+        else ctx.moveTo(point.x, point.y);
+        pen = true;
+      }
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -459,60 +470,21 @@ export class Renderer {
     ctx.restore();
   }
 
-  /**
-   * The comet is drawn as a triangle strip: neighbouring quads share their
-   * joint edge exactly, so it tapers smoothly with no seams, and - unlike one
-   * long self-intersecting polygon - a sharp bounce cannot punch a hole in it.
-   */
-  private drawTrail(world: World): void {
-    const { ctx } = this;
-    const trail = world.trail;
-    const n = trail.length;
-    if (n < 3) return;
-
-    const theme = world.theme;
-    for (let i = 0; i < n; i++) {
-      const a = trail[Math.max(0, i - 1)]!;
-      const b = trail[Math.min(n - 1, i + 1)]!;
-      const here = trail[i]!;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.hypot(dx, dy);
-      const t = i / (n - 1);
-      const w = BALL_R * 0.95 * theme.trailWidth * t * t;
-      const nx = len < 0.0001 ? 0 : (-dy / len) * w;
-      const ny = len < 0.0001 ? 0 : (dx / len) * w;
-      this.edgeA[i] = { x: here.x + nx, y: here.y + ny };
-      this.edgeB[i] = { x: here.x - nx, y: here.y - ny };
-    }
-
-    const hue = ballHue(world);
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = 1; i < n; i++) {
-      const t = i / (n - 1);
-      const a0 = this.edgeA[i - 1]!;
-      const a1 = this.edgeA[i]!;
-      const b1 = this.edgeB[i]!;
-      const b0 = this.edgeB[i - 1]!;
-      ctx.beginPath();
-      ctx.moveTo(a0.x, a0.y);
-      ctx.lineTo(a1.x, a1.y);
-      ctx.lineTo(b1.x, b1.y);
-      ctx.lineTo(b0.x, b0.y);
-      ctx.closePath();
-      ctx.fillStyle = hsla(hue, 100, 64, 0.42 * theme.trailAlpha * t * t);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
   private drawBall(world: World): void {
     const { ctx } = this;
     const { ball, match, theme, tuning } = world;
 
-    if (match.status === 'serve') this.drawServeRing(world);
-    if (ball.vx === 0 && ball.vy === 0 && match.status !== 'serve' && match.status !== 'menu') {
+    if (match.status === 'serve') {
+      this.drawServeRing(world);
+      drawServeAim(ctx, world);
+    }
+    if (
+      ball.vx === 0 &&
+      ball.vy === 0 &&
+      match.status !== 'serve' &&
+      match.status !== 'menu' &&
+      !world.replay.active
+    ) {
       return;
     }
 
@@ -541,15 +513,7 @@ export class Renderer {
       ctx.restore();
     }
 
-    ctx.rotate(angle);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fillStyle = theme.ballFill;
-    ctx.fill();
-    ctx.lineWidth = 2.5 * theme.ballRing;
-    // The ring runs white-hot as the rally heats up.
-    ctx.strokeStyle = hsla(hue, 100, 68 + world.fx.heat * 18, 0.9);
-    ctx.stroke();
+    drawBallStyled(ctx, world, this.glow, hue, rx, ry, angle, speedT, this.ballSpin);
     ctx.restore();
   }
 
@@ -617,40 +581,70 @@ export class Renderer {
     const sx = grid.stepX;
     const sy = grid.stepY;
 
-    ctx.save();
-    ctx.strokeStyle = hsla(hue, 80, 72, Math.min(0.4, alpha));
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    if (!grid.active) {
-      for (let r = 1; r < rows - 1; r++) {
-        ctx.moveTo(0, r * sy);
-        ctx.lineTo(view.w, r * sy);
-      }
-      for (let c = 1; c < cols - 1; c++) {
-        ctx.moveTo(c * sx, 0);
-        ctx.lineTo(c * sx, view.h);
-      }
+    // At rest the lattice is the same every frame, so it is built once; a
+    // rippling one is built fresh, for as long as it ripples.
+    let path: Path2D;
+    const key = `${view.w.toFixed(1)}:${cols}:${rows}`;
+    if (!grid.active && this.gridPath && this.gridKey === key) {
+      path = this.gridPath;
     } else {
-      for (let r = 1; r < rows - 1; r++) {
-        for (let c = 0; c < cols; c++) {
-          const i = r * cols + c;
-          const px = c * sx + dx[i]!;
-          const py = r * sy + dy[i]!;
-          if (c === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+      path = new Path2D();
+      if (!grid.active) {
+        for (let r = 1; r < rows - 1; r++) {
+          path.moveTo(0, r * sy);
+          path.lineTo(view.w, r * sy);
         }
-      }
-      for (let c = 1; c < cols - 1; c++) {
-        for (let r = 0; r < rows; r++) {
-          const i = r * cols + c;
-          const px = c * sx + dx[i]!;
-          const py = r * sy + dy[i]!;
-          if (r === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+        for (let c = 1; c < cols - 1; c++) {
+          path.moveTo(c * sx, 0);
+          path.lineTo(c * sx, view.h);
+        }
+        this.gridPath = path;
+        this.gridKey = key;
+      } else {
+        for (let r = 1; r < rows - 1; r++) {
+          for (let c = 0; c < cols; c++) {
+            const i = r * cols + c;
+            const px = c * sx + dx[i]!;
+            const py = r * sy + dy[i]!;
+            if (c === 0) path.moveTo(px, py);
+            else path.lineTo(px, py);
+          }
+        }
+        for (let c = 1; c < cols - 1; c++) {
+          for (let r = 0; r < rows; r++) {
+            const i = r * cols + c;
+            const px = c * sx + dx[i]!;
+            const py = r * sy + dy[i]!;
+            if (r === 0) path.moveTo(px, py);
+            else path.lineTo(px, py);
+          }
         }
       }
     }
-    ctx.stroke();
+
+    ctx.save();
+    ctx.strokeStyle = hsla(hue, 80, 72, Math.min(0.4, alpha));
+    ctx.lineWidth = 1;
+    ctx.stroke(path);
+
+    // The ball and both paddles light the floor around them: the same lines
+    // again, stroked with a radial gradient so only the ones nearby catch it.
+    ctx.globalCompositeOperation = 'lighter';
+    const { ball, player, bot, tuning } = world;
+    const span = Math.max(1, tuning.maxSpeed - tuning.serveSpeed);
+    const pace = clamp((ball.speed - tuning.serveSpeed) / span, 0, 1);
+    const lights: readonly (readonly [number, number, number, number, number])[] = [
+      [ball.x, ball.y, ballHue(world), 150 + pace * 50, 0.3 + pace * 0.2 + fx.heat * 0.15],
+      [player.x, player.y, hueOf(world, 'you'), 70 + player.half, 0.16 + player.flash * 0.25],
+      [bot.x, bot.y, hueOf(world, 'bot'), 70 + bot.half, 0.16 + bot.flash * 0.25]
+    ];
+    for (const [x, y, lightHue, radius, strength] of lights) {
+      const pool = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      pool.addColorStop(0, hsla(lightHue, 100, 72, Math.min(0.6, strength)));
+      pool.addColorStop(1, hsla(lightHue, 100, 72, 0));
+      ctx.strokeStyle = pool;
+      ctx.stroke(path);
+    }
     ctx.restore();
   }
 
@@ -811,10 +805,19 @@ export class Renderer {
     ctx.textBaseline = 'middle';
 
     if (match.rally >= 2 && (match.status === 'play' || match.status === 'paused')) {
+      // Each return ticks it up with a small pop, so the count is felt.
+      const pop = fx.rallyPop * fx.rallyPop;
       ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(1 + pop * 0.13, 1 + pop * 0.13);
       ctx.font = `800 ${(170 * s).toFixed(1)}px ${CANVAS_FONT}`;
-      ctx.fillStyle = hsla(heatHue(198, fx.heat, theme.hotHue), 72, 72, 0.09 + fx.heat * 0.13);
-      ctx.fillText(String(match.rally), cx, cy);
+      ctx.fillStyle = hsla(
+        heatHue(198, fx.heat, theme.hotHue),
+        72,
+        72 + pop * 10,
+        0.09 + fx.heat * 0.13 + pop * 0.08
+      );
+      ctx.fillText(String(match.rally), 0, 0);
       ctx.restore();
     }
 
@@ -833,6 +836,7 @@ export class Renderer {
 
     drawUltimateBanner(ctx, world, cx, cy, s, CANVAS_FONT);
     this.drawBanner(world, cx, cy, s);
+    drawVersusCard(ctx, world, cx, cy, s, CANVAS_FONT);
     this.drawPopups(world);
 
     if (match.status === 'serve' && isMatchPoint(world)) {

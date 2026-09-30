@@ -53,7 +53,7 @@ prerequisites, signing, deep links, and what the shell is allowed to do.
 | ---------------------------------- | ---------------------------------------------------------------------- |
 | Drag / move pointer                | Move your paddle (anywhere on screen - the paddle mirrors your finger) |
 | `↑` `↓` or `W` `S`                 | Move your paddle                                                       |
-| Tap / `Space`                      | Serve immediately instead of waiting                                   |
+| Tap / `Space`                      | Serve immediately instead of waiting, or skip the closing replay       |
 | `1` `2` `3` `4` or `Q` `E` `R` `F` | Use the ability in that slot (or tap the buttons in the corner)        |
 | `Esc` or `P`                       | Pause                                                                  |
 | `M`                                | Mute                                                                   |
@@ -64,6 +64,12 @@ harder to read. It is the one piece of technique every player has from the
 first match - no talent, no button, just the wrist - and a word pops off the
 paddle when you land one. Catch a ball on the very tip and the clock slows for
 a beat so you can see the save.
+
+**Aimed serve.** When the serve leaves from your end - after you have dropped a
+point - your paddle aims it: stand high and it goes high, stand low and it goes
+low, and a dashed guide off the ball shows where. It is never flatter than a
+gentle angle, so there is no dead-straight gift to be had. The bot's serves
+stay a toss-up.
 
 Your paddle is the aqua one (or whatever colour you equip); the bot's is rose.
 The dots beside each end count that side's points. The faint number in the
@@ -80,7 +86,7 @@ rally lasts, so rallies tend to end themselves.
 | **Gauntlet**    | A roguelite run: nine matches, three hearts, a boon for every win  |
 | **Quick Match** | The classic duel, first to five, against any of five bots          |
 | **Endless**     | Three lives, one growing rally, a wall that barely misses          |
-| **Challenge**   | Six short matches with a twist: small paddle, fast ball, 0-2 down… |
+| **Challenge**   | Eight short matches with a twist: small paddle, portals, 0-2 down… |
 | **Tournament**  | Three rounds against progressively stronger bots, for a trophy     |
 | **Versus**      | Two players on one screen - a half each, or W S against the arrows |
 | **Practice**    | Any bot, nothing recorded, no XP                                   |
@@ -91,11 +97,17 @@ Some matches are played on a court that is itself a rule: **bumpers** standing
 or orbiting in the middle, a **wind** that blows across the court and turns
 every few seconds (the chevrons on the touchlines flash the other way just
 before it does), a **gravity well** that bends every pass towards the centre,
-and **brick walls** in front of a goal that break one brick per hit. Two
-things keep every court fair. A force bends the ball but never changes its
-speed, so the difficulty contract below still holds; and nothing may turn the
-ball short of vertical, so no court can stall a rally. The bots read a bending
-ball the way they read a bounce - the good ones well, the weak ones barely.
+**brick walls** in front of a goal that break one brick per hit, and
+**portals** - linked pairs of mouths that swallow the ball and put it out of
+the other at the same speed and heading. Two things keep every court fair. A
+force bends the ball but never changes its speed, so the difficulty contract
+below still holds; and nothing may turn the ball short of vertical, so no
+court can stall a rally. A portal never carries the ball back along the court,
+so no pair can loop it forever. The bots read a bending ball the way they read
+a bounce, and a portal the way they read a wall - the good ones well, the weak
+ones barely. A court added to the daily rotation joins it from a day that has
+not started yet, and a Gauntlet run only ever rolls the courts that existed
+the day it began, so an update never changes a challenge someone is playing.
 
 A **boss** is a bot brain with a court of its own, a trait, and phases: every
 boss changes when you are winning, with a banner that says so. Colossus has a
@@ -167,7 +179,8 @@ fast or the rally is long. A return placed wide enough always scores.
 
 Matches, wins, rallies, challenges and cup rounds pay XP; XP levels you up.
 Levels and achievements unlock cosmetics - colours, ball and paddle styles,
-trails and arenas - which change nothing about how the game plays. Levels also
+trails and arenas - which change nothing about how the game plays (see
+[Look and sound](#look-and-sound)). Levels also
 pay **one talent point each** up to level 50, which very much do. Practice pays
 nothing, quitting pays nothing, and the award is halved after 25 ranked matches
 in a day, so there is nothing worth farming.
@@ -337,6 +350,46 @@ both. Point a build somewhere else with `VITE_API_URL`.
 Without a server running, the game is exactly the guest experience above: the
 account row reports that it cannot be reached, and nothing else changes.
 
+## Look and sound
+
+**Every cosmetic is drawn, not just tinted.** Each ball, trail, paddle and
+arena has a style of its own on top of its colours, and every style keeps the
+same silhouette and brightness budget as the plain one, so none is easier or
+harder to play with.
+
+| Kind   | Styles                                                                                                                                                                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ball   | Classic and Pearl roll with a seam; Nova wears a breathing corona; Void turns an accretion disc; Star spins a sparkle; Comet drags its glow; Plasma crackles                                                                                             |
+| Trail  | Comet, Ribbon with a white-hot thread, Ember shedding sparks, Aurora running through the spectrum, Pixel in retro blocks                                                                                                                                 |
+| Paddle | Capsule, Blade with honed edges and a running glint, Halo with a second tube, Prism with a sliding rainbow sheen, Circuit with traces and a signal                                                                                                       |
+| Arena  | Midnight's stars and shooting stars, Dusk's drifting lights, Grid's falling code, Ember's embers, Neon Alley's rain, Stormfront's rain and lightning, Forge's sparks, Apex's shafts of light, Abyss's bubbles and caustics, Sunset Drive's synthwave sun |
+
+An arena's scene lives on the court floor, under everything that matters, and
+it knows which way is down: on an upright phone, where the court is turned a
+quarter, the rain still falls down the screen.
+
+**The match is a show.** A match opens on a versus card, or on a banner for a
+stage or a boss. The ball and both paddles light the floor grid around them. A
+paddle bows where the ball struck it and springs back. The serve gathers
+itself out of sparks. The big rally number pops each time it ticks. A rally
+that catches fire leaves flames behind the ball. A scored point flies home to
+its pip as an orb, and the pip lights when it lands. And the point that
+decides the match is wound back and replayed in slow motion - slowest at the
+last return and at the line - before the loser's paddle dissolves and the
+winner's gets the crowd. A tap, a click or Space skips the replay.
+
+**The soundtrack listens.** Four synthesised songs - a boss gets its own,
+Endless the hypnotic one, the daily the bright one, and every other match
+takes turns - and each answers the play with layers rather than a new tune: a
+heating rally opens the band up, doubles the hats, adds a shimmer and pushes
+the kick, a rally on fire crashes into every bar, and match point brings a
+heartbeat and a riser into every phrase. Hits, walls, bumpers and points are
+panned to where they happened, and a won match gets a fanfare and applause.
+
+**Settings** belong to the device, not the account: music and effects volume,
+screen shake (full, gentle or off), vibration, the closing replay, and which
+side the skill buttons sit on.
+
 ## How it is built
 
 ```
@@ -352,15 +405,19 @@ src/
     simulation.ts    one fixed timestep
     physics.ts       ball, walls, swept paddle collisions
     ai.ts            bot behaviour: reaction, reads, placement, pressure
-    arena.ts         court hazards and boss phases: bumpers, wind, wells, bricks
-    effects.ts       rings, popups, confetti and the rippling floor grid
+    arena.ts         court hazards and boss phases: bumpers, wind, wells, bricks,
+                     portals
+    effects.ts       rings, popups, score orbs, confetti and the rippling floor grid
     talents.ts       the build at runtime: buffs, drives, shields, returns
     abilities.ts     what each active skill does to the world
-    match.ts         serving, scoring, match lifecycle, results
-    audio.ts         synthesised WebAudio blips
+    match.ts         serving, aiming, scoring, match lifecycle, results
+    replay.ts        the tape of the point in play, and its closing replay
+    audio.ts         synthesised effects, positional and on their own bus
+    music.ts         the adaptive soundtrack: four songs as data, one sequencer
     view.ts          field <-> screen transform, canvas sizing
     particles.ts     fixed-size particle pool
-    render/          canvas renderer
+    render/          canvas renderer: cosmetic styles, arena scenes, the
+                     match's presentation and every skill's effects
   core/              domain model - no React, no canvas
     balance/         every tuning number in the game, in one file
     bots/            difficulty profiles
@@ -376,6 +433,7 @@ src/
     achievements/    achievement catalogue
     cosmetics/       unlockables and the resolved canvas theme
     profile/         profile model, validation, migration, store, demo mode
+    settings/        this device's settings: volumes, shake, vibration
     storage/         versioned localStorage envelope
     net/             the API client: timeouts, retries, token refresh
     platform/        native shell: deep links, external links, full screen

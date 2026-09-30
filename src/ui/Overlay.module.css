@@ -61,6 +61,37 @@
   letter-spacing: 0.02em;
 }
 
+/* Where the match stands, under its name. */
+.score {
+  margin: -4px 0 4px;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.score i {
+  font-style: normal;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.scoreYou {
+  color: var(--you);
+}
+
+.scoreBot {
+  color: var(--bot);
+}
+
+.spent {
+  opacity: 0.25;
+}
+
 .button {
   width: 100%;
   min-height: 54px;

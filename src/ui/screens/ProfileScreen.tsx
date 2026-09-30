@@ -4,7 +4,6 @@ import { ACHIEVEMENTS } from '../../core/achievements/catalog';
 import { NAME_MAX } from '../../core/profile/defaults';
 import { setIdentity } from '../../core/account/progression';
 import { profileStore } from '../../core/profile/store';
-import { settingsStore, type SkillSide } from '../../core/settings/store';
 import { AVATARS, type PlayerProfile } from '../../core/profile/types';
 import type { AccountState } from '../../core/account/store';
 import { Avatar } from '../components/Avatar';
@@ -12,7 +11,6 @@ import { Screen } from '../components/Screen';
 import { SyncBadge } from '../components/SyncBadge';
 import { XpBar } from '../components/XpBar';
 import { useDemoLevel } from '../hooks/useProfile';
-import { useSettings } from '../hooks/useSettings';
 import styles from '../Screens.module.css';
 
 interface ProfileScreenProps {
@@ -21,6 +19,7 @@ interface ProfileScreenProps {
   onAccount: () => void;
   onAchievements: () => void;
   onCustomize: () => void;
+  onSettings: () => void;
   onDemo: () => void;
   onBack: () => void;
 }
@@ -33,11 +32,6 @@ function Stat({ value, label }: { value: string | number; label: string }) {
     </div>
   );
 }
-
-const SKILL_SIDES: readonly { id: SkillSide; label: string }[] = [
-  { id: 'left', label: 'Left' },
-  { id: 'right', label: 'Right' }
-];
 
 function playTime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -52,13 +46,13 @@ export function ProfileScreen({
   onAccount,
   onAchievements,
   onCustomize,
+  onSettings,
   onDemo,
   onBack
 }: ProfileScreenProps) {
   const [name, setName] = useState(profile.name);
   const [confirmReset, setConfirmReset] = useState(false);
   const demoLevel = useDemoLevel();
-  const { skillSide } = useSettings();
 
   const stats = profile.stats;
   const talents = profile.talents.stats;
@@ -145,25 +139,6 @@ export function ProfileScreen({
         <Stat value={talents.perfectGuards} label="Guards" />
       </div>
 
-      {/* Stored on this device, not the profile: it follows the hand holding
-          the phone, and a demo must not be able to change it for the real save. */}
-      <p className={styles.sectionLabel}>Skill buttons</p>
-      <div className={styles.buttonRow} role="group" aria-label="Skill button side">
-        {SKILL_SIDES.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            className={
-              option.id === skillSide ? `${styles.ghost} ${styles.selected}` : styles.ghost
-            }
-            aria-pressed={option.id === skillSide}
-            onClick={() => settingsStore.update({ skillSide: option.id })}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-
       <div className={styles.buttonRow}>
         <button type="button" className={styles.ghost} onClick={onAchievements}>
           Achievements {earned}/{ACHIEVEMENTS.length}
@@ -172,6 +147,9 @@ export function ProfileScreen({
           Customise
         </button>
       </div>
+      <button type="button" className={styles.ghost} onClick={onSettings}>
+        Settings
+      </button>
 
       {demoLevel !== null ? (
         // There is nothing here to erase: a demo profile is never written.

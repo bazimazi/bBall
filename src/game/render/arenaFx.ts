@@ -22,6 +22,101 @@ export function drawArena(ctx: CanvasRenderingContext2D, world: World, glow: Glo
   if (spec.wind) drawWind(ctx, world);
   if (world.arena.bricks.length > 0) drawBricks(ctx, world);
   if (world.arena.bumpers.length > 0) drawBumpers(ctx, world, glow);
+  if (world.arena.portals.length > 0) drawPortals(ctx, world, glow);
+}
+
+/**
+ * Portals: two mouths per pair, turning opposite ways, with motes forever
+ * falling into them and a faint thread between the two so the pairing can be
+ * read before the ball ever finds out. Both mouths flare together when the
+ * ball goes through - the thing that just happened happened at both ends.
+ */
+function drawPortals(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
+  const { fx, motion } = world;
+  for (const portal of world.arena.portals) {
+    const flash = Math.max(portal.flashA, portal.flashB);
+    ctx.save();
+    ctx.strokeStyle = hsla(portal.hue, 90, 72, 1);
+    ctx.globalAlpha = 0.07 + flash * 0.35 * motion;
+    ctx.lineWidth = 2 + flash * 2;
+    ctx.setLineDash([3, 11]);
+    ctx.lineDashOffset = -fx.time * 30;
+    ctx.beginPath();
+    ctx.moveTo(portal.ax, portal.ay);
+    ctx.lineTo(portal.bx, portal.by);
+    ctx.stroke();
+    ctx.restore();
+
+    drawMouth(ctx, glow, world, portal.ax, portal.ay, portal.r, portal.hue, 1, portal.flashA);
+    drawMouth(ctx, glow, world, portal.bx, portal.by, portal.r, portal.hue, -1, portal.flashB);
+  }
+}
+
+function drawMouth(
+  ctx: CanvasRenderingContext2D,
+  glow: GlowCache,
+  world: World,
+  x: number,
+  y: number,
+  r: number,
+  hue: number,
+  spin: 1 | -1,
+  flash: number
+): void {
+  const time = world.fx.time;
+  const g = r * (2.3 + flash * 1.2);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.38 + flash * 0.5;
+  ctx.drawImage(glow.dot(hue, 58), x - g, y - g, g * 2, g * 2);
+  ctx.restore();
+
+  // The dark of the hole itself.
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(3,4,10,0.92)';
+  ctx.fill();
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  // Two sets of arms turning against each other: the swirl.
+  for (const [radius, speed, width, alpha] of [
+    [0.74, 2.2, 3, 0.75],
+    [0.44, -3.1, 2.2, 0.55]
+  ] as const) {
+    ctx.strokeStyle = hsla(hue, 100, 70 + flash * 18, alpha);
+    ctx.lineWidth = width;
+    for (let k = 0; k < 3; k++) {
+      const a = time * speed * spin + (k * Math.PI * 2) / 3;
+      ctx.beginPath();
+      ctx.arc(x, y, r * radius, a, a + 1.25);
+      ctx.stroke();
+    }
+  }
+  // Motes spiralling in and vanishing at the centre.
+  ctx.fillStyle = hsla(hue, 100, 82, 1);
+  for (let i = 0; i < 7; i++) {
+    const phase = (time * 0.7 + i / 7) % 1;
+    const reach = r * (1.35 - phase * 1.25);
+    const a = i * 0.9 + phase * 4.2 * spin + time * 0.6 * spin;
+    ctx.globalAlpha = Math.min(1, phase * (1 - phase) * 3.2) * world.motion;
+    ctx.beginPath();
+    ctx.arc(
+      x + Math.cos(a) * reach,
+      y + Math.sin(a) * reach,
+      0.8 + (1 - phase) * 1.6,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = hsla(hue, 100, 72 + flash * 20, 0.95);
+  ctx.beginPath();
+  ctx.arc(x, y, r * (1 + flash * 0.1), 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawBumpers(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {

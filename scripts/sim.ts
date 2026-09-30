@@ -1,9 +1,10 @@
 /**
  * A headless soak of the real engine: a bot plays the player's paddle
- * against every Journey stage, boss and daily court, and the numbers that
- * decide whether a court is fair come out the other end - win rate, rally
- * length, match length - along with anything that should never happen: a
- * ball gone NaN, a point that never ends.
+ * against every Journey stage, boss, challenge, court and daily, and the
+ * numbers that decide whether a court is fair come out the other end - win
+ * rate, rally length, match length - along with anything that should never
+ * happen: a ball gone NaN, a point that never ends, a closing replay that
+ * never hands over to the result.
  *
  *   npx tsx scripts/sim.ts [matches-per-case] [player-bot]
  */
@@ -12,7 +13,14 @@ import { botProfile } from '../src/core/bots/levels';
 import type { BotLevelId } from '../src/core/bots/types';
 import { STAGES } from '../src/core/campaign/journey';
 import { dailySpec } from '../src/core/daily/daily';
-import { campaignRules, dailyRules, quickMatchRules } from '../src/core/modes/rules';
+import { ARENA_PRESETS } from '../src/core/modes/arenas';
+import { CHALLENGES } from '../src/core/modes/challenges';
+import {
+  campaignRules,
+  challengeRules,
+  dailyRules,
+  quickMatchRules
+} from '../src/core/modes/rules';
 import type { MatchRules } from '../src/core/modes/types';
 import { driveAi } from '../src/game/ai';
 import type { GameAudio } from '../src/game/audio';
@@ -36,6 +44,8 @@ interface Tally {
   seconds: number;
   stalls: number;
   broken: number;
+  /** Matches whose closing replay never reached the celebration. */
+  replays: number;
 }
 
 function play(rules: MatchRules): Tally {
@@ -46,7 +56,8 @@ function play(rules: MatchRules): Tally {
     longest: 0,
     seconds: 0,
     stalls: 0,
-    broken: 0
+    broken: 0,
+    replays: 0
   };
   for (let m = 0; m < matches; m++) {
     const world = createWorld(silent, 1);
@@ -81,6 +92,14 @@ function play(rules: MatchRules): Tally {
         }
       }
       if (match.status === 'over') {
+        // Let the closing replay run, the way the engine would, and make
+        // sure it ends in the celebration with the world still sane.
+        let steps = 0;
+        while (!world.fx.celebrated && steps < 120 * 20) {
+          step(world, FIXED_DT);
+          steps++;
+        }
+        if (!world.fx.celebrated || !Number.isFinite(world.ball.x)) tally.replays++;
         publishResult(world);
         break;
       }
@@ -106,7 +125,8 @@ function report(name: string, rules: MatchRules): void {
     `best ${String(t.longest).padStart(3)}`,
     `avg ${(t.seconds / n).toFixed(0).padStart(4)}s`,
     t.stalls ? `STALLS ${t.stalls}` : '',
-    t.broken ? `BROKEN ${t.broken}` : ''
+    t.broken ? `BROKEN ${t.broken}` : '',
+    t.replays ? `REPLAY ${t.replays}` : ''
   ];
   console.log(line.join('  '));
 }
@@ -117,6 +137,17 @@ for (const bot of ['rookie', 'amateur', 'pro', 'elite', 'legend'] as const) {
 }
 console.log('');
 for (const stage of STAGES) report(`${stage.id} ${stage.name}`, campaignRules(stage));
+console.log('');
+for (const challenge of CHALLENGES)
+  report(`challenge ${challenge.name}`, challengeRules(challenge));
+console.log('');
+for (const preset of ARENA_PRESETS) {
+  const base = quickMatchRules('pro');
+  report(`court ${preset.name}`, {
+    ...base,
+    modifiers: { ...base.modifiers, arena: preset.arena }
+  });
+}
 console.log('');
 for (let d = 0; d < 6; d++) {
   const key = `2026-10-${String(d + 1).padStart(2, '0')}`;

@@ -34,6 +34,8 @@ export interface Paddle {
   grow: number;
   /** 0..1 hit highlight, decays every step. */
   flash: number;
+  /** Where the last ball struck, from the paddle's centre: the paddle bows there. */
+  hitY: number;
 }
 
 /**
@@ -307,6 +309,29 @@ export interface FxState {
   emberTick: number;
   /** Seconds of simulated time since load; drives idle pulses. */
   time: number;
+  /** 0..1 pop on the big rally number, each time it ticks up. */
+  rallyPop: number;
+  /**
+   * The versus card a match without a banner opens on: seconds left, the
+   * two names and the line under them.
+   */
+  vsTimer: number;
+  vsLeft: string;
+  vsRight: string;
+  vsSub: string;
+  /** True once a finished match has had its celebration (after any replay). */
+  celebrated: boolean;
+  /** 0..1, how far the loser's paddle has faded since the celebration. */
+  endFade: number;
+  /** Accumulators for the fever's flames and the serve's gathering light. */
+  flameTick: number;
+  gatherTick: number;
+  /**
+   * Milliseconds of vibration the simulation would like this frame. The
+   * engine plays it (or not - it is the player's setting) and zeroes it; the
+   * simulation itself never touches the device.
+   */
+  buzz: number;
 }
 
 /** Field size plus the transform that maps field space onto the screen. */

@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from './constants';
-import { Music } from './music';
+import { Music, type SongId } from './music';
 import { Synth } from './synth';
 import { readStored, writeStored } from './utils/storage';
 
@@ -9,10 +9,10 @@ const ULTIMATE_DUCK = 1.3;
 
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
-/** The capstones' own chords, in Hz. See {@link GameAudio.ultimate}. */
 /** Semitones a rally's hits climb through: a major pentatonic, capped. */
 const RALLY_STEPS = [0, 2, 4, 7, 9, 12, 14, 16, 19] as const;
 
+/** The capstones' own chords, in Hz. See {@link GameAudio.ultimate}. */
 const ULTIMATE_CHORDS: Record<string, readonly number[]> = {
   overload: [147, 185, 220, 294],
   slipstream: [294, 440, 587, 880],
@@ -22,6 +22,13 @@ const ULTIMATE_CHORDS: Record<string, readonly number[]> = {
   default: [196, 294, 392, 587]
 };
 
+/** Keep a panned sound off the very edge of the stereo field: it reads as a fault. */
+const PAN_LIMIT = 0.75;
+
+function panOf(pan: number): number {
+  return Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, pan));
+}
+
 /**
  * Every sound is synthesised - blips and skills here, the soundtrack in
  * `music.ts` - so there are no files to load and no assets to ship. The
@@ -29,35 +36,59 @@ const ULTIMATE_CHORDS: Record<string, readonly number[]> = {
  * refuse to start audio before one.
  *
  * The small, constant sounds (hits, walls, points) stay single blips so a
- * rally never turns to mush. Skills are layered with `Synth`: a transient for
- * the moment it lands, a body for what it is, and a reverb tail so it hangs
- * in the air a beat longer than anything the ball does.
+ * rally never turns to mush - but they sit where they happened, panned
+ * across the stereo field with the ball, so a return from the far paddle
+ * comes from the far side of the room. Skills are layered with `Synth`: a
+ * transient for the moment it lands, a body for what it is, and a reverb tail
+ * so it hangs in the air a beat longer than anything the ball does.
+ *
+ * The graph is three gains deep: a bus each for the effects and the music,
+ * so each has its own volume, into a master that the mute button owns, into
+ * a limiter.
  */
 export class GameAudio {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
+  private sfxBus: GainNode | null = null;
+  private musicBus: GainNode | null = null;
   private synth: Synth | null = null;
   private music: Music | null = null;
   private mutedFlag = readStored(STORAGE_KEYS.muted, '0') === '1';
+  private sfxVolume = 1;
+  private musicVolume = 0.8;
 
   get muted(): boolean {
     return this.mutedFlag;
   }
 
   /**
-   * Keep the soundtrack running while `on`, faded out otherwise. Called every
-   * frame; does nothing until the first gesture has unlocked the context.
+   * Keep the soundtrack running while `on`, faded out otherwise, and tell it
+   * how hot the play is. Called every frame; does nothing until the first
+   * gesture has unlocked the context.
    */
-  updateMusic(on: boolean): void {
-    if (!this.context || !this.master) return;
-    this.music ??= new Music(this.context, this.master);
+  updateMusic(on: boolean, energy = 0, tension = false): void {
+    if (!this.music) return;
+    this.music.setMood(energy, tension);
     // Muted, the master gain is already silent - skip the scheduling too.
-    this.music.update(on && !this.mutedFlag);
+    this.music.update(on && !this.mutedFlag && this.musicVolume > 0.001);
   }
 
-  /** Start the soundtrack from the top, for a fresh match. */
-  restartMusic(): void {
-    this.music?.restart();
+  /**
+   * Start the soundtrack from the top for a fresh match: `song` for a match
+   * that has one of its own, or the next song in the rotation for `null`.
+   */
+  startMusic(song: SongId | null): void {
+    this.music?.choose(song);
+  }
+
+  /** Each bus's level, 0..1. The mute button sits above both. */
+  setVolumes(music: number, sfx: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, music));
+    this.sfxVolume = Math.max(0, Math.min(1, sfx));
+    if (!this.context) return;
+    const t = this.context.currentTime;
+    this.musicBus?.gain.setTargetAtTime(this.musicVolume, t, 0.05);
+    this.sfxBus?.gain.setTargetAtTime(this.sfxVolume, t, 0.05);
   }
 
   unlock(): void {
@@ -82,13 +113,27 @@ export class GameAudio {
       const master = context.createGain();
       master.gain.value = this.mutedFlag ? 0 : MASTER_GAIN;
       master.connect(limiter);
+
+      const sfxBus = context.createGain();
+      sfxBus.gain.value = this.sfxVolume;
+      sfxBus.connect(master);
+      const musicBus = context.createGain();
+      musicBus.gain.value = this.musicVolume;
+      musicBus.connect(master);
+
       this.context = context;
       this.master = master;
-      this.synth = new Synth(context, master);
+      this.sfxBus = sfxBus;
+      this.musicBus = musicBus;
+      this.synth = new Synth(context, sfxBus);
+      this.music = new Music(context, musicBus);
     } catch {
       this.context = null;
       this.master = null;
+      this.sfxBus = null;
+      this.musicBus = null;
       this.synth = null;
+      this.music = null;
     }
   }
 
@@ -114,23 +159,26 @@ export class GameAudio {
     void this.context?.close();
     this.context = null;
     this.master = null;
+    this.sfxBus = null;
+    this.musicBus = null;
     this.synth = null;
     this.music = null;
   }
 
   /** The synth, or null when there is nothing to play into. */
   private get live(): Synth | null {
-    return this.mutedFlag ? null : this.synth;
+    return this.mutedFlag || this.sfxVolume <= 0.001 ? null : this.synth;
   }
 
-  /** One short synthesised blip. */
+  /** One short synthesised blip, `pan` across the stereo field. */
   tone(
     freq: number,
     dur: number,
     type: OscillatorType,
     gain: number,
     slideTo = 0,
-    delay = 0
+    delay = 0,
+    pan = 0
   ): void {
     this.live?.voice({
       freq,
@@ -139,12 +187,13 @@ export class GameAudio {
       gain,
       dur,
       attack: 0.007,
-      delay
+      delay,
+      ...(pan !== 0 ? { pan: panOf(pan) } : {})
     });
   }
 
-  serve(): void {
-    this.tone(360, 0.07, 'sine', 0.12, 520);
+  serve(pan = 0): void {
+    this.tone(360, 0.07, 'sine', 0.12, 520, 0, pan * 0.4);
   }
 
   /**
@@ -152,39 +201,105 @@ export class GameAudio {
    * rally, so a long exchange audibly winds itself up and the point that ends
    * it lands from the top of the scale.
    */
-  hit(power: number, rally = 0): void {
+  hit(power: number, rally = 0, pan = 0): void {
     const step = RALLY_STEPS[Math.min(RALLY_STEPS.length - 1, Math.floor(rally / 2))]!;
     const f = (250 + power * 340) * Math.pow(2, step / 12);
-    this.tone(f, 0.085, 'triangle', 0.3, f * 0.62);
-    this.tone(f * 2, 0.035, 'sine', 0.08);
+    this.tone(f, 0.085, 'triangle', 0.3, f * 0.62, 0, pan);
+    this.tone(f * 2, 0.035, 'sine', 0.08, 0, 0, pan);
+    // A little body under the hard ones, so pace is heard as well as seen.
+    if (power > 0.55) this.tone(f * 0.5, 0.06, 'sine', 0.12 * power, f * 0.3, 0, pan);
   }
 
   /** A flick: the normal hit with a bright whip-crack on top. */
-  flick(): void {
+  flick(pan = 0): void {
     const synth = this.live;
     if (!synth) return;
-    synth.voice({ freq: 1400, to: 2600, type: 'sine', gain: 0.07, dur: 0.07, attack: 0.002 });
+    const p = panOf(pan);
+    synth.voice({
+      freq: 1400,
+      to: 2600,
+      type: 'sine',
+      gain: 0.07,
+      dur: 0.07,
+      attack: 0.002,
+      pan: p
+    });
     synth.noise({
       gain: 0.06,
       dur: 0.06,
       attack: 0.002,
-      filter: { type: 'highpass', freq: 4200 }
+      filter: { type: 'highpass', freq: 4200 },
+      pan: p
     });
   }
 
   /** A ball glancing off an arena bumper: a round, bell-like knock. */
-  bumper(power: number): void {
+  bumper(power: number, pan = 0): void {
     const synth = this.live;
     if (!synth) return;
-    synth.bell(330 + power * 220, 0.12, 0.28, { send: 0.25 });
+    synth.bell(330 + power * 220, 0.12, 0.28, { send: 0.25, pan: panOf(pan) });
   }
 
   /** A brick shattering. */
-  brick(): void {
+  brick(pan = 0): void {
     const synth = this.live;
     if (!synth) return;
-    synth.noise({ gain: 0.1, dur: 0.12, attack: 0.002, filter: { type: 'bandpass', freq: 2400 } });
-    synth.voice({ freq: 880, to: 440, type: 'square', gain: 0.05, dur: 0.08 });
+    const p = panOf(pan);
+    synth.noise({
+      gain: 0.1,
+      dur: 0.12,
+      attack: 0.002,
+      filter: { type: 'bandpass', freq: 2400 },
+      pan: p
+    });
+    synth.voice({ freq: 880, to: 440, type: 'square', gain: 0.05, dur: 0.08, pan: p });
+    // Rubble: a few small ticks falling after the break.
+    for (let i = 0; i < 3; i++) {
+      synth.noise({
+        gain: 0.03,
+        dur: 0.03,
+        delay: 0.05 + i * 0.04 + Math.random() * 0.02,
+        filter: { type: 'bandpass', freq: 3200 - i * 600, q: 3 },
+        pan: p
+      });
+    }
+  }
+
+  /**
+   * A ball swallowed by one portal and spat out of the other: a falling warp
+   * where it went in, a rising one where it came out.
+   */
+  portal(fromPan = 0, toPan = 0): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.voice({
+      freq: 900,
+      to: 180,
+      type: 'sine',
+      gain: 0.12,
+      dur: 0.14,
+      pan: panOf(fromPan),
+      send: 0.3
+    });
+    synth.voice({
+      freq: 240,
+      to: 1300,
+      type: 'triangle',
+      gain: 0.1,
+      dur: 0.16,
+      delay: 0.05,
+      pan: panOf(toPan),
+      send: 0.35
+    });
+    synth.noise({
+      gain: 0.05,
+      dur: 0.2,
+      attack: 0.03,
+      filter: { type: 'bandpass', freq: 600, to: 4000, q: 4 },
+      pan: panOf(fromPan),
+      panTo: panOf(toPan),
+      send: 0.3
+    });
   }
 
   /** A boss moving into its next phase: a low swell and a hit. */
@@ -210,21 +325,37 @@ export class GameAudio {
    * next - the court pulses with the song without an analyser node.
    */
   beat(): number {
-    if (!this.context || !this.music || this.mutedFlag) return 0;
+    if (!this.context || !this.music || this.mutedFlag || this.musicVolume <= 0.001) return 0;
     return this.music.pulse(this.context.currentTime);
   }
 
-  wall(power: number): void {
-    this.tone(140 + power * 100, 0.06, 'sine', 0.18, 90);
+  wall(power: number, pan = 0): void {
+    this.tone(140 + power * 100, 0.06, 'sine', 0.18, 90, 0, pan);
   }
 
-  point(won: boolean): void {
+  point(won: boolean, pan = 0): void {
     if (won) {
-      this.tone(523, 0.1, 'triangle', 0.22);
-      this.tone(784, 0.16, 'triangle', 0.2, 0, 0.08);
+      this.tone(523, 0.1, 'triangle', 0.22, 0, 0, pan * 0.5);
+      this.tone(784, 0.16, 'triangle', 0.2, 0, 0.08, pan * 0.5);
+      this.tone(1047, 0.2, 'sine', 0.08, 0, 0.14, pan * 0.5);
     } else {
-      this.tone(210, 0.24, 'sawtooth', 0.12, 105);
+      this.tone(210, 0.24, 'sawtooth', 0.12, 105, 0, pan * 0.5);
     }
+    // The ball going through the line: a soft thud of air where it happened.
+    this.live?.noise({
+      gain: 0.08,
+      dur: 0.18,
+      attack: 0.004,
+      filter: { type: 'lowpass', freq: 900, to: 200 },
+      pan: panOf(pan)
+    });
+  }
+
+  /** A score orb landing in its pip. */
+  pip(pan = 0): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.bell(1568, 0.05, 0.3, { send: 0.3, pan: panOf(pan) });
   }
 
   combo(step: number): void {
@@ -241,15 +372,152 @@ export class GameAudio {
       send: 0.2
     });
     synth.voice({ freq: base * 2, type: 'sine', gain: 0.05, dur: 0.2, delay: 0.12, send: 0.35 });
+    // ON FIRE and past it: the ball catches, with a whoosh of flame.
+    if (step >= 2) this.ignite();
   }
 
+  /** A roar of flame catching: a noise swell opening up, and a low body under it. */
+  ignite(): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.noise({
+      gain: 0.12,
+      dur: 0.5,
+      attack: 0.06,
+      filter: { type: 'bandpass', freq: 300, to: 2400, q: 0.8 },
+      send: 0.25
+    });
+    synth.voice({
+      freq: 90,
+      to: 60,
+      type: 'sawtooth',
+      gain: 0.06,
+      dur: 0.4,
+      filter: { type: 'lowpass', freq: 400 }
+    });
+  }
+
+  /**
+   * Applause, from a crowd that is not there: dozens of short, band-passed
+   * noise claps scattered over a second or two, swelling and dying away.
+   * `strength` sets how many hands and how long they keep it up.
+   */
+  applause(strength = 1): void {
+    const synth = this.live;
+    if (!synth) return;
+    const claps = Math.round(18 + strength * 42);
+    const span = 0.9 + strength * 1.1;
+    for (let i = 0; i < claps; i++) {
+      // Front-loaded: the burst of a crowd reacting, then the tail.
+      const u = Math.random();
+      const delay = span * u * u;
+      const swell = 1 - u * 0.7;
+      synth.noise({
+        gain: (0.02 + Math.random() * 0.03) * swell * (0.6 + strength * 0.4),
+        dur: 0.018 + Math.random() * 0.03,
+        attack: 0.001,
+        delay,
+        filter: { type: 'bandpass', freq: 900 + Math.random() * 1600, q: 1.4 },
+        pan: (Math.random() * 2 - 1) * 0.8,
+        send: 0.2
+      });
+    }
+    // A soft bed of crowd under the claps.
+    synth.noise({
+      gain: 0.025 * strength,
+      dur: span,
+      attack: 0.15,
+      filter: { type: 'bandpass', freq: 1200, q: 0.7 },
+      send: 0.3
+    });
+  }
+
+  /**
+   * The match is over. A win gets a fanfare that climbs to a held chord and a
+   * crowd behind it; a loss gets a falling line that closes down.
+   */
   matchOver(won: boolean): void {
-    const notes = won ? [523, 659, 784, 1047] : [440, 370, 311, 233];
-    notes.forEach((note, i) => this.tone(note, 0.28, 'triangle', 0.18, 0, i * 0.1));
+    const synth = this.live;
+    if (!synth) return;
+    if (won) {
+      [523, 659, 784, 1047].forEach((note, i) =>
+        this.tone(note, 0.28, 'triangle', 0.18, 0, i * 0.1)
+      );
+      [523, 659, 784].forEach((note) =>
+        synth.stack(
+          {
+            freq: note,
+            type: 'sawtooth',
+            gain: 0.05,
+            dur: 1.2,
+            attack: 0.05,
+            delay: 0.4,
+            filter: { type: 'lowpass', freq: 2400, to: 900 },
+            send: 0.45
+          },
+          10
+        )
+      );
+      synth.bell(2093, 0.06, 1, { delay: 0.42, send: 0.6 });
+    } else {
+      [440, 370, 311, 233].forEach((note, i) =>
+        this.tone(note, 0.28, 'triangle', 0.16, 0, i * 0.12)
+      );
+      synth.voice({
+        freq: 233,
+        to: 116,
+        type: 'sawtooth',
+        gain: 0.06,
+        dur: 0.9,
+        delay: 0.45,
+        filter: { type: 'lowpass', freq: 1400, to: 200 },
+        send: 0.3
+      });
+    }
+  }
+
+  /** The crowd and the confetti: a match won, after its replay if it had one. */
+  celebrate(): void {
+    this.applause(1);
+  }
+
+  /** Tape spooling back: the replay of the deciding point is starting. */
+  rewind(): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.noise({
+      gain: 0.07,
+      dur: 0.4,
+      attack: 0.02,
+      filter: { type: 'bandpass', freq: 5000, to: 500, q: 2 },
+      send: 0.2
+    });
+    synth.voice({
+      freq: 1600,
+      to: 200,
+      type: 'sawtooth',
+      gain: 0.03,
+      dur: 0.35,
+      filter: { type: 'lowpass', freq: 2200 }
+    });
+    this.music?.duck(0.2);
   }
 
   ui(): void {
     this.tone(640, 0.05, 'sine', 0.1);
+  }
+
+  /** A menu button: a soft, dry tick, far quieter than anything in a match. */
+  click(): void {
+    const synth = this.live;
+    if (!synth) return;
+    synth.voice({ freq: 1250, to: 900, type: 'sine', gain: 0.045, dur: 0.035, attack: 0.002 });
+    synth.noise({
+      gain: 0.012,
+      dur: 0.012,
+      attack: 0.001,
+      filter: { type: 'highpass', freq: 5000 }
+    });
   }
 
   // ------------------------------------------------------------- abilities

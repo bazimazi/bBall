@@ -33,6 +33,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { ResultScreen } from './screens/ResultScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 import { TalentScreen } from './screens/TalentScreen';
 import { TournamentScreen } from './screens/TournamentScreen';
 
@@ -149,6 +150,15 @@ export function App() {
     engine?.setLoadout(loadout);
   }, [engine, loadout]);
 
+  useEffect(() => {
+    engine?.setPlayerName(profile.name);
+  }, [engine, profile.name]);
+
+  // Volumes, camera, vibration and replays: this device's, handed over whole.
+  useEffect(() => {
+    engine?.setPreferences(settings);
+  }, [engine, settings]);
+
   const playing = flow.screen === 'playing';
   const paused = playing && snapshot.status === 'paused';
 
@@ -190,7 +200,9 @@ export function App() {
         muted={snapshot.muted}
         canPause={playing && snapshot.canPause}
         label={
-          playing && !paused ? (coarse && snapshot.objectiveTouch) || snapshot.objective : null
+          playing && !paused && snapshot.status !== 'over'
+            ? (coarse && snapshot.objectiveTouch) || snapshot.objective
+            : null
         }
         onToggleMute={() => engine?.toggleMute()}
         onPause={() => engine?.pause()}
@@ -225,6 +237,7 @@ export function App() {
           onExitDemo={flow.exitDemo}
           onProfile={() => flow.go('profile')}
           onTalents={() => flow.go('talents')}
+          onSettings={() => flow.go('settings')}
         />
       )}
 
@@ -277,6 +290,7 @@ export function App() {
           onAccount={openAccount}
           onAchievements={() => flow.go('achievements')}
           onCustomize={() => flow.go('customize')}
+          onSettings={() => flow.go('settings')}
           onDemo={() => flow.go('demo')}
           onBack={flow.back}
         />
@@ -307,6 +321,10 @@ export function App() {
 
       {flow.screen === 'customize' && <CustomizeScreen profile={profile} onBack={flow.back} />}
 
+      {flow.screen === 'settings' && (
+        <SettingsScreen onPreview={() => engine?.chime(1)} onBack={flow.back} />
+      )}
+
       {flow.screen === 'result' && flow.result && (
         <ResultScreen
           result={flow.result}
@@ -321,6 +339,8 @@ export function App() {
       <Overlay show={paused && !leaving}>
         <PausePanel
           label={snapshot.label}
+          score={snapshot.winScore > 0 ? { you: snapshot.scoreYou, bot: snapshot.scoreBot } : null}
+          lives={snapshot.maxLives > 0 ? { left: snapshot.lives, max: snapshot.maxLives } : null}
           onResume={() => engine?.resume()}
           onRestart={flow.replay}
           onQuit={flow.quitToMenu}

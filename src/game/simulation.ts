@@ -2,16 +2,95 @@ import { updateArena } from './arena';
 import { updateAbilityFx } from './casts';
 import { FIELD_H } from './constants';
 import { driveAi } from './ai';
-import { launchBall } from './match';
+import { celebrate, launchBall } from './match';
+import { hsla } from './palette';
 import { movePaddle, stepBall } from './physics';
 import { playerPaddleSpeed, updateRuntime } from './talents';
+import type { Orb } from './effects';
 import { clamp, decay, lerp } from './utils/math';
-import type { World } from './world';
+import { ballHue, hueOf, panAt, type World } from './world';
 
 function updateEffects(world: World, dt: number): void {
   world.rings.update(dt);
   world.popups.update(dt);
   world.grid.update(dt);
+  world.orbs.update(dt, (orb) => landOrb(world, orb));
+}
+
+/** A point's orb reaching its pip: the pip lights, with a chime and a ring of its own. */
+function landOrb(world: World, orb: Orb): void {
+  const { fx } = world;
+  if (orb.side === 'you') fx.pipPopYou = 1;
+  else fx.pipPopBot = 1;
+  world.rings.spawn(orb.toX, orb.toY, orb.hue, 34, 0.4, 3, 80);
+  world.particles.emit(
+    orb.toX,
+    orb.toY,
+    10,
+    { speed: 160, life: 0.4, size: 2.4, color: hsla(orb.hue, 100, 75, 0.9) },
+    world.motion
+  );
+  if (world.match.status !== 'menu') world.audio.pip(panAt(world, orb.toX, orb.toY));
+}
+
+/**
+ * The serve gathering itself: sparks drawn in to the ball from all round it,
+ * in the colour of the side it is about to leave from.
+ */
+function gather(world: World, dt: number): void {
+  const { fx, match, ball } = world;
+  fx.gatherTick += dt;
+  if (match.serveTimer < 0.12 || fx.gatherTick < 0.035) return;
+  fx.gatherTick = 0;
+  const hue = hueOf(world, match.serveDir > 0 ? 'you' : 'bot');
+  world.particles.converge(ball.x, ball.y, 2, 74, 0.36, 2.4, hsla(hue, 100, 74, 0.9), world.motion);
+}
+
+/**
+ * On fire: a ball deep into a hot rally sheds flame behind it. It says what
+ * the banner said, for as long as the rally keeps it true.
+ */
+function flames(world: World, dt: number): void {
+  const { fx, ball } = world;
+  if (fx.heat < 0.72) {
+    fx.flameTick = 0;
+    return;
+  }
+  fx.flameTick += dt;
+  if (fx.flameTick < 1 / 55) return;
+  fx.flameTick = 0;
+  const heat = (fx.heat - 0.72) / 0.28;
+  world.particles.emit(
+    ball.x,
+    ball.y,
+    2,
+    {
+      angle: Math.atan2(-ball.vy, -ball.vx),
+      spread: 0.9,
+      speed: 80 + heat * 60,
+      life: 0.3 + heat * 0.12,
+      size: 2.6 + heat * 1.6,
+      color: hsla(ballHue(world) + (Math.random() - 0.5) * 18, 100, 58 + Math.random() * 14, 0.9),
+      drag: 0.9
+    },
+    world.motion
+  );
+}
+
+/**
+ * A finished match: the replay counting down, running, and handing over to
+ * the celebration; then the loser's paddle fading out.
+ */
+function afterMatch(world: World, dt: number): void {
+  const { replay, fx, match } = world;
+  if (replay.pending > 0) {
+    replay.pending -= dt;
+    if (replay.pending <= 0) replay.begin(world);
+  } else if (replay.active && replay.play(world, dt)) {
+    celebrate(world);
+    match.overTimer = 1;
+  }
+  if (fx.celebrated) fx.endFade = Math.min(1, fx.endFade + dt / 0.7);
 }
 
 /** Advance the world by one fixed timestep. */
@@ -43,6 +122,8 @@ export function step(world: World, dt: number): void {
   if (fx.goalFlash < 0.01) fx.goalFlash = 0;
   fx.pipPopYou = Math.max(0, fx.pipPopYou - dt / 0.5);
   fx.pipPopBot = Math.max(0, fx.pipPopBot - dt / 0.5);
+  fx.rallyPop = Math.max(0, fx.rallyPop - dt / 0.28);
+  if (fx.vsTimer > 0) fx.vsTimer = Math.max(0, fx.vsTimer - dt);
   if (fx.edgeCooldown > 0) fx.edgeCooldown -= dt;
   if (fx.bannerTimer > 0) fx.bannerTimer = Math.max(0, fx.bannerTimer - dt);
   world.confetti.update(dt);
@@ -93,6 +174,7 @@ export function step(world: World, dt: number): void {
         bot.target = lerp(bot.target, FIELD_H / 2, Math.min(1, dt * 3));
         movePaddle(bot, dt, 600);
       }
+      gather(world, dt);
       match.serveTimer -= dt;
       if (match.serveTimer <= 0) launchBall(world);
       break;
@@ -106,10 +188,19 @@ export function step(world: World, dt: number): void {
       if (world.rules.versus) movePaddle(bot, dt, playerPaddleSpeed(world));
       else driveAi(world, bot, world.botBrain, dt);
       stepBall(world, dt);
+      // The point may have just ended the match; only a live one is taped.
+      if (match.status === 'play') {
+        world.replay.record(world);
+        flames(world, dt);
+      }
       break;
     }
 
+    case 'over':
+      afterMatch(world, dt);
+      break;
+
     default:
-      break; // paused / over: effects only
+      break; // paused: effects only
   }
 }

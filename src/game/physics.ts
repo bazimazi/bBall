@@ -18,7 +18,18 @@ import {
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
 import { shrinkPaddle } from './paddle';
-import { addKick, addShake, ballHue, hueOf, isHuman, pushTrail, type World } from './world';
+import { REPLAY_HIT_BOT, REPLAY_HIT_YOU, REPLAY_WALL } from './replay';
+import {
+  addKick,
+  addShake,
+  ballHue,
+  buzz,
+  hueOf,
+  isHuman,
+  panAt,
+  pushTrail,
+  type World
+} from './world';
 
 /**
  * A flick: the ball struck on the paddle's outer part while the paddle is
@@ -86,6 +97,7 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   ball.speed = clamp(before * mods.growth, BALANCE.ball.hardMin, ceiling);
 
   const human = isHuman(world, paddle.side);
+  const pan = panAt(world, paddle.x, contactY);
   const flick =
     human &&
     Math.abs(raw) >= FLICK_EDGE &&
@@ -125,9 +137,14 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
 
   const p = power(world);
   paddle.flash = mods.crit || mods.charged ? 1.35 : 1;
+  paddle.hitY = contactY - paddle.y;
   ball.squash = 1;
   ball.squashAngle = 0; // compressed along the long axis
   match.rally++;
+  if (match.status !== 'menu') {
+    fx.rallyPop = 1;
+    world.replay.mark(paddle.side === 'you' ? REPLAY_HIT_YOU : REPLAY_HIT_BOT);
+  }
   // Hit-stop grows with the pace the ball carries - a rally that has built
   // up to a scream lands every contact harder than the serve did.
   fx.freeze =
@@ -150,7 +167,7 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
     if (flick) {
       if (paddle.side === 'you') match.flicks++;
       world.popups.spawn('FLICK', ball.x, contactY, paddleHue, 22);
-      world.audio.flick();
+      world.audio.flick(pan);
     } else if (Math.abs(raw) >= EDGE_SAVE) {
       world.popups.spawn('EDGE', ball.x, contactY, paddleHue, 18);
       if (fx.edgeCooldown <= 0 && p > 0.35) {
@@ -159,6 +176,8 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
       }
     }
   }
+
+  if (human) buzz(world, mods.crit || mods.charged ? 24 : flick ? 16 : 9);
 
   if (paddle.side === 'you' && match.status !== 'menu') {
     match.hits++;
@@ -202,7 +221,7 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
 
   // The attract demo plays silently and never raises a combo banner.
   if (match.status !== 'menu') {
-    world.audio.hit(p, match.rally);
+    world.audio.hit(p, match.rally, pan);
     checkCombo(world);
   }
 }
@@ -337,7 +356,8 @@ function onWallBounce(world: World): void {
     world.motion
   );
   if (match.status !== 'menu') {
-    world.audio.wall(p);
+    world.replay.mark(REPLAY_WALL);
+    world.audio.wall(p, panAt(world, ball.x, ball.y));
     bankBall(world);
   }
 }

@@ -37,6 +37,7 @@ export type ScreenId =
   | 'account'
   | 'achievements'
   | 'customize'
+  | 'settings'
   | 'talents'
   | 'demo'
   | 'playing'

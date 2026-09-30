@@ -1,10 +1,19 @@
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
 import type { MatchRules } from '../core/modes/types';
+import { SHAKE_SCALE, type DeviceSettings } from '../core/settings/store';
 import type { ResolvedLoadout } from '../core/talents/effects';
 import { abilityViews, activeUltimate, fireAbility } from './abilities';
 import { GameAudio } from './audio';
 import { FIELD_H, FIXED_DT, MAX_FRAME_DT, MAX_STEPS_PER_FRAME, STORAGE_KEYS } from './constants';
-import { publishResult, returnToMenu, startMatch } from './match';
+import {
+  isMatchPoint,
+  publishResult,
+  replayHolding,
+  returnToMenu,
+  skipReplay,
+  startMatch
+} from './match';
+import type { SongId } from './music';
 import { Renderer } from './render/renderer';
 import { rescaleArena } from './arena';
 import { wobble } from './effects';
@@ -45,6 +54,17 @@ const ABILITY_KEYS: readonly string[][] = Array.from({ length: 9 }, (_, slot) =>
   if (letter) keys.push(letter);
   return keys;
 });
+
+/**
+ * The song a match is played to. A boss brings its own, Endless has the
+ * hypnotic one and the daily the bright one; everything else takes turns.
+ */
+function songFor(rules: MatchRules): SongId | null {
+  if (rules.boss) return 'showdown';
+  if (rules.mode === 'endless') return 'pulse';
+  if (rules.mode === 'daily') return 'horizon';
+  return null;
+}
 
 /** True when the key belongs to whatever the player is typing into. */
 function isTyping(target: EventTarget | null): boolean {
@@ -115,6 +135,8 @@ export class GameEngine {
   private accumulator = 0;
   private pointerId: number | null = null;
   private running = false;
+  /** Short buzzes on hits and points, where the device can make them. */
+  private haptics = true;
 
   private readonly canvas: HTMLCanvasElement;
 
@@ -172,9 +194,8 @@ export class GameEngine {
   /** Start a match under `rules`. Every mode goes through here. */
   play = (rules: MatchRules): void => {
     this.audio.unlock();
-    this.audio.ui();
     this.clearInput();
-    this.audio.restartMusic();
+    this.audio.startMusic(songFor(rules));
     startMatch(this.world, rules);
     this.publish();
   };
@@ -242,6 +263,23 @@ export class GameEngine {
       resetRuntime(this.world);
     }
     this.publish();
+  };
+
+  /**
+   * This device's settings: the two volumes, how much the camera may move,
+   * vibration and replays. Safe to call at any time; React calls it whenever
+   * one of them changes.
+   */
+  setPreferences = (settings: DeviceSettings): void => {
+    this.audio.setVolumes(settings.musicVolume, settings.sfxVolume);
+    this.world.camera = SHAKE_SCALE[settings.shake];
+    this.haptics = settings.haptics;
+    this.world.replays = settings.replays;
+  };
+
+  /** The player's name, for the versus card a match opens on. */
+  setPlayerName = (name: string): void => {
+    this.world.playerName = name.trim() || 'You';
   };
 
   /** A star landing on the result card: the reward's own sound. */
@@ -375,8 +413,10 @@ export class GameEngine {
     const live = match.status === 'play' || match.status === 'serve';
     if (live) this.applyKeys(dt);
     // The soundtrack plays through a match only: never behind the menus, and
-    // it drops out on pause and when the final point lands.
-    this.audio.updateMusic(live);
+    // it drops out on pause and when the final point lands. It hears how hot
+    // the rally is, and whether the next point could end it.
+    const tension = isMatchPoint(world) || (match.maxLives > 0 && match.lives === 1);
+    this.audio.updateMusic(live, fx.heat, live && tension);
 
     this.accumulator += dt * fx.timeScale;
     let steps = 0;
@@ -387,23 +427,38 @@ export class GameEngine {
     }
     if (steps >= MAX_STEPS_PER_FRAME) this.accumulator = 0;
 
-    if (fx.shake > 0) {
+    if (fx.shake > 0 && world.camera > 0) {
       // Smooth noise rather than a fresh random offset per frame: a shudder
       // the eye can follow instead of a picture that merely jitters.
       const t = now * 0.038;
-      fx.shakeX = wobble(t, 1.3) * fx.shake * 0.55;
-      fx.shakeY = wobble(t, 7.9) * fx.shake * 0.55;
-      fx.shakeRot = wobble(t * 0.7, 4.2) * fx.shake * 0.0011;
+      const shake = fx.shake * world.camera;
+      fx.shakeX = wobble(t, 1.3) * shake * 0.55;
+      fx.shakeY = wobble(t, 7.9) * shake * 0.55;
+      fx.shakeRot = wobble(t * 0.7, 4.2) * shake * 0.0011;
     } else {
       fx.shakeX = 0;
       fx.shakeY = 0;
       fx.shakeRot = 0;
     }
 
-    // The result card waits a beat so the winning point can be seen.
-    if (match.status === 'over' && !match.overShown) {
+    // The result card waits a beat so the winning point can be seen - and
+    // for the whole of its replay, when it has one.
+    if (match.status === 'over' && !match.overShown && !replayHolding(world)) {
       match.overTimer -= dt;
       if (match.overTimer <= 0) publishResult(world);
+    }
+
+    // The simulation asks for a buzz by writing how long it wants one; the
+    // engine is the only part of the game that may touch the device.
+    if (fx.buzz > 0) {
+      if (this.haptics && typeof navigator.vibrate === 'function') {
+        try {
+          navigator.vibrate(Math.round(fx.buzz));
+        } catch {
+          /* a blocked vibration is not worth a crash */
+        }
+      }
+      fx.buzz = 0;
     }
 
     this.publish();
@@ -455,6 +510,8 @@ export class GameEngine {
   private onPointerDown = (event: PointerEvent): void => {
     this.audio.unlock();
     const { match } = this.world;
+    // A tap during the closing replay skips it.
+    if (skipReplay(this.world)) return;
     if (match.status !== 'play' && match.status !== 'serve') return;
 
     try {
@@ -500,6 +557,22 @@ export class GameEngine {
 
   private onContextMenu = (event: Event): void => event.preventDefault();
 
+  /**
+   * Every menu button, heard: a soft tick on any button click outside the
+   * court. One listener on the document rather than a sound in every
+   * component, and it is a click - so keyboard activation ticks too.
+   */
+  private onDocumentClick = (event: MouseEvent): void => {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest('button')) return;
+    // In a live match the buttons are skills and pause, and they have sounds
+    // of their own; a tick on top would only muddy them.
+    const { status } = this.world.match;
+    if (status === 'play' || status === 'serve') return;
+    this.audio.unlock();
+    this.audio.click();
+  };
+
   private onKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat || !event.key) return;
     // The name field is a real text input: while it has focus the game gets
@@ -528,7 +601,9 @@ export class GameEngine {
       // the menus are React's to drive.
       if (document.activeElement instanceof HTMLButtonElement) return;
       this.audio.unlock();
-      if (match.status === 'paused') {
+      if (skipReplay(this.world)) {
+        event.preventDefault();
+      } else if (match.status === 'paused') {
         event.preventDefault();
         this.resume();
       } else if (match.status === 'serve') {
@@ -537,6 +612,7 @@ export class GameEngine {
       }
     } else if (key === 'escape' || key === 'p') {
       event.preventDefault();
+      if (skipReplay(this.world)) return;
       if (match.status === 'play' || match.status === 'serve') this.pause();
       else if (match.status === 'paused') this.resume();
     } else if (key === 'm') {
@@ -588,6 +664,7 @@ export class GameEngine {
 
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    document.addEventListener('click', this.onDocumentClick, { capture: true });
     window.addEventListener('resize', this.scheduleLayout);
     window.addEventListener('orientationchange', this.scheduleLayout);
     window.visualViewport?.addEventListener('resize', this.scheduleLayout);
@@ -606,6 +683,7 @@ export class GameEngine {
 
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
+    document.removeEventListener('click', this.onDocumentClick, { capture: true });
     window.removeEventListener('resize', this.scheduleLayout);
     window.removeEventListener('orientationchange', this.scheduleLayout);
     window.visualViewport?.removeEventListener('resize', this.scheduleLayout);

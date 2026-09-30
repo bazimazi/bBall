@@ -1,4 +1,5 @@
 import { FIELD_H } from './constants';
+import type { Side } from './types';
 
 /**
  * Presentation-only effects that belong to no one skill: the rings a hit
@@ -132,6 +133,94 @@ export class PopupSystem {
   clear(): void {
     for (const popup of this.items) popup.alive = false;
   }
+}
+
+// ------------------------------------------------------------ score orbs
+
+export interface Orb {
+  side: Side;
+  /** Field position it left from and the pip it is flying to. */
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  hue: number;
+  age: number;
+  alive: boolean;
+}
+
+const ORB_MAX = 4;
+/** Seconds an orb takes to reach its pip. */
+export const ORB_LIFE = 0.55;
+
+/**
+ * A point, carried home. The moment a point is scored a ball of light leaves
+ * the line it went through and arcs back to the scorer's column, and only
+ * when it lands does the pip light - so the scoreboard is something that
+ * *happens* rather than a number that changes.
+ */
+export class OrbSystem {
+  readonly items: Orb[] = Array.from({ length: ORB_MAX }, () => ({
+    side: 'you' as Side,
+    fromX: 0,
+    fromY: 0,
+    toX: 0,
+    toY: 0,
+    hue: 0,
+    age: 0,
+    alive: false
+  }));
+
+  private head = 0;
+
+  spawn(side: Side, fromX: number, fromY: number, toX: number, toY: number, hue: number): void {
+    const orb = this.items[this.head]!;
+    this.head = (this.head + 1) % ORB_MAX;
+    orb.side = side;
+    orb.fromX = fromX;
+    orb.fromY = fromY;
+    orb.toX = toX;
+    orb.toY = toY;
+    orb.hue = hue;
+    orb.age = 0;
+    orb.alive = true;
+  }
+
+  /** Is an orb still on its way to `side`'s column? */
+  inFlight(side: Side): boolean {
+    for (const orb of this.items) if (orb.alive && orb.side === side) return true;
+    return false;
+  }
+
+  /**
+   * Move every orb on. `land` is called once for each one that arrives this
+   * step, with the orb itself.
+   */
+  update(dt: number, land: (orb: Orb) => void): void {
+    for (const orb of this.items) {
+      if (!orb.alive) continue;
+      orb.age += dt;
+      if (orb.age >= ORB_LIFE) {
+        orb.alive = false;
+        land(orb);
+      }
+    }
+  }
+
+  clear(): void {
+    for (const orb of this.items) orb.alive = false;
+  }
+}
+
+/** Where an orb is at `t` (0..1): an arc bowed towards the middle of the court. */
+export function orbAt(orb: Orb, t: number, midX: number, out: { x: number; y: number }): void {
+  const e = easeInOutCubic(t);
+  const cx = (orb.fromX + orb.toX) / 2 + (midX - (orb.fromX + orb.toX) / 2) * 0.35;
+  // Bowed upwards, but never out over the wall where the court would clip it.
+  const cy = Math.max(30, Math.min(orb.fromY, orb.toY) - 120);
+  const u = 1 - e;
+  out.x = u * u * orb.fromX + 2 * u * e * cx + e * e * orb.toX;
+  out.y = u * u * orb.fromY + 2 * u * e * cy + e * e * orb.toY;
 }
 
 // --------------------------------------------------------------- confetti
@@ -352,6 +441,10 @@ export class CourtGrid {
 export function easeOutCubic(t: number): number {
   const u = 1 - t;
   return 1 - u * u * u;
+}
+
+export function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 export function easeOutBack(t: number, s = 1.70158): number {

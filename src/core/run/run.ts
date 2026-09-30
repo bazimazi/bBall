@@ -1,5 +1,5 @@
 import type { BotLevelId } from '../bots/types';
-import { ARENA_PRESETS } from '../modes/arenas';
+import { presetsOn } from '../modes/arenas';
 import { bossById } from '../modes/bosses';
 import type { ArenaSpec, MatchModifiers } from '../modes/types';
 import { pickOne, seeded } from '../util/random';
@@ -157,7 +157,10 @@ export function encounterFor(save: RunSave, stage = save.stage): Encounter {
   // from Pressure 3.
   const courtRoll = random();
   const hazard = save.pressure >= 3 || courtRoll < 0.5;
-  const preset = hazard ? pickOne(random, ARENA_PRESETS) : null;
+  // The courts that existed the day the run began, in UTC so every device
+  // and the server agree: an update never reshuffles a run in progress.
+  const started = new Date(Number.isFinite(save.startedAt) ? save.startedAt : 0);
+  const preset = hazard ? pickOne(random, presetsOn(started.toISOString().slice(0, 10))) : null;
   const arena: ArenaSpec | undefined = preset?.arena;
   return {
     stage,
