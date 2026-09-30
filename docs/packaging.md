@@ -163,10 +163,11 @@ is worth doing before submitting to a store.
 ## Icons
 
 Every icon in `src-tauri/icons/` is generated, and `npm run icons` regenerates
-all of them from [`scripts/app-icon.mjs`](../scripts/app-icon.mjs). There is no
-artwork file: the mark is the same two shapes as the favicon in `index.html` - a
-dark rounded square with a teal ball - so the script draws it and writes the
-PNGs directly. Change a colour or a proportion there and every platform follows.
+all of them from [`scripts/app-icon.mjs`](../scripts/app-icon.mjs). The same
+geometry also generates the SVG menu mark and the web icons in `public/brand/`:
+opposing aqua and rose paddles, an aqua trail and a pearl-white ball on navy.
+Change `MARK` in the script and every platform follows. The complete asset
+inventory and artwork provenance are in [brand-assets.md](brand-assets.md).
 
 What comes out, and who reads it:
 
@@ -190,14 +191,11 @@ exists rather than a bare `tauri icon`:
   itself, at submission. So the set is generated with `--ios-color #06080f`,
   which composites the mark onto the background colour instead of the white
   that flag defaults to, and then flattened from RGBA to RGB.
-- **Android crops the adaptive icon.** The foreground layer is a 108dp canvas of
-  which only the middle 72dp survives the launcher's mask, and the mask itself
-  is a circle on some launchers and a squircle on others. A full-bleed
-  foreground loses its corners and reads as a zoomed-in crop, so the foreground
-  here is the ball alone, scaled by 72/108 to keep the proportion it has in the
-  mark, over a background layer that is the flat colour
-  (`values/ic_launcher_background.xml`). `ic_launcher_round.png`, which older
-  launchers use unmasked, is drawn as an actual circle.
+- **Android crops the adaptive icon.** The foreground uses a 108dp canvas;
+  the entire mark is scaled to fit inside its central 66dp safe circle, over
+  a flat background (`values/ic_launcher_background.xml`). Legacy round icons
+  are drawn as actual circles. API 33 resources add a white alpha silhouette
+  for themed icons, while API 26 resources retain the full-colour layers.
 
 Run `npm run icons` again after `android:init` or `ios:init`: once those
 projects exist, they hold the copies that get built, and the script writes into

@@ -1,10 +1,13 @@
 # bBall
 
+![bBall: opposing neon paddles and a streaking ball](public/brand/cover.png)
+
 A fast, minimal bouncing-ball duel. Drag to move your paddle, keep the ball
 alive, and take the points off the bot before it takes them off you.
 
-Built with Vite, React and TypeScript. No game assets - every pixel is drawn on
-a canvas and every sound is synthesised. No runtime dependencies beyond React.
+Built with Vite, React and TypeScript. Gameplay is drawn on a canvas and every
+sound is synthesised. The [brand image set](docs/brand-assets.md) supplies the
+menu logo, web icons, native launcher icons and cover artwork.
 
 ## Getting started
 
@@ -24,7 +27,7 @@ npm run dev        # http://localhost:5173
 | `npm run server`    | The backend, with reload                      |
 | `npm test`          | The backend test suite                        |
 | `npm run desktop`   | The game in a native window, with hot reload  |
-| `npm run icons`     | Redraw every app icon from `scripts/`         |
+| `npm run icons`     | Regenerate web and native icons from one mark |
 
 ## Platforms
 

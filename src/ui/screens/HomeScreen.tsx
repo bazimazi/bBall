@@ -14,6 +14,7 @@ import { abilitySlots } from '../../core/talents/save';
 import { roundFor, tierById, tierForLevel } from '../../core/tournament/bracket';
 import type { AccountState } from '../../core/account/store';
 import { ProfileChip } from '../components/ProfileChip';
+import { BrandLogo } from '../components/BrandLogo';
 import { QuestList } from '../components/QuestList';
 import { SyncBadge } from '../components/SyncBadge';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
@@ -190,9 +191,7 @@ export function HomeScreen({
 
   return (
     <section className={styles.screen}>
-      <h1 className={styles.logo}>
-        <span>b</span>Ball
-      </h1>
+      <BrandLogo />
       <p className={styles.tagline}>
         {demoLevel !== null
           ? 'Demo · nothing is saved'

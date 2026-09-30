@@ -6,6 +6,7 @@ import { equipCosmetic, setIdentity } from '../../core/account/progression';
 import { profileStore } from '../../core/profile/store';
 import { AVATARS, type AvatarId, type PlayerProfile } from '../../core/profile/types';
 import { Avatar } from '../components/Avatar';
+import { BrandLogo } from '../components/BrandLogo';
 import styles from '../Screens.module.css';
 
 interface OnboardingScreenProps {
@@ -35,9 +36,7 @@ export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
 
   return (
     <section className={styles.screen}>
-      <h1 className={styles.logo}>
-        <span>b</span>Ball
-      </h1>
+      <BrandLogo />
       <p className={styles.tagline}>Make it yours - or skip and play</p>
 
       <div className={styles.body}>

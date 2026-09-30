@@ -1,34 +1,8 @@
 /**
- * Draws every app icon the packaged builds need, from one definition.
- *
- * The mark is the favicon in index.html: a dark rounded square with a teal
- * ball in the middle. There is no artwork file to keep in sync, because there
- * is no artwork - the whole thing is two shapes, so it is drawn here and
- * written straight out as PNG.
- *
- * Run it with `npm run icons`. It does three things in order:
- *
- * 1. Writes the 1024px master, `src-tauri/app-icon.png`.
- * 2. Runs `tauri icon`, which fans the master out into the .ico, the .icns,
- *    the Linux and Microsoft Store PNGs, the iOS app icon set and the Android
- *    mipmaps.
- * 3. Redraws the Android mipmaps, because a fanned-out master is the wrong
- *    thing there - see below.
- *
- * Two platform rules that a scaled copy of the master would get wrong:
- *
- * - **iOS forbids transparency.** An icon with an alpha channel is rejected at
- *   submission, so the flat colour behind the mark has to be baked in. That is
- *   what `--ios-color` does, and it has to be our background rather than the
- *   white it defaults to, or every iOS icon gets a white border around a dark
- *   mark.
- * - **Android crops adaptive icons.** The foreground layer is a 108dp canvas
- *   of which only the middle 72dp is guaranteed to survive the launcher's
- *   mask; the rest is cropped, and parallaxed while it is being cropped. A
- *   full-bleed foreground therefore loses its corners and comes out looking
- *   like a zoomed-in crop of the icon. The foreground here is the ball alone,
- *   sized so that it lands at the same proportion of the visible area as it
- *   has in the mark, over a background layer that is the flat colour.
+ * bBall's shared mark: opposing paddles and a rising ball. No image library or
+ * runtime dependency is needed. `npm run icons` emits the web/SVG assets and
+ * native icon families, including safe adaptive layers and opaque iOS PNGs.
+ * The hand-authored geometry below is the single source for SVG and raster.
  */
 
 import { deflateSync, inflateSync } from 'node:zlib';
@@ -39,90 +13,93 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const icons = join(root, 'src-tauri', 'icons');
-
-/** The mark, in the proportions index.html draws it at: a 32-unit grid. */
-const BG = [0x06, 0x08, 0x0f];
-const FG = [0x4f, 0xf0, 0xd6];
+const brand = join(root, 'public', 'brand');
+const BG = [6, 8, 15];
 const BG_HEX = '#06080f';
-const CORNER = 8 / 32; // corner radius, as a fraction of the side
-const BALL = 7 / 32; // ball radius, as a fraction of the side
 
-// --------------------------------------------------------------- drawing
+// Coordinates on a 100-unit canvas. Broad silhouettes survive at favicon size.
+// Shapes are painted in order; the ball sits over the tapered motion trail.
+const MARK = [
+  { kind: 'rect', x: 19, y: 36, w: 11, h: 42, r: 5.5, color: [79, 240, 214] },
+  { kind: 'rect', x: 70, y: 22, w: 11, h: 42, r: 5.5, color: [255, 92, 138] },
+  {
+    kind: 'triangle',
+    points: [
+      [34, 70],
+      [50, 39],
+      [64, 48]
+    ],
+    color: [79, 240, 214]
+  },
+  { kind: 'circle', x: 57, y: 43, r: 9, color: [238, 242, 255] }
+];
 
-/**
- * Render one icon.
- *
- * `backdrop` is the shape filled with the background colour: a rounded square,
- * a circle, or nothing at all when the layer is meant to be transparent.
- * `ball` is the ball's radius as a fraction of the canvas.
- *
- * Coverage is sampled 4x4 per pixel rather than computed analytically. At
- * these sizes that is both accurate enough to be invisible and short enough to
- * read.
- */
-function render(size, { backdrop = 'square', ball = BALL } = {}) {
-  const radius = size * CORNER;
-  const ballRadius = size * ball;
-  const half = size / 2;
+function rounded(x, y, left, top, width, height, radius) {
+  const dx = x - Math.min(Math.max(x, left + radius), left + width - radius);
+  const dy = y - Math.min(Math.max(y, top + radius), top + height - radius);
+  return dx * dx + dy * dy <= radius * radius;
+}
 
-  const insideBackdrop = (x, y) => {
-    if (backdrop === 'none') return false;
-    if (backdrop === 'circle') {
-      const dx = x - half;
-      const dy = y - half;
-      return dx * dx + dy * dy <= half * half;
+function contains(shape, x, y) {
+  if (shape.kind === 'rect') return rounded(x, y, shape.x, shape.y, shape.w, shape.h, shape.r);
+  if (shape.kind === 'circle') return (x - shape.x) ** 2 + (y - shape.y) ** 2 <= shape.r ** 2;
+  const cross = ([ax, ay], [bx, by]) => (x - bx) * (ay - by) - (ax - bx) * (y - by);
+  const [a, b, c] = shape.points;
+  const signs = [cross(a, b), cross(b, c), cross(c, a)];
+  return !(signs.some((v) => v < 0) && signs.some((v) => v > 0));
+}
+
+function svg({ backdrop = false, monochrome = false } = {}) {
+  const shapes = MARK.map((shape) => {
+    const fill = monochrome ? 'currentColor' : `rgb(${shape.color.join(',')})`;
+    if (shape.kind === 'rect') {
+      return `<rect x="${shape.x}" y="${shape.y}" width="${shape.w}" height="${shape.h}" rx="${shape.r}" fill="${fill}"/>`;
     }
-    // A rounded square is the set of points within `radius` of the rectangle
-    // inset by `radius` on every side.
-    const cx = Math.min(Math.max(x, radius), size - radius);
-    const cy = Math.min(Math.max(y, radius), size - radius);
-    const dx = x - cx;
-    const dy = y - cy;
-    return dx * dx + dy * dy <= radius * radius;
-  };
+    if (shape.kind === 'circle') {
+      return `<circle cx="${shape.x}" cy="${shape.y}" r="${shape.r}" fill="${fill}"/>`;
+    }
+    return `<polygon points="${shape.points.map((p) => p.join(',')).join(' ')}" fill="${fill}"/>`;
+  }).join('\n  ');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  ${backdrop ? `<rect width="100" height="100" rx="22" fill="${BG_HEX}"/>` : ''}
+  ${shapes}
+</svg>\n`;
+}
 
-  const insideBall = (x, y) => {
-    const dx = x - half;
-    const dy = y - half;
-    return dx * dx + dy * dy <= ballRadius * ballRadius;
-  };
-
-  // One filter byte per scanline, then RGBA.
+/** Supersample coverage, preserving straight alpha around the silhouette. */
+function render(size, { backdrop = 'square', scale = 1, monochrome = false } = {}) {
   const raw = Buffer.alloc((size * 4 + 1) * size);
   let at = 0;
-
   for (let y = 0; y < size; y++) {
-    raw[at++] = 0; // filter: none
+    raw[at++] = 0;
     for (let x = 0; x < size; x++) {
-      let back = 0;
-      let front = 0;
+      const sum = [0, 0, 0];
+      let covered = 0;
       for (let sy = 0; sy < 4; sy++) {
         for (let sx = 0; sx < 4; sx++) {
-          const px = x + (sx + 0.5) / 4;
-          const py = y + (sy + 0.5) / 4;
-          if (insideBackdrop(px, py)) back++;
-          if (insideBall(px, py)) front++;
+          const px = ((x + (sx + 0.5) / 4) / size) * 100;
+          const py = ((y + (sy + 0.5) / 4) / size) * 100;
+          const mx = (px - 50) / scale + 50;
+          const my = (py - 50) / scale + 50;
+          let color = null;
+          const back =
+            backdrop === 'full' ||
+            (backdrop === 'circle' && (px - 50) ** 2 + (py - 50) ** 2 <= 2500) ||
+            (backdrop === 'square' && rounded(px, py, 0, 0, 100, 100, 22));
+          if (back) color = BG;
+          for (const shape of MARK) {
+            if (contains(shape, mx, my)) color = monochrome ? [255, 255, 255] : shape.color;
+          }
+          if (color) {
+            covered++;
+            for (let c = 0; c < 3; c++) sum[c] += color[c];
+          }
         }
       }
-
-      const backdropAlpha = back / 16;
-      const ballAlpha = front / 16;
-      const alpha = Math.max(backdropAlpha, ballAlpha);
-      if (alpha === 0) {
-        at += 4;
-        continue;
-      }
-
-      // The ball is opaque over the backdrop wherever both cover the pixel,
-      // so its coverage is the weight and the backdrop takes what is left.
-      const backWeight = Math.max(alpha - ballAlpha, 0);
-      for (let channel = 0; channel < 3; channel++) {
-        raw[at++] = Math.round((BG[channel] * backWeight + FG[channel] * ballAlpha) / alpha);
-      }
-      raw[at++] = Math.round(alpha * 255);
+      for (let c = 0; c < 3; c++) raw[at++] = covered ? Math.round(sum[c] / covered) : 0;
+      raw[at++] = Math.round((covered / 16) * 255);
     }
   }
-
   return png(size, size, raw);
 }
 
@@ -182,7 +159,7 @@ function dropAlpha(file) {
   if (buf[24] !== 8 || buf[25] !== 6) return false; // already flat, or not ours
 
   const parts = [];
-  for (let at = 8; at < buf.length; ) {
+  for (let at = 8; at < buf.length;) {
     const length = buf.readUInt32BE(at);
     if (buf.toString('ascii', at + 4, at + 8) === 'IDAT') {
       parts.push(buf.subarray(at + 8, at + 8 + length));
@@ -261,6 +238,22 @@ execFileSync(process.execPath, [cli, 'icon', master, '--ios-color', BG_HEX], {
   stdio: ['ignore', 'ignore', 'inherit']
 });
 console.log('  src-tauri/icons/ (desktop, Microsoft Store, iOS)');
+// Keep the configured 64px window icon current even on CLI versions that omit it.
+write(join(icons, '64x64.png'), render(64));
+
+console.log('web:');
+write(join(brand, 'icon.svg'), svg({ backdrop: true }));
+write(join(brand, 'mark.svg'), svg());
+write(join(brand, 'mark-mono.svg'), svg({ monochrome: true }));
+write(join(brand, 'mark-1024.png'), render(1024, { backdrop: 'none' }));
+for (const size of [16, 32, 48, 192, 512]) {
+  write(join(brand, `icon-${size}.png`), render(size));
+}
+write(join(brand, 'favicon.ico'), readFileSync(join(icons, 'icon.ico')));
+const touch = join(brand, 'apple-touch-icon.png');
+write(touch, render(180, { backdrop: 'full' }));
+dropAlpha(touch);
+write(join(brand, 'icon-maskable-512.png'), render(512, { backdrop: 'full', scale: 0.85 }));
 
 // Flatten the iOS set: opaque already, but the channel itself is what gets an
 // app rejected.
@@ -275,14 +268,7 @@ console.log(`  src-tauri/icons/ios/ (${flattened} icons flattened to RGB)`);
 // run, the asset catalogue in the generated Xcode project is the copy that
 // gets built, so it is kept in step rather than left holding whatever was
 // there at init time.
-const appIconSet = join(
-  root,
-  'src-tauri',
-  'gen',
-  'apple',
-  'Assets.xcassets',
-  'AppIcon.appiconset'
-);
+const appIconSet = join(root, 'src-tauri', 'gen', 'apple', 'Assets.xcassets', 'AppIcon.appiconset');
 if (existsSync(appIconSet)) {
   for (const file of readdirSync(iosDir)) {
     if (file.endsWith('.png')) {
@@ -308,9 +294,8 @@ const DENSITIES = [
   ['xxxhdpi', 192, 432]
 ];
 
-// The adaptive foreground's safe area is the middle 72dp of 108dp, so the ball
-// has to be scaled by 72/108 to keep the proportion it has in the mark.
-const ADAPTIVE_BALL = BALL * (72 / 108);
+// Keep the entire mark within the central 66dp safe circle on a 108dp layer.
+const ADAPTIVE_SCALE = 2 / 3;
 
 /*
  * Where the Android resources go.
@@ -332,8 +317,23 @@ for (const res of androidRes) {
     write(join(dir, 'ic_launcher_round.png'), render(legacy, { backdrop: 'circle' }));
     write(
       join(dir, 'ic_launcher_foreground.png'),
-      render(adaptive, { backdrop: 'none', ball: ADAPTIVE_BALL })
+      render(adaptive, { backdrop: 'none', scale: ADAPTIVE_SCALE })
     );
+    write(
+      join(dir, 'ic_launcher_monochrome.png'),
+      render(adaptive, { backdrop: 'none', scale: ADAPTIVE_SCALE, monochrome: true })
+    );
+  }
+
+  for (const version of [26, 33]) {
+    const adaptiveXml = `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <background android:drawable="@color/ic_launcher_background"/>
+  <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+${version >= 33 ? '  <monochrome android:drawable="@mipmap/ic_launcher_monochrome"/>\n' : ''}</adaptive-icon>\n`;
+    for (const name of ['ic_launcher', 'ic_launcher_round']) {
+      write(join(res, `mipmap-anydpi-v${version}`, `${name}.xml`), adaptiveXml);
+    }
   }
 
   write(
