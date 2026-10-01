@@ -1,23 +1,18 @@
 import type { CSSProperties } from 'react';
 
-import { botProfile } from '../../core/bots/levels';
 import { nextStage, TOTAL_STARS, totalStars, worldById } from '../../core/campaign/journey';
 import { dailySpec, streakAlive } from '../../core/daily/daily';
-import { MODES, type ModeInfo } from '../../core/modes/catalog';
-import { CHALLENGES } from '../../core/modes/challenges';
 import type { ModeId } from '../../core/modes/types';
-import { levelOf } from '../../core/progression/levels';
 import { dayKey } from '../../core/progression/xp';
 import type { PlayerProfile } from '../../core/profile/types';
-import { actOf, isRunActive, RUN_STAGES } from '../../core/run/run';
-import { abilitySlots } from '../../core/talents/save';
-import { roundFor, tierById, tierForLevel } from '../../core/tournament/bracket';
+import { isRunActive, RUN_STAGES } from '../../core/run/run';
+import { tierById } from '../../core/tournament/bracket';
 import type { AccountState } from '../../core/account/store';
 import { ProfileChip } from '../components/ProfileChip';
 import { BrandLogo } from '../components/BrandLogo';
-import { QuestList } from '../components/QuestList';
 import { SyncBadge } from '../components/SyncBadge';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
+import { GearIcon, SparkIcon } from '../icons/MenuIcons';
 import { FlameIcon, HeartIcon, MapIcon, StarIcon, StarRow, SwordsIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
@@ -28,39 +23,24 @@ interface HomeScreenProps {
   /** The level being demoed, or null when the real save is in play. */
   demoLevel: number | null;
   onPick: (mode: ModeId) => void;
+  /** Straight into a Journey stage, skipping the map. */
+  onPlayStage: (id: string) => void;
+  onModes: () => void;
   onExitDemo: () => void;
   onProfile: () => void;
   onTalents: () => void;
   onSettings: () => void;
 }
 
-/** The three modes that get a card of their own rather than a row. */
-const FEATURED: readonly ModeId[] = ['campaign', 'daily', 'run'];
+/**
+ * Matches a player needs before Home shows more than the Journey. A first
+ * visit should offer one obvious thing to do; the side modes appear once the
+ * player has had a game and knows what the buttons mean.
+ */
+const NEWCOMER_MATCHES = 1;
 
-/** A one-line hint per mode, so nothing needs a sub-menu to be understood. */
-function metaFor(mode: ModeInfo, profile: PlayerProfile): string {
-  switch (mode.id) {
-    case 'quick':
-      return botProfile(profile.preferences.lastBot).name;
-    case 'endless':
-      return profile.stats.endlessBest > 0 ? `Best ${profile.stats.endlessBest}` : '3 lives';
-    case 'challenge': {
-      const cleared = CHALLENGES.filter((item) => profile.challenges[item.id]?.cleared).length;
-      return `${cleared} / ${CHALLENGES.length}`;
-    }
-    case 'tournament': {
-      const active = profile.tournament;
-      if (active) return roundFor(active.round).name;
-      return tierForLevel(levelOf(profile.xp)).name;
-    }
-    case 'versus':
-      return '2 players';
-    case 'practice':
-      return 'No XP';
-    default:
-      return '';
-  }
-}
+/** Matches after which the controls hint has done its job. */
+const HINT_MATCHES = 3;
 
 const accent = (hue: number): CSSProperties =>
   ({ '--accent': `hsl(${hue} 90% 66%)` }) as CSSProperties;
@@ -101,59 +81,53 @@ function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () =
   );
 }
 
-function DailyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
+function DailyTile({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
   const today = dayKey();
   const spec = dailySpec(today);
   const record = profile.progress.daily;
   const medals = record.day === today ? record.medals : 0;
   const alive = streakAlive(record, today);
   return (
-    <button type="button" className={modes.feature} style={accent(28)} onClick={onPick}>
-      <span className={modes.featureTop}>
+    <button
+      type="button"
+      className={`${modes.feature} ${modes.tile}`}
+      style={accent(28)}
+      onClick={onPick}
+    >
+      <span className={modes.tileTop}>
         <span className={modes.featureIcon}>
           <FlameIcon />
         </span>
-        <span className={modes.featureTitle}>
-          <span className={modes.featureName}>Daily</span>
-          <span className={modes.featureSub}>
-            {spec.title} · vs {botProfile(spec.bot).name}
+        {medals & 1 ? (
+          <StarRow mask={medals} className={modes.stars} on={modes.starOn} />
+        ) : (
+          <span className={modes.featureMeta}>
+            <FlameIcon />
+            {alive ? record.streak : 0}
           </span>
-        </span>
-        <span className={modes.featureMeta}>
-          <FlameIcon />
-          {alive ? record.streak : 0}
-        </span>
+        )}
       </span>
-      {medals & 1 ? (
-        <StarRow mask={medals} className={modes.stars} on={modes.starOn} />
-      ) : (
-        <span className={`${modes.featureTag} ${modes.pulse}`}>Today's challenge is open</span>
-      )}
+      <span className={modes.featureName}>Daily</span>
+      <span className={modes.featureSub}>{spec.title}</span>
+      {!(medals & 1) && <span className={`${modes.featureTag} ${modes.pulse}`}>New today</span>}
     </button>
   );
 }
 
-function GauntletCard({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
+function GauntletTile({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
   const run = profile.progress.run;
   const records = profile.progress.runRecords;
   const live = isRunActive(run);
   return (
-    <button type="button" className={modes.feature} style={accent(340)} onClick={onPick}>
-      <span className={modes.featureTop}>
+    <button
+      type="button"
+      className={`${modes.feature} ${modes.tile}`}
+      style={accent(340)}
+      onClick={onPick}
+    >
+      <span className={modes.tileTop}>
         <span className={modes.featureIcon}>
           <SwordsIcon />
-        </span>
-        <span className={modes.featureTitle}>
-          <span className={modes.featureName}>Gauntlet</span>
-          <span className={modes.featureSub}>
-            {live
-              ? `Act ${actOf(run.stage) + 1} · match ${run.stage + 1} of ${RUN_STAGES}`
-              : records.clears > 0
-                ? `Cleared ${records.clears}× · best Pressure ${records.bestPressure}`
-                : records.runs > 0
-                  ? `Best ${records.bestStage} of ${RUN_STAGES}`
-                  : 'Nine matches, three hearts'}
-          </span>
         </span>
         {live && (
           <span className={modes.featureMeta}>
@@ -162,18 +136,36 @@ function GauntletCard({ profile, onPick }: { profile: PlayerProfile; onPick: () 
           </span>
         )}
       </span>
+      <span className={modes.featureName}>Gauntlet</span>
+      <span className={modes.featureSub}>
+        {live
+          ? `Match ${run.stage + 1} of ${RUN_STAGES}`
+          : records.clears > 0
+            ? `Cleared ${records.clears}×`
+            : records.runs > 0
+              ? `Best ${records.bestStage} of ${RUN_STAGES}`
+              : 'Nine matches, three hearts'}
+      </span>
       {live && run.offer && (
-        <span className={`${modes.featureTag} ${modes.pulse}`}>A boon is waiting</span>
+        <span className={`${modes.featureTag} ${modes.pulse}`}>Boon waiting</span>
       )}
     </button>
   );
 }
 
+/**
+ * The front door. It asks one question - play? - and answers the rest with
+ * as little as it can: who you are, where the Journey is up to, and, once
+ * the player has a match behind them, today's Daily and the Gauntlet.
+ * Everything else sits behind "More modes".
+ */
 export function HomeScreen({
   profile,
   account,
   demoLevel,
   onPick,
+  onPlayStage,
+  onModes,
   onExitDemo,
   onProfile,
   onTalents,
@@ -182,26 +174,49 @@ export function HomeScreen({
   const coarse = useCoarsePointer();
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
   const points = profile.talents.points;
-  const skills = profile.talents.equipped.filter(Boolean).length;
-  // The hint lists exactly the keys this build has slots for.
-  const keys = Array.from(
-    { length: abilitySlots(profile.talents, levelOf(profile.xp)) },
-    (_, i) => i + 1
-  );
+  const next = nextStage(profile.progress.journey);
+  const newcomer = profile.stats.matches < NEWCOMER_MATCHES;
+
+  const play = () => (next ? onPlayStage(next.id) : onPick('campaign'));
 
   return (
     <section className={styles.screen}>
-      <BrandLogo />
-      <p className={styles.tagline}>
-        {demoLevel !== null
-          ? 'Demo · nothing is saved'
-          : cup
-            ? `${cup.name} in progress`
-            : 'Pick a mode and play'}
-      </p>
+      <div className={styles.topBar}>
+        <ProfileChip profile={profile} onClick={onProfile} />
+        <button
+          type="button"
+          className={styles.iconButton}
+          onClick={onTalents}
+          aria-label={points > 0 ? `Talents, ${points} points to spend` : 'Talents'}
+          title="Talents"
+        >
+          <SparkIcon />
+          {points > 0 && <span className={styles.iconBadge}>{points}</span>}
+        </button>
+        <button
+          type="button"
+          className={styles.iconButton}
+          onClick={onSettings}
+          aria-label="Settings"
+          title="Settings"
+        >
+          <GearIcon />
+        </button>
+      </div>
 
       <div className={styles.body}>
         <div className={`${styles.stack} ${modes.stagger}`}>
+          <BrandLogo />
+          <p className={styles.tagline}>
+            {demoLevel !== null
+              ? 'Demo · nothing is saved'
+              : newcomer
+                ? 'Tap Play for your first match'
+                : cup
+                  ? `${cup.name} in progress`
+                  : 'Ready when you are'}
+          </p>
+
           {demoLevel !== null && (
             <div className={styles.demoBar}>
               <span>Demo · level {demoLevel}</span>
@@ -211,53 +226,28 @@ export function HomeScreen({
             </div>
           )}
 
-          <ProfileChip profile={profile} onClick={onProfile} />
-
           {demoLevel === null && <SyncBadge account={account} />}
 
-          <div className={modes.features}>
+          <div className={modes.homeCards}>
             <JourneyCard profile={profile} onPick={() => onPick('campaign')} />
-            <DailyCard profile={profile} onPick={() => onPick('daily')} />
-            <GauntletCard profile={profile} onPick={() => onPick('run')} />
-          </div>
-
-          <QuestList profile={profile} />
-
-          <div className={styles.grid}>
-            {MODES.filter((mode) => !FEATURED.includes(mode.id)).map((mode) => (
-              <button
-                key={mode.id}
-                type="button"
-                className={styles.row}
-                onClick={() => onPick(mode.id)}
-              >
-                <span className={styles.rowText}>
-                  <span className={styles.rowTitle}>{mode.name}</span>
-                  <span className={styles.rowBlurb}>{mode.blurb}</span>
-                </span>
-                <span className={styles.rowMeta}>{metaFor(mode, profile)}</span>
-              </button>
-            ))}
+            {!newcomer && <DailyTile profile={profile} onPick={() => onPick('daily')} />}
+            {!newcomer && <GauntletTile profile={profile} onPick={() => onPick('run')} />}
           </div>
         </div>
       </div>
 
       <footer className={styles.footer}>
-        <div className={styles.buttonRow}>
-          <button type="button" className={styles.ghost} onClick={onTalents}>
-            Talents
-            {points > 0 && <span className={styles.badge}>{points}</span>}
-          </button>
-          <button type="button" className={styles.ghost} onClick={onSettings}>
-            Settings
-          </button>
-        </div>
-        <p className={styles.note}>
-          {coarse ? 'Drag anywhere to move' : 'Move the mouse or use ↑ ↓'}
-          {' · flick the paddle as you hit to whip the ball · your paddle aims your serve'}
-          {skills > 0 &&
-            (coarse ? ' · tap the corner for skills' : ` · ${keys.join(' ')} for skills`)}
-        </p>
+        <button type="button" className={styles.primary} onClick={play}>
+          {next ? 'Play' : 'Replay a stage'}
+        </button>
+        <button type="button" className={styles.ghost} onClick={onModes}>
+          More modes
+        </button>
+        {profile.stats.matches < HINT_MATCHES && (
+          <p className={styles.note}>
+            {coarse ? 'Drag anywhere to move your paddle' : 'Move the mouse or use ↑ ↓'}
+          </p>
+        )}
       </footer>
     </section>
   );

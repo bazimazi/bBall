@@ -1049,3 +1049,43 @@ button.resultRow {
     transition-duration: 0.01ms;
   }
 }
+
+/* ---------------------------------------------------------- home tiles */
+
+/*
+ * Home's cards. On a phone held upright the Journey card takes the full
+ * width with Daily and the Gauntlet paired under it; anywhere wider, or on
+ * a landscape phone, the three sit in one row.
+ */
+.homeCards {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.homeCards > :first-child {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 620px), (max-height: 460px) {
+  .homeCards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .homeCards > :first-child:not(:only-child) {
+    grid-column: auto;
+  }
+}
+
+.tile {
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.tileTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}

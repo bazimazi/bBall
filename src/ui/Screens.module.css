@@ -1024,3 +1024,78 @@ button.unlockRow {
   gap: 10px;
   margin: auto 0;
 }
+
+/*
+ * Home's top bar: who you are on the left, the two corner buttons on the
+ * right. Icons rather than words, so the bar never wraps on a narrow phone.
+ * The right edge is left clear for the HUD's sound button, which floats over
+ * every screen.
+ */
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding-right: 50px;
+}
+
+.topBar > .chip {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 12px 8px 8px;
+}
+
+.topBar .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+}
+
+.iconButton {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  border-color: rgba(238, 242, 255, 0.24);
+}
+
+.iconButton svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Unspent talent points, pinned to the corner of the Talents button. */
+.iconBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: var(--you);
+  color: #04120f;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A narrow phone keeps the level and drops the XP count beside it. */
+@media (max-width: 380px) {
+  .topBar .xpMeta > :last-child {
+    display: none;
+  }
+}

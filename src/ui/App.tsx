@@ -27,6 +27,7 @@ import { CustomizeScreen } from './screens/CustomizeScreen';
 import { DailyScreen } from './screens/DailyScreen';
 import { GauntletScreen } from './screens/GauntletScreen';
 import { JourneyScreen } from './screens/JourneyScreen';
+import { ModesScreen } from './screens/ModesScreen';
 import { DemoScreen } from './screens/DemoScreen';
 import { DifficultyScreen } from './screens/DifficultyScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -234,11 +235,17 @@ export function App() {
           account={account}
           demoLevel={demoLevel}
           onPick={flow.pickMode}
+          onPlayStage={flow.startStage}
+          onModes={() => flow.go('modes')}
           onExitDemo={flow.exitDemo}
           onProfile={() => flow.go('profile')}
           onTalents={() => flow.go('talents')}
           onSettings={() => flow.go('settings')}
         />
+      )}
+
+      {flow.screen === 'modes' && (
+        <ModesScreen profile={profile} onPick={flow.pickMode} onBack={flow.back} />
       )}
 
       {(flow.screen === 'quick' || flow.screen === 'practice') && (

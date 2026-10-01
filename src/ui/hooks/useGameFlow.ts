@@ -26,6 +26,7 @@ import type { GameSnapshot } from '../../game/types';
 export type ScreenId =
   | 'onboarding'
   | 'home'
+  | 'modes'
   | 'quick'
   | 'practice'
   | 'challenges'
