@@ -235,7 +235,6 @@ export function App() {
           account={account}
           demoLevel={demoLevel}
           onPick={flow.pickMode}
-          onPlayStage={flow.startStage}
           onModes={() => flow.go('modes')}
           onExitDemo={flow.exitDemo}
           onProfile={() => flow.go('profile')}
