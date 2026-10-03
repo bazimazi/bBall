@@ -427,7 +427,11 @@ function checkTalentUse(
   const { effects } = loadout;
   const shieldCeiling =
     (effects.shieldCharges > 0
-      ? effects.shieldCharges + Math.ceil(submission.seconds / effects.shieldRecharge) + 1
+      ? effects.shieldCharges +
+        Math.ceil(
+          (submission.seconds + submission.hits * effects.shieldTempo) / effects.shieldRecharge
+        ) +
+        1
       : 0) +
     (aegisEquipped
       ? effects.aegisSaves * (Math.ceil(submission.seconds / effects.aegisCooldown) + 1)

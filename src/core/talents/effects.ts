@@ -53,6 +53,7 @@ function baseEffects(): TalentEffects {
 
     heft: 0,
     critChance: 0,
+    edgePressure: 0,
     critGrowth: E.criticalStrike.growth,
     critHeft: E.criticalStrike.heft,
     momentumEvery: 0,
@@ -75,12 +76,17 @@ function baseEffects(): TalentEffects {
     unsaved: false,
     shieldCharges: 0,
     shieldRecharge: E.shield.rechargeSeconds,
+    shieldTempo: 0,
     shieldSaveSpeed: E.shield.saveSpeed,
     secondChances: 0,
     guardGrantsShield: false,
 
     cooldownMul: 1,
     tempo: 0,
+    afterglowTempo: 0,
+    parryTempo: 0,
+    recharge: 0,
+    castTempo: 0,
     extraSlots: 0,
     powerStrikeSpeed: E.powerStrike.speed,
     powerStrikeWindow: E.powerStrike.window,
@@ -92,6 +98,7 @@ function baseEffects(): TalentEffects {
     dashSeconds: E.dash.seconds,
     blinkSeconds: 0,
     blinkCrit: false,
+    dashSlow: 0,
     guardWindow: E.perfectGuard.baseWindow,
     guardReach: E.perfectGuard.baseReach,
     guardCooldown: E.perfectGuard.cooldown,
@@ -132,6 +139,7 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
     const overdrive = r('overdrive');
     effects.powerStrikeSpeed += overdrive * E.overdrive.speed;
     effects.powerStrikeCooldown += overdrive * E.overdrive.cooldown;
+    effects.powerStrikeWindow += overdrive * E.rankRewards.strikeWindow;
     if (overdrive >= 2) effects.powerStrikeHits = 2;
   }
 
@@ -142,6 +150,9 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   effects.critGrowth += crit * E.criticalStrike.growthPerRank;
 
   effects.bankShot += r('bank-shot') * E.bankShot.angle;
+  const edge = r('edge-pressure');
+  if (edge > 0)
+    effects.edgePressure = E.edgePressure.threshold + (edge - 1) * E.edgePressure.thresholdStep;
 
   const momentum = r('momentum');
   if (momentum > 0) effects.momentumEvery = E.momentum.start - momentum * E.momentum.step;
@@ -162,6 +173,7 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   effects.spinMul *= 1 + precision * E.precision.spin;
 
   effects.swerve += r('swerve') * E.swerve.accel;
+  effects.dashSlow = r('time-slip') * E.timeSlip.slow;
 
   const blink = r('blink-strike');
   if (blink > 0) {
@@ -186,6 +198,7 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   // take a minute to come back is a talent nobody notices twice.
   if (shield > 0) effects.shieldRecharge += (shield - 1) * E.shield.rechargeStep;
   effects.shieldRecharge *= 1 - r('fortify') * E.fortify.recharge;
+  effects.shieldTempo = r('rally-armor') * E.rallyArmor.perReturn;
 
   const clutch = r('clutch');
   effects.clutchLength += clutch * E.clutch.length;
@@ -210,6 +223,9 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   effects.flowAngle += flow * E.flowState.angle;
   effects.flowRecharge += flow * E.flowState.recharge;
   effects.flowHeft += flow * E.flowState.heft;
+  const fast = r('fast-start');
+  effects.flowFrom = Math.max(0, effects.flowFrom - fast * E.fastStart.flowStep);
+  effects.comboEvery = Math.max(3, effects.comboEvery - fast * E.fastStart.comboStep);
 
   if (r('unbroken') > 0) effects.driveKeep = E.unbroken.keep;
 
@@ -217,7 +233,9 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   effects.tempo += r('tempo') * E.tempo.perReturn;
   effects.cooldownMul *= 1 + r('cooldown-mastery') * E.cooldownMastery.cooldown;
   effects.afterglowLength += r('afterglow') * E.afterglow.length;
+  effects.afterglowSeconds += Math.max(0, r('afterglow') - 1) * E.rankRewards.afterglowSeconds;
   effects.extraSlots += r('versatility') * E.versatility.slots;
+  effects.castTempo = r('chain-casting') * E.chainCasting.refund;
 
   // -- capstones ----------------------------------------------------------
   if (r('overload') > 0) effects.overloadHits = E.overload.hits;
@@ -241,6 +259,7 @@ function applyReckless(effects: TalentEffects): void {
   effects.bastion = 0;
   effects.aegisSaves = 0;
   effects.counterPace = 0;
+  effects.shieldTempo = 0;
 }
 
 /** The one place a resolved bag is allowed to leave its ranges. It cannot. */
@@ -283,6 +302,12 @@ function clampEffects(effects: TalentEffects): void {
   effects.bankShot = clamp(effects.bankShot, 0, 0.4);
   effects.swerve = clamp(effects.swerve, 0, 1000);
   effects.tempo = clamp(effects.tempo, 0, 1);
+  effects.afterglowTempo = clamp(effects.afterglowTempo, 0, 0.7);
+  effects.parryTempo = clamp(effects.parryTempo, 0, 2);
+  effects.recharge = clamp(effects.recharge, 0, 0.3);
+  effects.castTempo = clamp(effects.castTempo, 0, 1);
+  effects.shieldTempo = clamp(effects.shieldTempo, 0, 3);
+  effects.dashSlow = clamp(effects.dashSlow, 0, 0.2);
   effects.extraSlots = clamp(effects.extraSlots, 0, 1);
 
   effects.slipstreamPaddle = clamp(effects.slipstreamPaddle, 0, 1);
@@ -313,6 +338,13 @@ export function resolveLoadout(save: TalentSave, level: number): ResolvedLoadout
   applyRanks(effects, save);
 
   const slots = abilitySlotsForLevel(level, effects.extraSlots);
+  // Once level alone opens every slot, Versatility remains a useful investment.
+  if (
+    rankOf(save, 'versatility') > 0 &&
+    abilitySlotsForLevel(level) === BALANCE.talents.slots.max
+  ) {
+    effects.recharge += E.rankRewards.overflowRecharge;
+  }
   const equipped = usableEquipped(save, slots);
   const synergies = activeSynergies(save.ranks, equipped);
   const synergy = rankOf(save, 'talent-synergy');
@@ -360,8 +392,10 @@ export function withBoons(loadout: ResolvedLoadout, boons: BoonRanks): ResolvedL
 export function canCrit(effects: TalentEffects): boolean {
   return (
     effects.critChance > 0 ||
+    effects.edgePressure > 0 ||
     effects.overloadHits > 0 ||
     effects.hotHandCrit ||
+    effects.blinkCrit ||
     effects.chargedCrits
   );
 }

@@ -817,7 +817,16 @@ export class Renderer {
         72 + pop * 10,
         0.09 + fx.heat * 0.13 + pop * 0.08
       );
-      ctx.fillText(String(match.rally), 0, 0);
+      // Centre the visible digits, rather than the font's line box: its
+      // ascender/descender space made the count sit above the centre spot.
+      ctx.textBaseline = 'alphabetic';
+      const count = String(match.rally);
+      const bounds = ctx.measureText(count);
+      ctx.fillText(
+        count,
+        (bounds.actualBoundingBoxLeft - bounds.actualBoundingBoxRight) / 2,
+        (bounds.actualBoundingBoxAscent - bounds.actualBoundingBoxDescent) / 2
+      );
       ctx.restore();
     }
 

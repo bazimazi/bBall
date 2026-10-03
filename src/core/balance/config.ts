@@ -95,7 +95,7 @@ export const BALANCE = {
      * The last level that pays a talent point.
      *
      * Levelling itself never stops, but power from it does: 49 points against
-     * a tree that costs 93 keeps a build a set of choices rather than a
+     * a tree that costs more than twice that keeps a build a set of choices rather than a
      * checklist, however long someone plays.
      */
     pointsUntilLevel: 50,
@@ -267,6 +267,13 @@ export const BALANCE = {
     afterglow: { length: 0.1, seconds: 3 },
     versatility: { slots: 1 },
     talentSynergy: { magnitude: 0.5, lengthPerSynergy: 0.025 },
+    combinations: { parryTempo: 1, afterglowTempo: 0.35, blinkWindow: 0.3, conduitRecharge: 0.15 },
+    edgePressure: { threshold: 0.9, thresholdStep: -0.1 },
+    timeSlip: { slow: 0.1 },
+    rallyArmor: { perReturn: 1.5 },
+    fastStart: { flowStep: 1, comboStep: 1 },
+    chainCasting: { refund: 0.5 },
+    rankRewards: { strikeWindow: 0.5, afterglowSeconds: 1, overflowRecharge: 0.1 },
 
     /*
      * The capstones.

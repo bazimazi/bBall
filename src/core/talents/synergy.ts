@@ -1,3 +1,4 @@
+import { BALANCE } from '../balance/config';
 import type { AbilityId, TalentEffects, TalentId, TalentRequirement } from './types';
 
 /**
@@ -94,7 +95,43 @@ export const SYNERGIES: readonly SynergyDef[] = [
     minEquipped: 2,
     apply: (effects, magnitude) => {
       effects.cooldownMul *= 1 - 0.1 * magnitude;
-      effects.flowRecharge += 0.15 * magnitude;
+      effects.recharge += BALANCE.effects.combinations.conduitRecharge * magnitude;
+    }
+  },
+  {
+    id: 'riposte',
+    name: 'Riposte',
+    blurb: 'Perfect Guard + Tempo · a successful parry refunds extra cooldown time',
+    requires: [
+      { talent: 'perfect-guard', rank: 1 },
+      { talent: 'tempo', rank: 1 }
+    ],
+    apply: (effects, magnitude) => {
+      effects.parryTempo += BALANCE.effects.combinations.parryTempo * magnitude;
+    }
+  },
+  {
+    id: 'spellweaver',
+    name: 'Spellweaver',
+    blurb: 'Afterglow + Tempo · returns during Afterglow recharge skills faster',
+    requires: [
+      { talent: 'afterglow', rank: 1 },
+      { talent: 'tempo', rank: 1 }
+    ],
+    apply: (effects, magnitude) => {
+      effects.afterglowTempo += BALANCE.effects.combinations.afterglowTempo * magnitude;
+    }
+  },
+  {
+    id: 'phase-strike',
+    name: 'Phase Strike',
+    blurb: 'Blink Strike + Afterglow · a longer window to turn a dash into an attack',
+    requires: [
+      { talent: 'blink-strike', rank: 1 },
+      { talent: 'afterglow', rank: 1 }
+    ],
+    apply: (effects, magnitude) => {
+      effects.blinkSeconds += BALANCE.effects.combinations.blinkWindow * magnitude;
     }
   }
 ];

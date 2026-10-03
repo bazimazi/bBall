@@ -61,7 +61,7 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     cooldown: (effects) => effects.dashCooldown,
     summary: (effects) =>
       effects.blinkSeconds > 0
-        ? `${Math.round(effects.dashDistance)} units, instantly · the next return leaves charged`
+        ? `${Math.round(effects.dashDistance)} units, instantly · charged follow-up for ${seconds(effects.blinkSeconds)}${effects.dashSlow > 0 ? ` · incoming travel ${pct(effects.dashSlow)} slower during that window` : ''}`
         : `${Math.round(effects.dashDistance)} units, instantly`
   },
   {

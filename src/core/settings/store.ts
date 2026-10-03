@@ -9,6 +9,7 @@
  */
 
 import { loadRecord, saveRecord, type StoreSpec } from '../storage/localStore';
+import { AUDIO_MIX } from '../../game/audioMix';
 
 export type SkillSide = 'left' | 'right';
 
@@ -31,8 +32,8 @@ export interface DeviceSettings {
 
 export const DEFAULT_SETTINGS: DeviceSettings = {
   skillSide: 'left',
-  musicVolume: 0.8,
-  sfxVolume: 1,
+  musicVolume: AUDIO_MIX.musicDefault,
+  sfxVolume: AUDIO_MIX.effectsDefault,
   shake: 'full',
   haptics: true,
   replays: true

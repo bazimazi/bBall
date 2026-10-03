@@ -8,6 +8,8 @@
  * a body, an edge and a tail instead of sounding like a single beep.
  */
 
+import { AUDIO_MIX } from './audioMix';
+
 export interface FilterSpec {
   readonly type: BiquadFilterType;
   readonly freq: number;
@@ -42,8 +44,8 @@ export interface VoiceSpec extends Shape {
 
 export type NoiseSpec = Shape;
 
-const REVERB_SECONDS = 2.4;
-const REVERB_RETURN = 0.55;
+const REVERB_SECONDS = AUDIO_MIX.reverbSeconds;
+const REVERB_RETURN = AUDIO_MIX.reverbReturn;
 
 /** A stereo impulse response: decaying noise, a little different per ear. */
 function impulse(context: BaseAudioContext): AudioBuffer {
@@ -72,7 +74,11 @@ export class Synth {
     convolver.buffer = impulse(context);
     const wet = context.createGain();
     wet.gain.value = REVERB_RETURN;
-    convolver.connect(wet);
+    const damping = context.createBiquadFilter();
+    damping.type = 'lowpass';
+    damping.frequency.value = Math.min(5500, context.sampleRate * 0.45);
+    convolver.connect(damping);
+    damping.connect(wet);
     wet.connect(destination);
     this.reverb = convolver;
 
@@ -83,11 +89,17 @@ export class Synth {
   }
 
   voice(spec: VoiceSpec): void {
+    if (spec.gain <= 0 || spec.dur <= 0) return;
     const t = this.context.currentTime + (spec.delay ?? 0);
     const osc = this.context.createOscillator();
     osc.type = spec.type ?? 'sine';
-    osc.frequency.setValueAtTime(spec.freq, t);
-    if (spec.to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, spec.to), t + spec.dur);
+    const maxFrequency = this.context.sampleRate * 0.45;
+    osc.frequency.setValueAtTime(Math.min(maxFrequency, Math.max(20, spec.freq)), t);
+    if (spec.to)
+      osc.frequency.exponentialRampToValueAtTime(
+        Math.min(maxFrequency, Math.max(20, spec.to)),
+        t + spec.dur
+      );
     if (spec.detune) osc.detune.value = spec.detune;
     this.route(osc, spec, t);
     osc.start(t);
@@ -95,9 +107,11 @@ export class Synth {
   }
 
   noise(spec: NoiseSpec): void {
+    if (spec.gain <= 0 || spec.dur <= 0) return;
     const t = this.context.currentTime + (spec.delay ?? 0);
     const source = this.context.createBufferSource();
     source.buffer = this.noiseBuffer;
+    source.loop = true;
     // A random start, so two bursts in a row are never the same hiss.
     const offset = Math.random() * (this.noiseBuffer.duration - Math.min(1.9, spec.dur));
     this.route(source, spec, t);
@@ -129,35 +143,45 @@ export class Synth {
 
   /** Three slightly detuned copies of one voice - thick, wide, "supersaw". */
   stack(spec: VoiceSpec, spread = 14): void {
-    this.voice({ ...spec, gain: spec.gain * 0.5, detune: (spec.detune ?? 0) - spread, pan: -0.4 });
-    this.voice({ ...spec, gain: spec.gain * 0.5 });
-    this.voice({ ...spec, gain: spec.gain * 0.5, detune: (spec.detune ?? 0) + spread, pan: 0.4 });
+    this.voice({ ...spec, gain: spec.gain / 3, detune: (spec.detune ?? 0) - spread, pan: -0.4 });
+    this.voice({ ...spec, gain: spec.gain / 3 });
+    this.voice({ ...spec, gain: spec.gain / 3, detune: (spec.detune ?? 0) + spread, pan: 0.4 });
   }
 
-  private route(source: AudioNode, spec: Shape, t: number): void {
-    let node = source;
+  private route(source: AudioScheduledSourceNode, spec: Shape, t: number): void {
+    const nodes: AudioNode[] = [source];
+    let node: AudioNode = source;
 
     if (spec.filter) {
       const { type, freq, to, q } = spec.filter;
       const filter = this.context.createBiquadFilter();
+      nodes.push(filter);
       filter.type = type;
-      filter.frequency.setValueAtTime(freq, t);
-      if (to) filter.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + spec.dur);
+      const cutoff = (value: number) =>
+        Math.min(this.context.sampleRate * 0.45, Math.max(20, value));
+      filter.frequency.setValueAtTime(cutoff(freq), t);
+      if (to) filter.frequency.exponentialRampToValueAtTime(cutoff(to), t + spec.dur);
       if (q !== undefined) filter.Q.value = q;
       node.connect(filter);
       node = filter;
     }
 
     const env = this.context.createGain();
-    const attack = Math.max(0.001, spec.attack ?? 0.005);
+    nodes.push(env);
+    const attack = Math.min(spec.dur * 0.8, Math.max(0.001, spec.attack ?? 0.005));
     env.gain.setValueAtTime(0.0001, t);
     env.gain.exponentialRampToValueAtTime(spec.gain, t + attack);
+    // Give each sound a short body before its tail. One exponential straight
+    // to silence made even strong paddle contacts disappear under the band.
+    const body = Math.max(attack + 0.001, spec.dur * 0.3);
+    env.gain.exponentialRampToValueAtTime(spec.gain * 0.25, t + body);
     env.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(spec.dur, attack + 0.01));
     node.connect(env);
     node = env;
 
     if (spec.pan !== undefined && typeof this.context.createStereoPanner === 'function') {
       const panner = this.context.createStereoPanner();
+      nodes.push(panner);
       panner.pan.setValueAtTime(spec.pan, t);
       if (spec.panTo !== undefined) panner.pan.linearRampToValueAtTime(spec.panTo, t + spec.dur);
       node.connect(panner);
@@ -167,9 +191,11 @@ export class Synth {
     node.connect(this.out);
     if (spec.send) {
       const send = this.context.createGain();
+      nodes.push(send);
       send.gain.value = spec.send;
       node.connect(send);
       send.connect(this.reverb);
     }
+    source.onended = () => nodes.forEach((owned) => owned.disconnect());
   }
 }

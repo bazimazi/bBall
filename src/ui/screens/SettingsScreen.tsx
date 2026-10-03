@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 
 import {
   settingsStore,
@@ -13,6 +13,8 @@ import styles from '../Screens.module.css';
 interface SettingsScreenProps {
   /** Play a sample through the effects bus, so a new level can be heard. */
   onPreview: () => void;
+  onMusicPreview: () => void;
+  onStopPreview: () => void;
   onBack: () => void;
 }
 
@@ -104,7 +106,13 @@ function Level({
  * skill buttons sit on. None of it is synced - it belongs to the phone in
  * the hand, not to the player - and none of it changes how the game plays.
  */
-export function SettingsScreen({ onPreview, onBack }: SettingsScreenProps) {
+export function SettingsScreen({
+  onPreview,
+  onMusicPreview,
+  onStopPreview,
+  onBack
+}: SettingsScreenProps) {
+  useEffect(() => onStopPreview, [onStopPreview]);
   const settings = useSettings();
   const set = (patch: Partial<DeviceSettings>) => settingsStore.update(patch);
 
@@ -117,6 +125,7 @@ export function SettingsScreen({ onPreview, onBack }: SettingsScreenProps) {
             label="Music"
             value={settings.musicVolume}
             onChange={(musicVolume) => set({ musicVolume })}
+            onCommit={onMusicPreview}
           />
           <Level
             label="Effects"
@@ -126,7 +135,12 @@ export function SettingsScreen({ onPreview, onBack }: SettingsScreenProps) {
           />
         </div>
       </div>
-      <p className={styles.note}>The soundtrack plays during matches, and follows the rally.</p>
+      <button type="button" className={styles.ghost} onClick={onMusicPreview}>
+        Preview music · 5 seconds
+      </button>
+      <p className={styles.note}>
+        The soundtrack follows the rally. Both previews respect the mute button.
+      </p>
 
       <p className={styles.sectionLabel}>Screen shake</p>
       <Segmented

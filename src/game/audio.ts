@@ -1,11 +1,12 @@
 import { STORAGE_KEYS } from './constants';
+import { AUDIO_MIX, mixBus, volumeGain } from './audioMix';
 import { Music, type SongId } from './music';
 import { Synth } from './synth';
 import { readStored, writeStored } from './utils/storage';
 
-const MASTER_GAIN = 0.45;
+const MASTER_GAIN = AUDIO_MIX.master;
 /** Seconds the soundtrack sits ducked under a capstone. */
-const ULTIMATE_DUCK = 1.3;
+const ULTIMATE_DUCK = 0.8;
 
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
@@ -54,8 +55,9 @@ export class GameAudio {
   private synth: Synth | null = null;
   private music: Music | null = null;
   private mutedFlag = readStored(STORAGE_KEYS.muted, '0') === '1';
-  private sfxVolume = 1;
-  private musicVolume = 0.8;
+  private sfxVolume: number = AUDIO_MIX.effectsDefault;
+  private musicVolume: number = AUDIO_MIX.musicDefault;
+  private previewUntil = 0;
 
   get muted(): boolean {
     return this.mutedFlag;
@@ -70,7 +72,8 @@ export class GameAudio {
     if (!this.music) return;
     this.music.setMood(energy, tension);
     // Muted, the master gain is already silent - skip the scheduling too.
-    this.music.update(on && !this.mutedFlag && this.musicVolume > 0.001);
+    const preview = this.context !== null && this.context.currentTime < this.previewUntil;
+    this.music.update((on || preview) && !this.mutedFlag && this.musicVolume > 0.001);
   }
 
   /**
@@ -78,17 +81,30 @@ export class GameAudio {
    * that has one of its own, or the next song in the rotation for `null`.
    */
   startMusic(song: SongId | null): void {
+    this.previewUntil = 0;
     this.music?.choose(song);
+  }
+
+  /** A short soundtrack sample, controlled by the music slider and master mute. */
+  previewMusic(): void {
+    this.unlock();
+    if (!this.context || this.mutedFlag || this.musicVolume <= 0) return;
+    this.previewUntil = this.context.currentTime + 5;
+    this.updateMusic(false);
+  }
+
+  stopPreview(): void {
+    this.previewUntil = 0;
   }
 
   /** Each bus's level, 0..1. The mute button sits above both. */
   setVolumes(music: number, sfx: number): void {
-    this.musicVolume = Math.max(0, Math.min(1, music));
-    this.sfxVolume = Math.max(0, Math.min(1, sfx));
+    this.musicVolume = Number.isFinite(music) ? Math.max(0, Math.min(1, music)) : 0;
+    this.sfxVolume = Number.isFinite(sfx) ? Math.max(0, Math.min(1, sfx)) : 0;
     if (!this.context) return;
     const t = this.context.currentTime;
-    this.musicBus?.gain.setTargetAtTime(this.musicVolume, t, 0.05);
-    this.sfxBus?.gain.setTargetAtTime(this.sfxVolume, t, 0.05);
+    this.musicBus?.gain.setTargetAtTime(volumeGain(this.musicVolume), t, 0.05);
+    this.sfxBus?.gain.setTargetAtTime(volumeGain(this.sfxVolume) * AUDIO_MIX.effects, t, 0.05);
   }
 
   unlock(): void {
@@ -103,9 +119,9 @@ export class GameAudio {
       // A limiter at the very end: a capstone stacked on a hit stacked on the
       // music is loud, and it should be loud - not clipped.
       const limiter = context.createDynamicsCompressor();
-      limiter.threshold.value = -10;
-      limiter.knee.value = 8;
-      limiter.ratio.value = 6;
+      limiter.threshold.value = -6;
+      limiter.knee.value = 3;
+      limiter.ratio.value = 12;
       limiter.attack.value = 0.003;
       limiter.release.value = 0.2;
       limiter.connect(context.destination);
@@ -115,18 +131,18 @@ export class GameAudio {
       master.connect(limiter);
 
       const sfxBus = context.createGain();
-      sfxBus.gain.value = this.sfxVolume;
+      sfxBus.gain.value = volumeGain(this.sfxVolume) * AUDIO_MIX.effects;
       sfxBus.connect(master);
       const musicBus = context.createGain();
-      musicBus.gain.value = this.musicVolume;
+      musicBus.gain.value = volumeGain(this.musicVolume);
       musicBus.connect(master);
 
       this.context = context;
       this.master = master;
       this.sfxBus = sfxBus;
       this.musicBus = musicBus;
-      this.synth = new Synth(context, sfxBus);
-      this.music = new Music(context, musicBus);
+      this.synth = new Synth(context, mixBus(context, sfxBus, false));
+      this.music = new Music(context, mixBus(context, musicBus, true));
     } catch {
       this.context = null;
       this.master = null;
@@ -156,6 +172,7 @@ export class GameAudio {
   }
 
   dispose(): void {
+    this.previewUntil = 0;
     void this.context?.close();
     this.context = null;
     this.master = null;
@@ -203,9 +220,10 @@ export class GameAudio {
    */
   hit(power: number, rally = 0, pan = 0): void {
     const step = RALLY_STEPS[Math.min(RALLY_STEPS.length - 1, Math.floor(rally / 2))]!;
-    const f = (250 + power * 340) * Math.pow(2, step / 12);
-    this.tone(f, 0.085, 'triangle', 0.3, f * 0.62, 0, pan);
-    this.tone(f * 2, 0.035, 'sine', 0.08, 0, 0, pan);
+    const strength = Math.max(0, Math.min(1, power));
+    const f = Math.min(AUDIO_MIX.maxHitPitch, (250 + strength * 340) * Math.pow(2, step / 12));
+    this.tone(f, 0.085, 'triangle', 0.34 + strength * 0.1, f * 0.62, 0, pan);
+    this.tone(f * 2, 0.035, 'sine', 0.045, 0, 0, pan);
     // A little body under the hard ones, so pace is heard as well as seen.
     if (power > 0.55) this.tone(f * 0.5, 0.06, 'sine', 0.12 * power, f * 0.3, 0, pan);
   }
@@ -307,7 +325,7 @@ export class GameAudio {
     const synth = this.live;
     if (!synth) return;
     synth.stack({ freq: 98, type: 'sawtooth', gain: 0.08, dur: 0.9, attack: 0.25, send: 0.4 });
-    synth.voice({ freq: 196, to: 98, type: 'triangle', gain: 0.18, dur: 0.4, delay: 0.25 });
+    synth.voice({ freq: 196, to: 98, type: 'triangle', gain: 0.12, dur: 0.4, delay: 0.25 });
     this.music?.duck(0.6);
   }
 
@@ -330,7 +348,7 @@ export class GameAudio {
   }
 
   wall(power: number, pan = 0): void {
-    this.tone(140 + power * 100, 0.06, 'sine', 0.18, 90, 0, pan);
+    this.tone(140 + power * 100, 0.07, 'triangle', 0.12, 90, 0, pan);
   }
 
   point(won: boolean, pan = 0): void {
@@ -339,7 +357,7 @@ export class GameAudio {
       this.tone(784, 0.16, 'triangle', 0.2, 0, 0.08, pan * 0.5);
       this.tone(1047, 0.2, 'sine', 0.08, 0, 0.14, pan * 0.5);
     } else {
-      this.tone(210, 0.24, 'sawtooth', 0.12, 105, 0, pan * 0.5);
+      this.tone(210, 0.24, 'triangle', 0.14, 105, 0, pan * 0.5);
     }
     // The ball going through the line: a soft thud of air where it happened.
     this.live?.noise({
@@ -558,7 +576,7 @@ export class GameAudio {
         gain: 0.14,
         dur: 0.3,
         attack: 0.02,
-        filter: { type: 'lowpass', freq: 300, to: 3200, q: 6 }
+        filter: { type: 'lowpass', freq: 300, to: 2600, q: 2 }
       },
       10
     );
@@ -601,7 +619,7 @@ export class GameAudio {
     const synth = this.live;
     if (!synth) return;
     if (charged) {
-      synth.voice({ freq: 150, to: 38, type: 'sine', gain: 0.42, dur: 0.38 });
+      synth.voice({ freq: 150, to: 55, type: 'sine', gain: 0.3, dur: 0.26 });
       synth.voice({
         freq: 180,
         to: 60,
@@ -611,7 +629,7 @@ export class GameAudio {
         filter: { type: 'lowpass', freq: 1600, to: 180 }
       });
       synth.noise({
-        gain: 0.26,
+        gain: 0.18,
         dur: 0.12,
         filter: { type: 'bandpass', freq: 1400, to: 500, q: 0.9 },
         send: 0.3
@@ -636,7 +654,7 @@ export class GameAudio {
       gain: 0.12,
       dur: 0.45,
       attack: 0.01,
-      filter: { type: 'lowpass', freq: 3000, to: 300, q: 10 },
+      filter: { type: 'lowpass', freq: 2400, to: 300, q: 2.5 },
       send: 0.35
     });
     synth.voice({ freq: 110, to: 90, type: 'sine', gain: 0.2, dur: 0.4 });
@@ -686,14 +704,14 @@ export class GameAudio {
     this.music?.duck(ULTIMATE_DUCK);
 
     // The hit.
-    synth.voice({ freq: 120, to: 30, type: 'sine', gain: 0.55, dur: 1.1, attack: 0.004 });
-    synth.voice({ freq: 60, to: 34, type: 'triangle', gain: 0.25, dur: 0.9 });
+    synth.voice({ freq: 120, to: 45, type: 'sine', gain: 0.36, dur: 0.75, attack: 0.006 });
+    synth.voice({ freq: 80, to: 48, type: 'triangle', gain: 0.14, dur: 0.6 });
     synth.noise({
-      gain: 0.3,
-      dur: 1.4,
+      gain: 0.2,
+      dur: 0.95,
       attack: 0.004,
-      filter: { type: 'lowpass', freq: 9000, to: 400 },
-      send: 0.6
+      filter: { type: 'lowpass', freq: 6500, to: 600 },
+      send: 0.35
     });
     synth.noise({ gain: 0.2, dur: 0.05, filter: { type: 'highpass', freq: 3000 } });
 
@@ -710,7 +728,7 @@ export class GameAudio {
           dur: 1.1,
           attack: 0.02,
           delay: i * 0.03,
-          filter: { type: 'lowpass', freq: 500, to: falling ? 900 : 6000, q: 4 },
+          filter: { type: 'lowpass', freq: 500, to: falling ? 900 : 4500, q: 1.5 },
           send: 0.5
         },
         16
@@ -788,7 +806,7 @@ export class GameAudio {
           gain: 0.14,
           dur: 1.6,
           attack: 0.08,
-          filter: { type: 'lowpass', freq: 200, to: 1400, q: 12 },
+          filter: { type: 'lowpass', freq: 200, to: 1400, q: 2.5 },
           send: 0.4
         });
         synth.bell(784, 0.16, 2.2, { delay: 0.08, send: 0.7 });

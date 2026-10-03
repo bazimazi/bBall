@@ -221,6 +221,15 @@ export function fireAbility(world: World, slot: number): boolean {
     world.talents.afterglow = world.loadout.effects.afterglowSeconds;
   }
   if (def.ultimate) world.talents.stats.ultimates++;
+  const previous = world.talents.lastAbility;
+  if (previous && previous !== entry.id && world.loadout.effects.castTempo > 0) {
+    for (const other of world.talents.slots) {
+      if (!other.id || other === entry) continue;
+      const share = abilityById(other.id)?.ultimate ? 0.5 : 1;
+      other.cooldown = Math.max(0, other.cooldown - world.loadout.effects.castTempo * share);
+    }
+  }
+  world.talents.lastAbility = entry.id;
   fire(world, def);
   return true;
 }
@@ -273,8 +282,9 @@ export function abilityViews(world: World): AbilityView[] {
     const def = abilityById(slot.id);
     if (!def) continue;
 
-    const ready = slot.cooldown <= 0;
-    const raw = ready || slot.span <= 0 ? 1 : 1 - slot.cooldown / slot.span;
+    const remaining = Math.max(slot.cooldown, slot.lockout);
+    const ready = remaining <= 0;
+    const raw = ready ? 1 : 1 - remaining / Math.max(slot.span, BALANCE.talents.minRecast);
     const live = liveEffect(world, slot.id);
     views.push({
       id: slot.id,
@@ -285,7 +295,7 @@ export function abilityViews(world: World): AbilityView[] {
       active: live.active,
       ultimate: def.ultimate === true,
       hue: def.hue,
-      cooldownLeft: ready ? 0 : Math.ceil(slot.cooldown),
+      cooldownLeft: ready ? 0 : Math.ceil(remaining),
       remain: live.remain,
       duration: live.duration,
       charges: live.charges,
@@ -323,7 +333,11 @@ export function liveEffect(world: World, id: AbilityId): LiveEffect {
 
   switch (id) {
     case 'power-strike':
-      return timed(runtime.strikeArmed, effects.powerStrikeWindow);
+      return {
+        ...timed(runtime.strikeArmed, effects.powerStrikeWindow),
+        charges: runtime.strikeHits,
+        maxCharges: effects.powerStrikeHits
+      };
     case 'perfect-guard':
       return timed(runtime.guardWindow, effects.guardWindow);
     case 'dash':

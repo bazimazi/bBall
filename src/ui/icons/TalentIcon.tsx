@@ -16,6 +16,41 @@ interface TalentIconProps {
 /** Fills use `currentColor`; strokes use it too, via the wrapping <g>. */
 function Glyph({ id }: TalentIconProps) {
   switch (id) {
+    case 'edge-pressure':
+      return (
+        <>
+          <path d="M4 3v18M20 3v18M8 5l4 7-4 7" />
+          <circle cx="16" cy="12" r="2.5" fill="currentColor" />
+        </>
+      );
+    case 'time-slip':
+      return (
+        <>
+          <path d="M5 3h14M5 21h14M7 3c0 5 10 13 10 18M17 3c0 5-10 13-10 18" />
+        </>
+      );
+    case 'rally-armor':
+      return (
+        <>
+          <path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6Z" />
+          <path d="M7 13h3l2-5 2 8 2-3h2" />
+        </>
+      );
+    case 'fast-start':
+      return (
+        <>
+          <path d="M3 5v14M7 5l8 7-8 7Z" fill="currentColor" />
+          <path d="m16 5 6 7-6 7" />
+        </>
+      );
+    case 'chain-casting':
+      return (
+        <>
+          <circle cx="6" cy="7" r="3" />
+          <circle cx="18" cy="17" r="3" />
+          <path d="M9 7h7l-2-2M15 17H8l2 2M18 7v5M6 17v-5" />
+        </>
+      );
     // ---------------------------------------------------------------- power
     case 'power-strike':
       return <path d="M13.5 2 5 13h5l-1.5 9L19 10h-5.5l1.5-8Z" fill="currentColor" stroke="none" />;

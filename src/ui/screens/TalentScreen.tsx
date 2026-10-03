@@ -231,6 +231,17 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
             <span className={styles.rowText}>
               <span className={styles.rowTitle}>{synergy.name}</span>
               <span className={styles.rowBlurb}>{synergy.blurb}</span>
+              <span className={styles.rowBlurb}>
+                {on
+                  ? 'Active'
+                  : synergy.requires
+                      .map((need) => {
+                        const rank = save.ranks[need.talent] ?? 0;
+                        return `${talentById(need.talent)?.name ?? need.talent} ${Math.min(rank, need.rank)}/${need.rank}`;
+                      })
+                      .join(' · ')}
+                {!on && synergy.minEquipped ? ` · Equip ${synergy.minEquipped} skills` : ''}
+              </span>
             </span>
           </div>
         );
@@ -281,6 +292,16 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
             </div>
 
             <p className={styles.sheetBlurb}>{selected.blurb}</p>
+            {SYNERGIES.filter((entry) =>
+              entry.requires.some((need) => need.talent === selected.id)
+            ).map((entry) => (
+              <p key={entry.id} className={styles.detailLine}>
+                <span className={styles.detailTag}>
+                  {activeIds.has(entry.id) ? 'Active' : 'Combo'}
+                </span>
+                {entry.name}: {entry.blurb}
+              </p>
+            ))}
 
             {state.rank > 0 && (
               <p className={styles.detailLine}>

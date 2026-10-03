@@ -167,6 +167,8 @@ export interface TalentRuntime {
   zenithRefunds: number;
   zenith: number;
   echo: number;
+  /** Last successful cast, for Chain Casting. Cleared between rallies. */
+  lastAbility: AbilityId | null;
 
   slots: AbilitySlot[];
   stats: {

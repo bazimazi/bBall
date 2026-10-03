@@ -130,6 +130,16 @@
   color: hsl(var(--branch) 85% 72%);
 }
 
+.treeBlurb {
+  margin: 0;
+  padding: 8px 12px 0;
+  max-width: 184px;
+  min-height: 38px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 /* Grows so panels of different depth still line their Reset buttons up. */
 .treeBody {
   flex: 1 1 auto;

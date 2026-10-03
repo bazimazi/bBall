@@ -328,7 +328,12 @@ export function App() {
       {flow.screen === 'customize' && <CustomizeScreen profile={profile} onBack={flow.back} />}
 
       {flow.screen === 'settings' && (
-        <SettingsScreen onPreview={() => engine?.chime(1)} onBack={flow.back} />
+        <SettingsScreen
+          onPreview={() => engine?.chime(1)}
+          onMusicPreview={engine?.previewMusic ?? (() => {})}
+          onStopPreview={engine?.stopAudioPreview ?? (() => {})}
+          onBack={flow.back}
+        />
       )}
 
       {flow.screen === 'result' && flow.result && (

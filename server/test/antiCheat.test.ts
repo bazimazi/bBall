@@ -235,6 +235,31 @@ function verdictFor(profile: PlayerProfile, patch: Partial<MatchSubmissionDto>) 
  * playing exactly as the engine lets it - the other half of anti-cheat.
  */
 describe('honest builds', () => {
+  it('accepts earned Edge Pressure criticals without a critical-chance talent', () => {
+    const profile = buildProfile({
+      'heavy-impact': 3,
+      'bank-shot': 2,
+      momentum: 1,
+      'edge-pressure': 2
+    });
+    assert.equal(profile.talents.ranks['edge-pressure'], 2);
+    assert.equal(
+      verdictFor(profile, { talent: { ...matchSubmission().talent, crits: 10 } }).ok,
+      true
+    );
+  });
+
+  it('includes return-earned shield recovery in the save ceiling', () => {
+    const ranks = { shield: 1, fortify: 1, bastion: 2, clutch: 1 } as const;
+    const patch = { talent: { ...matchSubmission().talent, shieldSaves: 5 } };
+    const plain = buildProfile(ranks);
+    const armored = buildProfile({ ...ranks, 'rally-armor': 2 });
+    assert.equal(armored.talents.ranks['rally-armor'], 2);
+    assert.equal(verdictFor(plain, patch).ok, false);
+    assert.equal(verdictFor(armored, patch).ok, true);
+    assert.equal(verdictFor(armored, { talent: { ...patch.talent, shieldSaves: 7 } }).ok, false);
+  });
+
   const overloadBuild = {
     'power-strike': 1,
     overdrive: 2,

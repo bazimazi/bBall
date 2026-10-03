@@ -79,6 +79,7 @@ export type TalentId =
   | 'overdrive'
   | 'momentum'
   | 'reckless'
+  | 'edge-pressure'
   | 'overload'
   // control
   | 'long-reach'
@@ -88,6 +89,7 @@ export type TalentId =
   | 'swerve'
   | 'blink-strike'
   | 'perfect-guard'
+  | 'time-slip'
   | 'slipstream'
   // defense
   | 'bastion'
@@ -96,6 +98,7 @@ export type TalentId =
   | 'fortify'
   | 'counterstrike'
   | 'second-chance'
+  | 'rally-armor'
   | 'aegis'
   // momentum
   | 'hot-hand'
@@ -103,6 +106,7 @@ export type TalentId =
   | 'adrenaline'
   | 'flow-state'
   | 'unbroken'
+  | 'fast-start'
   | 'zenith'
   // utility
   | 'tempo'
@@ -110,6 +114,7 @@ export type TalentId =
   | 'afterglow'
   | 'versatility'
   | 'talent-synergy'
+  | 'chain-casting'
   | 'echo';
 
 /** Lifetime talent numbers, kept for the profile screen. */
@@ -206,6 +211,8 @@ export interface TalentEffects {
    */
   heft: number;
   critChance: number;
+  /** Minimum actual paddle contact offset that guarantees a charged critical. 0 disables it. */
+  edgePressure: number;
   critGrowth: number;
   /** How much harder to read a critical return is. Reckless doubles it. */
   critHeft: number;
@@ -250,6 +257,8 @@ export interface TalentEffects {
   unsaved: boolean;
   shieldCharges: number;
   shieldRecharge: number;
+  /** Seconds of shield recovery earned by an actual paddle return. */
+  shieldTempo: number;
   shieldSaveSpeed: number;
   secondChances: number;
   /** Bulwark: a perfect guard also hands back a shield charge. */
@@ -259,6 +268,14 @@ export interface TalentEffects {
   cooldownMul: number;
   /** Tempo: seconds every cooldown loses whenever the player returns the ball. */
   tempo: number;
+  /** Extra cooldown seconds earned by a return during Afterglow. */
+  afterglowTempo: number;
+  /** Cooldown seconds earned by a successful Perfect Guard. */
+  parryTempo: number;
+  /** Passive recovery from Conduit, independent of Flow State. */
+  recharge: number;
+  /** Cooldown refund to other skills when alternating casts. */
+  castTempo: number;
   /** Skill slots on top of the ones level has opened. */
   extraSlots: number;
   powerStrikeSpeed: number;
@@ -275,6 +292,8 @@ export interface TalentEffects {
   blinkSeconds: number;
   /** Blink Strike's top rank: that return is critical as well. */
   blinkCrit: boolean;
+  /** Incoming ball slowdown during the dash follow-up window. */
+  dashSlow: number;
   guardWindow: number;
   /** Units past the paddle's ends that a Perfect Guard still reaches. */
   guardReach: number;

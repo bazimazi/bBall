@@ -34,7 +34,8 @@
     "server:start": "npm run start --workspace server",
     "server:test": "npm run test --workspace server",
     "server:migrate": "npm run migrate --workspace server",
-    "test": "npm run test --workspace server"
+    "test": "npm run test --workspace server",
+    "test:audio": "node scripts/check-audio.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

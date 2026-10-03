@@ -288,6 +288,9 @@ export class GameEngine {
     this.audio.star(index);
   };
 
+  previewMusic = (): void => this.audio.previewMusic();
+  stopAudioPreview = (): void => this.audio.stopPreview();
+
   /** Fire the ability in `slot`. Ignored when it is empty or cooling down. */
   useAbility = (slot: number): void => {
     this.audio.unlock();

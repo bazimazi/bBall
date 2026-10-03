@@ -107,6 +107,7 @@ export function TalentTree({
           {spent} / {total}
         </span>
       </header>
+      <p className={styles.treeBlurb}>{branch.blurb}</p>
 
       <div className={styles.treeBody}>
         <div className={styles.grid} style={{ width: gridW, height: gridH }}>
@@ -131,6 +132,7 @@ export function TalentTree({
                 className={tileClass(state, selected === talent.id)}
                 style={{ left: cellX(talent.column), top: cellY(talent.tier) }}
                 aria-label={`${talent.name}, rank ${state.rank} of ${talent.maxRank}`}
+                title={`${talent.name} · ${talent.blurb}`}
                 aria-pressed={selected === talent.id}
                 onClick={() => onPick(talent)}
               >

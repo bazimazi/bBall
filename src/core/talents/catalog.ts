@@ -172,7 +172,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 1,
     requires: [{ talent: 'power-strike', rank: 1 }],
     rankText: (rank) =>
-      `Power Strike leaves +${pct(rank * E.overdrive.speed)} faster and comes back ${sec(rank * Math.abs(E.overdrive.cooldown))} sooner${rank >= 2 ? ', and charges two returns in a row' : ''}.`
+      `Power Strike gains +${pct(rank * E.overdrive.speed)} speed, comes back ${sec(rank * Math.abs(E.overdrive.cooldown))} sooner and holds its charge for ${sec(E.powerStrike.window + rank * E.rankRewards.strikeWindow)}${rank >= 2 ? ', with two charged returns per cast' : ''}.`
   },
   {
     id: 'momentum',
@@ -199,6 +199,19 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [],
     rankText: () =>
       `+${pct(E.reckless.chance)} critical chance, and every critical return hits ${pct(E.reckless.growth)} harder and lands twice as heavy - but nothing can save you: Shield, Bastion, Adrenaline, Aegis, Second Chance and Zenith's refund all stand down.`
+  },
+  {
+    id: 'edge-pressure',
+    branch: 'power',
+    name: 'Edge Pressure',
+    blurb: 'Risk the paddle edge for a guaranteed critical',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 3,
+    column: 0,
+    requires: [{ talent: 'momentum', rank: 1 }],
+    rankText: (rank) =>
+      `Contacts in the outer ${pct(1 - (E.edgePressure.threshold + (rank - 1) * E.edgePressure.thresholdStep))} of either paddle end always leave charged and critical. Aim closer to the edge to earn the attack; centre contacts keep their normal chances.`
   },
   {
     id: 'overload',
@@ -315,6 +328,19 @@ export const TALENTS: readonly TalentDef[] = [
     }
   },
   {
+    id: 'time-slip',
+    branch: 'control',
+    name: 'Time Slip',
+    blurb: 'Dash buys a moment to place your counter',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 3,
+    column: 0,
+    requires: [{ talent: 'blink-strike', rank: 1 }],
+    rankText: (rank) =>
+      `During Blink Strike's follow-up window, an incoming ball travels through your half ${pct(rank * E.timeSlip.slow)} slower, giving you time to place the charged return. Its actual speed is preserved. Does not stack with Clutch's slowdown.`
+  },
+  {
     id: 'slipstream',
     branch: 'control',
     name: 'Slipstream',
@@ -409,6 +435,19 @@ export const TALENTS: readonly TalentDef[] = [
       `Once a match, refunds a conceded point - or your last life - while you are not ahead.`
   },
   {
+    id: 'rally-armor',
+    branch: 'defense',
+    name: 'Rally Armor',
+    blurb: 'Rebuild your shield by keeping the ball alive',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 3,
+    column: 0,
+    requires: [{ talent: 'fortify', rank: 1 }],
+    rankText: (rank) =>
+      `Each successful paddle return earns ${sec(rank * E.rallyArmor.perReturn)} of shield recharge while a charge is missing. Automatic saves earn nothing, and surplus recovery cannot be banked while full.`
+  },
+  {
     id: 'aegis',
     branch: 'defense',
     name: 'Aegis',
@@ -490,6 +529,19 @@ export const TALENTS: readonly TalentDef[] = [
       `Conceding a point keeps ${pct(E.unbroken.keep)} of your drive instead of ending it.`
   },
   {
+    id: 'fast-start',
+    branch: 'momentum',
+    name: 'Fast Start',
+    blurb: 'Find your rhythm earlier in every rally',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 3,
+    column: 2,
+    requires: [{ talent: 'flow-state', rank: 1 }],
+    rankText: (rank) =>
+      `Flow State starts building after ${Math.max(0, E.flowState.from - rank * E.fastStart.flowStep)} returns, and Combo Drive grows every ${Math.max(3, E.comboDrive.every - rank * E.fastStart.comboStep)} returns instead of ${E.comboDrive.every}. Their maximum bonuses stay the same.`
+  },
+  {
     id: 'zenith',
     branch: 'momentum',
     name: 'Zenith',
@@ -542,7 +594,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 2,
     requires: [],
     rankText: (rank) =>
-      `Using any skill makes your paddle ${pct(rank * E.afterglow.length)} longer for ${sec(E.afterglow.seconds)}.`
+      `Using any skill makes your paddle ${pct(rank * E.afterglow.length)} longer for ${sec(E.afterglow.seconds + (rank - 1) * E.rankRewards.afterglowSeconds)}.`
   },
   {
     id: 'versatility',
@@ -555,7 +607,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 0,
     requires: [],
     rankText: () =>
-      `+${E.versatility.slots} skill slot on top of the ones your level has opened, up to ${BALANCE.talents.slots.max}.`
+      `+${E.versatility.slots} skill slot on top of the ones your level has opened, up to ${BALANCE.talents.slots.max}. Once level alone opens all slots, grants ${pct(E.rankRewards.overflowRecharge)} faster cooldown recovery instead.`
   },
   {
     id: 'talent-synergy',
@@ -569,6 +621,19 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [],
     rankText: (rank) =>
       `+${pct(rank * E.talentSynergy.magnitude)} to every active synergy, and ${pct(rank * E.talentSynergy.lengthPerSynergy)} more paddle length per active synergy.`
+  },
+  {
+    id: 'chain-casting',
+    branch: 'utility',
+    name: 'Chain Casting',
+    blurb: 'Alternate your skills to keep the rotation moving',
+    maxRank: 2,
+    costs: [1, 1],
+    tier: 3,
+    column: 2,
+    requires: [{ talent: 'talent-synergy', rank: 1 }],
+    rankText: (rank) =>
+      `Casting a different skill from your previous cast this rally takes ${sec(rank * E.chainCasting.refund)} off your other equipped cooldowns, half that off ultimates. Repeating one skill gives no refund; minimum recast limits still apply.`
   },
   {
     id: 'echo',

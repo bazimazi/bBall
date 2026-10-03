@@ -52,3 +52,23 @@ it('below the ceiling, opponents still bleed only the boosted share of pace', ()
   hit(world, 'bot');
   assert.ok(Math.abs(world.ball.speed - (plain + bonus * (1 - BALANCE.ball.surgeBleed))) < 1e-6);
 });
+
+it('a parry plays its distinctive confirmation instead of the generic charged impact', () => {
+  let parries = 0;
+  let impacts = 0;
+  const audio = new Proxy(
+    {},
+    {
+      get: (_target, key) =>
+        key === 'guardHit' ? () => parries++ : key === 'impact' ? () => impacts++ : () => 0
+    }
+  ) as unknown as GameAudio;
+  const world = createWorld(audio, 0);
+  world.view.w = 1000;
+  placePaddles(world);
+  world.match.status = 'play';
+  world.talents.guardWindow = 0.25;
+  hit(world, 'you');
+  assert.equal(parries, 1);
+  assert.equal(impacts, 0);
+});

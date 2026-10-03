@@ -20,10 +20,12 @@
  * and a riser into every phrase.
  */
 
+import { AUDIO_MIX } from './audioMix';
+
 /** How far ahead of the audio clock notes are queued. */
 const LOOKAHEAD = 0.3;
 /** Kept well under the effects, so a hit is always heard over the band. */
-const MUSIC_GAIN = 0.34;
+const MUSIC_GAIN = AUDIO_MIX.music;
 /** The music's low-pass when nothing is muffling it: effectively open. */
 const OPEN_CUTOFF = 20000;
 const STEPS_PER_BAR = 16;
@@ -352,6 +354,7 @@ export class Music {
   private tension = false;
   private lastUpdate = 0;
   private toneSet = -1;
+  private duckUntil = 0;
   /** Where the rotation last stopped, so a new match never repeats the song. */
   private rotation = Math.floor(Math.random() * ROTATION.length);
 
@@ -412,23 +415,31 @@ export class Music {
    */
   duck(hold: number): void {
     const t = this.context.currentTime;
+    this.duckUntil = Math.max(this.duckUntil, t + Math.max(0.08, hold));
     const gain = this.ducker.gain;
     gain.cancelScheduledValues(t);
     gain.setValueAtTime(gain.value, t);
-    gain.linearRampToValueAtTime(0.25, t + 0.04);
-    gain.setValueAtTime(0.25, t + hold);
-    gain.linearRampToValueAtTime(1, t + hold + 0.9);
+    gain.linearRampToValueAtTime(AUDIO_MIX.duckLevel, t + 0.04);
+    gain.setValueAtTime(AUDIO_MIX.duckLevel, this.duckUntil);
+    gain.linearRampToValueAtTime(1, this.duckUntil + AUDIO_MIX.duckRelease);
 
     const cutoff = this.muffle.frequency;
     cutoff.cancelScheduledValues(t);
     cutoff.setValueAtTime(cutoff.value, t);
-    cutoff.exponentialRampToValueAtTime(420, t + 0.06);
-    cutoff.setValueAtTime(420, t + hold);
-    cutoff.exponentialRampToValueAtTime(this.open, t + hold + 1.1);
+    const muffled = Math.min(this.open, AUDIO_MIX.duckCutoff);
+    cutoff.exponentialRampToValueAtTime(muffled, t + 0.06);
+    cutoff.setValueAtTime(muffled, this.duckUntil);
+    cutoff.exponentialRampToValueAtTime(this.open, this.duckUntil + AUDIO_MIX.duckRelease);
   }
 
   /** Back to the top of the song - called when a new match starts. */
   restart(): void {
+    const now = this.context.currentTime;
+    this.duckUntil = 0;
+    this.ducker.gain.cancelScheduledValues(now);
+    this.ducker.gain.setTargetAtTime(1, now, 0.04);
+    this.muffle.frequency.cancelScheduledValues(now);
+    this.muffle.frequency.setTargetAtTime(this.open, now, 0.04);
     this.step = 0;
     this.nextTime = 0;
     this.beats.fill(0);
@@ -537,7 +548,7 @@ export class Music {
         t,
         stepLength * 1.5 * arp.every,
         arp.wave,
-        arp.gain,
+        arp.gain * 1.2,
         0.005,
         arp.cutoff
       );
@@ -558,7 +569,15 @@ export class Music {
     if (section.lead) {
       const note = this.phrase.get(s);
       if (note !== undefined) {
-        this.voice(midiToFreq(note), t, stepLength * 2.6, song.lead.wave, song.lead.gain, 0.01, 0);
+        this.voice(
+          midiToFreq(note),
+          t,
+          stepLength * 2.6,
+          song.lead.wave,
+          song.lead.gain * 1.4,
+          0.01,
+          song.lead.wave === 'square' ? 3800 : 0
+        );
       }
     }
 
@@ -622,6 +641,7 @@ export class Music {
     if (gain <= 0.0001) return;
     const osc = this.context.createOscillator();
     const env = this.context.createGain();
+    const nodes: AudioNode[] = [osc, env];
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t);
     env.gain.setValueAtTime(0.0001, t);
@@ -629,6 +649,7 @@ export class Music {
     env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     if (cutoff > 0) {
       const filter = this.context.createBiquadFilter();
+      nodes.push(filter);
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(cutoff, t);
       osc.connect(filter);
@@ -639,6 +660,7 @@ export class Music {
     env.connect(this.bus);
     osc.start(t);
     osc.stop(t + dur + 0.05);
+    osc.onended = () => nodes.forEach((node) => node.disconnect());
   }
 
   private pad(chord: Chord, t: number, dur: number): void {
@@ -662,13 +684,14 @@ export class Music {
     filter.frequency.setValueAtTime(spec.cutoff * (1 + this.energy * 0.6), t);
     filter.frequency.exponentialRampToValueAtTime(220, t + dur);
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(spec.gain, t + 0.01);
+    env.gain.exponentialRampToValueAtTime(spec.gain * 0.85, t + 0.01);
     env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     osc.connect(filter);
     filter.connect(env);
     env.connect(this.bus);
     osc.start(t);
     osc.stop(t + dur + 0.05);
+    osc.onended = () => [osc, filter, env].forEach((node) => node.disconnect());
   }
 
   private kick(t: number): void {
@@ -678,12 +701,16 @@ export class Music {
     osc.frequency.setValueAtTime(140, t);
     osc.frequency.exponentialRampToValueAtTime(45, t + 0.14);
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(0.32, t + 0.004);
+    env.gain.exponentialRampToValueAtTime(0.26, t + 0.004);
     env.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
     osc.connect(env);
     env.connect(this.bus);
     osc.start(t);
     osc.stop(t + 0.25);
+    osc.onended = () => {
+      osc.disconnect();
+      env.disconnect();
+    };
   }
 
   /** A soft, low double thump - the match-point heartbeat. */
@@ -700,6 +727,10 @@ export class Music {
     env.connect(this.bus);
     osc.start(t);
     osc.stop(t + 0.32);
+    osc.onended = () => {
+      osc.disconnect();
+      env.disconnect();
+    };
   }
 
   private noiseHit(
@@ -729,6 +760,7 @@ export class Music {
     const offset = Math.random() * Math.max(0, this.noise.duration - dur - 0.05);
     source.start(t, offset);
     source.stop(t + dur + 0.02);
+    source.onended = () => [source, filter, env].forEach((node) => node.disconnect());
   }
 
   private snare(t: number, gain = 0.1): void {
@@ -772,5 +804,6 @@ export class Music {
     env.connect(this.bus);
     source.start(t);
     source.stop(t + length + 0.08);
+    source.onended = () => [source, filter, env].forEach((node) => node.disconnect());
   }
 }

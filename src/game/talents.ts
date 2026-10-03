@@ -66,6 +66,7 @@ export function createRuntime(): TalentRuntime {
     zenith: 0,
     zenithRefunds: 0,
     echo: 0,
+    lastAbility: null,
     slots: emptySlots(),
     stats: {
       abilitiesUsed: 0,
@@ -106,6 +107,7 @@ export function resetRuntime(world: World): void {
   runtime.zenith = 0;
   runtime.zenithRefunds = BALANCE.effects.zenith.refunds;
   runtime.echo = 0;
+  runtime.lastAbility = null;
   runtime.guardShielded = false;
 
   runtime.shieldMax = effects.shieldCharges;
@@ -138,6 +140,7 @@ export function resetRuntime(world: World): void {
 
 /** A new rally is about to start. */
 export function resetRally(world: World): void {
+  world.talents.lastAbility = null;
   world.talents.rallyReturns = 0;
   world.talents.surge = 0;
   world.talents.guardShielded = false;
@@ -284,7 +287,7 @@ export function updateRuntime(world: World, dt: number): void {
     runtime.zenith > 0 ? effects.zenithRecharge : 1,
     runtime.echo > 0 ? effects.echoRecharge : 1
   );
-  const recovery = dt * hurry * (1 + effects.flowRecharge * flowProgress(world));
+  const recovery = dt * hurry * (1 + effects.recharge + effects.flowRecharge * flowProgress(world));
   for (const slot of runtime.slots) {
     if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - recovery);
     if (slot.lockout > 0) slot.lockout = Math.max(0, slot.lockout - dt);
@@ -300,8 +303,9 @@ export function updateRuntime(world: World, dt: number): void {
 }
 
 /** Tempo: a return winds every cooldown back a notch - an ultimate by half as much. */
-function applyTempo(world: World): void {
-  const tempo = world.loadout.effects.tempo;
+function applyTempo(world: World, bonus = 0): void {
+  const { effects } = world.loadout;
+  const tempo = effects.tempo + bonus + (world.talents.afterglow > 0 ? effects.afterglowTempo : 0);
   if (tempo <= 0) return;
   for (const slot of world.talents.slots) {
     if (!slot.id || slot.cooldown <= 0) continue;
@@ -382,7 +386,10 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   runtime.drive++;
   runtime.rallyReturns++;
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
-  applyTempo(world);
+  applyTempo(world, runtime.guardWindow > 0 ? effects.parryTempo : 0);
+  if (runtime.shield < runtime.shieldMax && effects.shieldTempo > 0) {
+    runtime.shieldTimer = Math.max(0, runtime.shieldTimer - effects.shieldTempo);
+  }
 
   if (effects.adrenalineEvery > 0 && runtime.drive % effects.adrenalineEvery === 0) {
     runtime.spareSave = 1;
@@ -423,8 +430,12 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   const blinked = runtime.blink > 0;
   runtime.blink = 0;
 
-  const charged = overloaded || struck || guarded || rhythm || primed || blinked;
+  // Use the actual paddle edge, not the angle compensated for a longer paddle:
+  // more reach must not turn safe centre contacts into free edge criticals.
+  const edged = effects.edgePressure > 0 && Math.abs(offset) >= effects.edgePressure;
+  const charged = overloaded || struck || guarded || rhythm || primed || blinked || edged;
   const crit =
+    edged ||
     overloaded ||
     (primed && effects.hotHandCrit) ||
     (blinked && effects.blinkCrit) ||
@@ -518,17 +529,22 @@ export function bankBall(world: World): void {
 }
 
 /**
- * How fast the ball's clock runs right now. Below 1 only under Clutch, while
- * the ball is in the player's half and heading for their line.
+ * How fast the ball's clock runs right now. Clutch and Time Slip lend time
+ * only while the ball is in the player's half and heading for their line.
+ * They share the strongest slowdown instead of stacking.
  *
  * Time, not pace. Taking pace off the ball measured as a loss: the player's
  * own return is built from whatever speed arrives, so a slower ball in meant
  * a slower ball out, and the opponent got the time back.
  */
 export function ballTimeScale(world: World): number {
-  const slow = world.loadout.effects.clutchSlow;
+  const { effects } = world.loadout;
+  const slow = Math.max(
+    inClutch(world) ? effects.clutchSlow : 0,
+    world.talents.blink > 0 ? effects.dashSlow : 0
+  );
   const { ball } = world;
-  if (slow <= 0 || ball.vx >= 0 || ball.x > world.view.w / 2 || !inClutch(world)) return 1;
+  if (slow <= 0 || ball.vx >= 0 || ball.x > world.view.w / 2) return 1;
   return 1 - slow;
 }
 
@@ -570,8 +586,9 @@ export function tryShield(world: World): boolean {
   } else if (spare) {
     runtime.spareSave = 0;
   } else {
+    const wasFull = runtime.shield === runtime.shieldMax;
     runtime.shield--;
-    runtime.shieldTimer = effects.shieldRecharge;
+    if (wasFull) runtime.shieldTimer = effects.shieldRecharge;
   }
   runtime.stats.shieldSaves++;
   // A save is not a return, so it adds nothing to the drive - but the point

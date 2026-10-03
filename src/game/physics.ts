@@ -186,8 +186,8 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
     match.hits++;
     // "Melting"-style challenges eat into the paddle with every return.
     if (tuning.shrinkPerHit > 0) shrinkPaddle(world.player, tuning.shrinkPerHit);
-    if (mods.charged || mods.crit) world.audio.impact(mods.charged);
-    else if (mods.guarded) world.audio.guardHit();
+    if (mods.guarded) world.audio.guardHit();
+    else if (mods.charged || mods.crit) world.audio.impact(mods.charged);
     // The skills that pay off *on contact* rather than on a timer get their
     // own mark at the point of contact: a return is the only moment they
     // ever have, so it is the only moment they are allowed to be loud.
