@@ -277,7 +277,7 @@ const STEPS = 24;
  */
 export function abilityViews(world: World): AbilityView[] {
   const views: AbilityView[] = [];
-  for (const slot of world.talents.slots) {
+  for (const [index, slot] of world.talents.slots.entries()) {
     if (!slot.id) continue;
     const def = abilityById(slot.id);
     if (!def) continue;
@@ -287,6 +287,7 @@ export function abilityViews(world: World): AbilityView[] {
     const raw = ready ? 1 : 1 - remaining / Math.max(slot.span, BALANCE.talents.minRecast);
     const live = liveEffect(world, slot.id);
     views.push({
+      slot: index,
       id: slot.id,
       name: def.name,
       talent: def.talent,

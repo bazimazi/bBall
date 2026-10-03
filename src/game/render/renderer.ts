@@ -97,13 +97,13 @@ export class Renderer {
     this.lastTime = fx.time;
     const { ball } = world;
     this.ballSpin += ((ball.vx >= 0 ? 1 : -1) * ball.speed * this.frameDt) / BALL_R;
-    if (ball.vx === 0 && ball.vy === 0) this.ballSpin *= 0.9;
+    if (ball.vx === 0 && ball.vy === 0 && this.frameDt > 0) this.ballSpin *= 0.9;
 
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     this.drawBackground(world);
     // Behind the court, so a capstone colours the page without ever sitting
     // between the player and the ball.
-    this.ultimate.backdrop(ctx, world);
+    if (world.motion >= 0.5) this.ultimate.backdrop(ctx, world);
 
     ctx.save();
     // The kick shoves the camera along the field's long axis, which is the
@@ -138,9 +138,9 @@ export class Renderer {
 
     // Over everything, and outside the punch: the wave has to cross the real
     // viewport, not a viewport that is itself being pushed around.
-    this.ultimate.overlay(ctx, world);
+    if (world.motion >= 0.5) this.ultimate.overlay(ctx, world);
 
-    if (fx.flash > 0.01) {
+    if (fx.flash > 0.01 && world.motion >= 0.5) {
       // A capstone washes the viewport in its own colour; everything else
       // gets the plain white one it always had.
       const alpha = fx.flash * 0.28;
@@ -193,7 +193,7 @@ export class Renderer {
     // A soft wash of colour behind each player's end.
     this.drawEndGlow(world, 0, 'you');
     this.drawEndGlow(world, w, 'bot');
-    this.ambient.draw(ctx, world, this.glow);
+    if (world.motion >= 0.5) this.ambient.draw(ctx, world, this.glow);
     this.drawGrid(world);
     this.drawGoalFlash(world);
 
@@ -212,14 +212,14 @@ export class Renderer {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    if (world.match.status !== 'menu') this.drawPips(world);
+    if (world.match.status !== 'menu' && !world.tutorial) this.drawPips(world);
 
     this.drawShieldWall(world);
     this.drawBastion(world);
     this.drawForesight(world);
     drawArena(ctx, world, this.glow);
     this.drawRings(world);
-    this.drawSpeedLines(world);
+    if (world.motion >= 0.5) this.drawSpeedLines(world);
     drawTrailStyled(ctx, world, ballHue(world), this.frameDt);
     // A replay shows the point, not the skills that were running at the end
     // of it - those belong to a moment that has already passed.
@@ -230,6 +230,7 @@ export class Renderer {
     }
     this.drawPaddle(world, world.player, 1);
     this.drawPaddle(world, world.bot, -1);
+    this.drawLessonTarget(world);
     if (!replaying) {
       drawPlayerAura(ctx, world);
       drawCasts(ctx, world);
@@ -474,14 +475,17 @@ export class Renderer {
     const { ctx } = this;
     const { ball, match, theme, tuning } = world;
 
-    if (match.status === 'serve') {
+    const serving =
+      match.status === 'serve' ||
+      ((match.status === 'paused' || match.status === 'resuming') && match.resumeTo === 'serve');
+    if (serving) {
       this.drawServeRing(world);
-      drawServeAim(ctx, world);
+      if (!world.tutorial) drawServeAim(ctx, world);
     }
     if (
       ball.vx === 0 &&
       ball.vy === 0 &&
-      match.status !== 'serve' &&
+      !serving &&
       match.status !== 'menu' &&
       !world.replay.active
     ) {
@@ -514,6 +518,24 @@ export class Renderer {
     }
 
     drawBallStyled(ctx, world, this.glow, hue, rx, ry, angle, speedT, this.ballSpin);
+    ctx.restore();
+  }
+
+  /** A stationary outline at the required paddle position, in field space. */
+  private drawLessonTarget(world: World): void {
+    const { tutorial, player } = world;
+    if (!tutorial || tutorial.cleared || tutorial.step === 'complete') return;
+    const { ctx } = this;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(238,242,255,0.85)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(player.x - 13, tutorial.targetY - player.half, 26, player.half * 2);
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(player.x + 18, tutorial.targetY);
+    ctx.lineTo(player.x + 36, tutorial.targetY);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -574,7 +596,8 @@ export class Renderer {
     if (theme.gridAlpha <= 0) return;
     if (grid.cols === 0) grid.resize(view.w);
 
-    const beat = world.match.status === 'menu' ? 0 : world.audio.beat();
+    const live = world.match.status === 'play' || world.match.status === 'serve';
+    const beat = live && world.motion >= 0.5 ? world.audio.beat() : 0;
     const alpha = theme.gridAlpha * (0.75 + fx.heat * 0.9 + beat * 0.6);
     const hue = heatHue(theme.bgHue, fx.heat, theme.hotHue);
     const { cols, rows, dx, dy } = grid;
@@ -751,7 +774,7 @@ export class Renderer {
     ctx.fillRect(0, 0, view.vw, view.vh);
 
     const live = match.status === 'play' || match.status === 'serve';
-    if (!live || !isMatchPoint(world)) return;
+    if (!live || world.motion < 0.5 || !isMatchPoint(world)) return;
     const side: Side = match.score.you === match.winScore - 1 ? 'you' : 'bot';
     let tint = this.pressure[side];
     if (!tint) {
@@ -804,7 +827,10 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    if (match.rally >= 2 && (match.status === 'play' || match.status === 'paused')) {
+    if (
+      match.rally >= 2 &&
+      (match.status === 'play' || match.status === 'paused' || match.status === 'resuming')
+    ) {
       // Each return ticks it up with a small pop, so the count is felt.
       const pop = fx.rallyPop * fx.rallyPop;
       ctx.save();

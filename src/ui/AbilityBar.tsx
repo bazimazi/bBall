@@ -4,6 +4,8 @@ import type { SkillSide } from '../core/settings/store';
 import type { AbilityView } from '../game/types';
 import styles from './AbilityBar.module.css';
 import { TalentIcon } from './icons/TalentIcon';
+import { useSettings } from './hooks/useSettings';
+import { keyList, keyName, skillAction } from '../core/settings/controls';
 
 interface AbilityBarProps {
   abilities: readonly AbilityView[];
@@ -90,12 +92,14 @@ function useBurst(progress: number): Burst | null {
 
 interface AbilityButtonProps {
   ability: AbilityView;
-  index: number;
   onUse: (slot: number) => void;
 }
 
-function AbilityButton({ ability, index, onUse }: AbilityButtonProps) {
+function AbilityButton({ ability, onUse }: AbilityButtonProps) {
+  const index = ability.slot;
   const burst = useBurst(ability.progress);
+  const { keyBindings } = useSettings();
+  const action = skillAction(index);
 
   // Fire on pointerdown, not click: during a rally the difference between the
   // two is the difference between reaching the ball and watching it go past.
@@ -121,9 +125,12 @@ function AbilityButton({ ability, index, onUse }: AbilityButtonProps) {
       type="button"
       className={classes.join(' ')}
       style={style}
-      aria-label={label(ability)}
+      aria-label={`${label(ability)}, shortcut ${keyList(keyBindings, action)}`}
       aria-disabled={!ability.ready}
       onPointerDown={handleDown}
+      onClick={(event) => {
+        if (event.detail === 0) onUse(index);
+      }}
       onContextMenu={(event) => event.preventDefault()}
     >
       <svg className={styles.ring} viewBox="0 0 60 60" aria-hidden="true">
@@ -188,7 +195,7 @@ function AbilityButton({ ability, index, onUse }: AbilityButtonProps) {
       )}
 
       <span className={styles.key} aria-hidden="true">
-        {index + 1}
+        {keyName(keyBindings[action][0]!)}
       </span>
 
       {/* Keyed on a counter so firing twice in a row replays the ring rather
@@ -216,8 +223,8 @@ export function AbilityBar({ abilities, show, side, onUse }: AbilityBarProps) {
 
   return (
     <div className={side === 'left' ? `${styles.bar} ${styles.left}` : styles.bar}>
-      {abilities.map((ability, index) => (
-        <AbilityButton key={ability.id} ability={ability} index={index} onUse={onUse} />
+      {abilities.map((ability) => (
+        <AbilityButton key={ability.id} ability={ability} onUse={onUse} />
       ))}
     </div>
   );

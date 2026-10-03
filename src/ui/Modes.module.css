@@ -1032,24 +1032,6 @@ button.resultRow {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .stagger > *,
-  .featureFill,
-  .bigStarOn,
-  .boon,
-  .detail,
-  .pulse,
-  .stageNext::after,
-  .flameLive,
-  .pipNew {
-    animation: none;
-  }
-
-  .questFill {
-    transition-duration: 0.01ms;
-  }
-}
-
 /* ---------------------------------------------------------- home tiles */
 
 /* Keep the profile and Journey together, with Daily and Gauntlet underneath. */

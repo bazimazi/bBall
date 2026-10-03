@@ -1,3 +1,4 @@
+import type { CanvasQuality } from '../core/settings/store';
 import { FIELD_H, MAX_ASPECT, MIN_ASPECT } from './constants';
 import type { View } from './types';
 import { clamp } from './utils/math';
@@ -16,7 +17,11 @@ function safeInset(styles: CSSStyleDeclaration, name: string): number {
  * Returns the factor by which the field's *length* changed, so callers can
  * keep play proportional across a resize or an orientation flip.
  */
-export function layoutView(view: View, canvas: HTMLCanvasElement): number {
+export function layoutView(
+  view: View,
+  canvas: HTMLCanvasElement,
+  quality: CanvasQuality = 'high'
+): number {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const styles = getComputedStyle(document.documentElement);
@@ -41,18 +46,28 @@ export function layoutView(view: View, canvas: HTMLCanvasElement): number {
   view.cx = vw / 2;
   view.cy = vh / 2;
 
-  const dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
-  const bw = Math.round(vw * dpr);
-  const bh = Math.round(vh * dpr);
+  sizeCanvas(view, canvas, quality);
+  return view.w / previousW;
+}
+
+const PIXEL_RATIO_CAP: Readonly<Record<CanvasQuality, number>> = {
+  high: 2.5,
+  balanced: 1.5,
+  low: 1
+};
+
+/** Change only the backing store, leaving field geometry and CSS input coordinates intact. */
+export function sizeCanvas(view: View, canvas: HTMLCanvasElement, quality: CanvasQuality): void {
+  const dpr = clamp(window.devicePixelRatio || 1, 1, PIXEL_RATIO_CAP[quality]);
+  const bw = Math.round(view.vw * dpr);
+  const bh = Math.round(view.vh * dpr);
   view.dpr = dpr;
   if (canvas.width !== bw || canvas.height !== bh) {
     canvas.width = bw;
     canvas.height = bh;
   }
-  canvas.style.width = `${vw}px`;
-  canvas.style.height = `${vh}px`;
-
-  return view.w / previousW;
+  canvas.style.width = `${view.vw}px`;
+  canvas.style.height = `${view.vh}px`;
 }
 
 /** Field point -> screen x in CSS pixels (camera shake excluded). */

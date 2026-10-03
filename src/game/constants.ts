@@ -34,6 +34,9 @@ export const SPIN_INFLUENCE = 0.26;
 
 /** Seconds the ball hovers at centre before launch. */
 export const SERVE_DELAY = 0.8;
+/** Three half-second beats let the player find the frozen ball again. */
+export const RESUME_BEAT = 0.5;
+export const RESUME_DELAY = RESUME_BEAT * 3;
 export const FIXED_DT = 1 / 120;
 export const MAX_FRAME_DT = 0.25;
 /** Safety valve: never run more than this many physics steps per frame. */

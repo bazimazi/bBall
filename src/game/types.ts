@@ -7,7 +7,7 @@ export type Side = 'you' | 'bot';
 /**
  * `menu` runs a silent attract-mode rally; `serve` holds the ball at centre.
  */
-export type GameStatus = 'menu' | 'serve' | 'play' | 'paused' | 'over';
+export type GameStatus = 'menu' | 'serve' | 'play' | 'paused' | 'resuming' | 'over';
 
 export interface Vec2 {
   x: number;
@@ -185,6 +185,7 @@ export interface TalentRuntime {
 
 /** One ability, flattened for the HUD. */
 export interface AbilityView {
+  readonly slot: number;
   readonly id: AbilityId;
   readonly name: string;
   /** The talent behind it; the HUD draws its icon. */
@@ -216,10 +217,14 @@ export interface MatchState {
   status: GameStatus;
   /** Which status a resume returns to. */
   resumeTo: Extract<GameStatus, 'play' | 'serve'>;
+  /** Seconds left in the resume countdown, measured without slow motion. */
+  resumeTimer: number;
   mode: ModeId;
   /** Short title for the HUD and result card. */
   label: string;
   serveTimer: number;
+  /** An explicit tap or key requested the waiting serve. */
+  serveRequested: boolean;
   serveDir: 1 | -1;
   rally: number;
   bestThisMatch: number;
@@ -346,6 +351,7 @@ export interface View {
   cy: number;
   scale: number;
   rotated: boolean;
+  /** Backing pixels per CSS pixel, capped by the player's court image quality. */
   dpr: number;
   /** Viewport, in CSS pixels. */
   vw: number;
@@ -389,9 +395,30 @@ export interface EmitOptions {
   drag?: number;
 }
 
+export type TutorialStep = 'move' | 'return' | 'angle' | 'complete';
+export type TutorialFeedback = 'miss' | 'centre' | null;
+
+/** A client-only lesson, separate from match results and progression. */
+export interface TutorialState {
+  step: TutorialStep;
+  cleared: boolean;
+  feedback: TutorialFeedback;
+  targetY: number;
+  flightLeft: number;
+}
+
+export interface GoalView {
+  id: string;
+  label: string;
+  progress: string;
+  state: 'active' | 'reached' | 'missed' | 'earned';
+}
+
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
   status: GameStatus;
+  /** 3, 2, 1 while a frozen rally is about to resume; 0 otherwise. */
+  resumeIn: number;
   mode: ModeId;
   label: string;
   scoreYou: number;
@@ -408,6 +435,10 @@ export interface GameSnapshot {
   objective: string | null;
   /** The same line for a touch screen, where it differs. */
   objectiveTouch: string | null;
+  goals: readonly GoalView[];
+  tutorialStep: TutorialStep | null;
+  tutorialCleared: boolean;
+  tutorialFeedback: TutorialFeedback;
   /**
    * The equipped abilities. The array is rebuilt only when what it shows
    * changes, so the HUD re-renders on state changes rather than per frame.

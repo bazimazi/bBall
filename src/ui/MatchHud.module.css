@@ -1,0 +1,84 @@
+.info {
+  position: fixed;
+  top: calc(var(--safe-t) + 14px);
+  left: calc(var(--safe-l) + 16px);
+  z-index: 2;
+  max-width: min(270px, calc(100vw - var(--safe-l) - var(--safe-r) - 132px));
+  padding: 5px 8px;
+  border-radius: 10px;
+  background: rgba(6, 8, 15, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+
+.score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.score span {
+  white-space: nowrap;
+}
+
+.score b {
+  padding-left: 3px;
+  font-size: 19px;
+  color: var(--ink);
+}
+
+.score b.you {
+  color: var(--you);
+}
+
+.target,
+.objective {
+  margin: 3px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.goals {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  min-height: 44px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  border-top: 1px solid var(--edge);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.goals span {
+  color: var(--muted);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (orientation: portrait) {
+  .info {
+    max-width: calc(50vw - var(--safe-l) - 66px);
+  }
+
+  .score {
+    display: grid;
+    gap: 0;
+  }
+}

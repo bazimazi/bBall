@@ -3,12 +3,17 @@ import { useEffect, type CSSProperties } from 'react';
 import {
   settingsStore,
   type DeviceSettings,
+  type CanvasQuality,
+  type EffectsLevel,
   type ShakeLevel,
+  type TouchMode,
   type SkillSide
 } from '../../core/settings/store';
 import { Screen } from '../components/Screen';
 import { useSettings } from '../hooks/useSettings';
 import styles from '../Screens.module.css';
+import { KeyBindingsEditor } from '../components/KeyBindingsEditor';
+import { keyList } from '../../core/settings/controls';
 
 interface SettingsScreenProps {
   /** Play a sample through the effects bus, so a new level can be heard. */
@@ -32,6 +37,27 @@ const SHAKES: readonly Choice<ShakeLevel>[] = [
 const SIDES: readonly Choice<SkillSide>[] = [
   { id: 'left', label: 'Left' },
   { id: 'right', label: 'Right' }
+];
+
+const EFFECTS: readonly Choice<EffectsLevel>[] = [
+  { id: 'full', label: 'Full' },
+  { id: 'calm', label: 'Calm' }
+];
+
+const CANVAS_QUALITIES: readonly Choice<CanvasQuality>[] = [
+  { id: 'high', label: 'High' },
+  { id: 'balanced', label: 'Balanced' },
+  { id: 'low', label: 'Low' }
+];
+
+const SERVES: readonly Choice<boolean>[] = [
+  { id: true, label: 'Automatic' },
+  { id: false, label: 'When ready' }
+];
+
+const TOUCH_MODES: readonly Choice<TouchMode>[] = [
+  { id: 'direct', label: 'Follow finger' },
+  { id: 'relative', label: 'Relative drag' }
 ];
 
 const TOGGLE: readonly Choice<boolean>[] = [
@@ -104,7 +130,7 @@ function Level({
 /**
  * This device's settings: how it sounds, how it feels, and which side the
  * skill buttons sit on. None of it is synced - it belongs to the phone in
- * the hand, not to the player - and none of it changes how the game plays.
+ * the hand, not to the player. Pacing choices leave rally speeds unchanged.
  */
 export function SettingsScreen({
   onPreview,
@@ -142,12 +168,88 @@ export function SettingsScreen({
         The soundtrack follows the rally. Both previews respect the mute button.
       </p>
 
+      <p className={styles.sectionLabel}>Visual effects</p>
+      <Segmented
+        label="Visual effects"
+        choices={EFFECTS}
+        value={settings.effects}
+        onChange={(effects) => set({ effects })}
+      />
+      <p className={styles.note}>
+        Calm removes camera movement, screen flashes and animated menu backgrounds, with fewer
+        particles.
+      </p>
+
       <p className={styles.sectionLabel}>Screen shake</p>
       <Segmented
         label="Screen shake"
         choices={SHAKES}
         value={settings.shake}
         onChange={(shake) => set({ shake })}
+      />
+      <p className={styles.note}>Camera movement stays off when Calm is active.</p>
+
+      <p className={styles.sectionLabel}>Court image quality</p>
+      <Segmented
+        label="Court image quality"
+        choices={CANVAS_QUALITIES}
+        value={settings.canvasQuality}
+        onChange={(canvasQuality) => set({ canvasQuality })}
+      />
+      <p className={styles.note}>
+        If rallies stutter, try Balanced or Low. The court looks softer on high-resolution screens;
+        menu text, controls and game timing stay the same.
+      </p>
+
+      <p className={styles.sectionLabel}>Controls</p>
+      <KeyBindingsEditor />
+      <Segmented
+        label="Touch movement"
+        choices={TOUCH_MODES}
+        value={settings.touchMode}
+        onChange={(touchMode) => set({ touchMode })}
+      />
+      <p className={styles.note}>
+        Follow finger places the paddle at your finger. Relative drag moves from its current
+        position, so you can steer from a clear part of the court.
+      </p>
+      {settings.touchMode === 'relative' && (
+        <label className={styles.slider}>
+          <span className={styles.sliderLabel}>Drag sensitivity</span>
+          <input
+            type="range"
+            className={styles.range}
+            min={50}
+            max={200}
+            step={25}
+            value={settings.touchSensitivity * 100}
+            style={
+              { '--fill': `${((settings.touchSensitivity - 0.5) / 1.5) * 100}%` } as CSSProperties
+            }
+            onChange={(event) => set({ touchSensitivity: Number(event.target.value) / 100 })}
+          />
+          <span className={styles.sliderValue}>{Math.round(settings.touchSensitivity * 100)}%</span>
+        </label>
+      )}
+
+      <p className={styles.sectionLabel}>Serve pacing</p>
+      <Segmented
+        label="Serve pacing"
+        choices={SERVES}
+        value={settings.autoServe}
+        onChange={(autoServe) => set({ autoServe })}
+      />
+      <p className={styles.note}>
+        When ready waits for a tap, {keyList(settings.keyBindings, 'serve')} or the Serve button.
+        Drag to aim without launching.
+      </p>
+
+      <p className={styles.sectionLabel}>Countdown after pause</p>
+      <Segmented
+        label="Countdown after pause"
+        choices={TOGGLE}
+        value={settings.resumeCountdown}
+        onChange={(resumeCountdown) => set({ resumeCountdown })}
       />
 
       <p className={styles.sectionLabel}>Vibration</p>

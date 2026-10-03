@@ -746,18 +746,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sheet,
-  .sheetScrim,
-  .sheetBought {
-    animation: none;
-  }
-
-  .tile {
-    transition-duration: 0.01ms;
-  }
-}
-
 /* ----------------------------------------------------- capstone accents */
 
 .ultimateTag {

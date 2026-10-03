@@ -20,6 +20,28 @@
   animation: fade 0.22s ease;
 }
 
+.controls {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.controls > div {
+  padding: 8px 0;
+  border-top: 1px solid var(--edge);
+}
+
+.controls dt {
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.controls dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
 @keyframes fade {
   from {
     opacity: 0;
@@ -954,19 +976,6 @@ button.unlockRow {
   .avatarLarge {
     width: 56px;
     height: 56px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .screen,
-  .levelUp {
-    animation: none;
-  }
-
-  .xpFill,
-  .row,
-  .primary {
-    transition-duration: 0.01ms;
   }
 }
 

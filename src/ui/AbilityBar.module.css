@@ -367,38 +367,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .button,
-  .ringFill,
-  .effectRing {
-    transition-duration: 0.01ms;
-  }
-
-  /* A short flash in place rather than a ring travelling across the corner -
-     the same information, without the motion that was asked to stop. */
-  .burst {
-    animation: burstFlash 0.3s ease-out forwards !important;
-  }
-
-  @keyframes burstFlash {
-    from {
-      opacity: 1;
-    }
-    to {
-      opacity: 0;
-    }
-  }
-
-  /* Steady rather than breathing - but no dimmer, because this is still the
-     one state the player has to spot mid-rally. */
-  .active {
-    animation: none;
-    box-shadow:
-      0 0 0 2.5px hsla(var(--hue), 100%, 74%, 1) inset,
-      0 0 30px hsla(var(--hue), 100%, 62%, 0.7);
-  }
-}
-
 /*
  * A capstone in the HUD.
  *

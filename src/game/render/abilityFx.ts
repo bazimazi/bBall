@@ -20,8 +20,8 @@ import { roundRect } from './shapes';
  *
  *  - Every mark a skill makes is in *that skill's* hue, never the player's,
  *    so two effects at once are two colours and never one brighter blur.
- *  - Every alpha is multiplied by `world.motion`, so a player who asked for
- *    reduced motion gets the same information at a quarter of the intensity
+ *  - Every alpha is multiplied by `world.motion`, so a player who selected
+ *    Calm gets the same information at a quarter of the intensity
  *    rather than a different screen.
  */
 

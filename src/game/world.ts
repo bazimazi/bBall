@@ -23,6 +23,7 @@ import type {
   Side,
   TalentRuntime,
   Tuning,
+  TutorialState,
   Vec2,
   View
 } from './types';
@@ -82,7 +83,7 @@ export interface World {
   botBrain: BotBrain;
   /** Drives the player's paddle during the attract-mode demo. */
   demoBrain: BotBrain;
-  /** Effect strength, 1 normally and 0.25 under `prefers-reduced-motion`. */
+  /** Effect strength, 1 normally and 0.25 for the game's Calm effects setting. */
   motion: number;
   /**
    * How far the camera may move - shake, kick and punch - from the player's
@@ -92,6 +93,9 @@ export interface World {
   camera: number;
   /** Replay the point that decided the match before the result card. */
   replays: boolean;
+  /** Start each point automatically, or wait for an explicit tap / key. */
+  autoServe: boolean;
+  tutorial: TutorialState | null;
   /** The player's name, for the card a match opens on. */
   playerName: string;
   /** Accumulator for trail sampling. */
@@ -154,9 +158,11 @@ function createMatch(rules: MatchRules): MatchState {
   return {
     status: 'menu',
     resumeTo: 'play',
+    resumeTimer: 0,
     mode: rules.mode,
     label: rules.label,
     serveTimer: 0,
+    serveRequested: false,
     serveDir: 1,
     rally: 0,
     bestThisMatch: 0,
@@ -285,6 +291,8 @@ export function createWorld(audio: GameAudio, motion: number): World {
     motion,
     camera: 1,
     replays: true,
+    autoServe: true,
+    tutorial: null,
     playerName: 'You',
     trailTick: 0
   };

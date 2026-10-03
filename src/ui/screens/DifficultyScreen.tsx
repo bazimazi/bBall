@@ -3,6 +3,7 @@ import type { BotLevelId } from '../../core/bots/types';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
 import styles from '../Screens.module.css';
+import { PracticePaceChoice } from '../components/PracticePaceChoice';
 
 interface DifficultyScreenProps {
   profile: PlayerProfile;
@@ -35,6 +36,7 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
       subtitle={practice ? 'Nothing is recorded' : 'First to 5 wins'}
       onBack={onBack}
     >
+      {practice && <PracticePaceChoice />}
       <div className={styles.grid}>
         {SELECTABLE_BOTS.map((bot) => {
           const wins = profile.stats.winsByBot[bot.id] ?? 0;

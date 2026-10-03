@@ -16,6 +16,8 @@ import { GearIcon, SparkIcon } from '../icons/MenuIcons';
 import { FlameIcon, HeartIcon, MapIcon, StarIcon, StarRow, SwordsIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
+import { useSettings } from '../hooks/useSettings';
+import { keyList } from '../../core/settings/controls';
 
 interface HomeScreenProps {
   profile: PlayerProfile;
@@ -28,6 +30,7 @@ interface HomeScreenProps {
   onProfile: () => void;
   onTalents: () => void;
   onSettings: () => void;
+  onHelp: () => void;
 }
 
 /** Matches after which the controls hint has done its job. */
@@ -163,9 +166,11 @@ export function HomeScreen({
   onExitDemo,
   onProfile,
   onTalents,
-  onSettings
+  onSettings,
+  onHelp
 }: HomeScreenProps) {
   const coarse = useCoarsePointer();
+  const { keyBindings } = useSettings();
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
   const points = profile.talents.points;
   const newcomer = profile.stats.matches === 0;
@@ -200,9 +205,16 @@ export function HomeScreen({
             <ProfileChip profile={profile} onClick={onProfile} />
             <JourneyCard profile={profile} onPick={() => onPick('campaign')} />
             {profile.stats.matches < HINT_MATCHES && (
-              <p className={styles.note}>
-                {coarse ? 'Drag anywhere to move your paddle' : 'Move the mouse or use ↑ ↓'}
-              </p>
+              <>
+                <p className={styles.note}>
+                  {coarse
+                    ? 'Drag to move your paddle'
+                    : `Move the mouse or use ${keyList(keyBindings, 'up')} / ${keyList(keyBindings, 'down')}`}
+                </p>
+                <button type="button" className={styles.ghost} onClick={onHelp}>
+                  New here? Learn the controls
+                </button>
+              </>
             )}
           </div>
 
@@ -219,6 +231,11 @@ export function HomeScreen({
           <button type="button" className={styles.ghost} onClick={onModes}>
             More modes
           </button>
+          {profile.stats.matches >= HINT_MATCHES && (
+            <button type="button" className={styles.ghost} onClick={onHelp}>
+              How to play
+            </button>
+          )}
           {demoLevel === null && <SyncBadge account={account} />}
         </div>
       </div>

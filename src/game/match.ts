@@ -1,7 +1,15 @@
 import { objectiveMet } from '../core/modes/rules';
 import { dayKey } from '../core/progression/xp';
 import type { MatchResult, MatchRules } from '../core/modes/types';
-import { BALL_R, FIELD_H, PADDLE_W, PIP_GAP, PIP_INSET, SERVE_DELAY } from './constants';
+import {
+  BALL_R,
+  FIELD_H,
+  PADDLE_W,
+  PIP_GAP,
+  PIP_INSET,
+  RESUME_DELAY,
+  SERVE_DELAY
+} from './constants';
 import { arenaServe, BANNER_TIME, checkBossPhase, setupArena } from './arena';
 import { clearAbilityFx } from './casts';
 import { hsla } from './palette';
@@ -39,6 +47,7 @@ export function beginServe(world: World, dir: 1 | -1): void {
   const { match, botBrain, demoBrain } = world;
   match.serveDir = dir;
   match.serveTimer = SERVE_DELAY;
+  match.serveRequested = false;
   match.status = 'serve';
   centreBall(world);
   resetRally(world);
@@ -51,6 +60,36 @@ export function beginServe(world: World, dir: 1 | -1): void {
     // The serve is seen no faster than anything else.
     brain.wait = brain.profile.reaction;
   }
+}
+
+/** Freeze the rally, including any countdown already in progress. */
+export function pauseMatch(world: World): boolean {
+  const { match } = world;
+  if (match.status !== 'play' && match.status !== 'serve' && match.status !== 'resuming')
+    return false;
+  if (match.status !== 'resuming') match.resumeTo = match.status;
+  match.status = 'paused';
+  match.resumeTimer = 0;
+  return true;
+}
+
+/** Give the player a short, cancellable look at the frozen ball before play. */
+export function resumeMatch(world: World, countdown = true): boolean {
+  const { match } = world;
+  if (match.status !== 'paused') return false;
+  match.resumeTimer = countdown ? RESUME_DELAY : 0;
+  match.status = countdown ? 'resuming' : match.resumeTo;
+  if (match.resumeTo === 'serve' && world.autoServe) {
+    match.serveTimer = Math.max(match.serveTimer, 0.5);
+  }
+  return true;
+}
+
+/** Shared by keyboard, pointer taps and the on-screen serve button. */
+export function requestServe(world: World): void {
+  if (world.match.status !== 'serve') return;
+  world.match.serveRequested = true;
+  world.match.serveTimer = 0;
 }
 
 /** The steepest a person may aim a serve, and the shallowest one may leave. */
@@ -72,7 +111,10 @@ function serverOf(world: World): Paddle {
  */
 export function aimedServe(world: World): boolean {
   const { match } = world;
-  if (match.status !== 'serve') return false;
+  const serving =
+    match.status === 'serve' ||
+    ((match.status === 'paused' || match.status === 'resuming') && match.resumeTo === 'serve');
+  if (!serving) return false;
   return isHuman(world, serverOf(world).side);
 }
 
@@ -110,6 +152,9 @@ export function launchBall(world: World): void {
 
   if (match.status !== 'menu') world.audio.serve();
   match.status = 'play';
+  // Intro cards should never cover the opening return after a quick serve.
+  fx.vsTimer = 0;
+  fx.bannerTimer = 0;
 }
 
 /**
@@ -309,6 +354,14 @@ export function scorePoint(world: World, scorer: Side): void {
 
   noteRally(world);
 
+  // A lesson retries the same shot without points, lives, rewards or results.
+  if (world.tutorial) {
+    if (!won && !world.tutorial.cleared && world.tutorial.flightLeft <= 0)
+      world.tutorial.feedback = 'miss';
+    beginServe(world, -1);
+    return;
+  }
+
   // Second Chance steps in before anything is scored: the rally is over, the
   // drive is broken, but the point itself is handed back. One use, then it
   // is gone for the rest of the match.
@@ -387,6 +440,7 @@ function sendOrb(world: World, scorer: Side): void {
 /** Start a brand new match under `rules`. */
 export function startMatch(world: World, rules: MatchRules = world.rules): void {
   const { match, fx } = world;
+  world.tutorial = null;
   world.rules = rules;
   world.tuning = tuningFor(rules);
   // The build this match is played with: none at all in a two-player match,
@@ -415,6 +469,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   match.hits = 0;
   match.flicks = 0;
   match.elapsed = 0;
+  match.resumeTimer = 0;
   match.winner = null;
   match.overShown = false;
   match.result = null;
@@ -469,6 +524,7 @@ export const VS_TIME = 1.45;
 /** Drop back to the attract-mode demo behind the menus. */
 export function returnToMenu(world: World): void {
   const { match, fx } = world;
+  world.tutorial = null;
   world.rules = attractRules();
   world.tuning = tuningFor(world.rules);
   world.loadout = world.baseLoadout;
@@ -491,6 +547,7 @@ export function returnToMenu(world: World): void {
   match.hits = 0;
   match.flicks = 0;
   match.elapsed = 0;
+  match.resumeTimer = 0;
   match.deficit = 0;
   match.result = null;
   match.overShown = false;

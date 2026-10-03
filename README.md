@@ -16,18 +16,20 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-| Script              | What it does                                  |
-| ------------------- | --------------------------------------------- |
-| `npm run dev`       | Vite dev server with hot reload               |
-| `npm run build`     | Type-check the project, then build to `dist/` |
-| `npm run preview`   | Serve the production build locally            |
-| `npm run typecheck` | Type-check without emitting                   |
-| `npm run lint`      | ESLint over the whole project                 |
-| `npm run format`    | Prettier write                                |
-| `npm run server`    | The backend, with reload                      |
-| `npm test`          | The backend test suite                        |
-| `npm run desktop`   | The game in a native window, with hot reload  |
-| `npm run icons`     | Regenerate web and native icons from one mark |
+| Script                 | What it does                                                |
+| ---------------------- | ----------------------------------------------------------- |
+| `npm run dev`          | Vite dev server with hot reload                             |
+| `npm run build`        | Type-check the project, then build to `dist/`               |
+| `npm run preview`      | Serve the production build locally                          |
+| `npm run typecheck`    | Type-check without emitting                                 |
+| `npm run lint`         | ESLint over the whole project                               |
+| `npm run format`       | Prettier write                                              |
+| `npm run server`       | The backend, with reload                                    |
+| `npm test`             | The backend test suite                                      |
+| `npm run desktop`      | The game in a native window, with hot reload                |
+| `npm run icons`        | Regenerate web and native icons from one mark               |
+| `npm run check:bundle` | Check built menu boundaries and report initial JS/CSS bytes |
+| `npm run check:menus`  | Render all lazy menu pages and their pending state in Node  |
 
 ## Platforms
 
@@ -52,14 +54,28 @@ prerequisites, signing, deep links, and what the shell is allowed to do.
 
 ## Playing
 
-| Input                              | Action                                                                 |
-| ---------------------------------- | ---------------------------------------------------------------------- |
-| Drag / move pointer                | Move your paddle (anywhere on screen - the paddle mirrors your finger) |
-| `↑` `↓` or `W` `S`                 | Move your paddle                                                       |
-| Tap / `Space`                      | Serve immediately instead of waiting, or skip the closing replay       |
-| `1` `2` `3` `4` or `Q` `E` `R` `F` | Use the ability in that slot (or tap the buttons in the corner)        |
-| `Esc` or `P`                       | Pause                                                                  |
-| `M`                                | Mute                                                                   |
+Default controls:
+
+| Input                                | Action                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| Drag / move pointer                  | Move your paddle (anywhere on screen - the paddle mirrors your finger) |
+| `↑` `↓` or `W` `S`                   | Move your paddle                                                       |
+| Tap / `Space` / `Enter`              | Serve immediately instead of waiting, or skip the closing replay       |
+| `1`–`9`; `Q` `E` `R` `F` `V` for 1–5 | Use the ability in that slot (or tap the buttons in the corner)        |
+| `Esc` or `P`                         | Pause                                                                  |
+| `M`                                  | Mute                                                                   |
+
+**Your controls.** Open **Settings → Keyboard controls** to change movement,
+both Versus players, serving, pause, mute and all nine skill slots. Each action
+can have an alternate key; conflicts are explained before a change is saved.
+You can restore the defaults at any time. Escape remains a pause key and
+cancels key capture; Tab keeps normal focus navigation. Hints and skill buttons
+show your chosen keys. Player 2's movement keys also work in solo play.
+
+Touch movement defaults to **Follow finger**. **Settings → Relative drag**
+lets you move from a clear spot without jumping the paddle to your finger.
+Its **Drag sensitivity** ranges from 50% to 200%. Mouse movement still follows
+the pointer directly.
 
 **Flick.** Strike the ball with the outer part of the paddle while the paddle
 is already moving that way, and the return leaves a little quicker and much
@@ -75,24 +91,55 @@ gentle angle, so there is no dead-straight gift to be had. The bot's serves
 stay a toss-up.
 
 Your paddle is the aqua one (or whatever colour you equip); the bot's is rose.
-The dots beside each end count that side's points. The faint number in the
+The labeled score at the top shows each side's points and the winning target;
+the dots beside each end mirror those points. The faint number in the
 middle of the court is the current rally, and a long enough rally lights up a
 streak banner. The ball speeds up with every hit and runs hotter the longer a
 rally lasts, so rallies tend to end themselves.
 
+**Learning and pacing.** Open **How to play** from Home for an optional
+three-step lesson: move, return, then place an angled return. It uses the real
+physics with a slower shot, a paddle-position outline and safe retries. Repeat
+or skip it any time, or continue into a Rookie warm-up in Practice. The lesson
+awards no XP and records no result. The pause menu also has a controls reference.
+Dragging to position the paddle does not skip the serve delay; a short tap,
+Space, Enter or the **Serve now** button launches it. In Settings, choose
+**Serve pacing → When ready** to wait at each point. Waiting beyond the normal
+serve delay holds the court, match timer and skill timers while you aim.
+Resuming a paused match shows a short 3–2–1; **Countdown after pause** can turn
+it off.
+
+In **Practice**, choose **Normal** or **Relaxed** before selecting a bot.
+Relaxed slows the serve, top ball speed and rally acceleration while keeping
+your paddle responsive. The choice is remembered on this device and applies
+to Practice warm-ups too. Practice awards no XP or saved match progression.
+
+**Match goals.** Journey and Daily show live star-goal counters. Select
+**Star goals** to pause and review every goal, its progress and whether it is
+still possible. Reaching a rally, flick or return target still requires a win
+to earn its star. Score changes have a separate screen-reader announcement;
+rally counters do not interrupt it.
+
+**After a loss.** The result card offers one **Next attempt** suggestion from
+the match's recorded returns, flicks, rally or objective. It can open the
+first-rally lesson or the technique guide; retry stays in the bottom actions.
+Missed Challenge goals explain the actual target, including wins that took
+too long and rally challenges that do not require a win. Journey and Daily
+remind you when a reached target also needs a win in the same match.
+
 ### Modes
 
-| Mode            | What it is                                                         |
-| --------------- | ------------------------------------------------------------------ |
-| **Journey**     | Five worlds of six stages, three stars each, seven bosses          |
-| **Daily**       | One court a day, the same for everyone, with a forgiving streak    |
-| **Gauntlet**    | A roguelite run: nine matches, three hearts, a boon for every win  |
-| **Quick Match** | The classic duel, first to five, against any of five bots          |
-| **Endless**     | Three lives, one growing rally, a wall that barely misses          |
-| **Challenge**   | Eight short matches with a twist: small paddle, portals, 0-2 down… |
-| **Tournament**  | Three rounds against progressively stronger bots, for a trophy     |
-| **Versus**      | Two players on one screen - a half each, or W S against the arrows |
-| **Practice**    | Any bot, nothing recorded, no XP                                   |
+| Mode            | What it is                                                             |
+| --------------- | ---------------------------------------------------------------------- |
+| **Journey**     | Five worlds of six stages, three stars each, seven bosses              |
+| **Daily**       | One court a day, the same for everyone, with a forgiving streak        |
+| **Gauntlet**    | A roguelite run: nine matches, three hearts, a boon for every win      |
+| **Quick Match** | The classic duel, first to five, against any of five bots              |
+| **Endless**     | Three lives, one growing rally, a wall that barely misses              |
+| **Challenge**   | Eight short matches with a twist: small paddle, portals, 0-2 down…     |
+| **Tournament**  | Three rounds against progressively stronger bots, for a trophy         |
+| **Versus**      | Two players on one screen - a half each, or separate keyboard controls |
+| **Practice**    | Any bot, Normal or Relaxed ball pace, nothing recorded, no XP          |
 
 ### Courts and bosses
 
@@ -391,7 +438,26 @@ panned to where they happened, and a won match gets a fanfare and applause.
 
 **Settings** belong to the device, not the account: music and effects volume,
 screen shake (full, gentle or off), vibration, the closing replay, and which
-side the skill buttons sit on.
+side the skill buttons sit on, plus keyboard controls, touch sensitivity,
+serve pacing, the resume countdown, Practice pace and court image quality. **Calm** visual effects remove camera movement,
+screen flashes, full-screen ultimate flares and animated menu backgrounds,
+with fewer particles. Rally speeds and hit rules stay the same.
+
+**Court image quality** offers High (the existing default), Balanced and Low.
+Try Balanced or Low if rallies stutter on a high-resolution screen: the court
+looks softer, while menu text, controls and simulation timing stay the same.
+The choice is independent of Full/Calm effects and stays on this device.
+
+**Reduced-motion policy:** bBall completely ignores operating-system and browser
+reduced-motion settings on web, desktop and mobile. Animations, transitions,
+result reveals and canvas effects never change because of those preferences.
+Do not add `prefers-reduced-motion` CSS queries, JavaScript preference checks or
+listeners, or native reduced-motion overrides. Presentation follows the game's
+own behavior and explicit in-game controls. This policy also lives in
+[AGENTS.md](AGENTS.md) for future development.
+
+The [player experience review](docs/player-experience-review.md) records the
+research, reproduced issues, implemented changes and remaining playtest work.
 
 ## How it is built
 
@@ -472,6 +538,18 @@ through `useSyncExternalStore`, so a component re-renders only when something it
 displays actually changed - never at 60 Hz. The profile store is the same shape:
 a plain observable object the UI subscribes to.
 
+**Loading menus.** Home, onboarding and the game are ready in the initial
+build. Other menu pages load when opened, with their own loading state and a
+Back button. If a page cannot open, Back and Reload game remain available.
+The canvas and engine stay mounted while a menu loads.
+
+After `npm run build`, run `npm run check:bundle` to measure the entry and all
+its static dependencies, check all emitted JavaScript/CSS files, and verify
+that optional pages remain deferred. `npm run check:menus` renders the real
+lazy pages in Node, including Practice and a pending page. It does not replace
+browser navigation, download-failure or on-device performance checks.
+Publish or package the entire `dist/` directory, including all chunk files.
+
 A match flows one way: the UI hands the engine a `MatchRules`, the engine plays
 it and publishes a `MatchResult` exactly once, and `applyMatchResult` folds that
 result into a new profile. That function is pure, which is why XP, achievements,
@@ -487,6 +565,14 @@ A few decisions worth knowing before changing things:
   an unfair amount of reaction time.
 - **Fixed timestep.** Physics advances in 1/120 s steps from an accumulator, so
   behaviour is identical at 30, 60, or 144 Hz. Rendering is per frame.
+- **Canvas density is a presentation choice.** High caps backing pixels per
+  CSS pixel at 2.5, Balanced at 1.5 and Low at 1. The field and pointer
+  coordinates remain in CSS/field units; changing quality only resizes the
+  backing store and invalidates drawing caches. Glow caches hold up to 96
+  sprites each, reuse circular hue buckets and evict the least recently used
+  entry to retain frequently drawn paddle and ambient glows. Pixel counts and
+  sprite allocations are verified in tests; frame times still need device
+  profiling.
 - **Swept collisions.** The ball is tested against the paddle face along its
   path rather than at its final position, so it cannot tunnel through at speed.
   Both paddles also get a circle-vs-rectangle rescue each step, because a
@@ -558,5 +644,6 @@ match length per court, along with any stall or broken ball:
 npx tsx scripts/sim.ts 30 pro
 ```
 
-Effects respect `prefers-reduced-motion`: shake, particles, hit-stop, and
-slow-motion are scaled down or switched off, and the menu transitions with them.
+System and browser reduced-motion settings are intentionally ignored throughout
+the game, including menu transitions and result animations. Only the game's
+explicit visual-effects and screen-shake controls affect their supported effects.

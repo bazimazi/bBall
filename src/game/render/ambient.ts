@@ -85,9 +85,10 @@ export class AmbientLayer {
     // U across the screen, V down it, both in field units.
     const U = view.rotated ? FIELD_H : view.w;
     const V = view.rotated ? view.w : FIELD_H;
-    // Reduced motion keeps the scene but slows it right down.
+    // Scene timing follows the game's effect strength.
     const t = fx.time * (0.3 + 0.7 * world.motion);
-    const beat = world.match.status === 'menu' ? 0 : world.audio.beat();
+    const live = world.match.status === 'play' || world.match.status === 'serve';
+    const beat = live ? world.audio.beat() : 0;
     const lift = 0.85 + fx.heat * 0.4 + beat * 0.25;
 
     ctx.save();

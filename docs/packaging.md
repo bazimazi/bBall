@@ -5,6 +5,24 @@ next to the API. Everywhere else it is the same build inside a
 [Tauri](https://tauri.app) shell: a native window, a system webview, and an
 installer per operating system.
 
+**Reduced-motion policy:** web, desktop and mobile builds completely ignore
+operating-system and browser reduced-motion settings. Native wrappers must not
+read or forward those preferences to change animations, effects or timing.
+Only explicit in-game settings control their supported effects. See the
+[root README](../README.md) and [project instructions](../AGENTS.md).
+
+The explicit Court image quality setting uses the same High/Balanced/Low
+backing-density caps in web and native builds (2.5/1.5/1). It is stored on the
+device and independent of Full/Calm effects. Native wrappers should preserve
+the CSS viewport and pointer coordinates. Check court sharpness and frame times
+at all three qualities on physical devices; a successful asset build does not
+verify webview performance.
+
+Menu pages load from separate JavaScript and CSS chunks. Package the entire
+`dist/` output, as Tauri's `frontendDist` already does. A build that copies only
+the entry script will break menu navigation. Run `npm run check:bundle` after
+building to verify the emitted chunk files and their dependency graph.
+
 Tauri rather than Electron, for one reason that matters to this project and one
 that matters to players. The project's: the game is already a self-contained
 canvas application with no Node dependencies at runtime, so bundling a second

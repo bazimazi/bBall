@@ -115,6 +115,8 @@ export type ModeId =
   | 'run'
   | 'versus';
 
+export type PracticePace = 'normal' | 'relaxed';
+
 /**
  * Everything a mode is allowed to change about a match. The simulation reads
  * these instead of hard-coded constants, so a new mode never means new

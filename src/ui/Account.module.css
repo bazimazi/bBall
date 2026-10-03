@@ -51,12 +51,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .dotSyncing {
-    animation: none;
-  }
-}
-
 .syncText {
   min-width: 0;
   overflow: hidden;

@@ -2,6 +2,11 @@
 
 Identity, authoritative progression and cloud saves for bBall.
 
+**Client reduced-motion policy:** the project completely ignores operating-system
+and browser reduced-motion settings on every platform. Do not introduce preference
+checks or animation overrides in shared code, client integration or test expectations.
+See the [root README](../README.md) and [project instructions](../AGENTS.md).
+
 The game stays exactly what it was: a local simulation that runs at 120 Hz and
 never waits for anything. This adds an account behind it, so a player's level,
 build and records follow them to another device - and so the numbers that

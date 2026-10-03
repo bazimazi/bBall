@@ -81,9 +81,15 @@ function checkCombo(world: World): void {
   }
 }
 
-function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1): void {
+function onPaddleHit(
+  world: World,
+  paddle: Paddle,
+  contactY: number,
+  dir: 1 | -1,
+  paddleY: number
+): void {
   const { ball, match, fx, tuning } = world;
-  const raw = clamp((contactY - paddle.y) / paddle.half, -1, 1);
+  const raw = clamp((contactY - paddleY) / paddle.half, -1, 1);
 
   // The player's returns go through their build; the bot's never do. Attract
   // mode plays the plain game, so the demo behind the menus is always the
@@ -140,7 +146,7 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
 
   const p = power(world);
   paddle.flash = mods.crit || mods.charged ? 1.35 : 1;
-  paddle.hitY = contactY - paddle.y;
+  paddle.hitY = contactY - paddleY;
   ball.squash = 1;
   ball.squashAngle = 0; // compressed along the long axis
   match.rally++;
@@ -303,36 +309,56 @@ function resolveOverlap(world: World, paddle: Paddle): void {
 }
 
 /**
- * Swept paddle test: the ball is checked against the paddle face along its
- * path rather than at its final position, so it cannot tunnel through at
- * speed. `dir` is the direction the ball leaves in - +1 for the left paddle,
- * -1 for the right one. Returns true when the paddle struck the ball.
- *
- * A Perfect Guard window stretches the player's reach past the paddle's
- * ends: that is the parry. The contact is still measured against the real
- * paddle, so a parry at full stretch leaves at the steepest angle there is.
+ * Follow each straight segment to its next wall or paddle face. Reflecting
+ * the final position first would test a chord through a wall bounce, and
+ * could invent a save or discard the wall bounce after an edge return.
+ * Paddle motion is interpolated to the instant the ball reaches its face.
+ * The clock slowdown is rechecked after a return: only incoming travel is
+ * slowed, so the player's outgoing return keeps its full pace.
  */
-function sweepPaddle(world: World, paddle: Paddle, dir: 1 | -1, dt: number): boolean {
+function advanceBall(world: World, dt: number): void {
   const { ball } = world;
-  const face = dir > 0 ? paddle.x + PADDLE_W / 2 + BALL_R : paddle.x - PADDLE_W / 2 - BALL_R;
-  const crossed = dir > 0 ? ball.px >= face && ball.x <= face : ball.px <= face && ball.x >= face;
-  if (!crossed) return false;
+  let remaining = dt;
+  let missed: Paddle | null = null;
+  // At shipped speeds a fixed step sees at most a paddle and a wall. The
+  // bound also protects callers from malformed velocities or huge timesteps.
+  for (let contact = 0; contact < 8 && remaining > 1e-9; contact++) {
+    const clock = world.match.status === 'menu' ? 1 : ballTimeScale(world);
+    const vx = ball.vx * clock;
+    const vy = ball.vy * clock;
+    const dir = vx < 0 ? 1 : -1;
+    const paddle = dir > 0 ? world.player : world.bot;
+    const face = paddle.x + dir * (PADDLE_W / 2 + BALL_R);
+    const ahead = dir > 0 ? ball.x >= face : ball.x <= face;
+    const paddleTime = ahead && paddle !== missed && vx !== 0 ? (face - ball.x) / vx : Infinity;
+    const wall = vy < 0 ? BALL_R : FIELD_H - BALL_R;
+    const wallTime = vy !== 0 ? Math.max(0, (wall - ball.y) / vy) : Infinity;
+    const time = Math.min(remaining, paddleTime, wallTime);
+    ball.x += vx * time;
+    ball.y += vy * time;
+    remaining -= time;
 
-  const span = ball.px - ball.x;
-  const t = Math.abs(span) < 0.0001 ? 0 : (ball.px - face) / span;
-  const contactY = ball.py + (ball.y - ball.py) * t;
-  const parry =
-    paddle.side === 'you' && world.talents.guardWindow > 0 && world.match.status !== 'menu'
-      ? world.loadout.effects.guardReach
-      : 0;
-  const reach = paddle.half + BALL_R * 0.55 + parry;
-  if (contactY <= paddle.y - reach || contactY >= paddle.y + reach) return false;
-
-  onPaddleHit(world, paddle, contactY, dir);
-  const rest = (1 - clamp(t, 0, 1)) * dt;
-  ball.x = face + ball.vx * rest;
-  ball.y = contactY + ball.vy * rest;
-  return true;
+    if (wallTime <= paddleTime && wallTime <= time) {
+      ball.y = wall;
+      ball.vy = -ball.vy;
+      onWallBounce(world);
+    } else if (paddleTime <= time) {
+      const centre = paddle.y - paddle.vy * remaining;
+      const parry =
+        paddle.side === 'you' && world.talents.guardWindow > 0 && world.match.status !== 'menu'
+          ? world.loadout.effects.guardReach
+          : 0;
+      const reach = paddle.half + BALL_R * 0.55 + parry;
+      if (ball.y > centre - reach && ball.y < centre + reach) {
+        ball.x = face;
+        onPaddleHit(world, paddle, ball.y, dir, centre);
+      } else {
+        missed = paddle;
+      }
+    } else {
+      break;
+    }
+  }
 }
 
 function onWallBounce(world: World): void {
@@ -375,26 +401,10 @@ export function stepBall(world: World, dt: number): void {
   if (live) applyArenaForces(world, travel);
   ball.px = ball.x;
   ball.py = ball.y;
-  ball.x += ball.vx * travel;
-  ball.y += ball.vy * travel;
-
-  if (ball.y - BALL_R < 0) {
-    ball.y = BALL_R + (BALL_R - ball.y);
-    ball.vy = Math.abs(ball.vy);
-    onWallBounce(world);
-  } else if (ball.y + BALL_R > FIELD_H) {
-    ball.y = FIELD_H - BALL_R - (ball.y + BALL_R - FIELD_H);
-    ball.vy = -Math.abs(ball.vy);
-    onWallBounce(world);
-  }
-  ball.y = clamp(ball.y, BALL_R, FIELD_H - BALL_R);
+  advanceBall(world, dt);
 
   // The moment the ball enters a slowed half, it says so.
   if (live && ball.vx < 0 && ball.px >= view.w / 2 && ball.x < view.w / 2) slowCrossing(world);
-
-  // Swept test only against the paddle the ball is heading for...
-  if (ball.vx < 0) sweepPaddle(world, world.player, 1, dt);
-  else sweepPaddle(world, world.bot, -1, dt);
 
   // Bumpers and brick walls stand between the paddles.
   if (live) collideArena(world);

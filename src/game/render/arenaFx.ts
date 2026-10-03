@@ -212,7 +212,7 @@ function drawWell(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache):
   ctx.lineWidth = 2;
   ctx.strokeStyle = hsla(hue, 100, 76, 0.9);
   ctx.stroke();
-  // A fixed polarity glyph remains readable with reduced motion.
+  // A fixed polarity glyph keeps the direction readable at any effect strength.
   ctx.strokeStyle = hsla(hue, 100, 76, 0.9);
   ctx.beginPath();
   ctx.moveTo(x - 5, y);

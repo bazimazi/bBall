@@ -1,0 +1,36 @@
+.goals {
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: rgba(6, 8, 15, 0.65);
+}
+
+.goals h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.goals ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goals li span,
+.goals li small {
+  display: block;
+}
+
+.goals li span {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.goals li small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}

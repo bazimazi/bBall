@@ -1,13 +1,32 @@
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
 import type { MatchRules } from '../core/modes/types';
 import { SHAKE_SCALE, type DeviceSettings } from '../core/settings/store';
+import {
+  DEFAULT_BINDINGS,
+  keyAction,
+  keyList,
+  type KeyAction,
+  type KeyBindings
+} from '../core/settings/controls';
 import type { ResolvedLoadout } from '../core/talents/effects';
 import { abilityViews, activeUltimate, fireAbility } from './abilities';
 import { GameAudio } from './audio';
-import { FIELD_H, FIXED_DT, MAX_FRAME_DT, MAX_STEPS_PER_FRAME, STORAGE_KEYS } from './constants';
+import {
+  FIELD_H,
+  FIXED_DT,
+  MAX_FRAME_DT,
+  MAX_STEPS_PER_FRAME,
+  RESUME_BEAT,
+  STORAGE_KEYS
+} from './constants';
+import { PointerTracker } from './input';
+import { goalViews, NO_GOALS } from './goals';
 import {
   isMatchPoint,
   publishResult,
+  pauseMatch,
+  resumeMatch,
+  requestServe,
   replayHolding,
   returnToMenu,
   skipReplay,
@@ -19,10 +38,11 @@ import { rescaleArena } from './arena';
 import { wobble } from './effects';
 import { step } from './simulation';
 import { playerKeySpeed, resetRuntime } from './talents';
-import type { AbilityView, GameSnapshot, Paddle, Side } from './types';
+import { advanceTutorial, startTutorial } from './tutorial';
+import type { AbilityView, GameSnapshot, GoalView, Paddle, Side } from './types';
 import { clamp } from './utils/math';
 import { readStored } from './utils/storage';
-import { layoutView, screenToFieldX, screenToFieldY } from './view';
+import { layoutView, screenToFieldX, screenToFieldY, sizeCanvas } from './view';
 import {
   applyPaddleSizes,
   centreBall,
@@ -35,25 +55,10 @@ import {
 
 type Listener = () => void;
 
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-const REDUCED_MOTION_SCALE = 0.25;
+const CALM_EFFECTS_SCALE = 0.25;
 
 /** Shared so an ability-free snapshot never allocates a fresh array. */
 const NO_ABILITIES: readonly AbilityView[] = [];
-
-/**
- * Keys that fire an equipped ability, in slot order.
- *
- * The digit row covers every slot the build could ever grow to; the letters
- * are the reach-friendly alternative for the first five, which is as many as
- * a build carries today.
- */
-const ABILITY_KEYS: readonly string[][] = Array.from({ length: 9 }, (_, slot) => {
-  const keys = [String(slot + 1)];
-  const letter = ['q', 'e', 'r', 'f', 'v'][slot];
-  if (letter) keys.push(letter);
-  return keys;
-});
 
 /**
  * The song a match is played to. A boss brings its own, Endless has the
@@ -83,6 +88,7 @@ let idle: GameSnapshot | null = null;
 export function idleSnapshot(): GameSnapshot {
   idle ??= {
     status: 'menu',
+    resumeIn: 0,
     mode: 'quick',
     label: '',
     scoreYou: 0,
@@ -96,6 +102,10 @@ export function idleSnapshot(): GameSnapshot {
     canPause: false,
     objective: null,
     objectiveTouch: null,
+    goals: NO_GOALS,
+    tutorialStep: null,
+    tutorialCleared: false,
+    tutorialFeedback: null,
     abilities: NO_ABILITIES,
     ultimateCastId: 0,
     ultimateHue: 0,
@@ -118,25 +128,25 @@ export class GameEngine {
   private readonly audio = new GameAudio();
   private readonly world: World;
   private readonly listeners = new Set<Listener>();
-  private readonly motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
-  private readonly keys = { up: false, down: false };
-  /** The second player's keys in a versus match: the arrows. */
-  private readonly keys2 = { up: false, down: false };
-  /** Which paddle each finger is steering, in a versus match. */
-  private readonly fingers = new Map<number, Side>();
+  /** Physical key -> value at press time, so Shift/layout changes cannot stick a key. */
+  private readonly heldKeys = new Map<string, string>();
+  private readonly pointers = new PointerTracker();
 
   private snapshot: GameSnapshot;
   /** Cached ability view, rebuilt only when what the HUD shows changes. */
   private abilities: readonly AbilityView[] = NO_ABILITIES;
   private abilityKey = '';
+  private goals: readonly GoalView[] = NO_GOALS;
+  private goalKey = '';
   private frameHandle = 0;
   private layoutHandle = 0;
   private lastTime = 0;
   private accumulator = 0;
-  private pointerId: number | null = null;
   private running = false;
   /** Short buzzes on hits and points, where the device can make them. */
   private haptics = true;
+  private resumeCountdown = true;
+  private preferences: DeviceSettings | null = null;
 
   private readonly canvas: HTMLCanvasElement;
 
@@ -146,8 +156,9 @@ export class GameEngine {
 
     this.canvas = canvas;
     this.renderer = new Renderer(ctx);
-    this.world = createWorld(this.audio, this.motionQuery.matches ? REDUCED_MOTION_SCALE : 1);
+    this.world = createWorld(this.audio, 1);
     this.world.theme = theme;
+    this.updateMotion();
     this.snapshot = this.buildSnapshot();
   }
 
@@ -202,32 +213,50 @@ export class GameEngine {
 
   /** Replay the match that just finished, with the same rules. */
   replay = (): void => {
+    if (this.world.tutorial) {
+      this.learn();
+      return;
+    }
     this.play(this.world.rules);
   };
 
-  pause = (): void => {
-    const { match } = this.world;
-    if (match.status !== 'play' && match.status !== 'serve') return;
-    match.resumeTo = match.status;
-    match.status = 'paused';
+  learn = (): void => {
+    this.audio.unlock();
     this.clearInput();
+    this.audio.startMusic(null);
+    startTutorial(this.world);
+    this.publish();
+  };
+
+  nextLesson = (): void => {
+    this.clearInput();
+    advanceTutorial(this.world);
+    this.publish();
+  };
+
+  pause = (): void => {
+    if (!pauseMatch(this.world)) return;
+    this.clearInput();
+    this.accumulator = 0;
     this.audio.ui();
     this.publish();
   };
 
   resume = (): void => {
-    const { match } = this.world;
-    if (match.status !== 'paused') return;
+    if (!resumeMatch(this.world, this.resumeCountdown)) return;
     this.audio.unlock();
     this.audio.ui();
-    match.status = match.resumeTo;
-    if (match.status === 'serve') match.serveTimer = Math.max(match.serveTimer, 0.5);
+    this.lastTime = performance.now();
+    this.accumulator = 0;
     this.publish();
   };
+
+  serve = (): void => requestServe(this.world);
 
   /** Leave the match and go back to the attract-mode demo behind the menus. */
   quitToMenu = (): void => {
     this.audio.ui();
+    this.clearInput();
     returnToMenu(this.world);
     applyPaddleSizes(this.world);
     this.publish();
@@ -266,16 +295,37 @@ export class GameEngine {
   };
 
   /**
-   * This device's settings: the two volumes, how much the camera may move,
-   * vibration and replays. Safe to call at any time; React calls it whenever
-   * one of them changes.
+   * This device's input, pacing and presentation settings. Safe to call at
+   * any time; React calls it whenever one of them changes.
    */
   setPreferences = (settings: DeviceSettings): void => {
+    const qualityChanged = this.preferences?.canvasQuality !== settings.canvasQuality;
+    if (
+      JSON.stringify(this.bindings) !== JSON.stringify(settings.keyBindings) ||
+      this.preferences?.touchMode !== settings.touchMode ||
+      this.preferences?.touchSensitivity !== settings.touchSensitivity
+    )
+      this.clearInput();
+    this.preferences = settings;
+    if (qualityChanged && this.running) {
+      sizeCanvas(this.world.view, this.canvas, settings.canvasQuality);
+      this.renderer.invalidate();
+    }
     this.audio.setVolumes(settings.musicVolume, settings.sfxVolume);
-    this.world.camera = SHAKE_SCALE[settings.shake];
+    this.updateMotion();
     this.haptics = settings.haptics;
     this.world.replays = settings.replays;
+    this.world.autoServe = settings.autoServe;
+    this.resumeCountdown = settings.resumeCountdown;
+    this.publish();
   };
+
+  private updateMotion(): void {
+    // Project policy: only explicit game settings control effects, never OS preferences.
+    const calm = this.preferences?.effects === 'calm';
+    this.world.motion = calm ? CALM_EFFECTS_SCALE : 1;
+    this.world.camera = calm ? 0 : SHAKE_SCALE[this.preferences?.shake ?? 'full'];
+  }
 
   /** The player's name, for the versus card a match opens on. */
   setPlayerName = (name: string): void => {
@@ -310,12 +360,12 @@ export class GameEngine {
    */
   private abilityView(): readonly AbilityView[] {
     let key = '';
-    for (const slot of this.world.talents.slots) {
+    for (const [index, slot] of this.world.talents.slots.entries()) {
       if (!slot.id) continue;
       const left = slot.span > 0 ? Math.ceil((slot.cooldown / slot.span) * 24) : 0;
       // The whole second is in the key too: the HUD prints it, so a ring that
       // has not moved a step is still a re-render when the digit changes.
-      key += `${slot.id}${left}:${Math.ceil(slot.cooldown)};`;
+      key += `${index}:${slot.id}${left}:${Math.ceil(slot.cooldown)};`;
     }
     // Every live effect, at a tenth of a second - the resolution the HUD's
     // own countdowns are shown at, and no finer.
@@ -341,19 +391,28 @@ export class GameEngine {
 
     return {
       status,
+      resumeIn: status === 'resuming' ? Math.ceil(match.resumeTimer / RESUME_BEAT) : 0,
       mode: match.mode,
       label: match.label,
       scoreYou: match.score.you,
       scoreBot: match.score.bot,
       winScore: match.winScore,
-      bestThisMatch: match.bestThisMatch,
+      bestThisMatch: status === 'menu' ? 0 : Math.max(match.bestThisMatch, match.rally),
       lives: match.lives,
       maxLives: match.maxLives,
       winner: match.winner,
       muted: this.audio.muted,
-      canPause: status === 'play' || status === 'serve',
-      objective: rules.objective?.label ?? null,
+      canPause:
+        this.world.tutorial?.step !== 'complete' &&
+        (status === 'play' || status === 'serve' || status === 'resuming'),
+      objective: rules.versus
+        ? `P1: ${keyList(this.bindings, 'up')} / ${keyList(this.bindings, 'down')} · P2: ${keyList(this.bindings, 'p2Up')} / ${keyList(this.bindings, 'p2Down')}`
+        : (rules.objective?.label ?? null),
       objectiveTouch: rules.objective?.touchLabel ?? null,
+      goals: this.goalView(),
+      tutorialStep: this.world.tutorial?.step ?? null,
+      tutorialCleared: this.world.tutorial?.cleared ?? false,
+      tutorialFeedback: this.world.tutorial?.feedback ?? null,
       abilities: this.abilityView(),
       // The chrome sits above the canvas, so it is the one part of the page a
       // capstone cannot reach from the renderer. These four scalars are what
@@ -364,6 +423,29 @@ export class GameEngine {
       result: match.result,
       resultId: match.resultId
     };
+  }
+
+  private goalView(): readonly GoalView[] {
+    const { rules, match } = this.world;
+    if (!rules.goals) return NO_GOALS;
+    const clock = rules.goals?.some((goal) => goal.id === 'fast') ? Math.round(match.elapsed) : 0;
+    const key = JSON.stringify([
+      rules.goals,
+      match.status === 'over',
+      match.winner,
+      match.score.you,
+      match.score.bot,
+      match.winScore,
+      Math.max(match.bestThisMatch, match.rally),
+      match.hits,
+      match.flicks,
+      clock
+    ]);
+    if (key !== this.goalKey) {
+      this.goalKey = key;
+      this.goals = goalViews(this.world);
+    }
+    return this.goals;
   }
 
   /** Re-publish only when something the UI shows actually changed. */
@@ -381,7 +463,9 @@ export class GameEngine {
   // -------------------------------------------------------------- layout
 
   private layout = (): void => {
-    const k = layoutView(this.world.view, this.canvas);
+    // Screen coordinates change on resize/rotation: start a new drag afterwards.
+    this.pointers.clear();
+    const k = layoutView(this.world.view, this.canvas, this.preferences?.canvasQuality ?? 'high');
     rescaleField(this.world, k);
     placePaddles(this.world);
     this.world.grid.resize(this.world.view.w);
@@ -410,7 +494,8 @@ export class GameEngine {
     if (dt > MAX_FRAME_DT) dt = MAX_FRAME_DT; // tab was hidden or stalled
 
     // Ease slow-motion back to normal in real time.
-    fx.timeScale += (1 - fx.timeScale) * Math.min(1, dt * 3);
+    const held = match.status === 'paused' || match.status === 'resuming';
+    if (!held) fx.timeScale += (1 - fx.timeScale) * Math.min(1, dt * 3);
     if (fx.timeScale > 0.999) fx.timeScale = 1;
 
     const live = match.status === 'play' || match.status === 'serve';
@@ -421,7 +506,8 @@ export class GameEngine {
     const tension = isMatchPoint(world) || (match.maxLives > 0 && match.lives === 1);
     this.audio.updateMusic(live, fx.heat, live && tension);
 
-    this.accumulator += dt * fx.timeScale;
+    // Countdown beats use real time, even if the point was paused in slow motion.
+    this.accumulator += dt * (held ? 1 : fx.timeScale);
     let steps = 0;
     while (this.accumulator >= FIXED_DT && steps < MAX_STEPS_PER_FRAME) {
       step(world, FIXED_DT);
@@ -430,7 +516,7 @@ export class GameEngine {
     }
     if (steps >= MAX_STEPS_PER_FRAME) this.accumulator = 0;
 
-    if (fx.shake > 0 && world.camera > 0) {
+    if (!held && fx.shake > 0 && world.camera > 0) {
       // Smooth noise rather than a fresh random offset per frame: a shudder
       // the eye can follow instead of a picture that merely jitters.
       const t = now * 0.038;
@@ -438,7 +524,7 @@ export class GameEngine {
       fx.shakeX = wobble(t, 1.3) * shake * 0.55;
       fx.shakeY = wobble(t, 7.9) * shake * 0.55;
       fx.shakeRot = wobble(t * 0.7, 4.2) * shake * 0.0011;
-    } else {
+    } else if (!held || world.camera === 0) {
       fx.shakeX = 0;
       fx.shakeY = 0;
       fx.shakeRot = 0;
@@ -471,27 +557,38 @@ export class GameEngine {
   // -------------------------------------------------------------- input
 
   private clearInput(): void {
-    this.keys.up = false;
-    this.keys.down = false;
-    this.keys2.up = false;
-    this.keys2.down = false;
-    this.pointerId = null;
-    this.fingers.clear();
+    this.heldKeys.clear();
+    this.pointers.clear();
+    const humans = this.versus ? [this.world.player, this.world.bot] : [this.world.player];
+    for (const paddle of humans) {
+      paddle.target = paddle.y;
+      paddle.vy = 0;
+    }
   }
 
   private get versus(): boolean {
     return this.world.rules.versus === true;
   }
 
+  private get bindings(): KeyBindings {
+    return this.preferences?.keyBindings ?? DEFAULT_BINDINGS;
+  }
+
   private applyKeys(dt: number): void {
     const speed = playerKeySpeed(this.world);
-    const steer = (paddle: Paddle, keys: { up: boolean; down: boolean }) => {
-      if (!keys.up && !keys.down) return;
-      const dir = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+    const pressed = (action: KeyAction) =>
+      [...this.heldKeys.values()].some((key) => this.bindings[action].includes(key));
+    const steer = (paddle: Paddle, up: boolean, down: boolean) => {
+      if (!up && !down) return;
+      const dir = (down ? 1 : 0) - (up ? 1 : 0);
       paddle.target = clamp(paddle.target + dir * speed * dt, paddle.half, FIELD_H - paddle.half);
     };
-    steer(this.world.player, this.keys);
-    if (this.versus) steer(this.world.bot, this.keys2);
+    steer(
+      this.world.player,
+      pressed('up') || (!this.versus && pressed('p2Up')),
+      pressed('down') || (!this.versus && pressed('p2Down'))
+    );
+    if (this.versus) steer(this.world.bot, pressed('p2Up'), pressed('p2Down'));
   }
 
   /** The paddle on whichever half of the court a point on screen falls. */
@@ -503,60 +600,65 @@ export class GameEngine {
   private trackPointer(event: PointerEvent, side: Side = 'you'): void {
     const { view } = this.world;
     const paddle = side === 'you' ? this.world.player : this.world.bot;
+    const fieldY = screenToFieldY(view, event.clientX, event.clientY);
+    const relative = event.pointerType !== 'mouse' && this.preferences?.touchMode === 'relative';
     paddle.target = clamp(
-      screenToFieldY(view, event.clientX, event.clientY),
+      relative
+        ? this.pointers.dragTarget(
+            event.pointerId,
+            fieldY,
+            paddle.target,
+            this.preferences?.touchSensitivity ?? 1
+          )
+        : fieldY,
       paddle.half,
       FIELD_H - paddle.half
     );
   }
 
   private onPointerDown = (event: PointerEvent): void => {
+    if (event.button !== 0) return;
     this.audio.unlock();
     const { match } = this.world;
     // A tap during the closing replay skips it.
     if (skipReplay(this.world)) return;
     if (match.status !== 'play' && match.status !== 'serve') return;
+    const side = this.versus ? this.sideAt(event) : 'you';
+    if (
+      !this.pointers.begin(
+        event.pointerId,
+        event.clientX,
+        event.clientY,
+        event.timeStamp,
+        side,
+        match.status === 'serve'
+      )
+    )
+      return;
 
     try {
       this.canvas.setPointerCapture(event.pointerId);
     } catch {
       /* capture is a nicety, not a requirement */
     }
-    if (this.versus) {
-      // Each finger steers the paddle on the half it first landed on, for as
-      // long as it stays down - two thumbs, two paddles, no crossed wires.
-      const side = this.sideAt(event);
-      this.fingers.set(event.pointerId, side);
-      this.trackPointer(event, side);
-    } else {
-      this.pointerId = event.pointerId;
-      this.trackPointer(event);
-    }
-    if (match.status === 'serve' && match.serveTimer > 0.05) match.serveTimer = 0;
+    this.trackPointer(event, side);
   };
 
   private onPointerMove = (event: PointerEvent): void => {
     const { status } = this.world.match;
     if (status !== 'play' && status !== 'serve') return;
-    if (this.versus) {
-      const side = this.fingers.get(event.pointerId);
-      if (side) this.trackPointer(event, side);
-      else if (event.pointerType === 'mouse') this.trackPointer(event, this.sideAt(event));
-      return;
-    }
-    if (
-      event.pointerType === 'mouse' ||
-      this.pointerId === null ||
-      event.pointerId === this.pointerId
-    ) {
-      this.trackPointer(event);
-    }
+    const side = this.pointers.move(event.pointerId, event.clientX, event.clientY);
+    if (side) this.trackPointer(event, side);
+    else if (event.pointerType === 'mouse')
+      this.trackPointer(event, this.versus ? this.sideAt(event) : 'you');
   };
 
   private onPointerUp = (event: PointerEvent): void => {
-    if (event.pointerId === this.pointerId) this.pointerId = null;
-    this.fingers.delete(event.pointerId);
+    if (this.pointers.end(event.pointerId, event.clientX, event.clientY, event.timeStamp))
+      this.serve();
   };
+
+  private onPointerCancel = (event: PointerEvent): void => this.pointers.cancel(event.pointerId);
 
   private onContextMenu = (event: Event): void => event.preventDefault();
 
@@ -581,28 +683,28 @@ export class GameEngine {
     // The name field is a real text input: while it has focus the game gets
     // no keys at all, or typing "1" would fire an ability and "m" would mute.
     if (isTyping(event.target)) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     const key = event.key.toLowerCase();
     const { match } = this.world;
+    const action = key === 'escape' ? 'pause' : keyAction(this.bindings, key);
+    // Space and Enter activate the focused UI even when mapped to another action.
+    const focused = document.activeElement;
+    if (
+      (key === ' ' || key === 'enter') &&
+      (focused instanceof HTMLButtonElement ||
+        (focused instanceof HTMLElement &&
+          (focused.tagName === 'SUMMARY' || focused.tagName === 'A')))
+    )
+      return;
 
-    // In a versus match the arrows belong to the second player.
-    const second = this.versus && (key === 'arrowup' || key === 'arrowdown');
-    if (second) {
-      if (key === 'arrowup') this.keys2.up = true;
-      else this.keys2.down = true;
+    // Menu navigation belongs to the focused UI, including its arrow keys.
+    const moving = match.status === 'play' || match.status === 'serve';
+    if (action === 'up' || action === 'down' || action === 'p2Up' || action === 'p2Down') {
+      if (!moving) return;
+      this.heldKeys.set(event.code || key, key);
       event.preventDefault();
       this.audio.unlock();
-    } else if (key === 'arrowup' || key === 'w') {
-      this.keys.up = true;
-      event.preventDefault();
-      this.audio.unlock();
-    } else if (key === 'arrowdown' || key === 's') {
-      this.keys.down = true;
-      event.preventDefault();
-      this.audio.unlock();
-    } else if (key === ' ' || key === 'enter') {
-      // Never steal the key from a focused button - it would double-fire, and
-      // the menus are React's to drive.
-      if (document.activeElement instanceof HTMLButtonElement) return;
+    } else if (action === 'serve') {
       this.audio.unlock();
       if (skipReplay(this.world)) {
         event.preventDefault();
@@ -611,20 +713,20 @@ export class GameEngine {
         this.resume();
       } else if (match.status === 'serve') {
         event.preventDefault();
-        match.serveTimer = 0;
+        this.serve();
       }
-    } else if (key === 'escape' || key === 'p') {
+    } else if (action === 'pause') {
+      if (match.status === 'menu') return;
       event.preventDefault();
       if (skipReplay(this.world)) return;
-      if (match.status === 'play' || match.status === 'serve') this.pause();
+      if (match.status === 'play' || match.status === 'serve' || match.status === 'resuming')
+        this.pause();
       else if (match.status === 'paused') this.resume();
-    } else if (key === 'm') {
+    } else if (action === 'mute') {
       this.toggleMute();
-    } else {
-      // Digits (and q/e/r) fire the equipped abilities. Deliberately separate
-      // from the movement keys so a rally never turns into a chord.
-      const slot = ABILITY_KEYS.findIndex((keys) => keys.includes(key));
-      if (slot >= 0) {
+    } else if (action?.startsWith('skill')) {
+      const slot = Number(action.slice(5)) - 1;
+      if (moving) {
         event.preventDefault();
         this.useAbility(slot);
       }
@@ -633,11 +735,7 @@ export class GameEngine {
 
   private onKeyUp = (event: KeyboardEvent): void => {
     if (!event.key) return;
-    const key = event.key.toLowerCase();
-    if (key === 'arrowup') this.keys2.up = false;
-    if (key === 'arrowdown') this.keys2.down = false;
-    if (key === 'arrowup' || key === 'w') this.keys.up = false;
-    else if (key === 'arrowdown' || key === 's') this.keys.down = false;
+    this.heldKeys.delete(event.code || event.key.toLowerCase());
   };
 
   private onVisibilityChange = (): void => {
@@ -653,16 +751,13 @@ export class GameEngine {
 
   private onBlur = (): void => this.pause();
 
-  private onMotionPreference = (event: MediaQueryListEvent): void => {
-    this.world.motion = event.matches ? REDUCED_MOTION_SCALE : 1;
-  };
-
   private addListeners(): void {
     const { canvas } = this;
     canvas.addEventListener('pointerdown', this.onPointerDown, { passive: true });
     canvas.addEventListener('pointermove', this.onPointerMove, { passive: true });
     canvas.addEventListener('pointerup', this.onPointerUp, { passive: true });
-    canvas.addEventListener('pointercancel', this.onPointerUp, { passive: true });
+    canvas.addEventListener('pointercancel', this.onPointerCancel, { passive: true });
+    canvas.addEventListener('lostpointercapture', this.onPointerCancel, { passive: true });
     canvas.addEventListener('contextmenu', this.onContextMenu);
 
     window.addEventListener('keydown', this.onKeyDown);
@@ -673,7 +768,6 @@ export class GameEngine {
     window.visualViewport?.addEventListener('resize', this.scheduleLayout);
     window.addEventListener('blur', this.onBlur);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
-    this.motionQuery.addEventListener('change', this.onMotionPreference);
   }
 
   private removeListeners(): void {
@@ -681,7 +775,8 @@ export class GameEngine {
     canvas.removeEventListener('pointerdown', this.onPointerDown);
     canvas.removeEventListener('pointermove', this.onPointerMove);
     canvas.removeEventListener('pointerup', this.onPointerUp);
-    canvas.removeEventListener('pointercancel', this.onPointerUp);
+    canvas.removeEventListener('pointercancel', this.onPointerCancel);
+    canvas.removeEventListener('lostpointercapture', this.onPointerCancel);
     canvas.removeEventListener('contextmenu', this.onContextMenu);
 
     window.removeEventListener('keydown', this.onKeyDown);
@@ -692,6 +787,5 @@ export class GameEngine {
     window.visualViewport?.removeEventListener('resize', this.scheduleLayout);
     window.removeEventListener('blur', this.onBlur);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
-    this.motionQuery.removeEventListener('change', this.onMotionPreference);
   }
 }

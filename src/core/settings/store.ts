@@ -10,11 +10,16 @@
 
 import { loadRecord, saveRecord, type StoreSpec } from '../storage/localStore';
 import { AUDIO_MIX } from '../../game/audioMix';
+import type { PracticePace } from '../modes/types';
+import { DEFAULT_BINDINGS, validateBindings, type KeyBindings } from './controls';
 
 export type SkillSide = 'left' | 'right';
 
 /** How hard the camera moves: the full shake, a gentle one, or none at all. */
 export type ShakeLevel = 'full' | 'gentle' | 'off';
+export type EffectsLevel = 'full' | 'calm';
+export type CanvasQuality = 'high' | 'balanced' | 'low';
+export type TouchMode = 'direct' | 'relative';
 
 export interface DeviceSettings {
   /** The screen edge the in-game skill buttons sit on. */
@@ -28,6 +33,19 @@ export interface DeviceSettings {
   haptics: boolean;
   /** A slow-motion replay of the point that decided the match. */
   replays: boolean;
+  /** Calm keeps local feedback but removes camera motion and screen flashes. */
+  effects: EffectsLevel;
+  /** Court pixel density; independent of effects, input and simulation timing. */
+  canvasQuality: CanvasQuality;
+  /** Automatically launch after the serve delay, or wait for the player. */
+  autoServe: boolean;
+  /** A short 3–2–1 before a paused rally resumes. */
+  resumeCountdown: boolean;
+  keyBindings: KeyBindings;
+  touchMode: TouchMode;
+  /** Relative drag distance multiplier, from 0.5 to 2. */
+  touchSensitivity: number;
+  practicePace: PracticePace;
 }
 
 export const DEFAULT_SETTINGS: DeviceSettings = {
@@ -36,7 +54,15 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
   sfxVolume: AUDIO_MIX.effectsDefault,
   shake: 'full',
   haptics: true,
-  replays: true
+  replays: true,
+  effects: 'full',
+  canvasQuality: 'high',
+  autoServe: true,
+  resumeCountdown: true,
+  keyBindings: DEFAULT_BINDINGS,
+  touchMode: 'direct',
+  touchSensitivity: 1,
+  practicePace: 'normal'
 };
 
 /** The camera multiplier each shake level stands for. */
@@ -69,7 +95,25 @@ const SPEC: StoreSpec<DeviceSettings> = {
       shake:
         source.shake === 'gentle' || source.shake === 'off' ? source.shake : DEFAULT_SETTINGS.shake,
       haptics: typeof source.haptics === 'boolean' ? source.haptics : DEFAULT_SETTINGS.haptics,
-      replays: typeof source.replays === 'boolean' ? source.replays : DEFAULT_SETTINGS.replays
+      replays: typeof source.replays === 'boolean' ? source.replays : DEFAULT_SETTINGS.replays,
+      effects: source.effects === 'calm' ? 'calm' : DEFAULT_SETTINGS.effects,
+      canvasQuality:
+        source.canvasQuality === 'balanced' || source.canvasQuality === 'low'
+          ? source.canvasQuality
+          : DEFAULT_SETTINGS.canvasQuality,
+      autoServe:
+        typeof source.autoServe === 'boolean' ? source.autoServe : DEFAULT_SETTINGS.autoServe,
+      resumeCountdown:
+        typeof source.resumeCountdown === 'boolean'
+          ? source.resumeCountdown
+          : DEFAULT_SETTINGS.resumeCountdown,
+      keyBindings: validateBindings(source.keyBindings),
+      touchMode: source.touchMode === 'relative' ? 'relative' : DEFAULT_SETTINGS.touchMode,
+      touchSensitivity:
+        typeof source.touchSensitivity === 'number' && Number.isFinite(source.touchSensitivity)
+          ? Math.min(2, Math.max(0.5, source.touchSensitivity))
+          : DEFAULT_SETTINGS.touchSensitivity,
+      practicePace: source.practicePace === 'relaxed' ? 'relaxed' : DEFAULT_SETTINGS.practicePace
     };
   }
 };
@@ -88,7 +132,7 @@ export const settingsStore = {
   },
 
   update(patch: Partial<DeviceSettings>): void {
-    current = { ...current, ...patch };
+    current = SPEC.validate({ ...current, ...patch }) ?? { ...DEFAULT_SETTINGS };
     saveRecord(SPEC, current);
     for (const listener of listeners) listener();
   }

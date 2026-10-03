@@ -22,6 +22,7 @@ import { levelOf } from '../../core/progression/levels';
 import { tierForLevel } from '../../core/tournament/bracket';
 import type { GameEngine } from '../../game/engine';
 import type { GameSnapshot } from '../../game/types';
+import { settingsStore } from '../../core/settings/store';
 
 export type ScreenId =
   | 'onboarding'
@@ -39,6 +40,7 @@ export type ScreenId =
   | 'achievements'
   | 'customize'
   | 'settings'
+  | 'help'
   | 'talents'
   | 'demo'
   | 'playing'
@@ -60,6 +62,7 @@ export interface GameFlow {
   pickMode: (mode: ModeId) => void;
   startQuick: (bot: BotLevelId) => void;
   startPractice: (bot: BotLevelId) => void;
+  startTutorial: () => void;
   startChallenge: (id: string) => void;
   startCup: (tier?: number) => void;
   abandonCup: () => void;
@@ -142,10 +145,15 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   const startPractice = useCallback(
     (bot: BotLevelId) => {
       progression.setLastPracticeBot(bot);
-      play(practiceRules(bot));
+      play(practiceRules(bot, settingsStore.getSnapshot().practicePace));
     },
     [play]
   );
+
+  const startTutorial = useCallback(() => {
+    engine?.learn();
+    setScreen('playing');
+  }, [engine, setScreen]);
 
   const startChallenge = useCallback(
     (id: string) => {
@@ -295,6 +303,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     pickMode,
     startQuick,
     startPractice,
+    startTutorial,
     startChallenge,
     startCup,
     abandonCup,

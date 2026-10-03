@@ -8,6 +8,8 @@ import { profileStore } from '../core/profile/store';
 import { AbilityBar } from './AbilityBar';
 import { GameCanvas } from './GameCanvas';
 import { Hud } from './Hud';
+import { MatchHud } from './MatchHud';
+import { TutorialCoach } from './TutorialCoach';
 import { Overlay } from './Overlay';
 import { UltimateFlare } from './UltimateFlare';
 import { useAccount } from './hooks/useAccount';
@@ -20,23 +22,27 @@ import { useDemoLevel, useLoadout, useProfile, useTheme } from './hooks/useProfi
 import { useSettings } from './hooks/useSettings';
 import { ExitPanel } from './panels/ExitPanel';
 import { PausePanel } from './panels/PausePanel';
-import { AccountScreen } from './screens/AccountScreen';
-import { AchievementsScreen } from './screens/AchievementsScreen';
-import { ChallengeScreen } from './screens/ChallengeScreen';
-import { CustomizeScreen } from './screens/CustomizeScreen';
-import { DailyScreen } from './screens/DailyScreen';
-import { GauntletScreen } from './screens/GauntletScreen';
-import { JourneyScreen } from './screens/JourneyScreen';
-import { ModesScreen } from './screens/ModesScreen';
-import { DemoScreen } from './screens/DemoScreen';
-import { DifficultyScreen } from './screens/DifficultyScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
-import { ProfileScreen } from './screens/ProfileScreen';
-import { ResultScreen } from './screens/ResultScreen';
-import { SettingsScreen } from './screens/SettingsScreen';
-import { TalentScreen } from './screens/TalentScreen';
-import { TournamentScreen } from './screens/TournamentScreen';
+import { MenuBoundary } from './components/MenuBoundary';
+import {
+  AccountScreen,
+  AchievementsScreen,
+  ChallengeScreen,
+  CustomizeScreen,
+  DailyScreen,
+  GauntletScreen,
+  JourneyScreen,
+  ModesScreen,
+  DemoScreen,
+  DifficultyScreen,
+  HowToPlayScreen,
+  ProfileScreen,
+  ResultScreen,
+  SettingsScreen,
+  TalentScreen,
+  TournamentScreen
+} from './screens/deferred';
 
 interface ResultActions {
   primaryLabel: string;
@@ -200,18 +206,35 @@ export function App() {
       <Hud
         muted={snapshot.muted}
         canPause={playing && snapshot.canPause}
-        label={
-          playing && !paused && snapshot.status !== 'over'
-            ? (coarse && snapshot.objectiveTouch) || snapshot.objective
-            : null
-        }
         onToggleMute={() => engine?.toggleMute()}
         onPause={() => engine?.pause()}
+        serving={playing && !snapshot.tutorialStep && snapshot.status === 'serve'}
+        manualServe={!settings.autoServe}
+        resumeIn={playing ? snapshot.resumeIn : 0}
+        onServe={() => engine?.serve()}
       />
+
+      {playing && !paused && !snapshot.tutorialStep && (
+        <MatchHud
+          snapshot={snapshot}
+          objective={(coarse && snapshot.objectiveTouch) || snapshot.objective}
+          onGoals={() => engine?.pause()}
+        />
+      )}
+      {playing && snapshot.tutorialStep && !paused && snapshot.status !== 'resuming' && (
+        <TutorialCoach
+          snapshot={snapshot}
+          onSend={() => engine?.serve()}
+          onNext={() => engine?.nextLesson()}
+          onPractice={() => flow.startPractice('rookie')}
+          onRestart={flow.startTutorial}
+          onExit={() => flow.leaveResult('help')}
+        />
+      )}
 
       <AbilityBar
         abilities={snapshot.abilities}
-        show={playing && !paused}
+        show={playing && (snapshot.status === 'play' || snapshot.status === 'serve')}
         side={settings.skillSide}
         onUse={(slot) => engine?.useAbility(slot)}
       />
@@ -222,7 +245,7 @@ export function App() {
         castId={snapshot.ultimateCastId}
         hue={snapshot.ultimateHue}
         active={snapshot.ultimateActive}
-        show={playing && !paused}
+        show={playing && !paused && snapshot.status !== 'resuming' && settings.effects !== 'calm'}
       />
 
       {flow.screen === 'onboarding' && (
@@ -240,121 +263,143 @@ export function App() {
           onProfile={() => flow.go('profile')}
           onTalents={() => flow.go('talents')}
           onSettings={() => flow.go('settings')}
+          onHelp={() => flow.go('help')}
         />
       )}
 
-      {flow.screen === 'modes' && (
-        <ModesScreen profile={profile} onPick={flow.pickMode} onBack={flow.back} />
-      )}
+      {flow.screen !== 'home' && flow.screen !== 'onboarding' && flow.screen !== 'playing' && (
+        <MenuBoundary key={flow.screen} screen={flow.screen} onBack={goBack}>
+          {flow.screen === 'modes' && (
+            <ModesScreen profile={profile} onPick={flow.pickMode} onBack={flow.back} />
+          )}
 
-      {(flow.screen === 'quick' || flow.screen === 'practice') && (
-        <DifficultyScreen
-          profile={profile}
-          practice={flow.screen === 'practice'}
-          onPick={flow.screen === 'practice' ? flow.startPractice : flow.startQuick}
-          onBack={flow.back}
-        />
-      )}
+          {flow.screen === 'help' && (
+            <HowToPlayScreen
+              onTutorial={flow.startTutorial}
+              onPractice={() => flow.startPractice('rookie')}
+              onBack={flow.back}
+            />
+          )}
 
-      {flow.screen === 'journey' && (
-        <JourneyScreen profile={profile} onPlay={flow.startStage} onBack={flow.back} />
-      )}
+          {(flow.screen === 'quick' || flow.screen === 'practice') && (
+            <DifficultyScreen
+              profile={profile}
+              practice={flow.screen === 'practice'}
+              onPick={flow.screen === 'practice' ? flow.startPractice : flow.startQuick}
+              onBack={flow.back}
+            />
+          )}
 
-      {flow.screen === 'daily' && (
-        <DailyScreen profile={profile} onPlay={flow.startDaily} onBack={flow.back} />
-      )}
+          {flow.screen === 'journey' && (
+            <JourneyScreen profile={profile} onPlay={flow.startStage} onBack={flow.back} />
+          )}
 
-      {flow.screen === 'gauntlet' && (
-        <GauntletScreen
-          profile={profile}
-          onStart={flow.startRun}
-          onPlay={flow.playRun}
-          onPick={flow.pickBoon}
-          onAbandon={flow.abandonRun}
-          onBack={flow.back}
-        />
-      )}
+          {flow.screen === 'daily' && (
+            <DailyScreen profile={profile} onPlay={flow.startDaily} onBack={flow.back} />
+          )}
 
-      {flow.screen === 'challenges' && (
-        <ChallengeScreen profile={profile} onPick={flow.startChallenge} onBack={flow.back} />
-      )}
+          {flow.screen === 'gauntlet' && (
+            <GauntletScreen
+              profile={profile}
+              onStart={flow.startRun}
+              onPlay={flow.playRun}
+              onPick={flow.pickBoon}
+              onAbandon={flow.abandonRun}
+              onBack={flow.back}
+            />
+          )}
 
-      {flow.screen === 'tournament' && (
-        <TournamentScreen
-          profile={profile}
-          onPlay={() => flow.startCup()}
-          onStart={(tier) => flow.startCup(tier)}
-          onAbandon={flow.abandonCup}
-          onBack={flow.back}
-        />
-      )}
+          {flow.screen === 'challenges' && (
+            <ChallengeScreen profile={profile} onPick={flow.startChallenge} onBack={flow.back} />
+          )}
 
-      {flow.screen === 'profile' && (
-        <ProfileScreen
-          profile={profile}
-          account={account}
-          onAccount={openAccount}
-          onAchievements={() => flow.go('achievements')}
-          onCustomize={() => flow.go('customize')}
-          onSettings={() => flow.go('settings')}
-          onDemo={() => flow.go('demo')}
-          onBack={flow.back}
-        />
-      )}
+          {flow.screen === 'tournament' && (
+            <TournamentScreen
+              profile={profile}
+              onPlay={() => flow.startCup()}
+              onStart={(tier) => flow.startCup(tier)}
+              onAbandon={flow.abandonCup}
+              onBack={flow.back}
+            />
+          )}
 
-      {flow.screen === 'account' && (
-        <AccountScreen
-          token={accountLink.token}
-          onTokenUsed={accountLink.clear}
-          onBack={flow.back}
-        />
-      )}
+          {flow.screen === 'profile' && (
+            <ProfileScreen
+              profile={profile}
+              account={account}
+              onAccount={openAccount}
+              onAchievements={() => flow.go('achievements')}
+              onCustomize={() => flow.go('customize')}
+              onSettings={() => flow.go('settings')}
+              onDemo={() => flow.go('demo')}
+              onBack={flow.back}
+            />
+          )}
 
-      {flow.screen === 'talents' && <TalentScreen profile={profile} onBack={flow.back} />}
+          {flow.screen === 'account' && (
+            <AccountScreen
+              token={accountLink.token}
+              onTokenUsed={accountLink.clear}
+              onBack={flow.back}
+            />
+          )}
 
-      {flow.screen === 'achievements' && (
-        <AchievementsScreen profile={profile} onBack={flow.back} />
-      )}
+          {flow.screen === 'talents' && <TalentScreen profile={profile} onBack={flow.back} />}
 
-      {flow.screen === 'demo' && (
-        <DemoScreen
-          demoLevel={demoLevel}
-          onStart={flow.startDemo}
-          onExit={flow.exitDemo}
-          onBack={flow.back}
-        />
-      )}
+          {flow.screen === 'achievements' && (
+            <AchievementsScreen profile={profile} onBack={flow.back} />
+          )}
 
-      {flow.screen === 'customize' && <CustomizeScreen profile={profile} onBack={flow.back} />}
+          {flow.screen === 'demo' && (
+            <DemoScreen
+              demoLevel={demoLevel}
+              onStart={flow.startDemo}
+              onExit={flow.exitDemo}
+              onBack={flow.back}
+            />
+          )}
 
-      {flow.screen === 'settings' && (
-        <SettingsScreen
-          onPreview={() => engine?.chime(1)}
-          onMusicPreview={engine?.previewMusic ?? (() => {})}
-          onStopPreview={engine?.stopAudioPreview ?? (() => {})}
-          onBack={flow.back}
-        />
-      )}
+          {flow.screen === 'customize' && <CustomizeScreen profile={profile} onBack={flow.back} />}
 
-      {flow.screen === 'result' && flow.result && (
-        <ResultScreen
-          result={flow.result}
-          summary={flow.summary}
-          label={snapshot.label}
-          onStar={(index) => engine?.chime(index)}
-          onTalents={() => flow.leaveResult('talents')}
-          {...resultActions(flow.result, flow)}
-        />
+          {flow.screen === 'settings' && (
+            <SettingsScreen
+              onPreview={() => engine?.chime(1)}
+              onMusicPreview={engine?.previewMusic ?? (() => {})}
+              onStopPreview={engine?.stopAudioPreview ?? (() => {})}
+              onBack={flow.back}
+            />
+          )}
+
+          {flow.screen === 'result' && flow.result && (
+            <ResultScreen
+              result={flow.result}
+              summary={flow.summary}
+              label={snapshot.label}
+              onHelp={() => flow.go('help')}
+              onTutorial={flow.startTutorial}
+              onStar={(index) => engine?.chime(index)}
+              onTalents={() => flow.leaveResult('talents')}
+              {...resultActions(flow.result, flow)}
+            />
+          )}
+        </MenuBoundary>
       )}
 
       <Overlay show={paused && !leaving}>
         <PausePanel
           label={snapshot.label}
-          score={snapshot.winScore > 0 ? { you: snapshot.scoreYou, bot: snapshot.scoreBot } : null}
+          score={
+            !snapshot.tutorialStep && snapshot.winScore > 0
+              ? { you: snapshot.scoreYou, bot: snapshot.scoreBot }
+              : null
+          }
           lives={snapshot.maxLives > 0 ? { left: snapshot.lives, max: snapshot.maxLives } : null}
           onResume={() => engine?.resume()}
           onRestart={flow.replay}
           onQuit={flow.quitToMenu}
+          versus={snapshot.mode === 'versus'}
+          objective={(coarse && snapshot.objectiveTouch) || snapshot.objective}
+          goals={snapshot.goals}
         />
       </Overlay>
 

@@ -24,6 +24,17 @@ export interface RankScale {
 }
 
 export const BALANCE = {
+  /** Optional slower ball in unranked Practice; paddle response is unchanged. */
+  practice: { relaxed: { serveScale: 0.72, maxScale: 0.72, growthScale: 0.7 } },
+  /** Optional first-rally lesson. These values never enter ranked rules. */
+  tutorial: {
+    serve: 270,
+    max: 360,
+    growth: 1,
+    returnPreview: 0.8,
+    placement: 0.65,
+    angleThreshold: 0.45
+  },
   /**
    * The player's paddle. Deliberately unhurried at level 1 so a first match
    * is about reading the ball rather than out-running it, and comfortably

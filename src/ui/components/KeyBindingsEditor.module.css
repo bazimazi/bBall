@@ -1,0 +1,59 @@
+.editor {
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.editor summary {
+  padding: 10px 0;
+  min-height: 44px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.editor p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.rows {
+  display: grid;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--edge);
+  font-size: 13px;
+}
+
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.editor button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  background: rgba(238, 242, 255, 0.04);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.editor button[aria-pressed='true'] {
+  border-color: var(--you);
+  color: var(--you);
+}

@@ -21,7 +21,7 @@ export class ParticleSystem {
 
   private head = 0;
 
-  /** `scale` folds in the reduced-motion preference. */
+  /** `scale` folds in the game's effects setting. */
   emit(x: number, y: number, count: number, options: EmitOptions, scale = 1): void {
     const n = Math.round(count * scale);
     for (let i = 0; i < n; i++) {

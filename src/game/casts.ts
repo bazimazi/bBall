@@ -45,7 +45,7 @@ export interface Cast {
   size: number;
   /** Kind-specific direction or angle. */
   dir: number;
-  /** Fades the whole effect out under `prefers-reduced-motion`. */
+  /** Fades the whole effect according to the game's effects setting. */
   strength: number;
   alive: boolean;
 }

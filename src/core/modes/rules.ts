@@ -1,4 +1,5 @@
 import { botProfile } from '../bots/levels';
+import { BALANCE } from '../balance/config';
 import type { BotLevelId } from '../bots/types';
 import type { Stage } from '../campaign/journey';
 import { dailySpec } from '../daily/daily';
@@ -13,7 +14,8 @@ import {
   type MatchModifiers,
   type MatchObjective,
   type MatchResult,
-  type MatchRules
+  type MatchRules,
+  type PracticePace
 } from './types';
 
 export const QUICK_WIN_SCORE = 5;
@@ -40,15 +42,25 @@ export function quickMatchRules(bot: BotLevelId): MatchRules {
   };
 }
 
-export function practiceRules(bot: BotLevelId): MatchRules {
+export function practiceRules(bot: BotLevelId, pace: PracticePace = 'normal'): MatchRules {
+  const relaxed = pace === 'relaxed';
+  const scales = BALANCE.practice.relaxed;
   return {
     mode: 'practice',
     bot: botProfile(bot),
     winScore: QUICK_WIN_SCORE,
     lives: 0,
-    modifiers: modifiers(),
+    modifiers: modifiers(
+      relaxed
+        ? {
+            serveSpeedScale: scales.serveScale,
+            maxSpeedScale: scales.maxScale,
+            speedPerHitScale: scales.growthScale
+          }
+        : {}
+    ),
     ranked: false,
-    label: 'Practice',
+    label: relaxed ? 'Practice · Relaxed' : 'Practice',
     objective: null
   };
 }
@@ -189,11 +201,10 @@ export function versusRules(winScore = QUICK_WIN_SCORE): MatchRules {
     modifiers: modifiers(),
     ranked: false,
     label: 'Versus',
-    // Shown over the court: who steers what. A phone is held upright, so its
-    // halves are top and bottom rather than left and right - and it has no keys.
+    // The engine adds the current keyboard bindings to its desktop snapshot.
     objective: {
       id: 'win',
-      label: 'Player one: left half, W S · Player two: right half, ↑ ↓',
+      label: 'Each player steers on their own half',
       touchLabel: 'Each player steers on their own half',
       value: 0
     },

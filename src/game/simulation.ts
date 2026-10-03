@@ -6,6 +6,7 @@ import { celebrate, launchBall } from './match';
 import { hsla } from './palette';
 import { movePaddle, stepBall } from './physics';
 import { playerPaddleSpeed, updateRuntime } from './talents';
+import { stepTutorial } from './tutorial';
 import type { Orb } from './effects';
 import { clamp, decay, lerp } from './utils/math';
 import { ballHue, hueOf, panAt, type World } from './world';
@@ -96,6 +97,32 @@ function afterMatch(world: World, dt: number): void {
 /** Advance the world by one fixed timestep. */
 export function step(world: World, dt: number): void {
   const { fx, match, ball, player, bot } = world;
+  // A pause holds hazards, effects, cooldowns and the replay at exactly the
+  // same instant. A resume only advances its own clock until play returns.
+  if (match.status === 'paused') return;
+  if (match.status === 'resuming') {
+    match.resumeTimer = Math.max(0, match.resumeTimer - dt);
+    if (match.resumeTimer <= 1e-9) {
+      match.resumeTimer = 0;
+      match.status = match.resumeTo;
+    }
+    return;
+  }
+  // Calm effects keep the menu's background court still, too.
+  if (match.status === 'menu' && world.motion < 0.5) return;
+  if (
+    match.status === 'serve' &&
+    !world.tutorial &&
+    !world.autoServe &&
+    !match.serveRequested &&
+    match.serveTimer <= 0
+  ) {
+    // Once the normal serve delay ends, hold the court's clock. Players may
+    // aim without adding time to a timed challenge or farming skill recovery.
+    movePaddle(player, dt, playerPaddleSpeed(world));
+    if (world.rules.versus) movePaddle(bot, dt, playerPaddleSpeed(world));
+    return;
+  }
   fx.time += dt;
 
   // Decays that should keep running even during a hit-stop freeze.
@@ -143,6 +170,10 @@ export function step(world: World, dt: number): void {
   world.particles.update(dt);
   updateEffects(world, dt);
   updateAbilityFx(world, dt);
+  if (world.tutorial) {
+    stepTutorial(world, dt);
+    return;
+  }
   updateArena(world, dt);
 
   switch (match.status) {
@@ -175,8 +206,8 @@ export function step(world: World, dt: number): void {
         movePaddle(bot, dt, 600);
       }
       gather(world, dt);
-      match.serveTimer -= dt;
-      if (match.serveTimer <= 0) launchBall(world);
+      match.serveTimer = Math.max(0, match.serveTimer - dt);
+      if (match.serveTimer <= 0 && (world.autoServe || match.serveRequested)) launchBall(world);
       break;
     }
 

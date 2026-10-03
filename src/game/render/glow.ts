@@ -3,16 +3,13 @@ import { hsla } from '../palette';
 /**
  * Pre-rendered glow sprites.
  *
- * `shadowBlur` and a fresh radial gradient per frame are the two most
- * expensive things a 2D canvas can be asked for, and a neon look asks for
- * them everywhere. So each glow is painted once, into a small offscreen
- * canvas, and stamped with `drawImage` from then on - a texture copy the GPU
- * barely notices.
+ * Each glow is painted into a small offscreen canvas and reused with
+ * `drawImage`, avoiding repeated gradient and blur construction.
  *
  * Hues are quantised so a ball warming through a long rally re-uses a few
- * dozen sprites rather than minting one per frame, and the cache is simply
- * dropped once it grows past a bound: rebuilding a sprite is cheap, holding
- * hundreds of them is not.
+ * dozen sprites rather than minting one per frame. Each cache holds at most
+ * 96 sprites, evicting the least recently used one rather than dropping the
+ * paddle and ambient glows along with old ball colours.
  */
 
 const SIZE = 128;
@@ -20,6 +17,29 @@ const HUE_STEP = 4;
 const LIMIT = 96;
 
 type Sprite = HTMLCanvasElement;
+
+function hueBucket(hue: number): number {
+  const rounded = Math.round(hue / HUE_STEP) * HUE_STEP;
+  return ((rounded % 360) + 360) % 360;
+}
+
+/** Map insertion order tracks recency; a hit stays warm as old hues leave. */
+function reuse(cache: Map<string, Sprite>, key: string): Sprite | undefined {
+  const sprite = cache.get(key);
+  if (sprite) {
+    cache.delete(key);
+    cache.set(key, sprite);
+  }
+  return sprite;
+}
+
+function remember(cache: Map<string, Sprite>, key: string, sprite: Sprite): void {
+  if (cache.size >= LIMIT) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
+  cache.set(key, sprite);
+}
 
 function canvas(w: number, h: number): Sprite {
   const c = document.createElement('canvas');
@@ -39,11 +59,10 @@ export class GlowCache {
 
   /** A soft round glow, bright at the centre, gone at the edge. */
   dot(hue: number, light = 62, sat = 100): Sprite {
-    const h = Math.round(hue / HUE_STEP) * HUE_STEP;
+    const h = hueBucket(hue);
     const key = `${h}:${light}:${sat}`;
-    let sprite = this.dots.get(key);
+    let sprite = reuse(this.dots, key);
     if (sprite) return sprite;
-    if (this.dots.size > LIMIT) this.dots.clear();
 
     sprite = canvas(SIZE, SIZE);
     const ctx = sprite.getContext('2d');
@@ -57,21 +76,19 @@ export class GlowCache {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, SIZE, SIZE);
     }
-    this.dots.set(key, sprite);
+    remember(this.dots, key, sprite);
     return sprite;
   }
 
   /**
-   * A paddle's halo: a blurred capsule, painted once with `shadowBlur` (the
-   * only place it is ever used, offscreen and a single time) and stretched to
-   * whatever length the paddle has grown to.
+   * A paddle's halo: a blurred capsule, painted with `shadowBlur` offscreen
+   * and reused at whatever length the paddle has grown to.
    */
   bar(hue: number, light = 60): Sprite {
-    const h = Math.round(hue / HUE_STEP) * HUE_STEP;
+    const h = hueBucket(hue);
     const key = `${h}:${light}`;
-    let sprite = this.bars.get(key);
+    let sprite = reuse(this.bars, key);
     if (sprite) return sprite;
-    if (this.bars.size > LIMIT) this.bars.clear();
 
     const w = 64;
     const tall = 192;
@@ -101,7 +118,7 @@ export class GlowCache {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.fill();
     }
-    this.bars.set(key, sprite);
+    remember(this.bars, key, sprite);
     return sprite;
   }
 }

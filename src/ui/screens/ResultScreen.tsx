@@ -4,12 +4,14 @@ import { botProfile } from '../../core/bots/levels';
 import { stageById } from '../../core/campaign/journey';
 import { dailySpec } from '../../core/daily/daily';
 import { bossById } from '../../core/modes/bosses';
+import { coachingFor } from '../../core/modes/coaching';
 import { starGoalLabel, type StarGoal } from '../../core/modes/stars';
 import type { MatchResult } from '../../core/modes/types';
 import type { ProgressSummary } from '../../core/progression/apply';
 import { QUEST_BONUS_XP, QUEST_XP } from '../../core/quests/quests';
 import { RUN_STAGES } from '../../core/run/run';
 import { XpBar } from '../components/XpBar';
+import { ResultCoaching } from '../components/ResultCoaching';
 import { CheckIcon, CrownIcon, FlameIcon, HeartIcon, StarIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
@@ -22,14 +24,13 @@ interface ResultScreenProps {
   secondaryLabel: string;
   onPrimary: () => void;
   onSecondary: () => void;
+  onHelp: () => void;
+  onTutorial: () => void;
   /** Offered only when there is something to spend. */
   onTalents: () => void;
   /** A star has just landed on the card - the engine plays its chime. */
   onStar?: (index: number) => void;
 }
-
-const REDUCED =
-  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 function title(result: MatchResult, summary: ProgressSummary | null): string {
   if (result.mode === 'versus') return result.won ? 'Player 1 wins' : 'Player 2 wins';
@@ -78,9 +79,8 @@ function Stat({ value, label }: { value: string | number; label: string }) {
 
 /** A number that counts up to its value, eased, the first time it is shown. */
 function CountUp({ value, delay = 250 }: { value: number; delay?: number }) {
-  const [shown, setShown] = useState(REDUCED ? value : 0);
+  const [shown, setShown] = useState(0);
   useEffect(() => {
-    if (REDUCED) return;
     let frame = 0;
     const start = performance.now() + delay;
     const span = Math.min(1100, 400 + value * 0.9);
@@ -108,9 +108,8 @@ function StarReveal({
   mask: number;
   onStar?: ((index: number) => void) | undefined;
 }) {
-  const [lit, setLit] = useState(REDUCED ? 3 : 0);
+  const [lit, setLit] = useState(0);
   useEffect(() => {
-    if (REDUCED) return;
     const timers: number[] = [];
     for (let i = 0; i < 3; i++) {
       timers.push(
@@ -146,7 +145,7 @@ function StarReveal({
 }
 
 /**
- * Result, stars, performance, rewards, next action - in that order, on one
+ * Result, stars, performance, optional coaching, rewards, next action - on one
  * scrollable card, with the next action pinned under the thumb. Everything
  * rises in one after another, so the card reads as a reveal rather than a
  * table.
@@ -159,6 +158,8 @@ export function ResultScreen({
   secondaryLabel,
   onPrimary,
   onSecondary,
+  onHelp,
+  onTutorial,
   onTalents,
   onStar
 }: ResultScreenProps) {
@@ -168,7 +169,8 @@ export function ResultScreen({
   const points = summary?.talentPointsAvailable ?? 0;
   const gained = summary?.talentPoints ?? 0;
   const goals = goalsOf(result);
-  const good = result.won || (result.mode === 'challenge' && result.objectiveMet);
+  const coaching = coachingFor(result, goals ?? []);
+  const good = result.mode === 'challenge' ? result.objectiveMet : result.won;
   const run = summary?.run;
 
   return (
@@ -225,6 +227,8 @@ export function ResultScreen({
             <Stat value={duration(result.seconds)} label="Time" />
           )}
         </div>
+
+        {coaching && <ResultCoaching coaching={coaching} onTutorial={onTutorial} onHelp={onHelp} />}
 
         {result.objective && result.mode === 'challenge' && (
           <div

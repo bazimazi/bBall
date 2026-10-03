@@ -82,7 +82,9 @@ export default defineConfig(({ mode }) => {
           ? 'chrome105'
           : 'safari13'
         : 'es2022',
-      sourcemap: true
+      sourcemap: true,
+      // Used by check:bundle to measure the full initial dependency graph.
+      manifest: true
     }
   };
 });

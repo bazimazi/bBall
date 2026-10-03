@@ -3,14 +3,19 @@ import type { MouseEvent, ReactNode } from 'react';
 import styles from './Hud.module.css';
 import { PauseIcon } from './icons/PauseIcon';
 import { SoundIcon } from './icons/SoundIcon';
+import { useSettings } from './hooks/useSettings';
+import { useCoarsePointer } from './hooks/useCoarsePointer';
+import { keyList } from '../core/settings/controls';
 
 interface HudProps {
   muted: boolean;
   canPause: boolean;
-  /** The objective of the match in play, if it has one. */
-  label?: string | null;
   onToggleMute: () => void;
   onPause: () => void;
+  serving?: boolean;
+  manualServe?: boolean;
+  resumeIn?: number;
+  onServe?: () => void;
 }
 
 interface IconButtonProps {
@@ -45,10 +50,20 @@ function IconButton({ label, onClick, children, pressed }: IconButtonProps) {
 }
 
 /** Sound and pause controls, floating above everything else. */
-export function Hud({ muted, canPause, label, onToggleMute, onPause }: HudProps) {
+export function Hud({
+  muted,
+  canPause,
+  onToggleMute,
+  onPause,
+  serving,
+  manualServe,
+  resumeIn = 0,
+  onServe
+}: HudProps) {
+  const { keyBindings } = useSettings();
+  const coarse = useCoarsePointer();
   return (
     <>
-      {label && <p className={styles.label}>{label}</p>}
       <div className={styles.hud}>
         <IconButton
           label={muted ? 'Unmute sound' : 'Mute sound'}
@@ -64,6 +79,18 @@ export function Hud({ muted, canPause, label, onToggleMute, onPause }: HudProps)
           </IconButton>
         )}
       </div>
+      {resumeIn > 0 && (
+        <div className={styles.countdown} role="status" aria-live="polite" aria-atomic="true">
+          <span>Ready</span>
+          <strong>{resumeIn}</strong>
+        </div>
+      )}
+      {serving && onServe && (
+        <button type="button" className={styles.serve} onClick={onServe}>
+          {manualServe ? 'Serve when ready' : 'Serve now'}
+          <span>{coarse ? 'Tap' : keyList(keyBindings, 'serve')}</span>
+        </button>
+      )}
     </>
   );
 }
