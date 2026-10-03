@@ -14,6 +14,8 @@ export interface BumperSpec {
   readonly r: number;
   /** When set, the bumper circles (x, y) at `radius` field units. */
   readonly orbit?: { readonly radius: number; readonly speed: number; readonly phase: number };
+  /** Slides across the court on a visible rail; amplitude is in field units. */
+  readonly slide?: { readonly amplitude: number; readonly period: number; readonly phase: number };
 }
 
 /**
@@ -41,9 +43,20 @@ export interface ArenaSpec {
    * Wind across the court, in field units per second squared. It changes
    * direction every `period` seconds (0 = never), with a warning first.
    */
-  readonly wind?: { readonly strength: number; readonly period: number };
+  readonly wind?: {
+    readonly strength: number;
+    readonly period: number;
+    /** Opposite currents in the two halves, blending smoothly at midfield. */
+    readonly shear?: boolean;
+  };
   /** A gravity well: pull at 150 units away, in units per second squared. */
-  readonly well?: { readonly x: number; readonly y: number; readonly strength: number };
+  readonly well?: {
+    readonly x: number;
+    readonly y: number;
+    readonly strength: number;
+    /** Smoothly alternates attraction and repulsion over this many seconds. */
+    readonly pulsePeriod?: number;
+  };
   /** Linked pairs of portals that carry the ball from one mouth to the other. */
   readonly portals?: readonly PortalSpec[];
   /**

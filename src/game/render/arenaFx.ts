@@ -1,5 +1,5 @@
 import { BALL_R, FIELD_H } from '../constants';
-import { bumperHue, WIND_WARNING } from '../arena';
+import { bumperHue, wellPolarity, WIND_WARNING } from '../arena';
 import { hsla } from '../palette';
 import type { World } from '../world';
 import type { GlowCache } from './glow';
@@ -130,6 +130,19 @@ function drawBumpers(ctx: CanvasRenderingContext2D, world: World, glow: GlowCach
   ctx.lineWidth = 1.5;
   ctx.setLineDash([4, 10]);
   for (const bumper of world.arena.bumpers) {
+    const slide = bumper.spec.slide;
+    if (slide) {
+      ctx.beginPath();
+      ctx.moveTo(
+        bumper.spec.x * view.w,
+        Math.max(bumper.r, bumper.spec.y * FIELD_H - slide.amplitude)
+      );
+      ctx.lineTo(
+        bumper.spec.x * view.w,
+        Math.min(FIELD_H - bumper.r, bumper.spec.y * FIELD_H + slide.amplitude)
+      );
+      ctx.stroke();
+    }
     const orbit = bumper.spec.orbit;
     if (!orbit) continue;
     ctx.beginPath();
@@ -168,15 +181,16 @@ function drawWell(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache):
   const { arena, view, fx } = world;
   const x = spec.x * view.w;
   const y = spec.y * FIELD_H;
-  const hue = world.rules.boss?.hue ?? 250;
-  const strength = Math.min(1.6, (spec.strength * arena.intensity) / 900);
+  const polarity = wellPolarity(world);
+  const hue = polarity < 0 ? 32 : (world.rules.boss?.hue ?? 250);
+  const strength = Math.min(1.6, (spec.strength * arena.intensity) / 900) * Math.abs(polarity);
 
   // Rings falling inwards forever: the pull, drawn.
   ctx.save();
   ctx.lineWidth = 2;
   for (let i = 0; i < 4; i++) {
     const t = (fx.time * 0.45 * arena.intensity + i / 4) % 1;
-    const r = 26 + (1 - t) * 150;
+    const r = 26 + (polarity < 0 ? t : 1 - t) * 150;
     ctx.globalAlpha = t * 0.22 * strength;
     ctx.strokeStyle = hsla(hue, 90, 70, 1);
     ctx.beginPath();
@@ -198,6 +212,16 @@ function drawWell(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache):
   ctx.lineWidth = 2;
   ctx.strokeStyle = hsla(hue, 100, 76, 0.9);
   ctx.stroke();
+  // A fixed polarity glyph remains readable with reduced motion.
+  ctx.strokeStyle = hsla(hue, 100, 76, 0.9);
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y);
+  ctx.lineTo(x + 5, y);
+  if (polarity >= 0) {
+    ctx.moveTo(x, y - 5);
+    ctx.lineTo(x, y + 5);
+  }
+  ctx.stroke();
 }
 
 function drawWind(ctx: CanvasRenderingContext2D, world: World): void {
@@ -215,13 +239,14 @@ function drawWind(ctx: CanvasRenderingContext2D, world: World): void {
   const columns = Math.max(6, Math.round(view.w / 110));
   for (let i = 0; i < columns; i++) {
     const x = ((i + 0.5) / columns) * view.w;
+    const laneDir = spec.shear && x < view.w / 2 ? -dir : dir;
     const offset = ((fx.time * speed + i * 137) % (FIELD_H + 120)) - 60;
-    const y = dir > 0 ? offset : FIELD_H - offset;
+    const y = laneDir > 0 ? offset : FIELD_H - offset;
     const length = 26 + (i % 3) * 12;
     ctx.globalAlpha = 0.09 + (i % 2) * 0.04;
     ctx.beginPath();
     ctx.moveTo(x, y);
-    ctx.lineTo(x, y - dir * length);
+    ctx.lineTo(x, y - laneDir * length);
     ctx.stroke();
   }
 
@@ -233,12 +258,13 @@ function drawWind(ctx: CanvasRenderingContext2D, world: World): void {
   ctx.strokeStyle = warning ? hsla(38, 100, 66, 1) : hsla(195, 80, 80, 1);
   ctx.lineWidth = 3;
   for (const edge of [22, view.w - 22]) {
+    const lanePointing = spec.shear && edge < view.w / 2 ? -pointing : pointing;
     for (let k = -1; k <= 1; k++) {
       const cy = FIELD_H / 2 + k * 70;
       ctx.beginPath();
-      ctx.moveTo(edge - 10, cy - pointing * 8);
-      ctx.lineTo(edge, cy + pointing * 4);
-      ctx.lineTo(edge + 10, cy - pointing * 8);
+      ctx.moveTo(edge - 10, cy - lanePointing * 8);
+      ctx.lineTo(edge, cy + lanePointing * 4);
+      ctx.lineTo(edge + 10, cy - lanePointing * 8);
       ctx.stroke();
     }
   }

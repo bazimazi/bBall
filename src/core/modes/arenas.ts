@@ -85,6 +85,65 @@ export const ARENA_PRESETS: readonly ArenaPreset[] = [
     blurb: 'Two portals link the top of the court to the bottom',
     arena: { portals: [{ a: { x: 0.5, y: 0.2 }, b: { x: 0.5, y: 0.8 }, r: 30 }] },
     since: '2026-10-01'
+  },
+  {
+    id: 'switchback',
+    name: 'Switchback',
+    blurb: 'Sliding posts open and close diagonal shooting lanes',
+    since: '2026-10-04',
+    arena: {
+      bumpers: [
+        { x: 0.42, y: 0.5, r: 25, slide: { amplitude: 165, period: 6, phase: 0 } },
+        { x: 0.58, y: 0.5, r: 25, slide: { amplitude: 165, period: 6, phase: Math.PI } }
+      ]
+    }
+  },
+  {
+    id: 'jetstream',
+    name: 'Jetstream',
+    blurb: 'Opposing wind lanes bend the ball twice across midfield',
+    since: '2026-10-04',
+    arena: { wind: { strength: 360, period: 6, shear: true } }
+  },
+  {
+    id: 'heartbeat',
+    name: 'Heartbeat',
+    blurb: 'The centre breathes: violet pulls in, amber pushes out',
+    since: '2026-10-04',
+    arena: { well: { x: 0.5, y: 0.5, strength: 520, pulsePeriod: 8 } }
+  },
+  {
+    id: 'storm-gates',
+    name: 'Storm Gates',
+    blurb: 'Opposing currents sweep the ball through sliding posts',
+    since: '2026-10-04',
+    arena: {
+      wind: { strength: 260, period: 7, shear: true },
+      bumpers: [
+        { x: 0.42, y: 0.5, r: 22, slide: { amplitude: 145, period: 6, phase: 0 } },
+        { x: 0.58, y: 0.5, r: 22, slide: { amplitude: 145, period: 6, phase: Math.PI } }
+      ]
+    }
+  },
+  {
+    id: 'rift-tide',
+    name: 'Rift Tide',
+    blurb: 'Portals swap lanes while the centre alternates pull and push',
+    since: '2026-10-04',
+    arena: {
+      well: { x: 0.5, y: 0.5, strength: 380, pulsePeriod: 9 },
+      portals: [{ a: { x: 0.5, y: 0.18 }, b: { x: 0.5, y: 0.82 }, r: 27 }]
+    }
+  },
+  {
+    id: 'storm-forge',
+    name: 'Storm Forge',
+    blurb: 'Break the walls while opposing winds reshape your shots',
+    since: '2026-10-04',
+    arena: {
+      wind: { strength: 240, period: 7, shear: true },
+      bricks: { rows: 5, sides: 'both' }
+    }
   }
 ];
 

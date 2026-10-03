@@ -1026,10 +1026,9 @@ button.unlockRow {
 }
 
 /*
- * Home's top bar: who you are on the left, the two corner buttons on the
- * right. Icons rather than words, so the bar never wraps on a narrow phone.
- * The right edge is left clear for the HUD's sound button, which floats over
- * every screen.
+ * Home's top bar gives the profile room while leaving the right edge clear
+ * for the HUD's sound button, which floats over every screen. Talents and
+ * Settings live in the home screen's bottom navigation.
  */
 .topBar {
   display: flex;

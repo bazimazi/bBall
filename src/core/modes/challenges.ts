@@ -1,5 +1,6 @@
 import type { BotLevelId } from '../bots/types';
 import type { MatchModifiers, MatchObjective } from './types';
+import { arenaPreset } from './arenas';
 
 /**
  * A challenge is one short match with a twist and a single, stated goal. No
@@ -18,6 +19,66 @@ export interface Challenge {
 }
 
 export const CHALLENGES: readonly Challenge[] = [
+  {
+    id: 'switchback',
+    name: 'Switchback',
+    blurb: 'Time your shots through two sliding posts',
+    bot: 'amateur',
+    winScore: 3,
+    objective: { id: 'win', label: 'Win the match', value: 0 },
+    modifiers: { arena: arenaPreset('switchback')!.arena },
+    xp: 150
+  },
+  {
+    id: 'jetstream',
+    name: 'Jetstream',
+    blurb: 'Master opposing currents and reach a twelve-return rally',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'rally', label: 'Reach a 12 rally', value: 12 },
+    modifiers: { arena: arenaPreset('jetstream')!.arena, speedPerHitScale: 0.8 },
+    xp: 160
+  },
+  {
+    id: 'heartbeat',
+    name: 'Heartbeat',
+    blurb: 'Read the rhythm: violet attracts, amber repels',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'win', label: 'Win the match', value: 0 },
+    modifiers: { arena: arenaPreset('heartbeat')!.arena },
+    xp: 170
+  },
+  {
+    id: 'storm-gates',
+    name: 'Storm Gates',
+    blurb: 'Sliding posts and opposing winds. Find a lane before it closes',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'win', label: 'Win the match', value: 0 },
+    modifiers: { arena: arenaPreset('storm-gates')!.arena },
+    xp: 190
+  },
+  {
+    id: 'rift-tide',
+    name: 'Rift Tide',
+    blurb: 'A breathing gravity field feeds two linked portals',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'win', label: 'Win the match', value: 0 },
+    modifiers: { arena: arenaPreset('rift-tide')!.arena },
+    xp: 190
+  },
+  {
+    id: 'storm-forge',
+    name: 'Storm Forge',
+    blurb: 'Carve a route through bricks and opposing wind lanes',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'quick-win', label: 'Win within 130s', value: 130 },
+    modifiers: { arena: arenaPreset('storm-forge')!.arena },
+    xp: 200
+  },
   {
     id: 'needle',
     name: 'Needle',

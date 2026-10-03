@@ -1,5 +1,6 @@
 import type { BotLevelId } from '../bots/types';
 import { bossById } from '../modes/bosses';
+import { arenaPreset } from '../modes/arenas';
 import { starCount, type StarGoal } from '../modes/stars';
 import type { MatchModifiers } from '../modes/types';
 
@@ -234,8 +235,8 @@ export const JOURNEY: readonly JourneyWorld[] = [
       stage(
         2,
         4,
-        'Crowded House',
-        'Four bumpers and nowhere to hide',
+        'Switchback',
+        'Time your shots through two sliding posts',
         'pro',
         [
           { id: 'flicks', value: 4 },
@@ -243,12 +244,7 @@ export const JOURNEY: readonly JourneyWorld[] = [
         ],
         {
           arena: {
-            bumpers: [
-              { x: 0.4, y: 0.3, r: 22 },
-              { x: 0.6, y: 0.3, r: 22 },
-              { x: 0.4, y: 0.7, r: 22 },
-              { x: 0.6, y: 0.7, r: 22 }
-            ]
+            ...arenaPreset('switchback')!.arena
           }
         }
       ),
@@ -316,14 +312,14 @@ export const JOURNEY: readonly JourneyWorld[] = [
       stage(
         3,
         4,
-        'Undertow',
-        'A deeper pull, and nothing flies straight for long',
+        'Heartbeat',
+        'Violet pulls in, amber pushes out. Read the rhythm',
         'pro',
         [
           { id: 'margin', value: 2 },
           { id: 'fast', value: 120 }
         ],
-        { arena: { well: { x: 0.5, y: 0.5, strength: 600 } } }
+        { arena: arenaPreset('heartbeat')!.arena }
       ),
       bossStage(3, 5, 'tempest', [
         { id: 'margin', value: 2 },
@@ -438,14 +434,14 @@ export const JOURNEY: readonly JourneyWorld[] = [
       stage(
         5,
         2,
-        'Crosswind Siege',
-        'Wind, and walls to break through it',
+        'Storm Forge',
+        'Opposing wind lanes, and walls to break through them',
         'elite',
         [
           { id: 'fast', value: 130 },
           { id: 'flicks', value: 5 }
         ],
-        { arena: { wind: { strength: 300, period: 5 }, bricks: { rows: 6, sides: 'both' } } }
+        { arena: arenaPreset('storm-forge')!.arena }
       ),
       bossStage(5, 3, 'trickster', [
         { id: 'margin', value: 2 },

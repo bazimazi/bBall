@@ -23,21 +23,12 @@ interface HomeScreenProps {
   /** The level being demoed, or null when the real save is in play. */
   demoLevel: number | null;
   onPick: (mode: ModeId) => void;
-  /** Straight into a Journey stage, skipping the map. */
-  onPlayStage: (id: string) => void;
   onModes: () => void;
   onExitDemo: () => void;
   onProfile: () => void;
   onTalents: () => void;
   onSettings: () => void;
 }
-
-/**
- * Matches a player needs before Home shows more than the Journey. A first
- * visit should offer one obvious thing to do; the side modes appear once the
- * player has had a game and knows what the buttons mean.
- */
-const NEWCOMER_MATCHES = 1;
 
 /** Matches after which the controls hint has done its job. */
 const HINT_MATCHES = 3;
@@ -56,12 +47,13 @@ function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () =
       className={modes.feature}
       style={accent(world?.hue ?? 171)}
       onClick={onPick}
+      aria-label="Open Journey map"
     >
-      <span className={modes.featureTop}>
+      <span className={modes.homeJourneyTop}>
         <span className={modes.featureIcon}>
           <MapIcon />
         </span>
-        <span className={modes.featureTitle}>
+        <span className={modes.homeJourneyTitle}>
           <span className={modes.featureName}>Journey</span>
           <span className={modes.featureSub}>
             {next
@@ -69,13 +61,16 @@ function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () =
               : 'Every stage cleared'}
           </span>
         </span>
-        <span className={modes.featureMeta}>
+        <span className={modes.featureMeta} aria-label={`${stars} of ${TOTAL_STARS} stars`}>
           <StarIcon />
           {stars}/{TOTAL_STARS}
         </span>
       </span>
-      <span className={modes.featureBar}>
-        <span className={modes.featureFill} style={{ width: `${(stars / TOTAL_STARS) * 100}%` }} />
+      <span className={`${modes.featureBar} ${modes.homeProgress}`}>
+        <span
+          className={`${modes.featureFill} ${modes.homeProgress}`}
+          style={{ width: `${(stars / TOTAL_STARS) * 100}%` }}
+        />
       </span>
     </button>
   );
@@ -107,7 +102,7 @@ function DailyTile({ profile, onPick }: { profile: PlayerProfile; onPick: () => 
           </span>
         )}
       </span>
-      <span className={modes.featureName}>Daily</span>
+      <span className={modes.featureName}>Daily challenge</span>
       <span className={modes.featureSub}>{spec.title}</span>
       {!(medals & 1) && <span className={`${modes.featureTag} ${modes.pulse}`}>New today</span>}
     </button>
@@ -155,8 +150,8 @@ function GauntletTile({ profile, onPick }: { profile: PlayerProfile; onPick: () 
 
 /**
  * The front door. It asks one question - play? - and answers the rest with
- * as little as it can: who you are, where the Journey is up to, and, once
- * the player has a match behind them, today's Daily and the Gauntlet.
+ * as little as it can: who you are, where the Journey is up to, today's
+ * Daily and the Gauntlet. All three modes are visible from the first visit.
  * Everything else sits behind "More modes".
  */
 export function HomeScreen({
@@ -164,7 +159,6 @@ export function HomeScreen({
   account,
   demoLevel,
   onPick,
-  onPlayStage,
   onModes,
   onExitDemo,
   onProfile,
@@ -174,48 +168,24 @@ export function HomeScreen({
   const coarse = useCoarsePointer();
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
   const points = profile.talents.points;
-  const next = nextStage(profile.progress.journey);
-  const newcomer = profile.stats.matches < NEWCOMER_MATCHES;
-
-  const play = () => (next ? onPlayStage(next.id) : onPick('campaign'));
+  const newcomer = profile.stats.matches === 0;
 
   return (
     <section className={styles.screen}>
-      <div className={styles.topBar}>
-        <ProfileChip profile={profile} onClick={onProfile} />
-        <button
-          type="button"
-          className={styles.iconButton}
-          onClick={onTalents}
-          aria-label={points > 0 ? `Talents, ${points} points to spend` : 'Talents'}
-          title="Talents"
-        >
-          <SparkIcon />
-          {points > 0 && <span className={styles.iconBadge}>{points}</span>}
-        </button>
-        <button
-          type="button"
-          className={styles.iconButton}
-          onClick={onSettings}
-          aria-label="Settings"
-          title="Settings"
-        >
-          <GearIcon />
-        </button>
-      </div>
-
       <div className={styles.body}>
-        <div className={`${styles.stack} ${modes.stagger}`}>
-          <BrandLogo />
-          <p className={styles.tagline}>
-            {demoLevel !== null
-              ? 'Demo · nothing is saved'
-              : newcomer
-                ? 'Tap Play for your first match'
-                : cup
-                  ? `${cup.name} in progress`
-                  : 'Ready when you are'}
-          </p>
+        <div className={`${modes.homeStack} ${modes.stagger}`}>
+          <div className={modes.homeIntro}>
+            <BrandLogo />
+            <p className={styles.tagline}>
+              {demoLevel !== null
+                ? 'Demo · nothing is saved'
+                : newcomer
+                  ? 'Your first match starts here'
+                  : cup
+                    ? `${cup.name} in progress`
+                    : 'Ready when you are'}
+            </p>
+          </div>
 
           {demoLevel !== null && (
             <div className={styles.demoBar}>
@@ -226,29 +196,49 @@ export function HomeScreen({
             </div>
           )}
 
-          {demoLevel === null && <SyncBadge account={account} />}
-
-          <div className={modes.homeCards}>
+          <div className={modes.homeGroup}>
+            <ProfileChip profile={profile} onClick={onProfile} />
             <JourneyCard profile={profile} onPick={() => onPick('campaign')} />
-            {!newcomer && <DailyTile profile={profile} onPick={() => onPick('daily')} />}
-            {!newcomer && <GauntletTile profile={profile} onPick={() => onPick('run')} />}
+            {profile.stats.matches < HINT_MATCHES && (
+              <p className={styles.note}>
+                {coarse ? 'Drag anywhere to move your paddle' : 'Move the mouse or use ↑ ↓'}
+              </p>
+            )}
           </div>
+
+          <section className={modes.homeGroup} aria-labelledby="home-other-modes">
+            <h2 id="home-other-modes" className={modes.homeLabel}>
+              More ways to play
+            </h2>
+            <div className={modes.homeCards}>
+              <DailyTile profile={profile} onPick={() => onPick('daily')} />
+              <GauntletTile profile={profile} onPick={() => onPick('run')} />
+            </div>
+          </section>
+
+          <button type="button" className={styles.ghost} onClick={onModes}>
+            More modes
+          </button>
+          {demoLevel === null && <SyncBadge account={account} />}
         </div>
       </div>
 
-      <footer className={styles.footer}>
-        <button type="button" className={styles.primary} onClick={play}>
-          {next ? 'Play' : 'Replay a stage'}
+      <nav className={modes.homeUtilities} aria-label="Player tools">
+        <button
+          type="button"
+          className={modes.homeUtility}
+          onClick={onTalents}
+          aria-label={points > 0 ? `Talents, ${points} points to spend` : 'Talents'}
+        >
+          <SparkIcon />
+          <span>Talents</span>
+          {points > 0 && <span className={modes.homePoints}>{points}</span>}
         </button>
-        <button type="button" className={styles.ghost} onClick={onModes}>
-          More modes
+        <button type="button" className={modes.homeUtility} onClick={onSettings}>
+          <GearIcon />
+          <span>Settings</span>
         </button>
-        {profile.stats.matches < HINT_MATCHES && (
-          <p className={styles.note}>
-            {coarse ? 'Drag anywhere to move your paddle' : 'Move the mouse or use ↑ ↓'}
-          </p>
-        )}
-      </footer>
+      </nav>
     </section>
   );
 }

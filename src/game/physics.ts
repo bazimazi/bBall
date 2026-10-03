@@ -93,6 +93,13 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   const off = mods.off;
 
   const before = ball.speed;
+  // Track only the bonus still present above the unboosted rally pace.
+  // A return's ceiling can already remove that bonus before surge bleeds.
+  const plain = clamp(
+    Math.max(BALANCE.ball.hardMin, before - world.talents.surge) * tuning.speedPerHit,
+    BALANCE.ball.hardMin,
+    Math.min(BALANCE.ball.hardMax, tuning.maxSpeed)
+  );
   const ceiling = Math.min(BALANCE.ball.hardMax, mods.ceiling);
   ball.speed = clamp(before * mods.growth, BALANCE.ball.hardMin, ceiling);
 
@@ -108,13 +115,9 @@ function onPaddleHit(world: World, paddle: Paddle, contactY: number, dir: 1 | -1
   if (talented) {
     // Book the pace this build added over a plain return, so the opponent
     // can hand most of it back on the way through.
-    const plain = clamp(
-      before * tuning.speedPerHit,
-      BALANCE.ball.hardMin,
-      Math.min(BALANCE.ball.hardMax, tuning.maxSpeed)
-    );
-    world.talents.surge = Math.max(0, world.talents.surge + (ball.speed - plain));
+    world.talents.surge = Math.max(0, ball.speed - plain);
   } else if (paddle.side === 'bot' && match.status !== 'menu' && world.talents.surge > 0) {
+    world.talents.surge = Math.max(0, ball.speed - plain);
     const given = world.talents.surge * BALANCE.ball.surgeBleed;
     ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed - given);
     world.talents.surge -= given;

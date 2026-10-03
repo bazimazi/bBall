@@ -395,6 +395,24 @@ side the skill buttons sit on.
 
 ## How it is built
 
+### New hazard courts
+
+The Challenge menu includes six courts built around timing and changing shot
+lanes: **Switchback** (sliding posts), **Jetstream** (opposing wind lanes),
+**Heartbeat** (a field alternating attraction and repulsion), **Storm Gates**
+(sliding posts and opposing winds), **Rift Tide** (portals and a breathing
+field), and **Storm Forge** (brick walls and opposing winds).
+
+Sliding posts show their rails. Wind arrows show each side's current and warn
+before reversal. A breathing field turns violet while attracting and amber
+while repelling, with inward or outward rings and a polarity glyph. Forces
+preserve the ball's pace and minimum forward progress, using the same force
+calculation for the ball and the opponent's trajectory reads.
+
+Journey stages w2-5, w3-5, and w5-3 teach Switchback, Heartbeat, and Storm
+Forge respectively. The six courts enter Daily and Gauntlet pools on
+2026-10-04; older daily dates and runs retain their original court pools.
+
 ```
 shared/
   protocol.ts        the client/server wire contract, imported by both

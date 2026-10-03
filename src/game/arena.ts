@@ -235,6 +235,10 @@ function placeBumpers(world: World): void {
       x += Math.cos(a) * spec.orbit.radius;
       y += Math.sin(a) * spec.orbit.radius;
     }
+    if (spec.slide) {
+      const { amplitude, period, phase } = spec.slide;
+      y += Math.sin((arena.time * Math.PI * 2) / Math.max(0.1, period) + phase) * amplitude;
+    }
     bumper.x = x;
     bumper.y = clamp(y, bumper.r, FIELD_H - bumper.r);
   }
@@ -291,17 +295,27 @@ export function arenaForce(world: World, x: number, y: number, out: Vec2): Vec2 
   out.x = 0;
   out.y = 0;
   if (!spec) return out;
-  if (spec.wind) out.y += arena.windDir * spec.wind.strength * arena.intensity;
+  if (spec.wind) {
+    const lane = spec.wind.shear ? clamp((x / world.view.w - 0.5) * 10, -1, 1) : 1;
+    out.y += arena.windDir * spec.wind.strength * arena.intensity * lane;
+  }
   if (spec.well) {
     const dx = spec.well.x * world.view.w - x;
     const dy = spec.well.y * FIELD_H - y;
     const d2 = dx * dx + dy * dy;
     const d = Math.sqrt(d2) || 1;
-    const pull = (spec.well.strength * arena.intensity * (150 * 150 + 2500)) / (d2 + 2500);
+    const pulse = wellPolarity(world);
+    const pull = (spec.well.strength * arena.intensity * pulse * (150 * 150 + 2500)) / (d2 + 2500);
     out.x += (dx / d) * pull;
     out.y += (dy / d) * pull;
   }
   return out;
+}
+
+/** Shared by physics and rendering: positive pulls in, negative pushes out. */
+export function wellPolarity(world: World): number {
+  const period = world.arena.spec?.well?.pulsePeriod;
+  return period && period > 0 ? Math.cos((world.arena.time * Math.PI * 2) / period) : 1;
 }
 
 const scratch: Vec2 = { x: 0, y: 0 };
