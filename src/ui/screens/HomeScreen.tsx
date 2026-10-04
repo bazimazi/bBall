@@ -11,6 +11,7 @@ import type { AccountState } from '../../core/account/store';
 import { ProfileChip } from '../components/ProfileChip';
 import { BrandLogo } from '../components/BrandLogo';
 import { SyncBadge } from '../components/SyncBadge';
+import { SaveNotice } from '../components/SaveNotice';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
 import { GearIcon, SparkIcon } from '../icons/MenuIcons';
 import { FlameIcon, HeartIcon, MapIcon, StarIcon, StarRow, SwordsIcon } from '../icons/ModeIcons';
@@ -202,6 +203,7 @@ export function HomeScreen({
           )}
 
           <div className={modes.homeGroup}>
+            <SaveNotice />
             <ProfileChip profile={profile} onClick={onProfile} />
             <JourneyCard profile={profile} onPick={() => onPick('campaign')} />
             {profile.stats.matches < HINT_MATCHES && (

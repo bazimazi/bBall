@@ -7,6 +7,7 @@ import { profileStore } from '../../core/profile/store';
 import { AVATARS, type AvatarId, type PlayerProfile } from '../../core/profile/types';
 import { Avatar } from '../components/Avatar';
 import { BrandLogo } from '../components/BrandLogo';
+import { SaveNotice } from '../components/SaveNotice';
 import styles from '../Screens.module.css';
 
 interface OnboardingScreenProps {
@@ -40,6 +41,7 @@ export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
       <p className={styles.tagline}>Make it yours - or skip and play</p>
 
       <div className={styles.body}>
+        <SaveNotice />
         <div className={styles.field}>
           <label className={styles.label} htmlFor="player-name">
             Name

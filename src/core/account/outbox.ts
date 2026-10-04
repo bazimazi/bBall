@@ -3,8 +3,9 @@
  *
  * Everything a signed-in player does that changes their save is written here
  * before it is attempted, and removed only once the server has confirmed it.
- * A closed tab, a dead battery or a tunnel therefore costs nothing: the queue
- * is in localStorage, and the next session drains it.
+ * When device storage accepts the write, the queue survives closing the app
+ * and the next session drains it. Failed writes stay in memory and are reported
+ * by the shared device-save status; closing before recovery can lose them.
  *
  * Three properties make that safe:
  *

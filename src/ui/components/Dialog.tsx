@@ -4,6 +4,9 @@ import { activateDialog } from '../focus';
 
 interface DialogProps {
   label: string;
+  labelledBy?: string | undefined;
+  describedBy?: string | undefined;
+  role?: 'dialog' | 'alertdialog';
   onDismiss: () => void;
   className?: string | undefined;
   children: ReactNode;
@@ -15,6 +18,9 @@ interface DialogProps {
 
 export function Dialog({
   label,
+  labelledBy,
+  describedBy,
+  role = 'dialog',
   onDismiss,
   className,
   children,
@@ -33,9 +39,11 @@ export function Dialog({
     <div
       ref={root}
       className={className}
-      role="dialog"
+      role={role}
       aria-modal="true"
-      aria-label={label}
+      aria-label={labelledBy ? undefined : label}
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
       tabIndex={-1}
       data-game-modal={gameShortcuts ? 'pause' : 'blocked'}
     >

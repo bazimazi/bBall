@@ -25,11 +25,43 @@ access instead of `Array.at`, which is newer than the Safari 13 target. The DOM
 interaction check removes that method to exercise those paths, but does not
 emulate Safari or replace physical webview/assistive-technology checks.
 
+Cup abandonment, Gauntlet abandonment and guest reset use the same focus scope
+in alert dialogs with a visible title, consequence description and Keep action
+focused first. Escape and browser/Android Back cancel before screen navigation.
+Using a disposable guest save, check cancellation, deliberate acceptance, focus
+return and description announcements on physical webviews. Check short landscape
+screens too, where the card may need to scroll. Account restoration, signed-in
+profiles and Demo must not offer guest reset. Overlay height uses a `vh` fallback
+before `dvh` so older webviews retain a scrollable card height limit.
+
+Device-save failures show a notice in menus and Pause/Exit, with an explicit
+retry for the latest profile, settings and offline queue records. Using a
+disposable test profile, force storage access/write failures, navigate between
+menus, retry after recovery and relaunch to verify persistence. Preferences
+should apply in the current session even before they can be saved. Check notice
+scrolling, retry activation and success announcements in physical webviews;
+device-save success and account-sync success are separate states.
+Also deny reads at launch while retaining an older record. After restoring
+access, retry must preserve that record and explain reopening to load it.
+Repeat without an older record: the temporary profile should save normally.
+
 Settings can open above a paused match. The engine stays mounted and frozen;
 gameplay keys and canvas input are disabled while a menu covers the court.
 Back returns to Pause, including during a pending or failed Settings load.
 Check the same route with Android Back and Escape in physical webviews, then
 resume using changed bindings, touch sensitivity and countdown preferences.
+
+A changed CSS viewport pauses an active rally, serve or resume countdown before
+the queued court layout. The same match remains in Pause with a resize
+explanation and requires explicit Resume. Ball/trail and recorded replay
+positions adapt between fixed paddle contact planes; existing misses remain
+missed. On physical devices, rotate during an incoming shot, resize the desktop
+window, repeat during a countdown and drag in both orientations. Check that
+scores, lesson progress and cooldowns survive, a fresh drag works after Resume,
+and the closing replay stays aligned with the court. Include browser chrome and
+virtual-keyboard changes: unchanged viewport notifications retain input, while
+actual CSS viewport size changes pause. Check whether these interruptions feel
+appropriate. Asset and DOM checks cannot establish that behavior on a webview.
 
 Menu pages load from separate JavaScript and CSS chunks. Package the entire
 `dist/` output, as Tauri's `frontendDist` already does. A build that copies only

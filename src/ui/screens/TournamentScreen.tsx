@@ -11,6 +11,7 @@ import {
   tierForLevel
 } from '../../core/tournament/bracket';
 import { Screen } from '../components/Screen';
+import { ConfirmAction } from '../components/ConfirmAction';
 import styles from '../Screens.module.css';
 
 interface TournamentScreenProps {
@@ -55,6 +56,55 @@ function Bracket({ profile }: { profile: PlayerProfile }) {
   );
 }
 
+/** A changed cup/round mounts afresh, discarding any earlier request to give it up. */
+function ActiveCup({
+  profile,
+  onPlay,
+  onAbandon,
+  onBack
+}: Pick<TournamentScreenProps, 'profile' | 'onPlay' | 'onAbandon' | 'onBack'>) {
+  const [confirm, setConfirm] = useState(false);
+  const active = profile.tournament;
+  if (!active) return null;
+  const cup = tierById(active.tier);
+  const round = TOURNAMENT_ROUNDS[active.round] ?? TOURNAMENT_ROUNDS[0]!;
+  return (
+    <Screen
+      title={cup.name}
+      subtitle={`Round ${active.round + 1} of ${TOURNAMENT_ROUNDS.length}`}
+      onBack={onBack}
+      footer={
+        <>
+          <button type="button" className={styles.primary} onClick={onPlay}>
+            Play {round.name}
+          </button>
+          <button
+            type="button"
+            className={`${styles.ghost} ${styles.danger}`}
+            onClick={() => setConfirm(true)}
+          >
+            Give up the cup
+          </button>
+        </>
+      }
+    >
+      <Bracket profile={profile} />
+      <ConfirmAction
+        show={confirm}
+        title="Give up this cup?"
+        description={`This ends your ${cup.name} at round ${active.round + 1} of ${TOURNAMENT_ROUNDS.length}. It will not count as a cup won. Your earned XP and unlocks stay. You can keep the cup and return later.`}
+        cancelLabel="Keep cup"
+        confirmLabel="Give up cup"
+        onCancel={() => setConfirm(false)}
+        onConfirm={() => {
+          setConfirm(false);
+          onAbandon();
+        }}
+      />
+    </Screen>
+  );
+}
+
 export function TournamentScreen({
   profile,
   onPlay,
@@ -66,34 +116,16 @@ export function TournamentScreen({
   const [tier, setTier] = useState(() => tierForLevel(level).id);
   const active = profile.tournament;
   const last = profile.lastTournament;
-
-  if (active) {
-    const cup = tierById(active.tier);
-    const round = TOURNAMENT_ROUNDS[active.round] ?? TOURNAMENT_ROUNDS[0]!;
+  if (active)
     return (
-      <Screen
-        title={cup.name}
-        subtitle={`Round ${active.round + 1} of ${TOURNAMENT_ROUNDS.length}`}
+      <ActiveCup
+        key={`${profile.id}:${active.startedAt}:${active.tier}:${active.round}`}
+        profile={profile}
+        onPlay={onPlay}
+        onAbandon={onAbandon}
         onBack={onBack}
-        footer={
-          <>
-            <button type="button" className={styles.primary} onClick={onPlay}>
-              Play {round.name}
-            </button>
-            <button
-              type="button"
-              className={`${styles.ghost} ${styles.danger}`}
-              onClick={onAbandon}
-            >
-              Give up the cup
-            </button>
-          </>
-        }
-      >
-        <Bracket profile={profile} />
-      </Screen>
+      />
     );
-  }
 
   return (
     <Screen

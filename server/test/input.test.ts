@@ -48,7 +48,8 @@ function harness(
   preferences?: DeviceSettings,
   pixelRatio = 1
 ) {
-  let nextFrame: FrameRequestCallback | null = null;
+  const frames = new Map<number, FrameRequestCallback>();
+  let frameId = 0;
   const win = new TestWindow();
   win.devicePixelRatio = pixelRatio;
   win.motion.matches = systemReducedMotion;
@@ -64,10 +65,10 @@ function harness(
     Element: TestElement,
     HTMLButtonElement: TestButton,
     requestAnimationFrame: (callback: FrameRequestCallback) => {
-      nextFrame = callback;
-      return 1;
+      frames.set(++frameId, callback);
+      return frameId;
     },
-    cancelAnimationFrame: () => {},
+    cancelAnimationFrame: (id: number) => frames.delete(id),
     getComputedStyle: () => ({ getPropertyValue: () => '0' })
   };
   const saved = Object.fromEntries(
@@ -111,8 +112,10 @@ function harness(
   };
   const advance = (milliseconds: number) => {
     const now = (engine as unknown as { lastTime: number }).lastTime + milliseconds;
-    assert.ok(nextFrame);
-    nextFrame(now);
+    assert.ok(frames.size > 0);
+    const pending = [...frames.values()];
+    frames.clear();
+    for (const callback of pending) callback(now);
   };
   return { engine, world, win, doc, canvas, key, pointer, advance };
 }
@@ -272,6 +275,7 @@ it('relative touch works in either orientation, permits edge reversal and keeps 
   engine.setPreferences({
     ...DEFAULT_SETTINGS,
     autoServe: false,
+    resumeCountdown: false,
     touchMode: 'relative',
     touchSensitivity: 1.5
   });
@@ -280,6 +284,7 @@ it('relative touch works in either orientation, permits edge reversal and keeps 
     win.innerWidth = portrait ? 600 : 1000;
     win.innerHeight = portrait ? 1000 : 600;
     (engine as unknown as { layout: () => void }).layout();
+    engine.resume();
     world.player.target = 300;
     const point = (type: string, y: number, pointerType = 'touch') =>
       pointer(
@@ -302,11 +307,145 @@ it('relative touch works in either orientation, permits edge reversal and keeps 
     point('pointermove', 200, 'mouse');
     assert.ok(Math.abs(world.player.target - 200) < 1e-8);
     point('pointerdown', 100);
+    win.innerWidth += 20;
     (engine as unknown as { layout: () => void }).layout();
+    engine.resume();
+    const afterResize = world.player.target;
     point('pointermove', 150);
-    assert.ok(Math.abs(world.player.target - 200) < 1e-8, 'resize drops a stale drag');
+    assert.equal(world.player.target, afterResize, 'resize drops a stale drag');
     point('pointerup', 150);
   }
+});
+
+it('unchanged viewport notifications preserve a live touch owner and held key', (t) => {
+  const { engine, world, win, pointer, key, advance } = harness(t);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, autoServe: false, touchMode: 'relative' });
+  engine.play(quickMatchRules('rookie'));
+  pointer('pointerdown', 1, 100, 200);
+  key('w');
+  for (const event of ['resize', 'orientationchange']) win.dispatchEvent(new Event(event));
+  assert.equal(world.match.status, 'serve');
+  const before = world.player.target;
+  advance(16);
+  assert.ok(world.player.target < before, 'notifications leave the held key active');
+  const steered = world.player.target;
+  pointer('pointermove', 1, 100, 220);
+  assert.ok(world.player.target > steered, 'the same touch still owns relative steering');
+});
+
+for (const phase of ['serve', 'play', 'resuming'] as const) {
+  it(`a changed viewport immediately pauses ${phase}, then holds the resized court until explicit resume`, (t) => {
+    const { engine, world, win, key, pointer, advance } = harness(t);
+    engine.setPreferences({ ...DEFAULT_SETTINGS, autoServe: false });
+    engine.play(quickMatchRules('rookie'));
+    if (phase !== 'serve') {
+      engine.serve();
+      advance(16);
+    }
+    if (phase === 'resuming') {
+      engine.pause();
+      engine.resume();
+      advance(250);
+    }
+    assert.equal(world.match.status, phase);
+    key('w');
+    pointer('pointerdown', 1, 100, 100);
+    world.match.score.you = 2;
+    world.talents.slots = [{ id: 'power-strike', cooldown: 3, span: 5, lockout: 0 }];
+    const elapsed = world.match.elapsed;
+    const requested = world.match.serveRequested;
+    win.innerWidth = 600;
+    win.innerHeight = 1000;
+    win.dispatchEvent(new Event('resize'));
+    assert.equal(world.match.status, 'paused', 'do not wait for the queued layout frame');
+    assert.equal(engine.getSnapshot().pauseReason, 'resize');
+    assert.equal(world.player.target, world.player.y);
+    advance(40);
+    assert.equal(world.view.rotated, true);
+    const frozen = JSON.stringify(world);
+    for (let i = 0; i < 10; i++) advance(40);
+    assert.equal(JSON.stringify(world), frozen, 'layout cannot advance match clocks or cooldowns');
+    assert.equal(world.match.elapsed, elapsed);
+    pointer('pointerup', 1, 100, 100);
+    assert.equal(
+      world.match.serveRequested,
+      requested,
+      'a released stale drag cannot request a serve'
+    );
+    engine.resume();
+    assert.equal(engine.getSnapshot().pauseReason, null);
+    assert.equal(engine.getSnapshot().resumeIn, 3);
+    for (let i = 0; i < 6; i++) advance(250);
+    assert.equal(world.match.status, phase === 'serve' ? 'serve' : 'play');
+    const target = world.player.target;
+    advance(16);
+    assert.equal(world.player.target, target, 'the pre-resize held key is released');
+    assert.equal(world.match.score.you, 2);
+    assert.equal(world.match.result, null);
+  });
+}
+
+it('Versus resize drops both gesture owners and queued steering, with countdown disabled', (t) => {
+  const { engine, world, win, pointer, key, advance } = harness(t);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, autoServe: false, resumeCountdown: false });
+  engine.play(versusRules());
+  pointer('pointerdown', 1, 100, 100);
+  pointer('pointerdown', 2, 900, 450);
+  key('w');
+  key('ArrowDown');
+  win.innerWidth = 800;
+  win.dispatchEvent(new Event('resize'));
+  assert.equal(world.match.status, 'paused');
+  advance(16);
+  engine.resume();
+  assert.equal(world.match.status, 'serve');
+  for (const [id, x] of [
+    [1, 100],
+    [2, 700]
+  ]) {
+    pointer('pointermove', id!, x!, 400);
+    pointer('pointerup', id!, x!, 400);
+  }
+  advance(16);
+  assert.equal(world.player.target, world.player.y);
+  assert.equal(world.bot.target, world.bot.y);
+  assert.equal(world.match.serveRequested, false);
+});
+
+it('lesson resize preserves its step and target; unchanged viewport notifications do not pause', (t) => {
+  const { engine, world, win, advance } = harness(t);
+  engine.learn();
+  for (const event of ['resize', 'orientationchange']) win.dispatchEvent(new Event(event));
+  assert.equal(world.match.status, 'serve');
+  advance(16);
+  const lesson = { ...world.tutorial };
+  win.innerHeight = 700;
+  win.dispatchEvent(new Event('resize'));
+  assert.equal(world.match.status, 'paused');
+  advance(16);
+  assert.deepEqual(world.tutorial, lesson);
+  engine.resume();
+  for (let i = 0; i < 6; i++) advance(250);
+  assert.equal(world.match.status, 'serve');
+  assert.deepEqual(world.tutorial, lesson);
+  engine.pause();
+  assert.equal(engine.getSnapshot().pauseReason, null);
+  win.innerWidth = 1100;
+  win.dispatchEvent(new Event('resize'));
+  advance(16);
+  assert.equal(engine.getSnapshot().pauseReason, null, 'a manual pause stays manual');
+  engine.quitToMenu();
+  win.innerWidth = 1200;
+  win.dispatchEvent(new Event('resize'));
+  advance(16);
+  assert.equal(world.match.status, 'menu');
+  engine.learn();
+  world.tutorial!.step = 'complete';
+  win.innerWidth = 1300;
+  win.dispatchEvent(new Event('resize'));
+  advance(16);
+  assert.equal(world.match.status, 'serve', 'the completed lesson keeps its completion controls');
+  assert.equal(engine.getSnapshot().pauseReason, null);
 });
 
 it('canvas quality preserves the live world, both touch owners and held keys in either orientation', (t) => {

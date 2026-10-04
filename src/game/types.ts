@@ -417,6 +417,8 @@ export interface GoalView {
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
   status: GameStatus;
+  /** Explain an automatic pause while the court is being resized or rotated. */
+  pauseReason: 'resize' | null;
   /** 3, 2, 1 while a frozen rally is about to resume; 0 otherwise. */
   resumeIn: number;
   mode: ModeId;

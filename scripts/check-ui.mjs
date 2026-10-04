@@ -54,6 +54,9 @@ const query = (selector) => {
   assert.ok(element, `Missing ${selector}`);
   return element;
 };
+// DOM-object assertion diffs can traverse React's entire graph on a failure.
+const absent = (selector) =>
+  assert.ok(win.document.querySelector(selector) === null, `Unexpected ${selector}`);
 const focused = (element) =>
   assert.ok(
     win.document.activeElement === element,
@@ -206,6 +209,34 @@ try {
   );
 
   await check(
+    'resize pause explains the interruption and keeps Resume as its initial action',
+    async () => {
+      let resumes = 0;
+      const panel = (resized) =>
+        h(
+          Overlay,
+          { show: true, label: 'Paused', onDismiss: noop, gameShortcuts: true },
+          h(PausePanel, {
+            label: 'Quick Match',
+            resized,
+            onResume: () => resumes++,
+            onSettings: noop,
+            onRestart: noop,
+            onQuit: noop
+          })
+        );
+      await mount(panel(true));
+      focused(button('Resume'));
+      assert.match(query('[role="dialog"]').textContent, /court size changed.*resume when ready/i);
+      await click(button('Resume'));
+      assert.equal(resumes, 1);
+      await act(() => root.render(h(StrictMode, null, panel(false))));
+      assert.doesNotMatch(query('[role="dialog"]').textContent, /court size changed/i);
+      focused(button('Resume'));
+    }
+  );
+
+  await check(
     'Exit starts on Keep playing; background clicks and Escape cannot confirm exit',
     async () => {
       let exits = 0;
@@ -231,7 +262,7 @@ try {
       assert.equal(exits, 0);
       await key(button('Keep playing'), 'Escape');
       assert.equal(exits, 0);
-      assert.equal(win.document.querySelector('[role="dialog"]'), null);
+      absent('[role="dialog"]');
       focused(button('Show exit'));
     }
   );
@@ -251,7 +282,7 @@ try {
         if (close === 'button') await click(cancel);
         else if (close === 'escape') await key(win.document.activeElement, 'Escape');
         else await act(() => query('button[aria-label="Close talent details"]').click());
-        assert.equal(win.document.querySelector('[role="dialog"]'), null);
+        absent('[role="dialog"]');
         focused(tile);
       }
     }
@@ -312,7 +343,7 @@ try {
     focused(button('Inner action'));
     assert.equal(query('[aria-label="Outer"]').hasAttribute('inert'), true);
     await key(button('Inner action'), 'Escape');
-    assert.equal(win.document.querySelector('[aria-label="Inner"]'), null);
+    absent('[aria-label="Inner"]');
     assert.equal(query('[aria-label="Outer"]').hasAttribute('inert'), false);
     focused(opener);
   });
@@ -344,7 +375,7 @@ try {
         focused(dialog);
       }
       await key(dialog, 'Escape');
-      assert.equal(win.document.querySelector('[role="dialog"]'), null);
+      absent('[role="dialog"]');
       focused(query('canvas'));
     }
   );
@@ -576,7 +607,7 @@ try {
           await click(button('Settings'));
           focused(query('h2'));
           assert.match(host.textContent, /Game paused/);
-          assert.equal(win.document.querySelector('[role="dialog"]'), null);
+          absent('[role="dialog"]');
           const low = query('[aria-label="Court image quality"] button:last-child');
           await click(low);
           assert.equal(settingsStore.getSnapshot().canvasQuality, 'low');
@@ -693,6 +724,522 @@ try {
       await click(button('Return to paused game'));
       focused(button('Resume'));
       assert.ok(caughtErrors.includes(failure));
+    }
+  );
+
+  const [
+    { ConfirmAction },
+    { TournamentScreen },
+    { GauntletScreen },
+    { ProfileScreen },
+    { useProfile },
+    { profileStore },
+    progression,
+    { accountStore },
+    { settingsStore },
+    { createWorld },
+    { startMatch, publishResult },
+    { quickMatchRules },
+    { useBackHandler },
+    routing
+  ] = await Promise.all(
+    [
+      '/src/ui/components/ConfirmAction.tsx',
+      '/src/ui/screens/TournamentScreen.tsx',
+      '/src/ui/screens/GauntletScreen.tsx',
+      '/src/ui/screens/ProfileScreen.tsx',
+      '/src/ui/hooks/useProfile.ts',
+      '/src/core/profile/store.ts',
+      '/src/core/account/progression.ts',
+      '/src/core/account/store.ts',
+      '/src/core/settings/store.ts',
+      '/src/game/world.ts',
+      '/src/game/match.ts',
+      '/src/core/modes/rules.ts',
+      '/src/ui/hooks/useBackHandler.ts',
+      '/src/core/platform/back.ts'
+    ].map((path) => vite.ssrLoadModule(path))
+  );
+  routing.installBackRouting();
+
+  await check(
+    'progress-loss confirmation names its consequence, keeps focus on Cancel and executes once',
+    async () => {
+      let confirms = 0;
+      let backs = 0;
+      function Fixture() {
+        const [show, setShow] = useState(false);
+        useBackHandler(true, () => backs++);
+        return h(
+          Fragment,
+          null,
+          h('button', { onClick: () => setShow(true) }, 'Discard saved progress'),
+          h(ConfirmAction, {
+            show,
+            title: 'Discard this save?',
+            description: 'Discarding cannot be undone.',
+            cancelLabel: 'Keep save',
+            confirmLabel: 'Discard save',
+            onCancel: () => setShow(false),
+            onConfirm: () => confirms++
+          })
+        );
+      }
+      await mount(h(Fixture));
+      const opener = button('Discard saved progress');
+      for (const cancel of ['button', 'escape', 'back']) {
+        await click(opener);
+        const dialog = query('[role="alertdialog"]');
+        assert.equal(dialog.getAttribute('aria-modal'), 'true');
+        assert.equal(dialog.dataset.gameModal, 'blocked');
+        assert.equal(
+          query(`#${dialog.getAttribute('aria-labelledby')}`).textContent,
+          'Discard this save?'
+        );
+        assert.equal(
+          query(`#${dialog.getAttribute('aria-describedby')}`).textContent,
+          'Discarding cannot be undone.'
+        );
+        focused(button('Keep save'));
+        await key(button('Keep save'), 'Tab', true);
+        focused(button('Discard save'));
+        await key(button('Discard save'), 'Tab');
+        focused(button('Keep save'));
+        if (cancel === 'button') await click(button('Keep save'));
+        else if (cancel === 'escape') await key(button('Keep save'), 'Escape');
+        else await act(() => win.dispatchEvent(new win.PopStateEvent('popstate')));
+        assert.equal(confirms, 0);
+        assert.equal(backs, 0, 'Back cancels the dialog before leaving its screen');
+        focused(opener);
+      }
+      await click(opener);
+      const confirm = button('Discard save');
+      // A slow consumer can leave the dialog mounted after accepting the first click.
+      await act(() => {
+        confirm.click();
+        confirm.click();
+      });
+      assert.equal(confirms, 1);
+      await click(button('Keep save'));
+      await click(opener);
+      await click(button('Discard save'));
+      assert.equal(confirms, 2, 'a fresh opening permits one fresh action');
+      await click(button('Keep save'));
+    }
+  );
+
+  // Seed earned progress through the real local progression path; all storage
+  // belongs to this isolated Happy DOM window, never the player's browser.
+  const world = createWorld(new Proxy({}, { get: () => () => 0 }), 1);
+  startMatch(world, quickMatchRules('rookie'));
+  world.match.score.you = world.rules.winScore;
+  world.match.score.bot = 2;
+  world.match.winner = 'you';
+  world.match.elapsed = 60;
+  publishResult(world);
+  progression.recordMatch(world.match.result);
+  assert.ok(profileStore.getSnapshot().xp > 0);
+
+  await check(
+    'Tournament cancellation preserves the saved cup; only confirmation ends it',
+    async () => {
+      await act(() => progression.startTournament(0));
+      let abandons = 0;
+      let backs = 0;
+      function Fixture() {
+        const profile = useProfile();
+        useBackHandler(true, () => backs++);
+        return h(TournamentScreen, {
+          profile,
+          onPlay: noop,
+          onStart: noop,
+          onBack: () => backs++,
+          onAbandon: () => {
+            abandons++;
+            progression.abandonTournament();
+          }
+        });
+      }
+      await mount(h(Fixture));
+      const before = JSON.stringify(profileStore.getSnapshot());
+      for (const cancel of ['button', 'escape', 'back']) {
+        const opener = button('Give up the cup');
+        await click(opener);
+        focused(button('Keep cup'));
+        assert.match(query('[role="alertdialog"]').textContent, /Bronze Cup at round 1 of 3/);
+        // A second click on the original trigger cannot serve as acceptance.
+        await act(() => opener.click());
+        assert.equal(abandons, 0);
+        if (cancel === 'button') await click(button('Keep cup'));
+        else if (cancel === 'escape') await key(button('Keep cup'), 'Escape');
+        else await act(() => win.dispatchEvent(new win.PopStateEvent('popstate')));
+        assert.equal(JSON.stringify(profileStore.getSnapshot()), before);
+        assert.equal(backs, 0);
+        focused(opener);
+      }
+      await click(button('Give up the cup'));
+      // An authoritative replacement must not inherit the old cup's confirmation.
+      await act(() => progression.startTournament(0));
+      absent('[role="alertdialog"]');
+      assert.equal(abandons, 0);
+      const saved = profileStore.getSnapshot();
+      const cup = JSON.stringify(saved.tournament);
+      await click(button('Give up the cup'));
+      await click(button('Give up cup'));
+      assert.equal(abandons, 1);
+      const after = profileStore.getSnapshot();
+      assert.equal(after.tournament, null);
+      assert.equal(JSON.stringify({ ...after.lastTournament, finished: false }), cup);
+      assert.equal(after.lastTournament.champion, false);
+      assert.equal(after.xp, saved.xp);
+      assert.deepEqual(after.unlocks, saved.unlocks);
+      absent('[role="alertdialog"]');
+    }
+  );
+
+  await check(
+    'Gauntlet cancellation preserves the run; a replaced run needs a fresh confirmation',
+    async () => {
+      await act(() => assert.equal(progression.startRun(0), true));
+      let abandons = 0;
+      let backs = 0;
+      function Fixture() {
+        const profile = useProfile();
+        useBackHandler(true, () => backs++);
+        return h(GauntletScreen, {
+          profile,
+          onStart: noop,
+          onPlay: noop,
+          onPick: noop,
+          onBack: () => backs++,
+          onAbandon: () => {
+            abandons++;
+            progression.abandonRun();
+          }
+        });
+      }
+      await mount(h(Fixture));
+      const before = JSON.stringify(profileStore.getSnapshot());
+      for (const cancel of ['button', 'escape', 'back']) {
+        const opener = button('End run');
+        await click(opener);
+        focused(button('Keep run'));
+        assert.match(query('[role="alertdialog"]').textContent, /match 1 of 9/);
+        await act(() => opener.click());
+        assert.equal(abandons, 0);
+        if (cancel === 'button') await click(button('Keep run'));
+        else if (cancel === 'escape') await key(button('Keep run'), 'Escape');
+        else await act(() => win.dispatchEvent(new win.PopStateEvent('popstate')));
+        assert.equal(JSON.stringify(profileStore.getSnapshot()), before);
+        assert.equal(backs, 0);
+        focused(opener);
+      }
+      await click(button('End run'));
+      await act(() => {
+        progression.abandonRun();
+        progression.startRun(0);
+      });
+      absent('[role="alertdialog"]');
+      assert.equal(abandons, 0);
+      const saved = profileStore.getSnapshot();
+      const run = saved.progress.run;
+      const records = saved.progress.runRecords;
+      await click(button('End run'));
+      await click(button('End this run'));
+      assert.equal(abandons, 1);
+      const after = profileStore.getSnapshot();
+      assert.equal(after.progress.run, null);
+      assert.equal(after.progress.lastRun.seed, run.seed);
+      assert.equal(after.progress.lastRun.finished, true);
+      assert.equal(after.progress.lastRun.won, false);
+      assert.equal(after.progress.runRecords.runs, records.runs + 1);
+      assert.equal(after.progress.runRecords.clears, records.clears);
+      assert.equal(after.xp, saved.xp);
+      assert.deepEqual(after.unlocks, saved.unlocks);
+      absent('[role="alertdialog"]');
+    }
+  );
+
+  await check(
+    'guest reset requires explicit acceptance and is unavailable for account restoration, cloud or demo',
+    async () => {
+      await act(() => profileStore.setIdentity('UI Tester', 'ring'));
+      const device = settingsStore.getSnapshot();
+      const deviceSave = win.localStorage.getItem('bball.settings');
+      let backs = 0;
+      let status = 'guest';
+      function Fixture() {
+        const profile = useProfile();
+        useBackHandler(true, () => backs++);
+        return h(ProfileScreen, {
+          profile,
+          account: { ...accountStore.getSnapshot(), status },
+          onAccount: noop,
+          onAchievements: noop,
+          onCustomize: noop,
+          onSettings: noop,
+          onDemo: noop,
+          onBack: () => backs++
+        });
+      }
+      await mount(h(Fixture));
+      const before = JSON.stringify(profileStore.getSnapshot());
+      const stored = win.localStorage.getItem('bball.profile');
+      for (const cancel of ['button', 'escape', 'back']) {
+        const opener = button('Reset progress');
+        await click(opener);
+        focused(button('Keep progress'));
+        assert.match(query('[role="alertdialog"]').textContent, /cannot be undone/);
+        await act(() => opener.click());
+        if (cancel === 'button') await click(button('Keep progress'));
+        else if (cancel === 'escape') await key(button('Keep progress'), 'Escape');
+        else await act(() => win.dispatchEvent(new win.PopStateEvent('popstate')));
+        assert.equal(JSON.stringify(profileStore.getSnapshot()), before);
+        assert.equal(win.localStorage.getItem('bball.profile'), stored);
+        assert.equal(backs, 0);
+        focused(opener);
+      }
+      await click(button('Reset progress'));
+      for (status of ['restoring', 'authenticated']) {
+        await act(() => root.render(h(StrictMode, null, h(Fixture))));
+        absent('[role="alertdialog"]');
+        assert.equal(
+          [...host.querySelectorAll('button')].some(
+            (entry) => entry.textContent === 'Reset progress'
+          ),
+          false
+        );
+        assert.equal(JSON.stringify(profileStore.getSnapshot()), before);
+      }
+      status = 'guest';
+      await act(() => root.render(h(StrictMode, null, h(Fixture))));
+      assert.ok(
+        !win.document.querySelector('[role="alertdialog"]'),
+        'returning to guest must not restore an armed reset'
+      );
+      await click(button('Reset progress'));
+      await act(() => profileStore.startDemo(5));
+      absent('[role="alertdialog"]');
+      assert.match(host.textContent, /Demo profile/);
+      assert.equal(
+        [...host.querySelectorAll('button')].some(
+          (entry) => entry.textContent === 'Reset progress'
+        ),
+        false
+      );
+      await act(() => profileStore.endDemo());
+      assert.equal(JSON.stringify(profileStore.getSnapshot()), before);
+      assert.ok(
+        !win.document.querySelector('[role="alertdialog"]'),
+        'leaving Demo must not restore an armed reset'
+      );
+      // Starting another view of the real profile does not retain an armed reset.
+      await mount(h(Fixture));
+      await click(button('Reset progress'));
+      await click(button('Erase guest progress'));
+      const after = profileStore.getSnapshot();
+      assert.equal(after.xp, 0);
+      assert.equal(after.name, 'Player');
+      assert.equal(after.stats.matches, 0);
+      assert.equal(query('input[aria-label="Player name"]').value, 'Player');
+      absent('[role="alertdialog"]');
+      assert.equal(settingsStore.getSnapshot(), device);
+      assert.equal(win.localStorage.getItem('bball.settings'), deviceSave);
+    }
+  );
+
+  await check(
+    'failed device saves are visible and Exit never promises unsaved progress is safe',
+    async () => {
+      const storage = win.localStorage;
+      const original = Object.getOwnPropertyDescriptor(win, 'localStorage');
+      const write = storage.setItem.bind(storage);
+      let blocked = true;
+      const failingWrite = (key, value) => {
+        if (blocked) throw new win.DOMException('Storage full', 'QuotaExceededError');
+        write(key, value);
+      };
+      Object.defineProperty(win, 'localStorage', {
+        configurable: true,
+        value: new Proxy(storage, {
+          get: (target, key) => (key === 'setItem' ? failingWrite : Reflect.get(target, key))
+        })
+      });
+      try {
+        assert.throws(() => win.localStorage.setItem('bball.test.probe', 'unused'), {
+          name: 'QuotaExceededError'
+        });
+        await act(() => profileStore.setIdentity('Unsaved player', 'ring'));
+        await mount(
+          h(
+            Overlay,
+            { show: true, label: 'Exit', onDismiss: noop },
+            h(ExitPanel, { native: true, onExit: noop, onCancel: noop })
+          )
+        );
+        assert.ok(
+          !win.document.body.textContent.includes('Your progress is saved on this device.'),
+          'Exit must not reassure the player after a failed device write'
+        );
+        assert.match(win.document.body.textContent, /could not be saved on this device/i);
+        focused(button('Keep playing'));
+        await click(button('Try saving again'));
+        assert.match(win.document.body.textContent, /could not be saved on this device/i);
+        blocked = false;
+        await click(button('Try saving again'));
+        assert.equal(JSON.parse(storage.getItem('bball.profile')).data.name, 'Unsaved player');
+        assert.match(win.document.body.textContent, /Changes saved on this device/);
+        focused(query('[role="status"]'));
+      } finally {
+        Object.defineProperty(win, 'localStorage', original);
+      }
+    }
+  );
+
+  await check(
+    'device retry survives menu changes and Demo without replaying earned rewards or saving the demo',
+    async () => {
+      const { HomeScreen } = await vite.ssrLoadModule('/src/ui/screens/HomeScreen.tsx');
+      const { Screen } = await vite.ssrLoadModule('/src/ui/components/Screen.tsx');
+      const storage = win.localStorage;
+      const original = Object.getOwnPropertyDescriptor(win, 'localStorage');
+      const write = storage.setItem.bind(storage);
+      let blocked = true;
+      Object.defineProperty(win, 'localStorage', {
+        configurable: true,
+        value: new Proxy(storage, {
+          get: (target, key) =>
+            key === 'setItem'
+              ? (key, value) => {
+                  if (blocked) throw new win.DOMException('Storage full', 'QuotaExceededError');
+                  write(key, value);
+                }
+              : Reflect.get(target, key)
+        })
+      });
+      try {
+        const earned = createWorld(new Proxy({}, { get: () => () => 0 }), 1);
+        startMatch(earned, quickMatchRules('rookie'));
+        earned.match.score.you = earned.rules.winScore;
+        earned.match.winner = 'you';
+        earned.match.elapsed = 60;
+        publishResult(earned);
+        await act(() => progression.recordMatch(earned.match.result));
+        await act(() => settingsStore.update({ touchSensitivity: 1.75 }));
+        const profile = profileStore.getSnapshot();
+        const settings = settingsStore.getSnapshot();
+        await mount(h(Screen, { title: 'Progress' }, h('button', null, 'Continue')));
+        assert.match(host.textContent, /could not be saved/);
+        focused(query('h2'));
+        await mount(
+          h(HomeScreen, {
+            profile,
+            account: accountStore.getSnapshot(),
+            demoLevel: null,
+            onPick: noop,
+            onModes: noop,
+            onExitDemo: noop,
+            onProfile: noop,
+            onTalents: noop,
+            onSettings: noop,
+            onHelp: noop
+          })
+        );
+        assert.match(host.textContent, /could not be saved/);
+        focused(query('h1'));
+        await act(() => profileStore.startDemo(5));
+        await act(() => profileStore.setIdentity('Throwaway demo', 'ring'));
+        blocked = false;
+        await click(button('Try saving again'));
+        const saved = JSON.parse(storage.getItem('bball.profile')).data;
+        assert.equal(saved.xp, profile.xp);
+        assert.equal(saved.name, profile.name);
+        assert.equal(saved.stats.matches, profile.stats.matches);
+        assert.equal(JSON.parse(storage.getItem('bball.settings')).data.touchSensitivity, 1.75);
+        assert.equal(profileStore.getDemoLevel(), 5);
+        focused(query('[role="status"]'));
+        await act(() => profileStore.endDemo());
+        assert.ok(
+          profileStore.getSnapshot() === profile,
+          'retry must not apply a second match or change the real save'
+        );
+        assert.ok(settingsStore.getSnapshot() === settings, 'retry must not reapply preferences');
+      } finally {
+        Object.defineProperty(win, 'localStorage', original);
+      }
+    }
+  );
+
+  await check('guest and offline status never claim a failed device save succeeded', async () => {
+    const { SyncBadge } = await vite.ssrLoadModule('/src/ui/components/SyncBadge.tsx');
+    const { localSaveStatus } = await vite.ssrLoadModule('/src/core/storage/localStore.ts');
+    const original = Object.getOwnPropertyDescriptor(win, 'localStorage');
+    Object.defineProperty(win, 'localStorage', {
+      configurable: true,
+      get: () => {
+        throw new win.DOMException('Storage blocked', 'SecurityError');
+      }
+    });
+    try {
+      await act(() => settingsStore.update({ touchSensitivity: 1.5 }));
+      const guest = accountStore.getSnapshot();
+      await mount(h(SyncBadge, { account: guest, showGuest: true }));
+      assert.equal(host.textContent, 'Playing as guest');
+      await mount(
+        h(SyncBadge, {
+          account: { ...guest, status: 'authenticated', sync: 'offline', pending: 2 }
+        })
+      );
+      assert.ok(!host.textContent.includes('progress is saved here'));
+      Object.defineProperty(win, 'localStorage', original);
+      await act(() => assert.equal(localSaveStatus.retry(), true));
+      assert.match(host.textContent, /Offline - progress is saved here/);
+    } finally {
+      Object.defineProperty(win, 'localStorage', original);
+    }
+  });
+
+  await check(
+    'recovery protects an unread existing record and explains how to restore it',
+    async () => {
+      const { loadRecord, saveRecord, clearRecord, localSaveStatus } = await vite.ssrLoadModule(
+        '/src/core/storage/localStore.ts'
+      );
+      const { Screen } = await vite.ssrLoadModule('/src/ui/components/Screen.tsx');
+      const spec = {
+        key: 'bball.test.protected',
+        version: 1,
+        create: () => ({}),
+        migrate: (value) => value,
+        validate: (value) => value
+      };
+      const storage = win.localStorage;
+      const original = Object.getOwnPropertyDescriptor(win, 'localStorage');
+      const existing = JSON.stringify({ v: 1, data: { name: 'Existing player', xp: 500 } });
+      storage.setItem(spec.key, existing);
+      Object.defineProperty(win, 'localStorage', {
+        configurable: true,
+        get: () => {
+          throw new win.DOMException('Read blocked', 'SecurityError');
+        }
+      });
+      try {
+        loadRecord(spec);
+        await act(() => saveRecord(spec, { name: 'Temporary player', xp: 10 }));
+        await mount(h(Screen, { title: 'Progress' }, h('button', null, 'Continue')));
+        Object.defineProperty(win, 'localStorage', original);
+        await click(button('Try saving again'));
+        assert.equal(localSaveStatus.getSnapshot(), 'restore');
+        assert.equal(storage.getItem(spec.key), existing);
+        assert.match(query('[role="status"]').textContent, /Existing saved data is protected/);
+        assert.match(query('[role="status"]').textContent, /Reopen bBall to load it/);
+        focused(button('Try saving again'));
+        await click(button('Try saving again'));
+        assert.equal(storage.getItem(spec.key), existing);
+      } finally {
+        Object.defineProperty(win, 'localStorage', original);
+        await act(() => clearRecord(spec));
+      }
     }
   );
 

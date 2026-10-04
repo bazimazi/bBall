@@ -1,5 +1,6 @@
 import type { AccountState } from '../../core/account/store';
 import styles from '../Account.module.css';
+import { useLocalSave } from '../hooks/useLocalSave';
 
 interface SyncBadgeProps {
   account: AccountState;
@@ -7,12 +8,15 @@ interface SyncBadgeProps {
   showGuest?: boolean;
 }
 
-function describe(account: AccountState): { tone: string; text: string } {
+function describe(account: AccountState, unsaved: boolean): { tone: string; text: string } {
   // One dot class, plus at most one tone on top of it.
   const dot = (tone?: string): string => [styles.dot, tone].filter(Boolean).join(' ');
 
   if (account.status === 'guest') {
-    return { tone: dot(), text: 'Playing as guest - progress is on this device' };
+    return {
+      tone: dot(),
+      text: unsaved ? 'Playing as guest' : 'Playing as guest - progress is on this device'
+    };
   }
   if (account.status === 'restoring') {
     return { tone: dot(styles.dotSyncing), text: 'Restoring your account...' };
@@ -25,7 +29,7 @@ function describe(account: AccountState): { tone: string; text: string } {
         tone: dot(styles.dotOffline),
         // The reassurance is the point: offline is a normal state here, not a
         // failure, and a player mid-cup needs to know their run is safe.
-        text: account.pending > 0 ? 'Offline - progress is saved here' : 'Offline'
+        text: account.pending > 0 && !unsaved ? 'Offline - progress is saved here' : 'Offline'
       };
     case 'error':
       return { tone: dot(styles.dotError), text: 'Could not reach your account' };
@@ -39,8 +43,9 @@ function describe(account: AccountState): { tone: string; text: string } {
 
 /** One line of status: a dot, a sentence, and how much is still waiting. */
 export function SyncBadge({ account, showGuest = false }: SyncBadgeProps) {
+  const unsaved = useLocalSave() !== 'saved';
   if (account.status === 'guest' && !showGuest) return null;
-  const { tone, text } = describe(account);
+  const { tone, text } = describe(account, unsaved);
 
   return (
     <p className={styles.syncRow} role="status">

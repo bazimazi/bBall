@@ -8,6 +8,7 @@ import { AVATARS, type PlayerProfile } from '../../core/profile/types';
 import type { AccountState } from '../../core/account/store';
 import { Avatar } from '../components/Avatar';
 import { Screen } from '../components/Screen';
+import { ConfirmAction } from '../components/ConfirmAction';
 import { SyncBadge } from '../components/SyncBadge';
 import { XpBar } from '../components/XpBar';
 import { useDemoLevel } from '../hooks/useProfile';
@@ -40,6 +41,34 @@ function playTime(seconds: number): string {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
+/** Unmount on account/demo changes so a previous reset request cannot become active again. */
+function GuestReset({ onReset }: { onReset: () => void }) {
+  const [show, setShow] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className={`${styles.ghost} ${styles.danger}`}
+        onClick={() => setShow(true)}
+      >
+        Reset progress
+      </button>
+      <ConfirmAction
+        show={show}
+        title="Reset guest progress?"
+        description="This erases this device's guest profile and starts over. XP, records, Journey stars, talents, achievements and cosmetic unlocks will be lost. This cannot be undone. Device settings stay."
+        cancelLabel="Keep progress"
+        confirmLabel="Erase guest progress"
+        onCancel={() => setShow(false)}
+        onConfirm={() => {
+          setShow(false);
+          onReset();
+        }}
+      />
+    </>
+  );
+}
+
 export function ProfileScreen({
   profile,
   account,
@@ -51,7 +80,6 @@ export function ProfileScreen({
   onBack
 }: ProfileScreenProps) {
   const [name, setName] = useState(profile.name);
-  const [confirmReset, setConfirmReset] = useState(false);
   const demoLevel = useDemoLevel();
 
   const stats = profile.stats;
@@ -154,30 +182,23 @@ export function ProfileScreen({
       {demoLevel !== null ? (
         // There is nothing here to erase: a demo profile is never written.
         <p className={styles.note}>Demo profile · level {demoLevel}. Nothing here is saved.</p>
-      ) : account.status === 'authenticated' ? (
+      ) : account.status !== 'guest' ? (
         // The server owns this save, so wiping the local copy would achieve
         // nothing but a re-download. Deleting the account is the real action,
         // and it lives on the account screen where it can be confirmed.
         <p className={styles.note}>
-          This progress lives on your account. To erase it, delete the account from the account
-          screen.
+          {account.status === 'authenticated'
+            ? 'This progress lives on your account. To erase it, delete the account from the account screen.'
+            : 'Restoring your account. Progress reset is unavailable until this finishes.'}
         </p>
       ) : (
-        <button
-          type="button"
-          className={`${styles.ghost} ${styles.danger}`}
-          onClick={() => {
-            if (confirmReset) {
-              profileStore.reset();
-              setName('Player');
-              setConfirmReset(false);
-            } else {
-              setConfirmReset(true);
-            }
+        <GuestReset
+          key={profile.id}
+          onReset={() => {
+            profileStore.reset();
+            setName('Player');
           }}
-        >
-          {confirmReset ? 'Tap again to erase everything' : 'Reset progress'}
-        </button>
+        />
       )}
 
       <button type="button" className={styles.ghost} onClick={onDemo}>

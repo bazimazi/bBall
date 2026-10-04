@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from 'react';
 import { useScreenFocus } from '../hooks/useScreenFocus';
+import { SaveNotice } from './SaveNotice';
 
 import styles from '../Screens.module.css';
 
@@ -67,7 +68,10 @@ export function Screen({ title, subtitle, onBack, onEscape, children, footer }: 
         </span>
       </header>
 
-      <div className={styles.body}>{children}</div>
+      <div className={styles.body}>
+        <SaveNotice />
+        {children}
+      </div>
 
       {footer && <footer className={styles.footer}>{footer}</footer>}
     </section>

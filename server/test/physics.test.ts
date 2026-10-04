@@ -2,11 +2,145 @@ import assert from 'node:assert/strict';
 import { it } from 'node:test';
 import { BALANCE } from '../../src/core/balance/config';
 import type { GameAudio } from '../../src/game/audio';
-import { BALL_R, FIXED_DT, PADDLE_W } from '../../src/game/constants';
+import { BALL_R, FIELD_H, FIXED_DT, PADDLE_W } from '../../src/game/constants';
 import { movePaddle, stepBall } from '../../src/game/physics';
-import { createWorld, placePaddles, type World } from '../../src/game/world';
+import { createWorld, placePaddles, rescaleField, type World } from '../../src/game/world';
 
 const silent = new Proxy({}, { get: () => () => 0 }) as unknown as GameAudio;
+
+for (const [before, after] of [
+  [1290, 750],
+  [750, 1290]
+]) {
+  for (const side of ['you', 'bot'] as const) {
+    it(`resizing ${before} to ${after} keeps an incoming ball in front of the ${side} paddle`, () => {
+      const world = createWorld(silent, 0);
+      world.view.w = before!;
+      placePaddles(world);
+      world.match.status = 'play';
+      const paddle = side === 'you' ? world.player : world.bot;
+      const dir = side === 'you' ? 1 : -1;
+      world.ball.x = paddle.x + dir * (PADDLE_W / 2 + BALL_R + 1);
+      world.ball.px = world.ball.x;
+      world.ball.y = paddle.y;
+      world.ball.vx = -dir * 600;
+      world.ball.vy = 0;
+      world.ball.speed = 600;
+      world.view.w = after!;
+      rescaleField(world, after! / before!);
+      placePaddles(world);
+      const face = paddle.x + dir * (PADDLE_W / 2 + BALL_R);
+      assert.ok(dir * (world.ball.x - face) > 0, 'resize must not skip the contact plane');
+      stepBall(world, FIXED_DT);
+      assert.equal(world.match.rally, 1, 'the aligned paddle still makes its return');
+      assert.ok(dir * world.ball.vx > 0);
+      assert.deepEqual(world.match.score, { you: 0, bot: 0 });
+    });
+  }
+}
+
+it('resize never brings a missed ball back across either paddle contact plane', () => {
+  for (const [before, after] of [
+    [1290, 750],
+    [750, 1290]
+  ]) {
+    for (const side of ['you', 'bot'] as const) {
+      const world = createWorld(silent, 0);
+      world.view.w = before!;
+      placePaddles(world);
+      world.match.status = 'play';
+      const paddle = side === 'you' ? world.player : world.bot;
+      const dir = side === 'you' ? 1 : -1;
+      world.ball.x = paddle.x + dir * (PADDLE_W / 2 + BALL_R - 10);
+      world.ball.y = 100;
+      world.ball.vx = -dir * 600;
+      world.ball.vy = 0;
+      world.ball.speed = 600;
+      world.view.w = after!;
+      rescaleField(world, after! / before!);
+      placePaddles(world);
+      const face = paddle.x + dir * (PADDLE_W / 2 + BALL_R);
+      assert.ok(dir * (world.ball.x - face) < 0, 'an existing miss must stay missed');
+      for (let i = 0; i < 60 && world.match.status === 'play'; i++) stepBall(world, FIXED_DT);
+      assert.equal(world.match.rally, 0);
+      assert.equal(world.match.score[side === 'you' ? 'bot' : 'you'], 1);
+    }
+  }
+});
+
+it('repeated shrink and expand preserve ball speed, field height, previous position and trails', () => {
+  const world = createWorld(silent, 0);
+  world.view.w = 1290;
+  placePaddles(world);
+  Object.assign(world.ball, {
+    x: 450,
+    px: 455,
+    y: 225,
+    py: 222,
+    vx: -600,
+    vy: 400,
+    speed: Math.hypot(600, 400)
+  });
+  const before = { ...world.ball };
+  const trail = [
+    { x: 50, y: 120 },
+    { x: 300, y: 200 },
+    { x: 1270, y: 250 }
+  ];
+  world.trail.push(...trail.map((point) => ({ ...point })));
+  for (let i = 0; i < 10; i++) {
+    world.view.w = 750;
+    rescaleField(world, 750 / 1290);
+    assert.ok(Math.abs(Math.hypot(world.ball.vx, world.ball.vy) - before.speed) < 1e-8);
+    assert.equal(world.ball.y, before.y);
+    assert.equal(world.view.h, FIELD_H);
+    world.view.w = 1290;
+    rescaleField(world, 1290 / 750);
+  }
+  for (const key of ['x', 'px', 'vx', 'vy'] as const)
+    assert.ok(Math.abs(world.ball[key] - before[key]) < 1e-8, `${key} survives a round trip`);
+  assert.equal(world.ball.py, before.py);
+  for (const [i, point] of world.trail.entries()) {
+    assert.ok(Math.abs(point.x - trail[i]!.x) < 1e-8);
+    assert.equal(point.y, trail[i]!.y);
+  }
+});
+
+it('resizing remaps wrapped replay frames before and during playback without changing its clock or result', () => {
+  const world = createWorld(silent, 0);
+  world.view.w = 1290;
+  placePaddles(world);
+  const face = world.bot.x - PADDLE_W / 2 - BALL_R;
+  for (let i = 0; i < 330; i++) {
+    world.ball.x = face - 1;
+    world.ball.vx = 600;
+    world.ball.vy = 200;
+    world.replay.record(world);
+    world.replay.record(world);
+  }
+  world.replay.schedule();
+  const delay = world.replay.pending;
+  world.view.w = 750;
+  rescaleField(world, 750 / 1290);
+  placePaddles(world);
+  assert.equal(world.replay.pending, delay);
+  world.replay.begin(world);
+  world.replay.play(world, 0);
+  const progress = world.replay.progress;
+  const x = world.ball.x;
+  const newFace = world.bot.x - PADDLE_W / 2 - BALL_R;
+  assert.ok(x < newFace && newFace - x < 1, 'old frames remain just before the moved paddle');
+  assert.ok(Math.abs(Math.hypot(world.ball.vx, world.ball.vy) - Math.hypot(600, 200)) < 1e-3);
+  world.view.w = 1290;
+  rescaleField(world, 1290 / 750);
+  placePaddles(world);
+  assert.equal(world.replay.active, true);
+  assert.equal(world.replay.progress, progress);
+  world.replay.play(world, 0);
+  assert.ok(Math.abs(world.ball.x - (face - 1)) < 1e-3, 'playback uses the resized tape');
+  assert.equal(world.match.result, null);
+  assert.equal(world.match.resultId, 0);
+});
 
 function hit(world: World, side: 'you' | 'bot'): void {
   const paddle = side === 'you' ? world.player : world.bot;

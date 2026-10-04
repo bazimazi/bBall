@@ -1,6 +1,7 @@
 import { BALL_R } from './constants';
 import { hsla } from './palette';
 import type { Side } from './types';
+import { fieldResize } from './resize';
 import { ballHue, hueOf, pushTrail, type World } from './world';
 
 /**
@@ -125,6 +126,19 @@ export class ReplayRecorder {
   /** Is there enough of this point on tape to be worth showing? */
   get worthShowing(): boolean {
     return this.count >= MIN_FRAMES;
+  }
+
+  /** Keep every recorded frame on the same side of each resized contact plane. */
+  resize(before: number, after: number): void {
+    const resize = fieldResize(before, after);
+    for (let n = 0; n < this.count; n++) {
+      const i = this.slot(n);
+      const x = this.bx[i]!;
+      const [vx, vy] = resize.velocity(x, this.bvx[i]!, this.bvy[i]!);
+      this.bx[i] = resize.x(x);
+      this.bvx[i] = vx;
+      this.bvy[i] = vy;
+    }
   }
 
   /** The slot of the `n`-th oldest frame still held. */

@@ -404,6 +404,7 @@ export function App() {
       >
         <PausePanel
           label={snapshot.label}
+          resized={snapshot.pauseReason === 'resize'}
           score={
             !snapshot.tutorialStep && snapshot.winScore > 0
               ? { you: snapshot.scoreYou, bot: snapshot.scoreBot }

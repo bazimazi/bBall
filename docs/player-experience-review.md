@@ -157,6 +157,45 @@ a text field. This is an implementation of selected behaviors, not a claim
 of accessibility compliance.
 [W3C: Dialog (Modal) Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/).
 
+W3C also recommends focusing the least destructive action when a dialog precedes
+a difficult-to-reverse process. Its alert-dialog pattern connects the visible
+title and brief message to the dialog's accessible name and description. The
+audit found that giving up a cup took one click, while Gauntlet abandonment and
+guest reset used an armed second click without an explicit Cancel action. I
+applied that guidance through a shared confirmation with the consequence stated,
+Keep focused first, and Escape/Back cancellation. Guest reset is unavailable
+during account restoration as well as for signed-in and demo profiles. These
+changes make the decision explicit; reduced accidental loss or improved enjoyment
+still needs player evidence.
+[W3C: Dialog initial focus](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+and [W3C: Alert Dialog Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/alertdialog/).
+
+The overlay stylesheet also used only `dvh` to limit card height. MDN's
+compatibility data dates Safari support to 15.4, newer than the Safari 13 asset
+target. The shared card now declares a `vh` limit before the `dvh` override,
+retaining its existing scroll behavior on older webviews. This is a compatibility
+fix inferred from the stylesheet and supported-unit data; short-screen layout
+still needs physical-device verification.
+[MDN: Viewport lengths](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/length#relative_length_units_based_on_viewport)
+and [MDN: Length compatibility data](https://github.com/mdn/browser-compat-data/blob/main/css/types/length.json).
+
+Xbox's error-message guidance supports distinguishable errors with an explanation
+and a correction route. MDN documents that storage access can be blocked and
+that writes can fail when storage fills. The audit found that `saveRecord`
+returned failure without informing players, while Exit and offline status still
+claimed device persistence. Menus and Pause/Exit now explain an actual failed
+write and offer a retry. The latest failed profile, settings or outbox record
+stays in memory; retry writes it without repeating its domain operation. The
+notice stays outside live rallies. A targeted regression also reproduced retry
+overwriting an existing save after an unreadable startup. Writes now check for
+existing data in that case and protect it for the session; the notice explains
+reopening to restore it and losing changes made to that temporary data. This is
+a design application to test with players, not evidence of fewer lost saves or
+improved enjoyment.
+[XAG 115: Error messages and destructive actions](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/115),
+[MDN: localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage)
+and [MDN: Storage quotas](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria).
+
 SpecialEffect recommends making settings available throughout play so players
 can adjust them when they discover a need. Xbox's UI guidance also supports
 consistent navigation and a persistent route back. The audit found that Pause
@@ -181,8 +220,29 @@ and [MDN: Array compatibility data](https://github.com/mdn/browser-compat-data/b
 
 ## Reproduced problems and implemented changes
 
+The resize audit reproduced another contact problem: `rescaleField` multiplied
+the ball's x coordinate by the width ratio while paddle insets stayed fixed.
+Shrinking from 1290 to 750 field units moved a ball just before either contact
+plane behind it. Expanding also moved an imminent contact away from the paddle.
+All four incoming-contact regressions failed before the fix. The recorder kept
+old absolute coordinates, so a later closing replay could use the wrong court
+width. Both now map the space between contact planes and retain the fixed end
+zones; this also keeps existing misses behind their paddle. Velocity direction
+adapts to the stretched interior while ball speed stays constant.
+
+MDN documents window resize events when the document view changes, including
+their non-cancelable behavior. I applied the existing pause/resume mechanism
+before queued layout when CSS viewport dimensions change, with a short Pause
+explanation and an explicit resume. This is a design decision to let the player
+find the ball after reflow, not a requirement from that source. Notifications
+without changed court/input coordinates retain touch ownership and held keys.
+Real browser chrome and keyboard behavior, interruption frequency and player
+comfort need physical-device testing.
+[MDN: Window resize event](https://developer.mozilla.org/en-US/docs/Web/API/Window/resize_event).
+
 | Area                    | Evidence from the original code or regressions                                                                                                   | Resulting behaviour                                                                                                                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Court resize            | Scaling absolute ball coordinates crossed fixed paddle contact planes; recorded replay frames retained old widths.                               | Position mapping preserves pending returns and existing misses; trails and recorded replays adapt to the new court. Changed viewport dimensions pause until explicit resume.                           |
 | Wall and paddle contact | The ball was reflected at a wall before the paddle sweep, even when the paddle contact happened first.                                           | Contacts are resolved in time order, and remaining flight continues after each reflection.                                                                                                             |
 | Sweep near a wall       | The sweep interpolated a straight chord between positions on either side of a reflected path. A targeted case incorrectly incremented the rally. | Each straight flight segment is tested separately. The regression no longer records the incorrect paddle hit.                                                                                          |
 | Moving paddle placement | The return used the paddle's final position for an earlier ball contact. At 960 units/second it can move eight units in a fixed step.            | Reach and return angle use its interpolated position at the contact instant.                                                                                                                           |
@@ -195,6 +255,10 @@ and [MDN: Array compatibility data](https://github.com/mdn/browser-compat-data/b
 | Visual comfort          | Shake settings did not cover every flash or background movement.                                                                                 | Full and Calm effects are explicit game settings. System/browser reduced-motion settings are completely ignored, including canvas effects, result reveals and UI transitions.                          |
 | Keyboard behaviour      | Global movement handlers intercepted menu arrow keys and did not distinguish browser shortcut modifiers.                                         | Movement and skill keys are handled during live play. Ctrl, Alt and Meta combinations retain their normal behaviour.                                                                                   |
 | Opening card            | A quick serve could leave an intro card over the opening rally.                                                                                  | Launching clears the intro presentation so the ball's first approach stays readable.                                                                                                                   |
+| Saved cup               | Giving up a cup immediately ended it with one click.                                                                                             | A confirmation explains the lost cup attempt and preserved XP/unlocks. Keep, Escape and Back cancel.                                                                                                   |
+| Saved run               | The same End run button stayed armed for a second click, without an explicit Cancel action.                                                      | A confirmation explains the lost run, focuses Keep and requires a separate acceptance. A changed run discards the pending request.                                                                     |
+| Guest reset             | Reset used an armed second click and remained available while an account was restoring.                                                          | A confirmation explains the irreversible guest-profile loss and retained settings. Account restoration, signed-in profiles and Demo do not offer reset.                                                |
+| Device save failure     | Failed storage writes were silently ignored; Exit and offline text could still claim progress was saved.                                         | Menus and Pause/Exit show a save notice with retry. Only the latest record is retried; failed writes remain visible until saved or the record is explicitly forgotten.                                 |
 
 The physics retains the existing reach allowance, talent effects, speed caps
 and opponent tuning. Incoming talent slowdown is rechecked after a contact so
@@ -204,7 +268,7 @@ choices survive. Profile and cloud progression formats are unchanged.
 
 ## Validation
 
-All 282 tests passed, as did client and server type checking, ESLint and the
+All 302 tests passed, as did client and server type checking, ESLint and the
 production build. The two simulation soaks completed 828 matches in total with
 none of their reported stability alerts.
 
@@ -287,6 +351,59 @@ recovery. The UI fixture uses command spies; frozen-world behavior is checked
 separately through the real engine. It does not mount the entire App or verify
 physical webview Back behavior, actual downloads or visual layout.
 
+The saved-progress batch adds four UI checks, bringing `check:ui` to **16 checks**.
+They exercise the shared alert dialog's title/description references, Keep focus,
+Tab wrapping, focus return, button/Escape/Back cancellation and single acceptance
+even when its consumer leaves the dialog mounted. The real guest profile and
+progression stores verify that cancellation preserves saved progress, confirmed
+abandonment parks the finished cup/run without removing earned XP or unlocks,
+and explicit reset clears the guest profile while preserving device settings.
+Earned progress is seeded by publishing a constructed winning result through
+the real match/progression pipeline, rather than playing that match through
+physics. A replaced cup/run needs a fresh confirmation. Rendered account and
+demo transitions close a reset request, and returning to guest does not reopen
+it. Storage is isolated in the DOM fixture; no user save or live account is
+changed. These checks do not verify physical keyboard defaults, actual Android
+Back delivery, screen-reader announcements or card layout. Both production asset
+builds retain the `vh` declaration before `dvh`; that confirms emitted CSS, not
+scrolling behavior on a physical webview.
+
+The device-save batch adds seven domain tests and four UI checks, bringing
+`check:ui` to **20 checks**. Injected `SecurityError` and `QuotaExceededError`
+exercise denied access, full storage, partial recovery and the latest pending
+record. A successful unrelated write cannot clear another record's failure;
+forgetting an account cache cancels its pending write so retry cannot restore
+it. An invalid circular record remains a reported failure rather than throwing.
+Mounted Exit, menus, Home and sync badges verify truthful text, retry feedback,
+safe initial focus and focus on the success message after the retry button
+disappears. Real guest progression and settings stores verify that retry retains
+their current values, does not award the constructed match twice, and does not
+persist Demo. An unreadable startup followed by recovery preserves an existing
+record and reports how to restore it; without an older record, retry saves the
+temporary data normally. The lazy-page rendering check also covers the external
+store's server snapshot. No real storage quota, browser permissions or user save was
+changed. Full App mounting, physical-device layout and actual assistive-technology
+announcements remain unverified. Protected existing data is not merged with the
+temporary session: restoring it requires reopening and drops temporary changes
+to that record. Authentication/session storage, corrupt-payload repair and
+best-effort cache deletion retain their existing behavior.
+
+The resize batch adds thirteen regressions and one mounted UI check, bringing
+`check:ui` to **21 checks**. Seven physics/replay tests cover incoming returns at
+both paddles under shrink/expand, existing misses that still award their point,
+speed and trail round trips, and wrapped replay records resized before and
+during playback without changing its clock or publishing a result. Six real
+engine tests cover immediate pause before queued layout, serving, live play,
+countdown cancellation, held-key and gesture cleanup, Versus, retained lesson
+state, manual pause and menu behavior, and unchanged viewport notifications.
+The test clock now runs all queued animation-frame callbacks rather than
+overwriting the render callback with the layout callback. The UI check verifies
+the explanation, Resume focus and its action. Existing quality-change and
+system reduced-motion regressions still pass. These fixtures do not verify
+physical orientation events, browser chrome, virtual keyboards or perceived
+interruption frequency. Completed matches continue their resized replay; a
+completed lesson and menus do not open a resize Pause.
+
 An earlier rebuild ran out of available machine memory. Repeating it with two
 Rayon workers and a 256 MB Node heap succeeded and passed `check:bundle`.
 Earlier standard web builds passed; no persistent build-memory settings were
@@ -305,19 +422,20 @@ npm run check:ui
 node --import tsx scripts/sim.ts 6 pro
 ```
 
-The original single entry was 607.73 kB. After deferring menus and adding the
-rendering, focus and paused-settings behavior the entry is 464.75 kB and Vite
-no longer emits its 500 kB chunk warning. However, the complete initial static graph is **555.65 kB across
+The original single entry was 607.73 kB. With menu deferral and the subsequent
+rendering, focus, paused-settings, confirmation, device-save and resize behavior the
+entry is 465.36 kB and Vite no longer emits its 500 kB chunk warning.
+The complete initial static graph is **559.37 kB across
 17 JS files**, because shared domain
 code remains necessary. The comparable web-build measurements from
 `check:bundle` are:
 
 | Initial static payload | Before    | After     | Reduction |
 | ---------------------- | --------- | --------- | --------- |
-| JavaScript             | 607.73 kB | 555.65 kB | 8.6%      |
-| JavaScript, gzip       | 189.12 kB | 180.66 kB | 4.5%      |
-| CSS                    | 58.94 kB  | 47.37 kB  | 19.6%     |
-| CSS, gzip              | 12.22 kB  | 11.00 kB  | 10.0%     |
+| JavaScript             | 607.73 kB | 559.37 kB | 8.0%      |
+| JavaScript, gzip       | 189.12 kB | 182.37 kB | 3.6%      |
+| CSS                    | 58.94 kB  | 48.05 kB  | 18.5%     |
+| CSS, gzip              | 12.22 kB  | 11.32 kB  | 7.4%      |
 
 Gzip totals use Node's `gzipSync` at its default level, summed per unique file
 with the same method before and after. These are artifact bytes, not measured
@@ -329,8 +447,17 @@ relative to the rendering batch. Shared screen CSS now occupies a separate
 initial file, so the same 47.37 kB raw CSS compresses to 11.00 rather than
 9.91 kB across two files. Paused settings adds another 1.02 kB initial JS
 (0.26 kB gzip), with unchanged initial CSS. These are costs of the two batches,
-not further byte reductions. The Safari-targeted desktop-mode graph passed its check at
-563.60 kB JS (182.92 kB gzip) and 47.64 kB CSS (11.03 kB gzip); the final
+not further byte reductions. Saved-progress confirmation adds another 0.28 kB
+initial JS (0.12 kB gzip) and 0.21 kB CSS (0.04 kB gzip), compared with the
+paused-settings build. Its shared component remains deferred with the menus.
+Device-save recovery adds 2.32 kB initial JS (1.14 kB gzip) and 0.47 kB CSS
+(0.28 kB gzip), compared with the confirmation build. Initial CSS now spans
+three files. The smaller entry reflects shared-chunk movement; the complete
+initial graph grows, and these costs are not a speed improvement.
+Resize continuity adds 1.12 kB initial JS (0.45 kB gzip), compared with the
+device-save build, with unchanged initial CSS.
+The Safari-targeted desktop-mode graph passed its check at
+567.41 kB JS (184.56 kB gzip) and 48.31 kB CSS (11.35 kB gzip); the final
 `dist/` was regenerated as the web build. Native packaging and visual or
 on-device QA remain pending.
 
@@ -368,7 +495,7 @@ are a tradeoff to profile. No FPS, input-latency or battery improvement is claim
 
 ## Next changes to validate with players
 
-The first eight follow-ups have now been implemented:
+The first eleven follow-ups have now been implemented:
 
 - **First-rally lesson:** optional and replayable from How to play. A stationary
   dashed outline shows where to place the paddle. The learner moves, returns a
@@ -448,9 +575,44 @@ The first eight follow-ups have now been implemented:
   retain a return route, and recovery explains that Reload ends the match.
   Audio previews stop on leaving Settings. Preferences retain their existing
   device storage and system reduced motion remains completely ignored.
+- **Saved-progress decisions:** giving up a cup, ending a Gauntlet run and
+  resetting guest progress require a separate acceptance after the consequence
+  is explained. Keep receives focus first and cancels alongside Escape and Back.
+  The trigger cannot double as acceptance; each request can execute only once.
+  A changed cup/round or run context discards its pending confirmation. Guest
+  reset is unavailable during account restoration, while signed in or in Demo;
+  returning to guest requires a fresh request. Abandonment retains earned XP and
+  unlocks, while guest reset erases the guest profile and keeps device settings.
+  Existing save formats, cloud operations and account-deletion behavior retain
+  their rules. The shared card has a `vh` height fallback before `dvh` for older
+  webviews. The system reduced-motion policy remains unchanged.
+- **Truthful device-save feedback:** failed writes of profiles, settings and
+  offline queues show a notice in menus and Pause/Exit. The latest pending record
+  remains in memory; retry persists it without repeating rewards or purchases.
+  Partial recovery and unrelated successful writes leave other failures visible.
+  A normal successful write also clears that record's failure. Forgetting a cache
+  cancels its pending write, and retry during Demo preserves the parked real save.
+  Exit and offline/guest text stop claiming device persistence during failure.
+  If a startup read failed and an older record is later found, bBall protects it
+  from replacement and explains reopening to load it, with temporary changes
+  to that data lost. Retry can still save other pending records. With no older
+  record, the temporary data can save normally after storage access returns.
+  Success moves focus from the removed retry button to its status message.
+  Account sync retains its separate status, and no automatic reload, record
+  deletion or storage-permission change is added.
+- **Resize continuity:** changing CSS viewport dimensions pauses the active
+  match, serve or countdown before the queued layout. Pause explains the changed
+  court and requires an explicit Resume, using the player's countdown choice.
+  Ball and trail positions stretch between fixed paddle contact planes, so
+  pending contacts remain ahead and existing misses remain behind. Recorded
+  replay frames use the same mapping before and during playback. Score, lesson
+  state and cooldowns retain their values. Actual resizing clears steering and
+  gestures; unchanged notifications and court quality changes retain input.
+  Menus, completed lessons and finished matches do not enter resize Pause.
+  The system reduced-motion policy remains unchanged.
 
 These changes still need newcomer observation, screen-reader checks, and HUD
-and Settings/result layout and touch checks in both orientations. The last
+and Settings/result/confirmation/save-notice layout and touch checks in both orientations. The last
 browser inventory again returned no available surfaces. Automated lesson
 completion is evidence of functionality, not evidence that a human finds the
 lesson easy or the game more enjoyable.
@@ -469,6 +631,14 @@ sensitivity, and try both Practice paces. Ask about control, clarity and comfort
 After a loss, ask whether the suggestion accurately describes the attempt and
 helps choose a next step, or feels repetitive. Check that guide Back returns to
 the result and that retry remains easy to reach.
+Rotate or resize during an incoming shot, before serving and during a resume
+countdown. Check the resize explanation, retained score/lesson state, explicit
+resume and fresh drag. Repeat in Versus and with countdown disabled. Watch a
+closing replay after changing the width and during playback; its returns should
+remain aligned with the paddles. Include desktop window drags, mobile browser
+chrome and virtual keyboards, and record whether actual size-change pauses are
+helpful or too frequent. Unchanged viewport notifications must preserve play
+and input. Check the Pause explanation on short landscape screens.
 Navigate menus using only the keyboard. Check that new headings announce the
 page, Tab moves into its controls, and ordinary updates preserve focus. Open
 Pause, Exit and talent details; try Tab and Shift+Tab at both ends, Escape,
@@ -484,6 +654,27 @@ restart play behind Settings, and that the changed controls work after resuming.
 Repeat during the lesson and in Versus, and with pending/failed Settings loads.
 Check that the extra Pause action fits short landscape screens and that the
 pinned return action stays reachable while scrolling the Settings page.
+With a disposable guest save, open cup/run abandonment and guest reset. Confirm
+that Keep starts focused, the title and consequence are announced, Tab stays
+inside, and Keep/Escape/Back preserve the save and return focus. Accept a fresh
+request and check the stated result. Use touch and keyboard in both orientations,
+including short landscape screens; ensure both actions remain reachable while
+scrolling. Change the saved run/cup or account/demo state during confirmation
+and verify that the previous request closes and cannot reappear on return.
+In a disposable test profile, deny storage access or force a full-storage write
+error, change settings and record a result. Check the save notice in Results,
+Home, Profile, Pause and Exit; offline text must not falsely reassure. Navigate
+away and back, retry while the failure remains, restore storage and retry again.
+Verify the latest profile, device preferences and offline queue after relaunch,
+with rewards counted once. Repeat while Demo is active and ensure only the real
+parked save persists. Check status announcements, focus after recovery, and
+notice/button reachability on short landscape screens. Keep this separate from
+network-offline testing: a device write and a cloud sync can succeed independently.
+Repeat with storage unreadable at startup while an older save remains on the
+device. Retry after access returns must preserve the existing data and explain
+restoring it by reopening. Verify the restored progress after reopening. Also
+test a genuinely first launch with no stored record: retry should keep its
+temporary progress after storage returns.
 Use a cold cache and a slow connection to open the menus, press Back while a
 page is loading, revisit it, and test a failed JavaScript or CSS request. Check
 recovery without losing recorded progress, and try the same flows in a packaged

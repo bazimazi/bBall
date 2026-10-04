@@ -47,6 +47,67 @@ interface Envelope {
   data: unknown;
 }
 
+// Keep only the latest failed write per record. Retrying persistence must not
+// repeat a match, spend talent points again or resurrect an older offline queue.
+const failedWrites = new Map<string, () => string>();
+const unreadableKeys = new Set<string>();
+const protectedKeys = new Set<string>();
+const listeners = new Set<() => void>();
+
+export type LocalSaveState = 'saved' | 'unsaved' | 'restore';
+
+function snapshot(): LocalSaveState {
+  if (failedWrites.size === 0) return 'saved';
+  for (const key of failedWrites.keys()) if (protectedKeys.has(key)) return 'restore';
+  return 'unsaved';
+}
+
+function publish(previous: LocalSaveState): void {
+  if (previous === snapshot()) return;
+  for (const listener of listeners) listener();
+}
+
+function tryWrite(key: string, encode: () => string): boolean {
+  const store = available();
+  if (!store) return false;
+  try {
+    // A fresh fallback created after a blocked read must not replace an older
+    // record when storage returns. Reopening loads that record in a new session.
+    if (unreadableKeys.has(key)) {
+      if (store.getItem(key) !== null) {
+        protectedKeys.add(key);
+        return false;
+      }
+      unreadableKeys.delete(key);
+      protectedKeys.delete(key);
+    }
+    store.setItem(key, encode());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Device persistence only: successful cloud sync is a separate status. */
+export const localSaveStatus = {
+  getSnapshot: snapshot,
+
+  subscribe(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+
+  /** Try the current records again without replaying their domain operations. */
+  retry(): boolean {
+    const previous = snapshot();
+    for (const [key, encode] of failedWrites) {
+      if (tryWrite(key, encode)) failedWrites.delete(key);
+    }
+    publish(previous);
+    return failedWrites.size === 0;
+  }
+};
+
 function available(): Storage | null {
   try {
     return window.localStorage;
@@ -75,12 +136,16 @@ function park(store: Storage, key: string, raw: string): void {
 export function loadRecord<T>(spec: StoreSpec<T>): LoadResult<T> {
   const store = available();
   const fresh = { value: spec.create(), fresh: true, recovered: false } as const;
-  if (!store) return fresh;
+  if (!store) {
+    unreadableKeys.add(spec.key);
+    return fresh;
+  }
 
   let raw: string | null;
   try {
     raw = store.getItem(spec.key);
   } catch {
+    unreadableKeys.add(spec.key);
     return fresh;
   }
   if (raw === null) return fresh;
@@ -133,17 +198,22 @@ export function loadRecord<T>(spec: StoreSpec<T>): LoadResult<T> {
 }
 
 export function saveRecord<T>(spec: StoreSpec<T>, value: T): boolean {
-  const store = available();
-  if (!store) return false;
-  try {
-    store.setItem(spec.key, JSON.stringify({ v: spec.version, data: value } satisfies Envelope));
-    return true;
-  } catch {
-    return false; // quota, or private mode
-  }
+  const previous = snapshot();
+  const encode = () => JSON.stringify({ v: spec.version, data: value } satisfies Envelope);
+  const saved = tryWrite(spec.key, encode);
+  if (saved) failedWrites.delete(spec.key);
+  else failedWrites.set(spec.key, encode);
+  publish(previous);
+  return saved;
 }
 
 export function clearRecord<T>(spec: StoreSpec<T>): void {
+  const previous = snapshot();
+  // Forgetting an account's cache must also cancel an unsaved cache write.
+  failedWrites.delete(spec.key);
+  unreadableKeys.delete(spec.key);
+  protectedKeys.delete(spec.key);
+  publish(previous);
   const store = available();
   if (!store) return;
   try {

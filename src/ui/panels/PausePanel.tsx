@@ -2,11 +2,13 @@ import styles from '../Overlay.module.css';
 import { PanelButton } from './PanelButton';
 import { ControlsReference } from '../components/ControlsReference';
 import { GoalList } from '../components/GoalList';
+import { SaveNotice } from '../components/SaveNotice';
 import type { GoalView } from '../../game/types';
 
 interface PausePanelProps {
   /** What is being played, e.g. "Gold Cup · Final". */
   label: string;
+  resized?: boolean;
   /** Where the match stands, when it is scored in points. */
   score?: { you: number; bot: number } | null;
   /** Lives left, when it is played in lives instead. */
@@ -22,6 +24,7 @@ interface PausePanelProps {
 
 export function PausePanel({
   label,
+  resized = false,
   score,
   lives,
   onResume,
@@ -36,6 +39,11 @@ export function PausePanel({
     <div className={styles.panel}>
       <h2 className={styles.heading}>Paused</h2>
       <p className={styles.tagline}>{label}</p>
+      {resized && (
+        <p className={styles.tagline}>
+          The court size changed. Find the ball, then resume when ready.
+        </p>
+      )}
       {score && (
         <p
           className={styles.score}
@@ -66,6 +74,7 @@ export function PausePanel({
       <PanelButton variant="ghost" onClick={onQuit}>
         Quit to menu
       </PanelButton>
+      <SaveNotice />
       <details className={styles.controls}>
         <summary tabIndex={0}>Controls</summary>
         <ControlsReference versus={versus} />

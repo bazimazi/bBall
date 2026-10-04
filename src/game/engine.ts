@@ -88,6 +88,7 @@ let idle: GameSnapshot | null = null;
 export function idleSnapshot(): GameSnapshot {
   idle ??= {
     status: 'menu',
+    pauseReason: null,
     resumeIn: 0,
     mode: 'quick',
     label: '',
@@ -145,6 +146,7 @@ export class GameEngine {
   private running = false;
   /** Menus can cover a paused court without handing their keys to the match. */
   private gameplayInputEnabled = true;
+  private pauseReason: GameSnapshot['pauseReason'] = null;
   /** Short buzzes on hits and points, where the device can make them. */
   private haptics = true;
   private resumeCountdown = true;
@@ -236,8 +238,9 @@ export class GameEngine {
     this.publish();
   };
 
-  pause = (): void => {
+  pause = (reason: GameSnapshot['pauseReason'] = null): void => {
     if (!pauseMatch(this.world)) return;
+    this.pauseReason = reason;
     this.clearInput();
     this.accumulator = 0;
     this.audio.ui();
@@ -400,6 +403,7 @@ export class GameEngine {
 
     return {
       status,
+      pauseReason: status === 'paused' ? this.pauseReason : null,
       resumeIn: status === 'resuming' ? Math.ceil(match.resumeTimer / RESUME_BEAT) : 0,
       mode: match.mode,
       label: match.label,
@@ -472,9 +476,20 @@ export class GameEngine {
   // -------------------------------------------------------------- layout
 
   private layout = (): void => {
-    // Screen coordinates change on resize/rotation: start a new drag afterwards.
-    this.pointers.clear();
+    this.pauseForResize();
+    const { w, scale, rotated, cx, cy } = this.world.view;
     const k = layoutView(this.world.view, this.canvas, this.preferences?.canvasQuality ?? 'high');
+    const view = this.world.view;
+    // Only a changed input transform invalidates drags; viewport notifications
+    // can arrive without changing the court (for example on browser chrome).
+    if (
+      w !== view.w ||
+      scale !== view.scale ||
+      rotated !== view.rotated ||
+      cx !== view.cx ||
+      cy !== view.cy
+    )
+      this.pointers.clear();
     rescaleField(this.world, k);
     placePaddles(this.world);
     this.world.grid.resize(this.world.view.w);
@@ -483,12 +498,21 @@ export class GameEngine {
   };
 
   private scheduleLayout = (): void => {
+    // Hold play before the next animation frame can advance the old court.
+    this.pauseForResize();
     if (this.layoutHandle) return;
     this.layoutHandle = requestAnimationFrame(() => {
       this.layoutHandle = 0;
       this.layout();
     });
   };
+
+  private pauseForResize(): void {
+    const { view } = this.world;
+    if (this.world.tutorial?.step === 'complete') return;
+    if (view.vw > 0 && (view.vw !== window.innerWidth || view.vh !== window.innerHeight))
+      this.pause('resize');
+  }
 
   // ----------------------------------------------------------- main loop
 

@@ -19,6 +19,8 @@
 
 .card {
   width: min(340px, 100%);
+  /* Older webviews need a height limit before the dynamic viewport override. */
+  max-height: calc(100vh - var(--safe-t) - var(--safe-b) - 32px);
   max-height: calc(100dvh - var(--safe-t) - var(--safe-b) - 32px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -66,6 +68,13 @@
   font-size: 30px;
   font-weight: 750;
   letter-spacing: -0.03em;
+}
+
+.explanation {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .tagline {
@@ -150,6 +159,11 @@
 .ghost:hover {
   color: var(--ink);
   background: rgba(238, 242, 255, 0.06);
+}
+
+.danger {
+  color: var(--bot);
+  border-color: rgba(255, 92, 138, 0.4);
 }
 
 @media (max-height: 460px) {

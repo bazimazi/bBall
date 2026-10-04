@@ -14,6 +14,7 @@ import {
   type RunSave
 } from '../../core/run/run';
 import { Screen } from '../components/Screen';
+import { ConfirmAction } from '../components/ConfirmAction';
 import { HeartIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
@@ -74,7 +75,15 @@ export function GauntletScreen({
   const run = profile.progress.run;
   if (!isRunActive(run)) return <StartView profile={profile} onStart={onStart} onBack={onBack} />;
   if (run.offer) return <DraftView run={run} onPick={onPick} onBack={onBack} />;
-  return <RunView run={run} onPlay={onPlay} onAbandon={onAbandon} onBack={onBack} />;
+  return (
+    <RunView
+      key={`${profile.id}:${run.seed}:${run.startedAt}:${run.stage}:${run.hearts}`}
+      run={run}
+      onPlay={onPlay}
+      onAbandon={onAbandon}
+      onBack={onBack}
+    />
+  );
 }
 
 // ------------------------------------------------------------------ start
@@ -297,12 +306,8 @@ function RunView({
           <button type="button" className={styles.primary} onClick={onPlay}>
             {rematch ? 'Rematch' : boss ? `Face ${boss.spec.name}` : 'Play next match'}
           </button>
-          <button
-            type="button"
-            className={confirm ? `${styles.ghost} ${styles.danger}` : styles.ghost}
-            onClick={() => (confirm ? onAbandon() : setConfirm(true))}
-          >
-            {confirm ? 'Tap again to end this run' : 'End run'}
+          <button type="button" className={styles.ghost} onClick={() => setConfirm(true)}>
+            End run
           </button>
         </>
       }
@@ -361,6 +366,18 @@ function RunView({
       </div>
 
       <BoonList run={run} />
+      <ConfirmAction
+        show={confirm}
+        title="End this run?"
+        description={`This ends the run at match ${run.stage + 1} of ${RUN_STAGES}, without a clear. Its boons and remaining hearts will not carry into a new run. Your earned XP and unlocks stay. You can keep the run and return later.`}
+        cancelLabel="Keep run"
+        confirmLabel="End this run"
+        onCancel={() => setConfirm(false)}
+        onConfirm={() => {
+          setConfirm(false);
+          onAbandon();
+        }}
+      />
     </Screen>
   );
 }

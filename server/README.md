@@ -237,8 +237,20 @@ is what makes it survive a lost phone.
   cache under that account's own key. The guest save is parked, not destroyed,
   and comes back untouched on sign out.
 - **Signed in and offline** - play continues against the cache, every change
-  goes into a durable outbox, and `/v1/sync/push` drains it on reconnect.
+  goes into an outbox that is durable when device storage is available, and
+  `/v1/sync/push` drains it on reconnect.
   Operations carry client-generated ids and apply at most once.
+
+The client reports failed writes of profiles, device settings and outbox records
+in menus and Pause/Exit. It retains the latest failed record in memory until a
+successful write, cancellation of that record or the page closes. A device-save
+retry writes those records without replaying their operations or submitting new
+requests. Successful device persistence does not imply successful account sync;
+the sync badge continues to report the network state separately.
+If a record was unreadable at startup, the client checks for existing data before
+writing its fresh fallback. An existing record is protected from replacement for
+that session; reopening loads it. This guard does not merge the temporary data
+with the existing record. Other pending records remain eligible for retry.
 
 A push is a batch with per-item results rather than an all-or-nothing
 transaction: a queue assembled offline will legitimately contain operations

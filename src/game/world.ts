@@ -12,6 +12,7 @@ import { FIELD_H, PADDLE_H, PADDLE_INSET, TRAIL_MAX } from './constants';
 import { setPaddleBase } from './paddle';
 import { ParticleSystem } from './particles';
 import { ReplayRecorder } from './replay';
+import { fieldResize } from './resize';
 import { sideHue, heatHue } from './palette';
 import { createRuntime, DEFAULT_LOADOUT } from './talents';
 import type {
@@ -347,13 +348,16 @@ export function pushTrail(world: World): void {
 
 /** Keep play proportional when the field's length changes. */
 export function rescaleField(world: World, k: number): void {
-  if (k === 1 || !isFinite(k)) return;
+  if (k === 1 || !isFinite(k) || k <= 0) return;
+  const before = world.view.w / k;
+  const resize = fieldResize(before, world.view.w);
   const { ball } = world;
-  ball.x *= k;
-  ball.px *= k;
-  ball.vx *= k;
+  [ball.vx, ball.vy] = resize.velocity(ball.x, ball.vx, ball.vy);
+  ball.x = resize.x(ball.x);
+  ball.px = resize.x(ball.px);
   normaliseBallSpeed(ball);
-  for (const point of world.trail) point.x *= k;
+  for (const point of world.trail) point.x = resize.x(point.x);
+  world.replay.resize(before, world.view.w);
 }
 
 /** Ask the device for a buzz of `ms`, merged with anything already asked for this frame. */

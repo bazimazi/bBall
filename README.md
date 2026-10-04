@@ -128,6 +128,14 @@ Missed Challenge goals explain the actual target, including wins that took
 too long and rally challenges that do not require a win. Journey and Daily
 remind you when a reached target also needs a win in the same match.
 
+**Keeping saved progress.** Giving up a Tournament cup, ending a Gauntlet run
+or resetting guest progress opens a confirmation that explains the consequences.
+The Keep action receives focus first; Keep, Escape and Back cancel. Ending a
+cup or run preserves earned XP and unlocks. Guest reset erases the guest profile
+but keeps device settings, and is unavailable during account restoration,
+while signed in or in Demo. Replacing the saved cup, run or guest profile,
+or entering account restoration or Demo, closes the pending confirmation.
+
 ### Modes
 
 | Mode            | What it is                                                             |
@@ -349,6 +357,17 @@ unreadable is parked under `bball.profile.broken` and the game starts fresh.
 Unspent points are never trusted from the file - they are recomputed from your
 level and what you have spent, every time the profile is read.
 
+If a device write fails, menus, Pause and Exit show a save notice. Keep bBall
+open while changes are unsaved: closing or reloading may lose them. **Try saving
+again** writes the latest profile, settings and offline queue when storage becomes
+available, without replaying match rewards or purchases. A normal successful
+write can also recover that record. Device persistence and account sync have
+separate status; retrying a device save does not confirm a cloud sync.
+If storage could not be read at startup and an older save is later found, bBall
+protects it from replacement. Reopen bBall to load that save; changes to that
+data made in the temporary session will be lost. Other pending records can
+still be retried.
+
 ### Accounts
 
 An account is optional and the game never asks for one. There is a row on the
@@ -373,8 +392,9 @@ The local save stays in charge of how the game feels:
 - **Signed in and online**, the server is the authority and the local copy is a
   cache. A match is applied locally the instant it ends and confirmed a moment
   later - the result card never waits for the network.
-- **Signed in and offline**, you keep playing. Every change goes into a durable
-  queue that survives a closed tab, and drains when the connection comes back.
+- **Signed in and offline**, you keep playing. Every change goes into a queue
+  that survives a closed tab when device storage is available, and drains when
+  the connection comes back. Failed device writes show the save notice.
 
 A small dot on the home screen says which of those you are in, and that is the
 only place the account intrudes.
@@ -453,6 +473,13 @@ Open **Pause → Settings** to adjust sound, effects, court quality or controls
 without leaving the match. The rally stays frozen. **Return to paused game**,
 Back or Escape returns to Pause; choose Resume when ready. Escape cancels a
 key change before leaving Settings, and the new bindings apply when you resume.
+
+Changing the window size or rotating the device pauses an active match, serve
+or resume countdown. Pause explains the changed court; choose **Resume** when
+ready. Ball positions and closing replays adapt around the fixed paddle contact
+planes, preserving pending returns and existing misses. Start a new drag after
+resizing. Viewport notifications with unchanged dimensions keep play and input
+active; changing Court image quality also retains control.
 
 **Keyboard navigation** moves focus to a new menu's heading. Pause, exit and
 talent dialogs keep Tab inside their controls and return focus when dismissed.
