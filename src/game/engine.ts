@@ -9,7 +9,7 @@ import {
   type KeyBindings
 } from '../core/settings/controls';
 import type { ResolvedLoadout } from '../core/talents/effects';
-import { abilityViews, activeUltimate, fireAbility } from './abilities';
+import { abilityCooldown, abilityViews, activeUltimate, fireAbility } from './abilities';
 import { GameAudio } from './audio';
 import {
   FIELD_H,
@@ -374,10 +374,10 @@ export class GameEngine {
     let key = '';
     for (const [index, slot] of this.world.talents.slots.entries()) {
       if (!slot.id) continue;
-      const left = slot.span > 0 ? Math.ceil((slot.cooldown / slot.span) * 24) : 0;
+      const { ready, progress, cooldownLeft } = abilityCooldown(slot);
       // The whole second is in the key too: the HUD prints it, so a ring that
       // has not moved a step is still a re-render when the digit changes.
-      key += `${index}:${slot.id}${left}:${Math.ceil(slot.cooldown)};`;
+      key += `${index}:${slot.id}:${progress}:${cooldownLeft}:${ready}:${slot.castId}:${slot.refreshId};`;
     }
     // Every live effect, at a tenth of a second - the resolution the HUD's
     // own countdowns are shown at, and no finer.

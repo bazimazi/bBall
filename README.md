@@ -30,7 +30,7 @@ npm run dev        # http://localhost:5173
 | `npm run icons`        | Regenerate web and native icons from one mark               |
 | `npm run check:bundle` | Check built menu boundaries and report initial JS/CSS bytes |
 | `npm run check:menus`  | Render all lazy menu pages and their pending state in Node  |
-| `npm run check:ui`     | Check mounted menu/dialog focus and interactions in a DOM   |
+| `npm run check:ui`     | Check mounted menus, dialogs and skill controls in a DOM    |
 
 ## Platforms
 
@@ -72,6 +72,11 @@ can have an alternate key; conflicts are explained before a change is saved.
 You can restore the defaults at any time. Escape remains a pause key and
 cancels key capture; Tab keeps normal focus navigation. Hints and skill buttons
 show your chosen keys. Player 2's movement keys also work in solo play.
+
+Skill buttons activate on the primary mouse press, touch or pen contact, or
+keyboard activation. Secondary and auxiliary mouse buttons do not spend a skill.
+Cooling buttons stay focusable so their name, shortcut and remaining time can
+be read; activation waits until both cooldown and recast lockout have ended.
 
 Touch movement defaults to **Follow finger**. **Settings → Relative drag**
 lets you move from a clear spot without jumping the paddle to your finger.
@@ -329,6 +334,9 @@ Eight talents unlock **active skills** - Power Strike, Dash and Perfect Guard,
 plus the five ultimates - of which you equip two, three from level 15, four
 from level 30 and five from level 50 (one more with Versatility). Each has a
 cooldown, a ring on its button, and a distinct reaction on the court.
+The button's brief cast and Echo-clear rings follow actual match events; ordinary
+recharge and return bonuses do not produce an Echo ring. Feedback expires while
+the cooldown updates and does not replay when returning from Pause.
 Everything else is passive. With more skills than slots, which ones you carry is
 a decision in its own right.
 
@@ -456,6 +464,14 @@ heating rally opens the band up, doubles the hats, adds a shimmer and pushes
 the kick, a rally on fire crashes into every bar, and match point brings a
 heartbeat and a riser into every phrase. Hits, walls, bumpers and points are
 panned to where they happened, and a won match gets a fanfare and applause.
+
+Audio starts on demand from a game gesture. The first gesture also requests
+resume if the new audio context starts suspended. If audio is interrupted,
+**Resume** or another game gesture tries to recover the same sound graph,
+retaining mute and both volume settings. Returning from a hidden page keeps an
+unfinished match paused until you choose Resume. Refused audio lifecycle calls
+stay contained, and a later gesture can retry; the browser still controls
+whether audio output is available.
 
 **Settings** belong to the device, not the account: music and effects volume,
 screen shake (full, gentle or off), vibration, the closing replay, and which
@@ -590,7 +606,9 @@ browser navigation, download-failure or on-device performance checks.
 `npm run check:ui` mounts real components with React DOM in Happy DOM (a test-only
 dependency), including focus return, background blocking, lazy menu completion,
 explicit reload recovery and navigation without `Array.at`. It uses substitute
-layout boxes; native Tab behavior, CSS layout and screen readers still need
+layout boxes and a controlled clock for skill feedback; skill checks cover pointer
+buttons, keyboard activation, unavailable controls and feedback cleanup. Native
+Tab behavior, CSS animations/layout and screen readers still need
 manual checks.
 Publish or package the entire `dist/` directory, including all chunk files.
 

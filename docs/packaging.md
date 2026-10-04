@@ -18,6 +18,26 @@ the CSS viewport and pointer coordinates. Check court sharpness and frame times
 at all three qualities on physical devices; a successful asset build does not
 verify webview performance.
 
+Audio recovery handles both suspended and interrupted contexts, including the
+WebKit audio constructor. First use explicitly requests resume; later game
+gestures retry recovery without changing mute or volume. Hidden pages request
+suspension even during an interruption, and an unfinished match stays paused
+when the page returns. On Safari/WKWebView and other physical targets, test the
+first gesture, tab/app switching, screen lock and an interruption by another
+audio app, then choose Resume. Repeat while muted and with each volume at zero;
+check that sound recovers only as permitted by the browser and the selected
+settings, and that play remains paused until Resume. The lifecycle regressions
+simulate states and API failures; they do not render samples or verify hardware
+output, autoplay permission or phone interruption delivery.
+
+Skill buttons use primary pointer contact and keyboard activation; auxiliary
+mouse buttons and pen barrel presses must not spend a skill. On physical targets,
+check single activation with mouse/touch/pen, focus and cooldown announcements,
+Echo during the recast lockout, and feedback after Pause/Resume. Button feedback
+uses match events and cleans up independently of cooldown updates. DOM checks do
+not verify native event sequences, visible CSS timing or touch reachability.
+The system reduced-motion policy above also applies to these rings.
+
 Pause, exit and talent dialogs use a shared focus scope, with JavaScript Tab
 and focus containment in addition to `inert`, so containment does not rely on
 native `inert` support. Menu/Back routing and Gauntlet score display use indexed

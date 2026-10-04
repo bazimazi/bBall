@@ -108,6 +108,10 @@ export interface AbilitySlot {
    * does; this is what keeps "faster" from becoming "every frame".
    */
   lockout: number;
+  /** Accepted casts this match; drives feedback even between identical rings. */
+  castId: number;
+  /** Echo clears of a spent cooldown this match, independent of lockout. */
+  refreshId: number;
 }
 
 /**
@@ -191,6 +195,8 @@ export interface AbilityView {
   /** The talent behind it; the HUD draws its icon. */
   readonly talent: TalentId;
   readonly ready: boolean;
+  readonly castId: number;
+  readonly refreshId: number;
   /** 0 when just used, 1 when ready. Quantised, so React re-renders rarely. */
   readonly progress: number;
   /** True while the ability's own effect is running. */

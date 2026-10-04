@@ -6,7 +6,7 @@ import { laneRush, ultimateCast } from './casts';
 import { FIELD_H } from './constants';
 import { hsla, sideHue } from './palette';
 import { boundTarget } from './talents';
-import type { AbilityView } from './types';
+import type { AbilitySlot, AbilityView } from './types';
 import type { World } from './world';
 
 /**
@@ -186,7 +186,10 @@ function fire(world: World, def: AbilityDef): void {
       // Clears the *other* slots, never its own - that is what keeps a
       // capstone from ever becoming part of a rotation.
       for (const slot of talents.slots) {
-        if (slot.id && slot.id !== 'echo') slot.cooldown = 0;
+        if (slot.id && slot.id !== 'echo' && slot.cooldown > 0) {
+          slot.cooldown = 0;
+          slot.refreshId++;
+        }
       }
       talents.echo = effects.echoSeconds;
       ultimateFlare(world, id, hue, name);
@@ -215,6 +218,7 @@ export function fireAbility(world: World, slot: number): boolean {
   entry.cooldown = span;
   entry.span = span;
   entry.lockout = BALANCE.talents.minRecast;
+  entry.castId++;
   world.talents.stats.abilitiesUsed++;
   // Afterglow: any skill used lends the paddle a little length.
   if (world.loadout.effects.afterglowLength > 0) {
@@ -269,6 +273,22 @@ const FADE_OUT = 1;
  *  that React re-renders a handful of times per cooldown rather than 60. */
 const STEPS = 24;
 
+/** Shared by the views and their engine cache, including Echo's recast floor. */
+export function abilityCooldown(slot: AbilitySlot): {
+  ready: boolean;
+  progress: number;
+  cooldownLeft: number;
+} {
+  const remaining = Math.max(slot.cooldown, slot.lockout);
+  const ready = remaining <= 0;
+  const raw = ready ? 1 : 1 - remaining / Math.max(slot.span, BALANCE.talents.minRecast);
+  return {
+    ready,
+    progress: Math.round(raw * STEPS) / STEPS,
+    cooldownLeft: ready ? 0 : Math.ceil(remaining)
+  };
+}
+
 /**
  * Flatten the equipped abilities for the UI.
  *
@@ -282,21 +302,18 @@ export function abilityViews(world: World): AbilityView[] {
     const def = abilityById(slot.id);
     if (!def) continue;
 
-    const remaining = Math.max(slot.cooldown, slot.lockout);
-    const ready = remaining <= 0;
-    const raw = ready ? 1 : 1 - remaining / Math.max(slot.span, BALANCE.talents.minRecast);
     const live = liveEffect(world, slot.id);
     views.push({
       slot: index,
       id: slot.id,
       name: def.name,
       talent: def.talent,
-      ready,
-      progress: Math.round(raw * STEPS) / STEPS,
+      ...abilityCooldown(slot),
+      castId: slot.castId,
+      refreshId: slot.refreshId,
       active: live.active,
       ultimate: def.ultimate === true,
       hue: def.hue,
-      cooldownLeft: ready ? 0 : Math.ceil(remaining),
       remain: live.remain,
       duration: live.duration,
       charges: live.charges,

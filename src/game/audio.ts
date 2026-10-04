@@ -30,6 +30,15 @@ function panOf(pan: number): number {
   return Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, pan));
 }
 
+/** Device policy or a concurrent context shutdown may refuse an audio change. */
+function tryAudioChange(change: () => Promise<void>): void {
+  try {
+    void change().catch(() => {});
+  } catch {
+    // Audio is optional; a later gesture can retry without interrupting play.
+  }
+}
+
 /**
  * Every sound is synthesised - blips and skills here, the soundtrack in
  * `music.ts` - so there are no files to load and no assets to ship. The
@@ -109,13 +118,15 @@ export class GameAudio {
 
   unlock(): void {
     if (this.context) {
-      if (this.context.state === 'suspended') void this.context.resume();
+      this.resumeContext();
       return;
     }
     const Ctor = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext;
     if (!Ctor) return;
     try {
       const context = new Ctor();
+      // Own it immediately so a partially built graph can also be released.
+      this.context = context;
       // A limiter at the very end: a capstone stacked on a hit stacked on the
       // music is loud, and it should be loud - not clipped.
       const limiter = context.createDynamicsCompressor();
@@ -137,20 +148,21 @@ export class GameAudio {
       musicBus.gain.value = volumeGain(this.musicVolume);
       musicBus.connect(master);
 
-      this.context = context;
       this.master = master;
       this.sfxBus = sfxBus;
       this.musicBus = musicBus;
       this.synth = new Synth(context, mixBus(context, sfxBus, false));
       this.music = new Music(context, mixBus(context, musicBus, true));
+      this.resumeContext();
     } catch {
-      this.context = null;
-      this.master = null;
-      this.sfxBus = null;
-      this.musicBus = null;
-      this.synth = null;
-      this.music = null;
+      this.dispose();
     }
+  }
+
+  private resumeContext(): void {
+    const context = this.context;
+    if (context && (context.state === 'suspended' || context.state === 'interrupted'))
+      tryAudioChange(() => context.resume());
   }
 
   setMuted(muted: boolean): void {
@@ -164,22 +176,25 @@ export class GameAudio {
   }
 
   suspend(): void {
-    if (this.context?.state === 'running') void this.context.suspend();
+    const context = this.context;
+    if (context && (context.state === 'running' || context.state === 'interrupted'))
+      tryAudioChange(() => context.suspend());
   }
 
   resume(): void {
-    if (this.context && !this.mutedFlag) void this.context.resume();
+    if (!this.mutedFlag) this.resumeContext();
   }
 
   dispose(): void {
     this.previewUntil = 0;
-    void this.context?.close();
+    const context = this.context;
     this.context = null;
     this.master = null;
     this.sfxBus = null;
     this.musicBus = null;
     this.synth = null;
     this.music = null;
+    if (context && context.state !== 'closed') tryAudioChange(() => context.close());
   }
 
   /** The synth, or null when there is nothing to play into. */

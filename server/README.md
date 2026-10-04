@@ -393,9 +393,22 @@ facing detail goes to the log and never to the wire.
 npm run server:test
 ```
 
-200 tests over an in-memory database, driven through `app.inject()` - real
-routing, real plugins, real middleware, real SQLite, no sockets. Nothing below
-the HTTP boundary is mocked.
+API tests run over an in-memory database, driven through `app.inject()` - real
+routing, real plugins, real middleware, real SQLite, no sockets. The suite also
+covers shared rules and client behavior such as physics, input, settings and
+device storage. Client audio lifecycle tests run the real audio controller with
+substitute graph nodes and context states: first activation, interruption,
+refused operations, cleanup, mute and volume retention. They do not render
+samples or verify audible browser/device recovery. See the
+[player experience review](../docs/player-experience-review.md) for current
+counts and physical-device checks.
+
+Skill regressions cover accepted casts, Echo clears, ordinary recharge, match
+reset and cached HUD readiness after a recast lockout. Their feedback counters
+live only in the match runtime; profile saves and API result fields retain their
+formats. `npm run check:ui` at the repository root additionally mounts the real
+skill buttons with synthetic pointer/click events and a controlled feedback
+clock. It does not establish physical input latency or visible animation timing.
 
 | Suite                 | What it covers                                                                                                      |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------- |

@@ -220,6 +220,41 @@ and [MDN: Array compatibility data](https://github.com/mdn/browser-compat-data/b
 
 ## Reproduced problems and implemented changes
 
+The skill-control audit reproduced secondary/auxiliary presses invoking a skill
+and ordinary cooldown updates cancelling the feedback ring's cleanup timer.
+React documents running effect cleanup before changed dependencies; the old
+timer lived in the cooldown-dependent effect, so the next ring update cancelled
+it. It now follows the feedback event instead. Pointer activation accepts button
+zero (the configured primary action, including touch/pen contact), with keyboard
+activation retained and unavailable buttons still focusable for their state.
+[React: useEffect cleanup](https://react.dev/reference/react/useEffect)
+and [MDN: MouseEvent button](https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button).
+
+Cast and Echo feedback now use match-local counters rather than guessing from
+cooldown jumps. Only accepted casts and Echo clearing a spent cooldown advance
+them. A cast takes precedence if both counters change in one UI update. Ordinary
+recharge and return bonuses cannot imitate Echo, and reopening the bar does not
+replay an old cast. A separate engine regression reproduced a stale unavailable
+label after an Echo-style reset: its cache omitted recast lockout and readiness.
+The key now uses the same quantised cooldown state as the view, including readiness,
+and the event counters. Unchanged displayed state retains the cached array.
+Cooldown durations, lockout, talent balance, saved profiles and API results retain
+their existing rules. System reduced-motion preferences remain completely ignored.
+
+MDN documents the `interrupted` audio state, including iOS Safari page changes,
+and distinguishes it from app-requested suspension. It also documents that
+`resume()` returns a promise which rejects for a closed context. The audit found
+that the unlock path only resumed an existing `suspended` context, ignored
+`interrupted`, and never resumed a newly created suspended context on its first
+gesture. Two simulated-context regressions reproduced those missing requests.
+Both paths now request recovery; lifecycle throws and rejected promises remain
+contained, with later gestures free to retry. Hidden pages also suspend an
+interrupted context, mute/volume choices survive recovery, and graph construction
+failure attempts to close its partial context. This implements lifecycle
+handling, not a guarantee of audible recovery under browser/device policy.
+[MDN: Audio context state](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/state)
+and [MDN: AudioContext resume](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext/resume).
+
 The resize audit reproduced another contact problem: `rescaleField` multiplied
 the ball's x coordinate by the width ratio while paddle insets stayed fixed.
 Shrinking from 1290 to 750 field units moved a ball just before either contact
@@ -242,6 +277,8 @@ comfort need physical-device testing.
 
 | Area                    | Evidence from the original code or regressions                                                                                                   | Resulting behaviour                                                                                                                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Skill controls/feedback | Non-primary pointer presses invoked skills; cooldown updates cancelled feedback cleanup; the cached view omitted lockout readiness.              | Primary pointer/keyboard activation respects readiness. Cast/Echo rings follow actual events, expire independently, and the HUD updates when lockout ends.                                             |
+| Audio recovery          | Unlock omitted interrupted contexts and newly created suspended contexts; lifecycle promises had no rejection handling.                          | First use and later gestures request recovery, with failed operations contained and preferences retained. Returning to an unfinished match still requires explicit Resume.                             |
 | Court resize            | Scaling absolute ball coordinates crossed fixed paddle contact planes; recorded replay frames retained old widths.                               | Position mapping preserves pending returns and existing misses; trails and recorded replays adapt to the new court. Changed viewport dimensions pause until explicit resume.                           |
 | Wall and paddle contact | The ball was reflected at a wall before the paddle sweep, even when the paddle contact happened first.                                           | Contacts are resolved in time order, and remaining flight continues after each reflection.                                                                                                             |
 | Sweep near a wall       | The sweep interpolated a straight chord between positions on either side of a reflected path. A targeted case incorrectly incremented the rally. | Each straight flight segment is tested separately. The regression no longer records the incorrect paddle hit.                                                                                          |
@@ -268,7 +305,7 @@ choices survive. Profile and cloud progression formats are unchanged.
 
 ## Validation
 
-All 302 tests passed, as did client and server type checking, ESLint and the
+All 318 tests passed, as did client and server type checking, ESLint and the
 production build. The two simulation soaks completed 828 matches in total with
 none of their reported stability alerts.
 
@@ -404,6 +441,36 @@ physical orientation events, browser chrome, virtual keyboards or perceived
 interruption frequency. Completed matches continue their resized replay; a
 completed lesson and menus do not open a resize Pause.
 
+The audio recovery batch adds nine audio lifecycle tests and one engine
+visibility test. Real `GameAudio` builds its graph against substitute nodes and
+context methods, covering first-use resume, interrupted recovery without a graph
+rebuild, interrupted suspension, mute and both buses, running/closed states,
+synchronous throws, rejected promises, later retry, pending requests and late
+completion after disposal, partial graph cleanup, missing/refused audio and the
+WebKit constructor. The engine test separately uses command spies to check that
+serve/play/countdown states stay paused after a hidden page returns, and that
+explicit Resume requests audio unlock. `check:ui` passed **21 checks** at that point.
+These checks do not render samples, reproduce actual autoplay restrictions or
+establish hardware recovery. The offline mix-rendering check was not run in
+this batch; browser inventory returned no available surfaces. Physical Safari,
+packaged webview and listening checks remain required. Audio refusal does not
+become a permanent retry lock; closed contexts are left alone until disposal.
+
+The skill-control batch adds six domain/engine regressions and four mounted UI
+checks, bringing `check:ui` to **25 checks**. The timer and non-primary input checks
+failed before their fixes. Restoring the previous cache key reproduced both the
+stale lockout readiness and missing event updates. Real talent runtime tests cover
+accepted/refused casts, spent/ready/empty Echo targets, lockout retention, natural
+and return-driven recharge, and match reset. Engine fixtures check reference
+retention and readiness even when the quantised ring already reads one. Mounted
+Strict Mode checks cover mouse/touch/pen and keyboard activation without a second
+pointer-click cast, slot gaps, focusable unavailable state, expiration through
+cooldown updates, successive events, natural recharge, hiding and match reset.
+The clock and event sequences are substitutes; these checks do not run CSS
+animations, physical pointer defaults or screen-reader announcements. Browser
+inventory again returned no available surfaces. Physical-device feedback and
+control checks remain required.
+
 An earlier rebuild ran out of available machine memory. Repeating it with two
 Rayon workers and a 256 MB Node heap succeeded and passed `check:bundle`.
 Earlier standard web builds passed; no persistent build-memory settings were
@@ -423,17 +490,17 @@ node --import tsx scripts/sim.ts 6 pro
 ```
 
 The original single entry was 607.73 kB. With menu deferral and the subsequent
-rendering, focus, paused-settings, confirmation, device-save and resize behavior the
-entry is 465.36 kB and Vite no longer emits its 500 kB chunk warning.
-The complete initial static graph is **559.37 kB across
+rendering, focus, paused-settings, confirmation, device-save, resize, audio and
+skill-control behavior the entry is 465.76 kB and Vite no longer emits its 500 kB chunk warning.
+The complete initial static graph is **559.77 kB across
 17 JS files**, because shared domain
 code remains necessary. The comparable web-build measurements from
 `check:bundle` are:
 
 | Initial static payload | Before    | After     | Reduction |
 | ---------------------- | --------- | --------- | --------- |
-| JavaScript             | 607.73 kB | 559.37 kB | 8.0%      |
-| JavaScript, gzip       | 189.12 kB | 182.37 kB | 3.6%      |
+| JavaScript             | 607.73 kB | 559.77 kB | 7.9%      |
+| JavaScript, gzip       | 189.12 kB | 182.53 kB | 3.5%      |
 | CSS                    | 58.94 kB  | 48.05 kB  | 18.5%     |
 | CSS, gzip              | 12.22 kB  | 11.32 kB  | 7.4%      |
 
@@ -456,8 +523,12 @@ three files. The smaller entry reflects shared-chunk movement; the complete
 initial graph grows, and these costs are not a speed improvement.
 Resize continuity adds 1.12 kB initial JS (0.45 kB gzip), compared with the
 device-save build, with unchanged initial CSS.
+Audio recovery adds 0.13 kB initial JS (0.07 kB gzip), compared with the resize
+build, with unchanged initial CSS.
+Skill-control feedback adds 0.27 kB initial JS (0.09 kB gzip), compared with the
+audio build, with unchanged initial CSS.
 The Safari-targeted desktop-mode graph passed its check at
-567.41 kB JS (184.56 kB gzip) and 48.31 kB CSS (11.35 kB gzip); the final
+567.74 kB JS (184.75 kB gzip) and 48.31 kB CSS (11.35 kB gzip); the final
 `dist/` was regenerated as the web build. Native packaging and visual or
 on-device QA remain pending.
 
@@ -495,7 +566,7 @@ are a tradeoff to profile. No FPS, input-latency or battery improvement is claim
 
 ## Next changes to validate with players
 
-The first eleven follow-ups have now been implemented:
+The first thirteen follow-ups have now been implemented:
 
 - **First-rally lesson:** optional and replayable from How to play. A stationary
   dashed outline shows where to place the paddle. The learner moves, returns a
@@ -610,6 +681,22 @@ The first eleven follow-ups have now been implemented:
   gestures; unchanged notifications and court quality changes retain input.
   Menus, completed lessons and finished matches do not enter resize Pause.
   The system reduced-motion policy remains unchanged.
+- **Audio lifecycle recovery:** the first gesture resumes a new suspended
+  context, and subsequent gestures also handle interrupted audio. Recovery
+  retains the same graph, mute and both volume choices. Refused resume/suspend/
+  close calls cannot throw through input or leave an unhandled promise; later
+  gestures can retry. Failed graph construction attempts cleanup. Hidden pages
+  suspend interrupted audio too, and unfinished games require explicit Resume
+  after returning. Actual sound output remains subject to browser/device policy
+  and needs physical verification. No system motion preference handling is added.
+- **Skill-control and feedback consistency:** secondary/auxiliary pointer presses
+  cannot spend a skill, while primary mouse/touch/pen and keyboard activation
+  retain their actual slot and fire once. Unavailable buttons remain focusable
+  but cannot request a cast. Readiness includes the real recast lockout in both
+  the view and its cache. Cast and Echo rings use accepted match events, expire
+  despite ongoing cooldown updates, and clear on hiding/reset without replaying
+  old casts. Recharge and return bonuses do not create an Echo ring. The counters
+  are never saved or submitted to the server. System motion settings have no effect.
 
 These changes still need newcomer observation, screen-reader checks, and HUD
 and Settings/result/confirmation/save-notice layout and touch checks in both orientations. The last
@@ -639,6 +726,24 @@ remain aligned with the paddles. Include desktop window drags, mobile browser
 chrome and virtual keyboards, and record whether actual size-change pauses are
 helpful or too frequent. Unchanged viewport notifications must preserve play
 and input. Check the Pause explanation on short landscape screens.
+Check sound from the first gesture and after switching tabs/apps, locking the
+screen or another app interrupting audio. Return to the same paused match and
+choose Resume; repeat during a serve and countdown. Verify the chosen mute and
+each volume setting, including zero, before and after interruption. Test music
+preview recovery in Settings as well, and stop it by leaving the page. On Safari
+and native webviews, record whether sound returns, whether a second gesture is
+needed, and any delayed sounds or unexpected background output. The browser may
+refuse recovery; gameplay input should still work. Keep these listening checks
+separate from the simulated lifecycle and device-save tests.
+Use equipped skills during a rally and before serving with mouse, touch, pen and
+keyboard. Primary presses should activate once; middle/right clicks, back/forward
+mouse buttons and pen barrel presses should not spend a skill. Check focusable
+cooling buttons and their name, shortcut and remaining-time announcement. Use
+Echo just after another cast: it clears cooldown but keeps the 1.5-second recast
+floor. Check that readiness updates as soon as that floor ends, ordinary recharge
+does not flash Echo, and successive cast rings replay and disappear. Pause and
+resume during feedback, then restart; neither should replay old feedback. Repeat
+in portrait/landscape, Full/Calm and with both system motion preference values.
 Navigate menus using only the keyboard. Check that new headings announce the
 page, Tab moves into its controls, and ordinary updates preserve focus. Open
 Pause, Exit and talent details; try Tab and Shift+Tab at both ends, Escape,

@@ -93,7 +93,179 @@ const check = async (name, test) => {
   console.log(`✓ ${name}`);
 };
 const noop = () => {};
+// Advance only component timeouts. React/Vite keep their real Node timers.
+async function withUiClock(test) {
+  const set = win.setTimeout;
+  const clear = win.clearTimeout;
+  const pending = new Map();
+  let now = 0;
+  let id = 0;
+  win.setTimeout = (callback, delay) => {
+    pending.set(++id, { callback, at: now + delay });
+    return id;
+  };
+  win.clearTimeout = (handle) => pending.delete(handle);
+  try {
+    await test(async (milliseconds) => {
+      now += milliseconds;
+      await act(() => {
+        for (const [handle, timer] of [...pending]) {
+          if (timer.at > now) continue;
+          pending.delete(handle);
+          timer.callback();
+        }
+      });
+    });
+  } finally {
+    try {
+      await act(() => root.render(null));
+      assert.equal(pending.size, 0, 'unmount must remove pending feedback timeouts');
+    } finally {
+      win.setTimeout = set;
+      win.clearTimeout = clear;
+    }
+  }
+}
 try {
+  const { AbilityBar } = await vite.ssrLoadModule('/src/ui/AbilityBar.tsx');
+  const skill = {
+    slot: 2,
+    id: 'power-strike',
+    name: 'Power Strike',
+    talent: 'power-strike',
+    ready: true,
+    progress: 1,
+    castId: 0,
+    refreshId: 0,
+    active: false,
+    ultimate: false,
+    hue: 30,
+    cooldownLeft: 0,
+    remain: 0,
+    duration: 0,
+    charges: 0,
+    maxCharges: 0
+  };
+  const bar = (ability, onUse = noop, show = true) =>
+    h(AbilityBar, { abilities: [ability], show, side: 'right', onUse });
+  const renderBar = async (ability, show = true) =>
+    act(() => root.render(h(StrictMode, null, bar(ability, noop, show))));
+  const burstSelector = 'span[class*="burstCast"], span[class*="burstRefresh"]';
+
+  await check('skill feedback expires even while its cooldown ring keeps updating', async () => {
+    await withUiClock(async (advance) => {
+      await mount(bar(skill));
+      await renderBar({ ...skill, ready: false, progress: 0, castId: 1 });
+      query('span[class*="burstCast"]');
+      await advance(300);
+      await renderBar({ ...skill, ready: false, progress: 0.05, castId: 1 });
+      await advance(399);
+      query('span[class*="burstCast"]');
+      await advance(1);
+      absent(burstSelector);
+    });
+  });
+
+  await check(
+    'skill buttons accept primary mouse/touch/pen and keyboard activation once, preserving slots',
+    async () => {
+      const used = [];
+      let bubbled = 0;
+      const fixture = (ability) =>
+        h(
+          'div',
+          { onPointerDown: () => bubbled++ },
+          bar(ability, (slot) => used.push(slot))
+        );
+      await mount(fixture(skill));
+      const control = query('button');
+      const pointerDown = async (button, pointerType) => {
+        const event = new win.PointerEvent('pointerdown', {
+          button,
+          pointerType,
+          bubbles: true,
+          cancelable: true
+        });
+        await act(() => control.dispatchEvent(event));
+        return event;
+      };
+      for (const pointerType of ['mouse', 'pen']) {
+        for (const button of [1, 2, 3, 4]) await pointerDown(button, pointerType);
+      }
+      assert.deepEqual(used, [], 'secondary and auxiliary presses cannot spend a skill');
+      for (const pointerType of ['mouse', 'touch', 'pen']) {
+        assert.equal((await pointerDown(0, pointerType)).defaultPrevented, true);
+        await act(() =>
+          control.dispatchEvent(new win.MouseEvent('click', { detail: 1, bubbles: true }))
+        );
+      }
+      assert.deepEqual(used, [2, 2, 2], 'pointer click cannot repeat its pointerdown cast');
+      assert.equal(bubbled, 0, 'presses must stay out of paddle controls');
+      await click(control);
+      assert.deepEqual(used, [2, 2, 2, 2], 'keyboard/assistive click uses the real equipped slot');
+      await act(() =>
+        root.render(h(StrictMode, null, fixture({ ...skill, ready: false, cooldownLeft: 3 })))
+      );
+      focused(control);
+      assert.equal(control.getAttribute('aria-disabled'), 'true');
+      assert.equal(control.disabled, false, 'cooldown details remain keyboard discoverable');
+      await pointerDown(0, 'touch');
+      await click(control);
+      assert.deepEqual(used, [2, 2, 2, 2], 'unavailable controls cannot invoke a cast');
+    }
+  );
+
+  await check(
+    'skill cast and Echo feedback follow events, including identical cooldown progress',
+    async () => {
+      await withUiClock(async (advance) => {
+        await mount(bar({ ...skill, ready: false, progress: 0, castId: 1 }));
+        absent(burstSelector);
+        await renderBar({ ...skill, ready: false, progress: 0, castId: 2, refreshId: 1 });
+        const first = query('span[class*="burstCast"]');
+        await advance(400);
+        await renderBar({ ...skill, ready: false, progress: 0, castId: 3, refreshId: 2 });
+        const second = query('span[class*="burstCast"]');
+        assert.ok(second !== first, 'each accepted cast restarts its acknowledgement');
+        await advance(300);
+        query('span[class*="burstCast"]');
+        await advance(400);
+        absent(burstSelector);
+        await renderBar({ ...skill, ready: false, progress: 0.8, castId: 3, refreshId: 2 });
+        await renderBar({ ...skill, castId: 3, refreshId: 2 });
+        absent(burstSelector);
+        // Echo clears cooldown without bypassing a short recast lockout.
+        await renderBar({ ...skill, ready: false, progress: 0.9, castId: 3, refreshId: 3 });
+        query('span[class*="burstRefresh"]');
+        await renderBar({ ...skill, castId: 3, refreshId: 3 });
+        await advance(700);
+        absent(burstSelector);
+      });
+    }
+  );
+
+  await check(
+    'hiding or resetting the skill bar clears feedback without replaying old casts',
+    async () => {
+      await withUiClock(async (advance) => {
+        await mount(bar(skill));
+        await renderBar({ ...skill, ready: false, progress: 0, castId: 1 });
+        query('span[class*="burstCast"]');
+        await renderBar(skill);
+        absent(burstSelector);
+        await renderBar({ ...skill, ready: false, progress: 0, castId: 1 });
+        query('span[class*="burstCast"]');
+        await renderBar({ ...skill, castId: 1 }, false);
+        absent(burstSelector);
+        await advance(1000);
+        await renderBar({ ...skill, castId: 1 });
+        absent(burstSelector);
+        await renderBar({ ...skill, ready: false, progress: 0, castId: 2 });
+        query('span[class*="burstCast"]');
+      });
+    }
+  );
+
   const [
     { Screen },
     { BrandLogo },

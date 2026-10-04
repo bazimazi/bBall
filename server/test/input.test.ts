@@ -208,16 +208,66 @@ it('custom keys steer each versus paddle independently and skill views retain em
   advance(30);
   assert.ok(world.player.target < 300);
   assert.ok(world.bot.target > 300);
-  world.talents.slots = [{ id: 'power-strike', cooldown: 0, span: 0, lockout: 0 }];
+  world.talents.slots = [
+    { id: 'power-strike', cooldown: 0, span: 0, lockout: 0, castId: 0, refreshId: 0 }
+  ];
   advance(16);
   assert.equal(engine.getSnapshot().abilities[0]!.slot, 0);
   world.talents.slots = [
-    { id: null, cooldown: 0, span: 0, lockout: 0 },
-    { id: 'power-strike', cooldown: 0, span: 0, lockout: 0 }
+    { id: null, cooldown: 0, span: 0, lockout: 0, castId: 0, refreshId: 0 },
+    { id: 'power-strike', cooldown: 0, span: 0, lockout: 0, castId: 0, refreshId: 0 }
   ];
   assert.equal(abilityViews(world)[0]!.slot, 1);
   advance(16);
   assert.equal(engine.getSnapshot().abilities[0]!.slot, 1);
+});
+
+it('cached skill views publish readiness when only recast lockout changes', (t) => {
+  const { engine, world, advance } = harness(t);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, resumeCountdown: false });
+  engine.play(quickMatchRules('rookie'));
+  Object.assign(world.talents.slots[0]!, {
+    id: 'power-strike',
+    cooldown: 0,
+    span: 8,
+    lockout: 0.05
+  });
+  engine.pause();
+  const held = engine.getSnapshot().abilities;
+  assert.equal(held[0]!.progress, 1, 'quantisation can fill the ring before the lockout ends');
+  assert.equal(held[0]!.ready, false);
+  engine.resume();
+  advance(100);
+  assert.equal(world.talents.slots[0]!.lockout, 0);
+  const ready = engine.getSnapshot().abilities;
+  assert.equal(ready[0]!.progress, 1);
+  assert.equal(ready[0]!.ready, true);
+  assert.equal(ready[0]!.cooldownLeft, 0);
+  assert.ok(held !== ready);
+});
+
+it('cached skill views retain their reference until displayed state or feedback changes', (t) => {
+  const { engine, world, advance } = harness(t);
+  engine.play(quickMatchRules('rookie'));
+  const slot = world.talents.slots[0]!;
+  Object.assign(slot, { id: 'power-strike', cooldown: 5, span: 5, lockout: 0, castId: 1 });
+  engine.pause();
+  const first = engine.getSnapshot().abilities;
+  advance(16);
+  assert.ok(engine.getSnapshot().abilities === first, 'unchanged views must stay cached');
+  slot.castId++;
+  advance(16);
+  const recast = engine.getSnapshot().abilities;
+  assert.ok(recast !== first);
+  assert.equal(recast[0]!.castId, 2);
+  assert.equal(recast[0]!.progress, first[0]!.progress);
+  slot.refreshId++;
+  advance(16);
+  const refreshed = engine.getSnapshot().abilities;
+  assert.ok(refreshed !== recast);
+  assert.equal(refreshed[0]!.refreshId, 1);
+  advance(16);
+  assert.ok(engine.getSnapshot().abilities === refreshed);
 });
 
 it('relative versus drags retain separate owners after crossing the midline', (t) => {
@@ -351,7 +401,9 @@ for (const phase of ['serve', 'play', 'resuming'] as const) {
     key('w');
     pointer('pointerdown', 1, 100, 100);
     world.match.score.you = 2;
-    world.talents.slots = [{ id: 'power-strike', cooldown: 3, span: 5, lockout: 0 }];
+    world.talents.slots = [
+      { id: 'power-strike', cooldown: 3, span: 5, lockout: 0, castId: 0, refreshId: 0 }
+    ];
     const elapsed = world.match.elapsed;
     const requested = world.match.serveRequested;
     win.innerWidth = 600;
@@ -615,6 +667,57 @@ it('pause discards queued steering, and blur cancels a resume countdown', (t) =>
   assert.equal(world.match.status, 'paused');
 });
 
+it('returning from a hidden page keeps serve, play and countdown paused until a player gesture', (t) => {
+  const { engine, world, doc, advance } = harness(t);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, autoServe: false });
+  let suspends = 0;
+  let resumes = 0;
+  let unlocks = 0;
+  world.audio.suspend = () => {
+    suspends++;
+  };
+  world.audio.resume = () => {
+    resumes++;
+  };
+  world.audio.unlock = () => {
+    unlocks++;
+  };
+  for (const phase of ['serve', 'play', 'resuming'] as const) {
+    engine.play(quickMatchRules('rookie'));
+    if (phase !== 'serve') {
+      engine.serve();
+      advance(16);
+    }
+    if (phase === 'resuming') {
+      engine.pause();
+      engine.resume();
+    }
+    assert.equal(world.match.status, phase);
+    doc.hidden = true;
+    doc.dispatchEvent(new Event('visibilitychange'));
+    assert.equal(world.match.status, 'paused');
+    const frozen = JSON.stringify({ ball: world.ball, match: world.match, talents: world.talents });
+    advance(250);
+    assert.equal(
+      JSON.stringify({ ball: world.ball, match: world.match, talents: world.talents }),
+      frozen
+    );
+    doc.hidden = false;
+    doc.dispatchEvent(new Event('visibilitychange'));
+    assert.equal(world.match.status, 'paused');
+    assert.equal(resumes, 0, 'visibility does not bypass the Pause screen');
+    const before = unlocks;
+    engine.resume();
+    assert.equal(unlocks, before + 1, 'explicit Resume requests audio recovery');
+    assert.equal(world.match.status, 'resuming');
+  }
+  assert.equal(suspends, 3);
+  engine.quitToMenu();
+  doc.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(resumes, 1, 'menu audio can recover without restarting a match');
+  assert.equal(world.match.status, 'menu');
+});
+
 it('system reduced motion is ignored at startup and on changes; explicit game settings control effects', (t) => {
   const { engine, world, win } = harness(t, true);
   const tuning = { ...world.tuning };
@@ -694,7 +797,9 @@ for (const phase of ['serve', 'play'] as const) {
     }
     assert.equal(world.match.status, phase);
     world.match.score.you = 2;
-    world.talents.slots = [{ id: 'power-strike', cooldown: 3, span: 5, lockout: 0 }];
+    world.talents.slots = [
+      { id: 'power-strike', cooldown: 3, span: 5, lockout: 0, castId: 0, refreshId: 0 }
+    ];
     engine.pause();
     const state = () =>
       JSON.stringify({

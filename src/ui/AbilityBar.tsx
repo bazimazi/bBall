@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type PointerEvent } from 'react';
 
 import type { SkillSide } from '../core/settings/store';
 import type { AbilityView } from '../game/types';
@@ -49,43 +49,33 @@ function label(ability: AbilityView): string {
 /** A one-shot ring on the button, and what it is saying. */
 interface Burst {
   kind: 'cast' | 'refresh';
-  /** Bumped every time, so React remounts the node and the CSS replays. */
-  id: number;
+  /** Changes per event, so React remounts the node and the CSS replays. */
+  id: string;
 }
 
 /**
- * The two moments a button has to mark, read from the cooldown ring alone.
- *
- * *Cast*: the ring emptied, because the skill was just spent - the press
- * deserves an acknowledgement the player can see with their eyes on the ball.
- *
- * *Refresh*: the ring refilled in one step instead of creeping back, which
- * only ever happens when Echo clears the bar. That is the whole point of that
- * capstone, and without this it is invisible - four buttons quietly become
- * available and nothing says why.
+ * Acknowledge actual casts and Echo resets, independently of cooldown progress.
+ * Fast recharge or return bonuses can also make the ring jump; those are not
+ * Echo. Mounting after Pause must not replay a cast the player already saw.
  */
-function useBurst(progress: number): Burst | null {
-  const previous = useRef(progress);
-  const counter = useRef(0);
+function useBurst(castId: number, refreshId: number): Burst | null {
+  const [played, setPlayed] = useState({ castId, refreshId });
   const [burst, setBurst] = useState<Burst | null>(null);
 
+  // Derived during render like UltimateFlare. A match reset clears feedback;
+  // a cast after an Echo reset wins when both arrive in one snapshot.
+  if (played.castId !== castId || played.refreshId !== refreshId) {
+    const reset = castId < played.castId || refreshId < played.refreshId;
+    const kind = reset ? null : castId > played.castId ? 'cast' : 'refresh';
+    setPlayed({ castId, refreshId });
+    setBurst(kind ? { kind, id: `${castId}:${refreshId}` } : null);
+  }
+
   useEffect(() => {
-    const was = previous.current;
-    previous.current = progress;
-
-    let kind: Burst['kind'] | null = null;
-    if (progress <= 0.2 && was > progress + 0.2) kind = 'cast';
-    // A cooldown that ran its course arrives a step at a time, so the jump
-    // test cannot fire on one; Echo clearing a slot the player only just
-    // spent - `was` of exactly 0 - is the case that matters most.
-    else if (progress >= 1 && was < 0.9) kind = 'refresh';
-    if (!kind) return;
-
-    counter.current += 1;
-    setBurst({ kind, id: counter.current });
+    if (!burst) return;
     const handle = window.setTimeout(() => setBurst(null), 700);
     return () => window.clearTimeout(handle);
-  }, [progress]);
+  }, [burst]);
 
   return burst;
 }
@@ -97,7 +87,7 @@ interface AbilityButtonProps {
 
 function AbilityButton({ ability, onUse }: AbilityButtonProps) {
   const index = ability.slot;
-  const burst = useBurst(ability.progress);
+  const burst = useBurst(ability.castId, ability.refreshId);
   const { keyBindings } = useSettings();
   const action = skillAction(index);
 
@@ -107,7 +97,7 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
   const handleDown = (event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    onUse(index);
+    if (event.button === 0 && ability.ready) onUse(index);
   };
 
   const classes = [styles.button];
@@ -129,7 +119,7 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
       aria-disabled={!ability.ready}
       onPointerDown={handleDown}
       onClick={(event) => {
-        if (event.detail === 0) onUse(index);
+        if (event.detail === 0 && ability.ready) onUse(index);
       }}
       onContextMenu={(event) => event.preventDefault()}
     >

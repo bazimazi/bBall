@@ -92,6 +92,80 @@ it('HUD readiness respects lockout after cooldown resets and shows Strike charge
   assert.equal(abilityViews(world)[0]!.ready, true);
 });
 
+it('skill feedback counts accepted casts and ignores unavailable attempts', () => {
+  const world = build({ 'power-strike': 1 }, ['power-strike']);
+  const slot = world.talents.slots[0]!;
+  assert.equal(slot.castId, 0);
+  assert.equal(fireAbility(world, 4), false);
+  world.match.status = 'paused';
+  assert.equal(fireAbility(world, 0), false);
+  assert.equal(slot.castId, 0);
+  world.match.status = 'play';
+  assert.equal(fireAbility(world, 0), true);
+  assert.equal(abilityViews(world)[0]!.castId, 1);
+  assert.equal(fireAbility(world, 0), false);
+  slot.cooldown = 0;
+  assert.equal(fireAbility(world, 0), false, 'Echo cannot bypass the real-time lockout');
+  assert.equal(slot.castId, 1);
+  updateRuntime(world, BALANCE.talents.minRecast);
+  assert.equal(fireAbility(world, 0), true);
+  assert.equal(abilityViews(world)[0]!.castId, 2);
+});
+
+it('Echo feedback marks only spent cooldowns and preserves their recast lockout', () => {
+  const world = build({ 'power-strike': 1, dash: 1, echo: 1 }, ['power-strike', 'dash', 'echo']);
+  const [strike, dash, echo] = world.talents.slots;
+  assert.equal(fireAbility(world, 0), true);
+  assert.equal(fireAbility(world, 2), true);
+  assert.equal(strike!.cooldown, 0);
+  assert.equal(strike!.lockout, BALANCE.talents.minRecast);
+  assert.equal(strike!.refreshId, 1);
+  assert.equal(dash!.refreshId, 0, 'an already ready skill was not refreshed');
+  assert.equal(echo!.refreshId, 0, 'Echo never clears itself');
+  assert.equal(world.talents.slots[4]!.refreshId, 0, 'empty slots have no feedback');
+  assert.deepEqual(
+    abilityViews(world).map(({ castId, refreshId }) => [castId, refreshId]),
+    [
+      [1, 1],
+      [0, 0],
+      [1, 0]
+    ]
+  );
+  assert.equal(fireAbility(world, 2), false);
+  assert.equal(strike!.refreshId, 1);
+});
+
+it('natural and return-driven recharge cannot masquerade as Echo feedback', () => {
+  const world = build({ 'power-strike': 1, tempo: 2 }, ['power-strike']);
+  const slot = world.talents.slots[0]!;
+  fireAbility(world, 0);
+  updateRuntime(world, BALANCE.talents.minRecast);
+  slot.cooldown = 0.01;
+  playerReturn(world, 0);
+  assert.equal(slot.cooldown, 0);
+  assert.equal(abilityViews(world)[0]!.refreshId, 0);
+  assert.equal(fireAbility(world, 0), true);
+  updateRuntime(world, slot.span);
+  const view = abilityViews(world)[0]!;
+  assert.equal(view.ready, true);
+  assert.equal(view.refreshId, 0);
+  assert.equal(view.castId, 2);
+});
+
+it('restarting a match resets skill feedback along with cooldowns', () => {
+  const world = build({ 'power-strike': 1, echo: 1 }, ['power-strike', 'echo']);
+  fireAbility(world, 0);
+  fireAbility(world, 1);
+  resetRuntime(world);
+  for (const slot of world.talents.slots) {
+    assert.equal(slot.castId, 0);
+    assert.equal(slot.refreshId, 0);
+  }
+  assert.equal(abilityViews(world)[0]!.ready, true);
+  assert.equal(fireAbility(world, 0), true);
+  assert.equal(abilityViews(world)[0]!.castId, 1);
+});
+
 it('return bonuses discount ultimates by half and never bypass the recast lockout', () => {
   const world = build({ 'perfect-guard': 1, tempo: 2, afterglow: 2, echo: 1 }, [
     'perfect-guard',

@@ -34,7 +34,9 @@ function emptySlots(): AbilitySlot[] {
     id: null,
     cooldown: 0,
     span: 0,
-    lockout: 0
+    lockout: 0,
+    castId: 0,
+    refreshId: 0
   }));
 }
 
@@ -121,6 +123,8 @@ export function resetRuntime(world: World): void {
     slot.cooldown = 0;
     slot.span = 0;
     slot.lockout = 0;
+    slot.castId = 0;
+    slot.refreshId = 0;
   }
 
   runtime.stats.abilitiesUsed = 0;
