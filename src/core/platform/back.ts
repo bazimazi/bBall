@@ -75,7 +75,7 @@ function onPopState(): void {
 }
 
 function dispatchBack(): void {
-  const handler = handlers.at(-1);
+  const handler = handlers[handlers.length - 1];
   if (handler) handler();
   else onExitRequest?.();
 }

@@ -11,6 +11,10 @@ import { abilityViews } from '../../src/game/abilities';
 class TestElement extends EventTarget {
   tagName = 'CANVAS';
   isContentEditable = false;
+  modalBlocked = false;
+  closest() {
+    return this.modalBlocked ? this : null;
+  }
 }
 class TestButton extends TestElement {}
 class TestCanvas extends TestElement {
@@ -521,4 +525,126 @@ it('the real frame clock resumes on time after slow motion and holds paused came
   assert.deepEqual(world.ball, before);
   advance(40);
   assert.notEqual(world.ball.x, before.x);
+});
+
+it('handled dialog keys and blocking dialogs cannot resume or mute the game behind them', (t) => {
+  const { engine, world, win, doc, key } = harness(t);
+  engine.play(quickMatchRules('rookie'));
+  engine.pause();
+  const handled = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
+  handled.preventDefault();
+  win.dispatchEvent(handled);
+  assert.equal(world.match.status, 'paused');
+  const muted = engine.getSnapshot().muted;
+  doc.activeElement = Object.assign(new TestButton(), { modalBlocked: true });
+  for (const name of ['p', 'm', 'Escape', 'w', 'q']) key(name);
+  assert.equal(world.match.status, 'paused');
+  assert.equal(engine.getSnapshot().muted, muted);
+  doc.activeElement = new TestButton();
+  key('p');
+  assert.equal(world.match.status, 'resuming', 'the ordinary Pause shortcut still works');
+});
+
+for (const phase of ['serve', 'play'] as const) {
+  it(`settings changes preserve a paused ${phase} and only explicit resume applies the new countdown`, (t) => {
+    const { engine, world, key, pointer, advance } = harness(t, true, DEFAULT_SETTINGS, 3);
+    engine.play(quickMatchRules('rookie'));
+    if (phase === 'play') {
+      engine.serve();
+      advance(16);
+    }
+    assert.equal(world.match.status, phase);
+    world.match.score.you = 2;
+    world.talents.slots = [{ id: 'power-strike', cooldown: 3, span: 5, lockout: 0 }];
+    engine.pause();
+    const state = () =>
+      JSON.stringify({
+        match: world.match,
+        ball: world.ball,
+        player: world.player,
+        bot: world.bot,
+        talents: world.talents,
+        arena: world.arena,
+        brain: world.botBrain,
+        rules: world.rules,
+        tuning: world.tuning,
+        loadout: world.loadout,
+        tutorial: world.tutorial
+      });
+    const frozen = state();
+    engine.setGameplayInputEnabled(false);
+    engine.setPreferences({
+      ...DEFAULT_SETTINGS,
+      canvasQuality: 'low',
+      effects: 'calm',
+      autoServe: false,
+      resumeCountdown: false,
+      touchMode: 'relative',
+      touchSensitivity: 1.5,
+      keyBindings: CUSTOM_KEYS
+    });
+    for (const name of ['p', 'o', ' ', 'b', 'Escape', 'i', 'h']) key(name);
+    pointer('pointerdown', 1, 100, 250);
+    pointer('pointerup', 1, 100, 250);
+    for (let i = 0; i < 20; i++) advance(40);
+    assert.equal(state(), frozen, 'settings and hidden-court input cannot change the rally');
+    assert.equal(world.view.dpr, 1);
+    assert.equal(world.camera, 0);
+    assert.equal(world.autoServe, false);
+    engine.setGameplayInputEnabled(true);
+    assert.equal(world.match.status, 'paused', 'returning from settings never resumes');
+    key('o');
+    assert.equal(world.match.status, phase);
+    assert.equal(engine.getSnapshot().resumeIn, 0);
+    if (phase === 'serve') {
+      advance(40);
+      assert.equal(world.match.status, 'serve');
+      key('b');
+      advance(16);
+      assert.equal(world.match.status, 'play', 'the new manual serve binding takes effect');
+    } else {
+      advance(16);
+      assert.notEqual(state(), frozen, 'the rally advances after explicit resume');
+    }
+  });
+}
+
+it('covered gameplay releases held input and ignores keyboard, touch and mouse steering while keeping mute', (t) => {
+  const { engine, world, key, pointer, advance } = harness(t);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, autoServe: false });
+  engine.play(versusRules());
+  pointer('pointerdown', 1, 100, 100);
+  pointer('pointerdown', 2, 900, 450);
+  key('w');
+  key('ArrowDown');
+  engine.setGameplayInputEnabled(false);
+  const playerTarget = world.player.target;
+  const botTarget = world.bot.target;
+  for (const name of ['w', 'ArrowDown', ' ', 'p', 'Escape', '1']) {
+    assert.equal(key(name).defaultPrevented, false);
+  }
+  for (const [id, x] of [
+    [1, 100],
+    [2, 900]
+  ] as const) {
+    pointer('pointermove', id, x, 200);
+    pointer('pointerup', id, x, 200);
+    pointer('pointerdown', id, x, 400);
+  }
+  pointer('pointermove', 3, 100, 50, 'mouse');
+  assert.equal(world.player.target, playerTarget);
+  assert.equal(world.bot.target, botTarget);
+  assert.equal(world.match.serveRequested, false);
+  const muted = engine.getSnapshot().muted;
+  key('m');
+  assert.equal(engine.getSnapshot().muted, !muted);
+  engine.setGameplayInputEnabled(true);
+  advance(40);
+  assert.equal(world.player.target, playerTarget, 'old held keys do not reactivate');
+  assert.equal(world.bot.target, botTarget);
+  pointer('pointermove', 1, 100, 150);
+  assert.equal(world.player.target, playerTarget, 'old touch ownership does not reactivate');
+  key('w');
+  advance(40);
+  assert.ok(world.player.target < playerTarget);
 });

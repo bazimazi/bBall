@@ -18,6 +18,19 @@ the CSS viewport and pointer coordinates. Check court sharpness and frame times
 at all three qualities on physical devices; a successful asset build does not
 verify webview performance.
 
+Pause, exit and talent dialogs use a shared focus scope, with JavaScript Tab
+and focus containment in addition to `inert`, so containment does not rely on
+native `inert` support. Menu/Back routing and Gauntlet score display use indexed
+access instead of `Array.at`, which is newer than the Safari 13 target. The DOM
+interaction check removes that method to exercise those paths, but does not
+emulate Safari or replace physical webview/assistive-technology checks.
+
+Settings can open above a paused match. The engine stays mounted and frozen;
+gameplay keys and canvas input are disabled while a menu covers the court.
+Back returns to Pause, including during a pending or failed Settings load.
+Check the same route with Android Back and Escape in physical webviews, then
+resume using changed bindings, touch sensitivity and countdown preferences.
+
 Menu pages load from separate JavaScript and CSS chunks. Package the entire
 `dist/` output, as Tauri's `frontendDist` already does. A build that copies only
 the entry script will break menu navigation. Run `npm run check:bundle` after

@@ -25,11 +25,12 @@ npm run dev        # http://localhost:5173
 | `npm run lint`         | ESLint over the whole project                               |
 | `npm run format`       | Prettier write                                              |
 | `npm run server`       | The backend, with reload                                    |
-| `npm test`             | The backend test suite                                      |
+| `npm test`             | Client domain/engine and backend tests                      |
 | `npm run desktop`      | The game in a native window, with hot reload                |
 | `npm run icons`        | Regenerate web and native icons from one mark               |
 | `npm run check:bundle` | Check built menu boundaries and report initial JS/CSS bytes |
 | `npm run check:menus`  | Render all lazy menu pages and their pending state in Node  |
+| `npm run check:ui`     | Check mounted menu/dialog focus and interactions in a DOM   |
 
 ## Platforms
 
@@ -448,6 +449,17 @@ Try Balanced or Low if rallies stutter on a high-resolution screen: the court
 looks softer, while menu text, controls and simulation timing stay the same.
 The choice is independent of Full/Calm effects and stays on this device.
 
+Open **Pause → Settings** to adjust sound, effects, court quality or controls
+without leaving the match. The rally stays frozen. **Return to paused game**,
+Back or Escape returns to Pause; choose Resume when ready. Escape cancels a
+key change before leaving Settings, and the new bindings apply when you resume.
+
+**Keyboard navigation** moves focus to a new menu's heading. Pause, exit and
+talent dialogs keep Tab inside their controls and return focus when dismissed.
+Escape resumes from Pause, cancels Exit, or closes talent details. Exit starts
+on Keep playing, and talent details have a visible Close button. Dialogs block
+background controls; Pause retains the game's pause/serve/mute shortcuts.
+
 **Reduced-motion policy:** bBall completely ignores operating-system and browser
 reduced-motion settings on web, desktop and mobile. Animations, transitions,
 result reveals and canvas effects never change because of those preferences.
@@ -548,6 +560,11 @@ its static dependencies, check all emitted JavaScript/CSS files, and verify
 that optional pages remain deferred. `npm run check:menus` renders the real
 lazy pages in Node, including Practice and a pending page. It does not replace
 browser navigation, download-failure or on-device performance checks.
+`npm run check:ui` mounts real components with React DOM in Happy DOM (a test-only
+dependency), including focus return, background blocking, lazy menu completion,
+explicit reload recovery and navigation without `Array.at`. It uses substitute
+layout boxes; native Tab behavior, CSS layout and screen readers still need
+manual checks.
 Publish or package the entire `dist/` directory, including all chunk files.
 
 A match flows one way: the UI hands the engine a `MatchRules`, the engine plays

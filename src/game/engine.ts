@@ -143,6 +143,8 @@ export class GameEngine {
   private lastTime = 0;
   private accumulator = 0;
   private running = false;
+  /** Menus can cover a paused court without handing their keys to the match. */
+  private gameplayInputEnabled = true;
   /** Short buzzes on hits and points, where the device can make them. */
   private haptics = true;
   private resumeCountdown = true;
@@ -252,6 +254,13 @@ export class GameEngine {
   };
 
   serve = (): void => requestServe(this.world);
+
+  /** The UI owns this switch. Mute remains available outside blocking dialogs. */
+  setGameplayInputEnabled = (enabled: boolean): void => {
+    if (this.gameplayInputEnabled === enabled) return;
+    this.gameplayInputEnabled = enabled;
+    if (!enabled) this.clearInput();
+  };
 
   /** Leave the match and go back to the attract-mode demo behind the menus. */
   quitToMenu = (): void => {
@@ -617,7 +626,7 @@ export class GameEngine {
   }
 
   private onPointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0) return;
+    if (!this.gameplayInputEnabled || event.button !== 0) return;
     this.audio.unlock();
     const { match } = this.world;
     // A tap during the closing replay skips it.
@@ -645,6 +654,7 @@ export class GameEngine {
   };
 
   private onPointerMove = (event: PointerEvent): void => {
+    if (!this.gameplayInputEnabled) return;
     const { status } = this.world.match;
     if (status !== 'play' && status !== 'serve') return;
     const side = this.pointers.move(event.pointerId, event.clientX, event.clientY);
@@ -654,6 +664,7 @@ export class GameEngine {
   };
 
   private onPointerUp = (event: PointerEvent): void => {
+    if (!this.gameplayInputEnabled) return;
     if (this.pointers.end(event.pointerId, event.clientX, event.clientY, event.timeStamp))
       this.serve();
   };
@@ -679,7 +690,7 @@ export class GameEngine {
   };
 
   private onKeyDown = (event: KeyboardEvent): void => {
-    if (event.repeat || !event.key) return;
+    if (event.defaultPrevented || event.repeat || !event.key) return;
     // The name field is a real text input: while it has focus the game gets
     // no keys at all, or typing "1" would fire an ability and "m" would mute.
     if (isTyping(event.target)) return;
@@ -687,8 +698,10 @@ export class GameEngine {
     const key = event.key.toLowerCase();
     const { match } = this.world;
     const action = key === 'escape' ? 'pause' : keyAction(this.bindings, key);
+    if (!this.gameplayInputEnabled && action !== 'mute') return;
     // Space and Enter activate the focused UI even when mapped to another action.
     const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused.closest('[data-game-modal="blocked"]')) return;
     if (
       (key === ' ' || key === 'enter') &&
       (focused instanceof HTMLButtonElement ||

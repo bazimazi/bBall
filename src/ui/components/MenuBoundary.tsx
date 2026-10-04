@@ -27,6 +27,8 @@ const TITLES: Record<MenuScreenId, string> = {
 
 interface MenuBoundaryProps {
   screen: MenuScreenId;
+  /** A failed settings download must offer a way to keep the paused match. */
+  pausedGame?: boolean;
   onBack: () => void;
   children: ReactNode;
 }
@@ -47,37 +49,53 @@ export class MenuBoundary extends Component<MenuBoundaryProps, MenuBoundaryState
   }
 
   override render() {
-    const { screen, onBack, children } = this.props;
+    const { screen, pausedGame = false, onBack, children } = this.props;
     const title = TITLES[screen];
     if (this.state.failed)
       return (
         <Screen
           title={title}
+          subtitle={pausedGame ? 'Game paused' : ''}
           onBack={onBack}
+          onEscape={pausedGame ? onBack : undefined}
           footer={
             <>
+              {pausedGame && (
+                <button type="button" className={styles.primary} onClick={onBack}>
+                  Return to paused game
+                </button>
+              )}
               <button
                 type="button"
-                className={styles.primary}
+                className={pausedGame ? styles.ghost : styles.primary}
                 onClick={() => window.location.reload()}
               >
                 Reload game
               </button>
-              <button type="button" className={styles.ghost} onClick={onBack}>
-                Back
-              </button>
+              {!pausedGame && (
+                <button type="button" className={styles.ghost} onClick={onBack}>
+                  Back
+                </button>
+              )}
             </>
           }
         >
           <p role="alert">
-            This page couldn’t be opened. Go back, or reload the game to try again.
+            {pausedGame
+              ? 'This page couldn’t be opened. Return to your paused game, or reload to try again. Reload ends the current match.'
+              : 'This page couldn’t be opened. Go back, or reload the game to try again.'}
           </p>
         </Screen>
       );
     return (
       <Suspense
         fallback={
-          <Screen title={title} onBack={onBack}>
+          <Screen
+            title={title}
+            subtitle={pausedGame ? 'Game paused' : ''}
+            onBack={onBack}
+            onEscape={pausedGame ? onBack : undefined}
+          >
             <p role="status" aria-live="polite">
               Opening {title}…
             </p>

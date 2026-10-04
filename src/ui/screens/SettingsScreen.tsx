@@ -16,6 +16,8 @@ import { KeyBindingsEditor } from '../components/KeyBindingsEditor';
 import { keyList } from '../../core/settings/controls';
 
 interface SettingsScreenProps {
+  /** Return to Pause rather than leaving or automatically resuming the match. */
+  pausedGame?: boolean;
   /** Play a sample through the effects bus, so a new level can be heard. */
   onPreview: () => void;
   onMusicPreview: () => void;
@@ -133,6 +135,7 @@ function Level({
  * the hand, not to the player. Pacing choices leave rally speeds unchanged.
  */
 export function SettingsScreen({
+  pausedGame = false,
   onPreview,
   onMusicPreview,
   onStopPreview,
@@ -143,7 +146,19 @@ export function SettingsScreen({
   const set = (patch: Partial<DeviceSettings>) => settingsStore.update(patch);
 
   return (
-    <Screen title="Settings" subtitle="This device only" onBack={onBack}>
+    <Screen
+      title="Settings"
+      subtitle={pausedGame ? 'Game paused · This device only' : 'This device only'}
+      onBack={onBack}
+      onEscape={pausedGame ? onBack : undefined}
+      footer={
+        pausedGame && (
+          <button type="button" className={styles.primary} onClick={onBack}>
+            Return to paused game
+          </button>
+        )
+      }
+    >
       <p className={styles.sectionLabel}>Sound</p>
       <div className={styles.card}>
         <div className={styles.settingStack}>

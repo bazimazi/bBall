@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { stageById, stageOpen, STAGES } from '../core/campaign/journey';
 import type { MatchResult } from '../core/modes/types';
@@ -169,6 +169,11 @@ export function App() {
   const playing = flow.screen === 'playing';
   const paused = playing && snapshot.status === 'paused';
 
+  // A menu over a paused court owns gameplay keys, including while its chunk loads.
+  useLayoutEffect(() => {
+    engine?.setGameplayInputEnabled(playing);
+  }, [engine, playing]);
+
   // The back button - the browser's, or Android's - reads as "up one level",
   // and only the very last press is allowed to mean "leave".
   const goBack = useCallback(() => {
@@ -268,7 +273,12 @@ export function App() {
       )}
 
       {flow.screen !== 'home' && flow.screen !== 'onboarding' && flow.screen !== 'playing' && (
-        <MenuBoundary key={flow.screen} screen={flow.screen} onBack={goBack}>
+        <MenuBoundary
+          key={flow.screen}
+          screen={flow.screen}
+          pausedGame={snapshot.status === 'paused'}
+          onBack={goBack}
+        >
           {flow.screen === 'modes' && (
             <ModesScreen profile={profile} onPick={flow.pickMode} onBack={flow.back} />
           )}
@@ -363,6 +373,7 @@ export function App() {
 
           {flow.screen === 'settings' && (
             <SettingsScreen
+              pausedGame={snapshot.status === 'paused'}
               onPreview={() => engine?.chime(1)}
               onMusicPreview={engine?.previewMusic ?? (() => {})}
               onStopPreview={engine?.stopAudioPreview ?? (() => {})}
@@ -385,7 +396,12 @@ export function App() {
         </MenuBoundary>
       )}
 
-      <Overlay show={paused && !leaving}>
+      <Overlay
+        show={paused && !leaving}
+        label="Paused"
+        onDismiss={() => engine?.resume()}
+        gameShortcuts
+      >
         <PausePanel
           label={snapshot.label}
           score={
@@ -395,6 +411,7 @@ export function App() {
           }
           lives={snapshot.maxLives > 0 ? { left: snapshot.lives, max: snapshot.maxLives } : null}
           onResume={() => engine?.resume()}
+          onSettings={() => flow.go('settings')}
           onRestart={flow.replay}
           onQuit={flow.quitToMenu}
           versus={snapshot.mode === 'versus'}
@@ -403,7 +420,11 @@ export function App() {
         />
       </Overlay>
 
-      <Overlay show={leaving}>
+      <Overlay
+        show={leaving}
+        label={isNativeShell ? 'Close bBall?' : 'Leave bBall?'}
+        onDismiss={() => setLeaving(false)}
+      >
         <ExitPanel
           native={isNativeShell}
           onExit={() => void exitApp()}

@@ -12,6 +12,7 @@ interface PausePanelProps {
   /** Lives left, when it is played in lives instead. */
   lives?: { left: number; max: number } | null;
   onResume: () => void;
+  onSettings: () => void;
   onRestart: () => void;
   onQuit: () => void;
   versus?: boolean;
@@ -24,6 +25,7 @@ export function PausePanel({
   score,
   lives,
   onResume,
+  onSettings,
   onRestart,
   onQuit,
   versus = false,
@@ -55,6 +57,9 @@ export function PausePanel({
       <GoalList goals={goals} />
       {goals.length === 0 && objective && <p className={styles.tagline}>{objective}</p>}
       <PanelButton onClick={onResume}>Resume</PanelButton>
+      <PanelButton variant="ghost" onClick={onSettings}>
+        Settings
+      </PanelButton>
       <PanelButton variant="ghost" onClick={onRestart}>
         Restart
       </PanelButton>
@@ -62,7 +67,7 @@ export function PausePanel({
         Quit to menu
       </PanelButton>
       <details className={styles.controls}>
-        <summary>Controls</summary>
+        <summary tabIndex={0}>Controls</summary>
         <ControlsReference versus={versus} />
       </details>
     </div>

@@ -24,6 +24,7 @@ import {
 import { activeSynergies, SYNERGIES } from '../../core/talents/synergy';
 import type { AbilityId, TalentDef, TalentId } from '../../core/talents/types';
 import { Screen } from '../components/Screen';
+import { Dialog } from '../components/Dialog';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { TalentTree } from '../components/TalentTree';
 import { TalentIcon } from '../icons/TalentIcon';
@@ -254,19 +255,23 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
 
       {/* ------------------------------------------------------ the tooltip */}
       {selected && state && (
-        <>
+        <Dialog
+          label={selected.name}
+          onDismiss={() => setOpen(null)}
+          className={styles.sheetLayer}
+          portal
+        >
           <button
             type="button"
             className={styles.sheetScrim}
             aria-label="Close talent details"
+            tabIndex={-1}
             onClick={() => setOpen(null)}
           />
           <div
             className={
               bought === selected.id ? `${styles.sheet} ${styles.sheetBought}` : styles.sheet
             }
-            role="dialog"
-            aria-label={selected.name}
           >
             <div className={styles.sheetHead}>
               <span
@@ -279,7 +284,9 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
                 <TalentIcon id={selected.id} />
               </span>
               <span className={styles.rowText}>
-                <span className={styles.sheetName}>{selected.name}</span>
+                <span className={styles.sheetName} tabIndex={-1} data-dialog-initial>
+                  {selected.name}
+                </span>
                 <span className={styles.sheetRank}>
                   Rank {state.rank} / {selected.maxRank}
                   {isUltimate(selected) ? (
@@ -333,8 +340,11 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
                 {!state.canBuy && <p className={screens.note}>{blockText(state)}</p>}
               </>
             )}
+            <button type="button" className={screens.ghost} onClick={() => setOpen(null)}>
+              Close details
+            </button>
           </div>
-        </>
+        </Dialog>
       )}
     </Screen>
   );

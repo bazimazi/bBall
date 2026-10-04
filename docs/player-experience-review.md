@@ -1,6 +1,6 @@
 # bBall player experience review
 
-Reviewed on 3 October 2026. This review covers the current React and canvas game,
+Reviewed on 3 October 2026; continued on 4 October 2026. This review covers the current React and canvas game,
 its shared physics and mode rules, input handling, first-run flow, menus,
 feedback, settings and regression coverage.
 
@@ -22,7 +22,7 @@ the research below; it is not a measured player preference.
 ## Evidence and limits
 
 The investigation combined primary design research, source inspection, real
-simulation runs and targeted regressions. No player interviews, retention data,
+simulation runs, mounted React DOM checks and targeted regressions. No player interviews, retention data,
 device performance profiles or human playtest results were available. Browser
 automation reported no available browser or app surfaces, so visual layout,
 touch ergonomics and perceived enjoyment remain unverified in this session.
@@ -147,6 +147,38 @@ establish a frame-time improvement on an unprofiled device.
 [MDN: Optimizing canvas](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas)
 and [MDN: devicePixelRatio](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio).
 
+W3C's dialog pattern describes initial focus, contained Tab navigation,
+Escape dismissal and return to the invoking control. The code had no focus
+handling for menu changes or Pause/Exit overlays; talent details had a dialog
+role but no containment and no visible Close button. I applied the pattern
+through a shared focus scope, safe initial actions, background blocking and
+an explicit details close. New menu headings receive focus without focusing
+a text field. This is an implementation of selected behaviors, not a claim
+of accessibility compliance.
+[W3C: Dialog (Modal) Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/).
+
+SpecialEffect recommends making settings available throughout play so players
+can adjust them when they discover a need. Xbox's UI guidance also supports
+consistent navigation and a persistent route back. The audit found that Pause
+offered no Settings route, so correcting touch sensitivity, effects or court
+quality required leaving a match. I applied that guidance through Pause →
+Settings → Pause, preserving the frozen rally and requiring an explicit resume.
+The engine disables gameplay input while any menu covers the court, including
+pending or failed downloads. Escape first cancels an active key change; otherwise
+it returns to Pause. This is a design application to test with players, not
+measured evidence of improved comfort or enjoyment.
+[SpecialEffect DevKit: Settings Information](https://specialeffectdevkit.info/gameplay/5_information/5_5_settings_information/)
+and [XAG 112: UI navigation](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/112).
+
+MDN describes `inert` as preventing focus and interaction with a subtree.
+The game also needs JavaScript containment for older webviews. The compatibility
+audit found three `Array.at` calls in routing and Gauntlet score display,
+although MDN's compatibility data places Safari support at 15.4 and the asset
+target is Safari 13. Those calls now use indexed access. Removing the method
+in a DOM check reproduces the missing capability, not an entire Safari runtime.
+[MDN: inert](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert)
+and [MDN: Array compatibility data](https://github.com/mdn/browser-compat-data/blob/main/javascript/builtins/Array.json).
+
 ## Reproduced problems and implemented changes
 
 | Area                    | Evidence from the original code or regressions                                                                                                   | Resulting behaviour                                                                                                                                                                                    |
@@ -172,7 +204,7 @@ choices survive. Profile and cloud progression formats are unchanged.
 
 ## Validation
 
-All 278 tests passed, as did client and server type checking, ESLint and the
+All 282 tests passed, as did client and server type checking, ESLint and the
 production build. The two simulation soaks completed 828 matches in total with
 none of their reported stability alerts.
 
@@ -225,7 +257,37 @@ also verifies each quality's selected button. These checks measure layout and
 sprite creation using DOM/context substitutes; they do not rasterize pixels or
 measure GPU work, visual quality, frame times or human response.
 
-A final rebuild ran out of available machine memory. Repeating it with two
+The navigation batch adds an engine regression for already-handled keys and
+blocking dialogs, plus **ten mounted UI interaction checks** in `check:ui`.
+These use the real components and React DOM under Strict Mode in Happy DOM,
+with asynchronous updates wrapped in React's `act`. They check heading focus
+without stealing focus on ordinary rerenders; Pause Tab wrapping and focus
+return; Exit's safe initial action and background blocking; all three talent
+details dismissal routes; hidden/disabled controls; dynamic backgrounds;
+nested dialog ownership; empty dialogs and a disappeared opener;
+pending/completed/failed menu focus and explicit
+reload; and navigation/Back/Gauntlet score display with `Array.at` removed.
+Happy DOM is a development dependency and is not shipped
+to players. Its substitute layout boxes and dispatched events do not verify
+CSS stacking, native Tab defaults, actual downloads or screen-reader output.
+[React: act](https://react.dev/reference/react/act)
+and [Happy DOM: Getting started](https://github.com/capricorn86/happy-dom/wiki/Getting-started).
+
+The paused-settings batch adds three engine tests and two UI checks, bringing
+`check:ui` to **12 checks**. The real engine holds paused serve and play states
+while preferences change and gameplay keys or pointers arrive. Score, ball,
+paddles, skill cooldowns, hazards, bot state, rules and build stay frozen.
+Backing density, effects, manual serving, touch controls and bindings update;
+returning to the court stays paused, and explicit resume uses the new countdown
+choice. Covering gameplay clears held keys and touch owners, prevents new mouse
+or touch steering and retains the global mute shortcut. Mounted components and
+the real route stack exercise footer, header, Escape and Back returns, retained
+score, preview cleanup, key-capture cancellation, and pending/failed Settings
+recovery. The UI fixture uses command spies; frozen-world behavior is checked
+separately through the real engine. It does not mount the entire App or verify
+physical webview Back behavior, actual downloads or visual layout.
+
+An earlier rebuild ran out of available machine memory. Repeating it with two
 Rayon workers and a 256 MB Node heap succeeded and passed `check:bundle`.
 Earlier standard web builds passed; no persistent build-memory settings were
 changed.
@@ -239,31 +301,38 @@ npm run lint
 npm run build
 npm run check:bundle
 npm run check:menus
+npm run check:ui
 node --import tsx scripts/sim.ts 6 pro
 ```
 
 The original single entry was 607.73 kB. After deferring menus and adding the
-rendering settings the entry is 462.94 kB and Vite no longer emits its 500 kB
-chunk warning. However, the complete initial static graph is **550.78 kB across
+rendering, focus and paused-settings behavior the entry is 464.75 kB and Vite
+no longer emits its 500 kB chunk warning. However, the complete initial static graph is **555.65 kB across
 17 JS files**, because shared domain
 code remains necessary. The comparable web-build measurements from
 `check:bundle` are:
 
 | Initial static payload | Before    | After     | Reduction |
 | ---------------------- | --------- | --------- | --------- |
-| JavaScript             | 607.73 kB | 550.78 kB | 9.4%      |
-| JavaScript, gzip       | 189.12 kB | 178.92 kB | 5.4%      |
+| JavaScript             | 607.73 kB | 555.65 kB | 8.6%      |
+| JavaScript, gzip       | 189.12 kB | 180.66 kB | 4.5%      |
 | CSS                    | 58.94 kB  | 47.37 kB  | 19.6%     |
-| CSS, gzip              | 12.22 kB  | 9.91 kB   | 18.9%     |
+| CSS, gzip              | 12.22 kB  | 11.00 kB  | 10.0%     |
 
 Gzip totals use Node's `gzipSync` at its default level, summed per unique file
 with the same method before and after. These are artifact bytes, not measured
 network transfer or time to play. The graph excludes dynamic imports, HTML,
 images, fonts and API responses. More files introduce request overhead; cold
 starts, menu latency, stylesheet loading and low-end rendering still need
-device profiling. Before the rendering batch, the Safari-targeted desktop-mode
-graph was 557.86 kB JS and 47.64 kB CSS. Native packaging and visual or on-device
-QA remain pending.
+device profiling. The focus behavior adds 3.85 kB initial JS (1.48 kB gzip)
+relative to the rendering batch. Shared screen CSS now occupies a separate
+initial file, so the same 47.37 kB raw CSS compresses to 11.00 rather than
+9.91 kB across two files. Paused settings adds another 1.02 kB initial JS
+(0.26 kB gzip), with unchanged initial CSS. These are costs of the two batches,
+not further byte reductions. The Safari-targeted desktop-mode graph passed its check at
+563.60 kB JS (182.92 kB gzip) and 47.64 kB CSS (11.03 kB gzip); the final
+`dist/` was regenerated as the web build. Native packaging and visual or
+on-device QA remain pending.
 
 ## Rendering workload measurements
 
@@ -299,7 +368,7 @@ are a tradeoff to profile. No FPS, input-latency or battery improvement is claim
 
 ## Next changes to validate with players
 
-The first six follow-ups have now been implemented:
+The first eight follow-ups have now been implemented:
 
 - **First-rally lesson:** optional and replayable from How to play. A stationary
   dashed outline shows where to place the paddle. The learner moves, returns a
@@ -359,6 +428,26 @@ The first six follow-ups have now been implemented:
   fewer backing pixels on dense displays. Controls, court geometry and match
   clocks retain their behavior. Dot and bar caches reuse equivalent circular
   hues, enforce their bounds and preserve frequently drawn glows on overflow.
+- **Keyboard navigation and dialog ownership:** opening a menu focuses its
+  heading; ordinary rerenders preserve control focus. Pause starts on Resume,
+  Exit on Keep playing, and talent details on their name. Dialogs contain Tab
+  and Shift+Tab, skip unavailable controls, block background interaction and
+  restore a connected invoker or a logical heading/playfield fallback. Escape
+  resumes/cancels/closes the top dialog and is consumed before the engine.
+  Exit and details also block raw game shortcuts; Pause keeps its usual game
+  shortcuts. Dialogs are named, mounted over the HUD, and have visible dismissal
+  controls. Existing transitions and the system-motion policy retain their
+  behavior. Routing and Gauntlet's last score also avoid `Array.at` so those
+  paths do not require an API newer than the native asset target.
+- **Settings without abandoning a match:** Pause offers Settings, with a
+  persistent Return to paused game action. The existing route stack preserves
+  the match while sound, effects, quality and controls are adjusted. Header Back,
+  browser/Android Back and Escape return to Pause before Resume. Key remapping
+  consumes its first Escape to cancel. Raw gameplay input stays disabled while
+  Settings loads or shows; mute remains available. Pending and failed pages
+  retain a return route, and recovery explains that Reload ends the match.
+  Audio previews stop on leaving Settings. Preferences retain their existing
+  device storage and system reduced motion remains completely ignored.
 
 These changes still need newcomer observation, screen-reader checks, and HUD
 and Settings/result layout and touch checks in both orientations. The last
@@ -380,6 +469,21 @@ sensitivity, and try both Practice paces. Ask about control, clarity and comfort
 After a loss, ask whether the suggestion accurately describes the attempt and
 helps choose a next step, or feels repetitive. Check that guide Back returns to
 the result and that retry remains easy to reach.
+Navigate menus using only the keyboard. Check that new headings announce the
+page, Tab moves into its controls, and ordinary updates preserve focus. Open
+Pause, Exit and talent details; try Tab and Shift+Tab at both ends, Escape,
+visible close controls and background clicks. Verify focus return after every
+close, including when the opener has disappeared, and confirm that Exit starts
+on Keep playing. Repeat with a screen reader and in an older packaged webview;
+check dialog names, background exclusion, scroll position and touch activation.
+During an incoming rally and before a serve, use Pause → Settings. Adjust court
+quality, touch mode/sensitivity, effects, serve pacing, keyboard bindings and the
+resume countdown. Return through each available route, verify the same paused
+score and positions, then resume. Check that a remapped pause/serve key cannot
+restart play behind Settings, and that the changed controls work after resuming.
+Repeat during the lesson and in Versus, and with pending/failed Settings loads.
+Check that the extra Pause action fits short landscape screens and that the
+pinned return action stays reachable while scrolling the Settings page.
 Use a cold cache and a slow connection to open the menus, press Back while a
 page is loading, revisit it, and test a failed JavaScript or CSS request. Check
 recovery without losing recorded progress, and try the same flows in a packaged

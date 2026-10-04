@@ -101,7 +101,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   const screen = stack[stack.length - 1] as ScreenId;
   const setScreen = useCallback(
     (next: ScreenId) =>
-      setStack((current) => (current.at(-1) === next ? current : [...current, next])),
+      setStack((current) => (current[current.length - 1] === next ? current : [...current, next])),
     []
   );
   const replace = useCallback(

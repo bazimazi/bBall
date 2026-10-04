@@ -332,7 +332,8 @@ function RunView({
                 : known
                   ? botProfile(encounter.bot).name
                   : '?';
-              const score = run.results.filter((item) => item.stage === stage).at(-1);
+              const results = run.results.filter((item) => item.stage === stage);
+              const score = results[results.length - 1];
               return (
                 <span key={slot} className={classes.join(' ')}>
                   <span className={modes.nodeName}>{name}</span>
