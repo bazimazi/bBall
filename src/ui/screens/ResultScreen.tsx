@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useEffectEvent, useId, useState, type CSSProperties } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
 import { stageById } from '../../core/campaign/journey';
@@ -12,6 +12,8 @@ import { QUEST_BONUS_XP, QUEST_XP } from '../../core/quests/quests';
 import { RUN_STAGES } from '../../core/run/run';
 import { XpBar } from '../components/XpBar';
 import { ResultCoaching } from '../components/ResultCoaching';
+import { SaveNotice } from '../components/SaveNotice';
+import { useScreenFocus } from '../hooks/useScreenFocus';
 import { CheckIcon, CrownIcon, FlameIcon, HeartIcon, StarIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
@@ -63,8 +65,9 @@ function goalsOf(result: MatchResult): readonly [StarGoal, StarGoal] | null {
 }
 
 function duration(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
+  const rounded = Math.round(seconds);
+  const mins = Math.floor(rounded / 60);
+  const secs = rounded % 60;
   return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 }
 
@@ -109,6 +112,8 @@ function StarReveal({
   onStar?: ((index: number) => void) | undefined;
 }) {
   const [lit, setLit] = useState(0);
+  // Chime delivery follows the latest engine callback without restarting the reveal.
+  const soundStar = useEffectEvent((index: number) => onStar?.(index));
   useEffect(() => {
     const timers: number[] = [];
     for (let i = 0; i < 3; i++) {
@@ -116,18 +121,19 @@ function StarReveal({
         window.setTimeout(
           () => {
             setLit(i + 1);
-            if (mask & (1 << i)) onStar?.(i);
+            if (mask & (1 << i)) soundStar(i);
           },
           380 + i * 330
         )
       );
     }
     return () => timers.forEach((id) => window.clearTimeout(id));
-  }, [mask, onStar]);
+  }, [mask]);
 
   return (
     <div
       className={modes.bigStars}
+      role="img"
       aria-label={`${(mask & 1) + ((mask >> 1) & 1) + ((mask >> 2) & 1)} of 3 stars`}
     >
       {[0, 1, 2].map((i) => (
@@ -163,6 +169,8 @@ export function ResultScreen({
   onTalents,
   onStar
 }: ResultScreenProps) {
+  const heading = useScreenFocus();
+  const titleId = useId();
   const endless = result.mode === 'endless';
   const award = summary?.award;
   const levelled = (summary?.levelsGained ?? 0) > 0;
@@ -174,11 +182,18 @@ export function ResultScreen({
   const run = summary?.run;
 
   return (
-    <section className={styles.screen}>
+    <section className={styles.screen} aria-labelledby={titleId}>
       <div className={`${styles.body} ${modes.stagger}`}>
+        <SaveNotice />
         <div className={styles.resultHead}>
           <p className={styles.subtitle}>{label}</p>
-          <h2 className={`${styles.resultTitle} ${good ? styles.win : styles.lose}`}>
+          <h2
+            ref={heading}
+            id={titleId}
+            className={`${styles.resultTitle} ${good ? styles.win : styles.lose}`}
+            tabIndex={-1}
+            data-screen-heading
+          >
             {title(result, summary)}
           </h2>
           {endless ? (
@@ -197,7 +212,7 @@ export function ResultScreen({
 
         {goals && summary && (
           <div className={styles.card}>
-            <StarReveal mask={summary.stars} onStar={onStar} />
+            <StarReveal key={summary.stars} mask={summary.stars} onStar={onStar} />
             <div className={modes.goals} style={{ marginTop: 10 }}>
               {[
                 { bit: 1, label: 'Win the match' },

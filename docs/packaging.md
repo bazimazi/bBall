@@ -38,6 +38,23 @@ uses match events and cleans up independently of cooldown updates. DOM checks do
 not verify native event sequences, visible CSS timing or touch reachability.
 The system reduced-motion policy above also applies to these rings.
 
+Daily's Copy result action reports clipboard refusal and offers selectable text
+for manual copying. Check real copy/retry, selection and status announcements on
+each webview, including missing or denied clipboard access. The fallback belongs
+to the scrolling content so Play remains pinned on short landscape screens.
+Test a Daily page left open across local midnight or in a background app: returning
+refreshes the preview and quests. A stale Play press refreshes first, then a fresh
+press starts the displayed day. If rollover removes a focused copy control, Play
+receives focus. These flows retain the server's daily window and saved records;
+DOM substitutes do not verify clipboard permissions, timer delivery or layout.
+
+Results focuses the outcome heading and includes device-save failure/retry in its
+scrolling rewards body. Check heading/star-total announcements and retry focus on
+physical webviews, including a short landscape screen with a failed save. Star
+reveals must finish once through ordinary updates and stop pending chimes after
+navigation. The controlled DOM checks do not verify actual sound or visible timing.
+System reduced-motion preferences remain completely ignored for these reveals.
+
 Pause, exit and talent dialogs use a shared focus scope, with JavaScript Tab
 and focus containment in addition to `inert`, so containment does not rely on
 native `inert` support. Menu/Back routing and Gauntlet score display use indexed

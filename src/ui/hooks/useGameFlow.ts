@@ -67,7 +67,7 @@ export interface GameFlow {
   startCup: (tier?: number) => void;
   abandonCup: () => void;
   startStage: (id: string) => void;
-  startDaily: () => void;
+  startDaily: (day?: string) => void;
   /** Begin a Gauntlet run at `pressure`, straight into its first match. */
   startRun: (pressure: number) => void;
   /** Play the run's next match. */
@@ -186,7 +186,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     [play]
   );
 
-  const startDaily = useCallback(() => play(dailyRules(dayKey())), [play]);
+  const startDaily = useCallback((day = dayKey()) => play(dailyRules(day)), [play]);
 
   const playRun = useCallback(() => {
     const run = profileStore.getSnapshot().progress.run;

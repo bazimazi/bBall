@@ -220,6 +220,65 @@ and [MDN: Array compatibility data](https://github.com/mdn/browser-compat-data/b
 
 ## Reproduced problems and implemented changes
 
+The Results audit found that its custom card bypassed the shared menu shell:
+the finished page had neither heading focus nor the device-save notice, although
+the pending Results download inherited both from its loading page. The earlier
+save-navigation check mounted a generic screen instead of the actual Results
+component. Results now focuses its named outcome heading on entry and includes
+the shared notice and retry in scrolling content, above the rewards. Ordinary
+rerenders and retry preserve the player's control focus; successful focused retry
+uses the existing saved-status focus handoff. This applies the menu's existing
+orientation behavior and W3C's named-region guidance; actual announcements and
+short-screen layout still need device checks.
+[W3C: Region landmarks](https://www.w3.org/WAI/ARIA/apg/patterns/landmarks/examples/region.html).
+
+A mounted regression reproduced a star reveal delayed by an unrelated rerender.
+App supplies a fresh chime callback on rerender, and React cleans up an effect
+when a dependency changes, cancelling the reveal's timers. Chime delivery now
+uses an Effect Event to read the latest callback without restarting the schedule,
+following React's documented timer pattern. Changed star masks reset their
+presentation, unearned stars remain dark/silent, and navigation cancels remaining
+chimes. The star graphic has an image role and a stable total label from entry.
+Duration formatting also rounds the whole elapsed time before splitting minutes
+and seconds, so 119.6 seconds reads `2m 0s` rather than `1m 60s`. These changes
+preserve reward calculation, match records, animation timings and the complete
+system reduced-motion exclusion.
+[React: useEffect cleanup](https://react.dev/reference/react/useEffect),
+[React: Effect Events with timers](https://react.dev/reference/react/useEffectEvent#using-a-timer-with-latest-values)
+and [W3C: aria-label for objects](https://www.w3.org/WAI/WCAG22/Techniques/aria/ARIA6).
+
+The Daily copy audit reproduced silent clipboard refusal: the old Share result
+button caught the error and offered no outcome or fallback. MDN documents that
+`writeText` requires a secure context, can refuse access, and resolves after the
+clipboard has been updated. Copy result now reports pending/success/failure and
+offers the exact result text for manual copying after refusal. A synchronous
+guard stops duplicate pending requests, and record changes/navigation discard
+late responses. Success has no reset timer. An already-requested API write cannot
+be cancelled; ignoring its response protects the UI, not the system clipboard
+from eventual completion of that original write.
+[MDN: Clipboard writeText](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText).
+
+W3C's status technique supplies a polite live region for outcomes without requiring
+focus on the message. The copy and rollover messages have `role="status"` and
+explicit atomic updates. A failed copy selects its manual field only while the
+copy button still owns focus, preserving a player's move to another control.
+Successful retry returns focus before removing a focused manual field. This
+applies the technique; actual announcements still require assistive-technology
+checks. The fallback sits in scrolling content with Play pinned below.
+[W3C: ARIA22 status messages](https://www.w3.org/WAI/WCAG21/Techniques/aria/ARIA22).
+
+The same audit reproduced a midnight mismatch: the preview could remain on the
+previous day for 30 seconds while Play independently chose the new day's rules.
+Background timer throttling can prolong stale data, as MDN documents. Daily now
+schedules local-midnight refresh, retains its 30-second countdown updates, and
+refreshes on visible return or window focus. Play rechecks the day; a stale press
+updates the preview with an explanation and waits for a new press. The reviewed
+key is passed to the existing rules builder, and quests share the preview date.
+Rollover also returns focus to Play if it removes the focused copy controls.
+The server's daily acceptance window, streak/reward logic, results and stored
+profile formats retain their rules. System reduced motion remains completely ignored.
+[MDN: Page visibility and timer throttling](https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API).
+
 The skill-control audit reproduced secondary/auxiliary presses invoking a skill
 and ordinary cooldown updates cancelling the feedback ring's cleanup timer.
 React documents running effect cleanup before changed dependencies; the old
@@ -275,27 +334,30 @@ Real browser chrome and keyboard behavior, interruption frequency and player
 comfort need physical-device testing.
 [MDN: Window resize event](https://developer.mozilla.org/en-US/docs/Web/API/Window/resize_event).
 
-| Area                    | Evidence from the original code or regressions                                                                                                   | Resulting behaviour                                                                                                                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Skill controls/feedback | Non-primary pointer presses invoked skills; cooldown updates cancelled feedback cleanup; the cached view omitted lockout readiness.              | Primary pointer/keyboard activation respects readiness. Cast/Echo rings follow actual events, expire independently, and the HUD updates when lockout ends.                                             |
-| Audio recovery          | Unlock omitted interrupted contexts and newly created suspended contexts; lifecycle promises had no rejection handling.                          | First use and later gestures request recovery, with failed operations contained and preferences retained. Returning to an unfinished match still requires explicit Resume.                             |
-| Court resize            | Scaling absolute ball coordinates crossed fixed paddle contact planes; recorded replay frames retained old widths.                               | Position mapping preserves pending returns and existing misses; trails and recorded replays adapt to the new court. Changed viewport dimensions pause until explicit resume.                           |
-| Wall and paddle contact | The ball was reflected at a wall before the paddle sweep, even when the paddle contact happened first.                                           | Contacts are resolved in time order, and remaining flight continues after each reflection.                                                                                                             |
-| Sweep near a wall       | The sweep interpolated a straight chord between positions on either side of a reflected path. A targeted case incorrectly incremented the rally. | Each straight flight segment is tested separately. The regression no longer records the incorrect paddle hit.                                                                                          |
-| Moving paddle placement | The return used the paddle's final position for an earlier ball contact. At 960 units/second it can move eight units in a fixed step.            | Reach and return angle use its interpolated position at the contact instant.                                                                                                                           |
-| Pause continuity        | Effects and arena updates ran before the paused-status branch. Camera noise also used wall time.                                                 | The paused simulation holds the court, particles, effects and timers. Camera noise stops advancing. Queued steering is discarded.                                                                      |
-| Resume                  | A paused live rally resumed immediately.                                                                                                         | A cancellable 3–2–1 gives three half-second beats before play, using real time even after a slow-motion point. Players can disable it. Losing focus cancels the countdown.                             |
-| Touch serving           | Pointer-down both positioned the paddle and shortened the serve timer.                                                                           | Dragging positions the paddle. A short tap released within 12 screen pixels requests a serve. Cancellation, a drag that returns to its start, and a long hold do not.                                  |
-| Pointer ownership       | A second pointer-down could replace the active pointer.                                                                                          | Each paddle keeps one pointer owner until release or cancellation. Versus still supports independent fingers, even when they cross the midline.                                                        |
-| Point pacing            | All serves launched on a timer.                                                                                                                  | Automatic remains the default. When ready holds the point until a tap, Space, Enter or Serve button. After the ordinary delay, extra waiting holds court and skill clocks and does not add match time. |
-| Learning                | Movement hints were brief; controls and technique were chiefly documented in README.                                                             | Home offers How to play, return placement advice and a Rookie Practice warm-up. Pause has a reusable controls reference.                                                                               |
-| Visual comfort          | Shake settings did not cover every flash or background movement.                                                                                 | Full and Calm effects are explicit game settings. System/browser reduced-motion settings are completely ignored, including canvas effects, result reveals and UI transitions.                          |
-| Keyboard behaviour      | Global movement handlers intercepted menu arrow keys and did not distinguish browser shortcut modifiers.                                         | Movement and skill keys are handled during live play. Ctrl, Alt and Meta combinations retain their normal behaviour.                                                                                   |
-| Opening card            | A quick serve could leave an intro card over the opening rally.                                                                                  | Launching clears the intro presentation so the ball's first approach stays readable.                                                                                                                   |
-| Saved cup               | Giving up a cup immediately ended it with one click.                                                                                             | A confirmation explains the lost cup attempt and preserved XP/unlocks. Keep, Escape and Back cancel.                                                                                                   |
-| Saved run               | The same End run button stayed armed for a second click, without an explicit Cancel action.                                                      | A confirmation explains the lost run, focuses Keep and requires a separate acceptance. A changed run discards the pending request.                                                                     |
-| Guest reset             | Reset used an armed second click and remained available while an account was restoring.                                                          | A confirmation explains the irreversible guest-profile loss and retained settings. Account restoration, signed-in profiles and Demo do not offer reset.                                                |
-| Device save failure     | Failed storage writes were silently ignored; Exit and offline text could still claim progress was saved.                                         | Menus and Pause/Exit show a save notice with retry. Only the latest record is retried; failed writes remain visible until saved or the record is explicitly forgotten.                                 |
+| Area                    | Evidence from the original code or regressions                                                                                                              | Resulting behaviour                                                                                                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Results continuity      | The custom card omitted menu heading focus/save notices; callback rerenders restarted star timers; minute-boundary rounding displayed 60-second remainders. | A named focused outcome, actual save failure/retry, uninterrupted star reveals using the latest callback, labelled star totals and correct duration formatting.                                        |
+| Daily copying           | Clipboard refusal produced no feedback or fallback, and overlapping requests used unmanaged reset timers.                                                   | Pending/success/failure status, manual text and retry; duplicate pending requests are blocked and stale UI responses ignored.                                                                          |
+| Daily rollover          | A 30-second-old preview could launch a different day's challenge; removing copy controls lost focus.                                                        | Midnight/return refresh, matching quest date, a stale-press review step, explicit preview key at launch and focus return to Play.                                                                      |
+| Skill controls/feedback | Non-primary pointer presses invoked skills; cooldown updates cancelled feedback cleanup; the cached view omitted lockout readiness.                         | Primary pointer/keyboard activation respects readiness. Cast/Echo rings follow actual events, expire independently, and the HUD updates when lockout ends.                                             |
+| Audio recovery          | Unlock omitted interrupted contexts and newly created suspended contexts; lifecycle promises had no rejection handling.                                     | First use and later gestures request recovery, with failed operations contained and preferences retained. Returning to an unfinished match still requires explicit Resume.                             |
+| Court resize            | Scaling absolute ball coordinates crossed fixed paddle contact planes; recorded replay frames retained old widths.                                          | Position mapping preserves pending returns and existing misses; trails and recorded replays adapt to the new court. Changed viewport dimensions pause until explicit resume.                           |
+| Wall and paddle contact | The ball was reflected at a wall before the paddle sweep, even when the paddle contact happened first.                                                      | Contacts are resolved in time order, and remaining flight continues after each reflection.                                                                                                             |
+| Sweep near a wall       | The sweep interpolated a straight chord between positions on either side of a reflected path. A targeted case incorrectly incremented the rally.            | Each straight flight segment is tested separately. The regression no longer records the incorrect paddle hit.                                                                                          |
+| Moving paddle placement | The return used the paddle's final position for an earlier ball contact. At 960 units/second it can move eight units in a fixed step.                       | Reach and return angle use its interpolated position at the contact instant.                                                                                                                           |
+| Pause continuity        | Effects and arena updates ran before the paused-status branch. Camera noise also used wall time.                                                            | The paused simulation holds the court, particles, effects and timers. Camera noise stops advancing. Queued steering is discarded.                                                                      |
+| Resume                  | A paused live rally resumed immediately.                                                                                                                    | A cancellable 3–2–1 gives three half-second beats before play, using real time even after a slow-motion point. Players can disable it. Losing focus cancels the countdown.                             |
+| Touch serving           | Pointer-down both positioned the paddle and shortened the serve timer.                                                                                      | Dragging positions the paddle. A short tap released within 12 screen pixels requests a serve. Cancellation, a drag that returns to its start, and a long hold do not.                                  |
+| Pointer ownership       | A second pointer-down could replace the active pointer.                                                                                                     | Each paddle keeps one pointer owner until release or cancellation. Versus still supports independent fingers, even when they cross the midline.                                                        |
+| Point pacing            | All serves launched on a timer.                                                                                                                             | Automatic remains the default. When ready holds the point until a tap, Space, Enter or Serve button. After the ordinary delay, extra waiting holds court and skill clocks and does not add match time. |
+| Learning                | Movement hints were brief; controls and technique were chiefly documented in README.                                                                        | Home offers How to play, return placement advice and a Rookie Practice warm-up. Pause has a reusable controls reference.                                                                               |
+| Visual comfort          | Shake settings did not cover every flash or background movement.                                                                                            | Full and Calm effects are explicit game settings. System/browser reduced-motion settings are completely ignored, including canvas effects, result reveals and UI transitions.                          |
+| Keyboard behaviour      | Global movement handlers intercepted menu arrow keys and did not distinguish browser shortcut modifiers.                                                    | Movement and skill keys are handled during live play. Ctrl, Alt and Meta combinations retain their normal behaviour.                                                                                   |
+| Opening card            | A quick serve could leave an intro card over the opening rally.                                                                                             | Launching clears the intro presentation so the ball's first approach stays readable.                                                                                                                   |
+| Saved cup               | Giving up a cup immediately ended it with one click.                                                                                                        | A confirmation explains the lost cup attempt and preserved XP/unlocks. Keep, Escape and Back cancel.                                                                                                   |
+| Saved run               | The same End run button stayed armed for a second click, without an explicit Cancel action.                                                                 | A confirmation explains the lost run, focuses Keep and requires a separate acceptance. A changed run discards the pending request.                                                                     |
+| Guest reset             | Reset used an armed second click and remained available while an account was restoring.                                                                     | A confirmation explains the irreversible guest-profile loss and retained settings. Account restoration, signed-in profiles and Demo do not offer reset.                                                |
+| Device save failure     | Failed storage writes were silently ignored; Exit and offline text could still claim progress was saved.                                                    | Menus and Pause/Exit show a save notice with retry. Only the latest record is retried; failed writes remain visible until saved or the record is explicitly forgotten.                                 |
 
 The physics retains the existing reach allowance, talent effects, speed caps
 and opponent tuning. Incoming talent slowdown is rechecked after a contact so
@@ -471,10 +533,40 @@ animations, physical pointer defaults or screen-reader announcements. Browser
 inventory again returned no available surfaces. Physical-device feedback and
 control checks remain required.
 
+The Daily batch adds nine mounted UI checks, bringing `check:ui` to **34 checks**;
+the domain/API suite remains at **318 passing tests**. Rejected clipboard and
+stale Play checks failed before their fixes, and a midnight check reproduced
+focus loss before the handoff was added. Clipboard substitutes cover missing API,
+synchronous refusal, rejected/pending/fulfilled promises, duplicate presses before
+a rerender, retry, selected manual text, moved focus, record changes and late
+completion after navigation. A controlled local clock covers a year-end midnight,
+multi-day background return, window focus, quest agreement, stale-press review,
+explicit/default rule dates, and timer/listener cleanup. Real rules are built
+against a command spy; these fixtures do not play the Daily through physics.
+One initial failing assertion tried to diff a React event graph and exhausted
+Node memory; comparing the launch count corrected that diagnostic. The standard
+UI command then passed without warnings. No system clipboard, player save, device clock
+or browser preference was changed. Browser inventory returned no surfaces, so
+clipboard permission/selection, status announcements, real timer delivery and
+short-screen layout remain physical-device checks.
+
 An earlier rebuild ran out of available machine memory. Repeating it with two
 Rayon workers and a 256 MB Node heap succeeded and passed `check:bundle`.
 Earlier standard web builds passed; no persistent build-memory settings were
 changed.
+
+The Results batch adds four mounted checks, bringing `check:ui` to **38 passing
+checks**, with **318 domain/API tests** still passing. The star-schedule check
+failed before the callback fix. Controlled timeouts and animation frames cover
+ordinary callback replacement, latest/removed callbacks, unearned stars, changed
+awards, no replay after completion, navigation cleanup and the existing XP
+count-up reaching its actual award. Heading/region attributes, initial focus,
+action focus across rerenders and minute-boundary durations are checked on the
+real Results component. The existing save-navigation test now mounts that
+component and verifies failed/successful retry there, saved XP and match count,
+unchanged profile/settings snapshots, and later failure recovery after navigating
+to Home and entering Demo. These remain synthetic UI checks; visible reveals,
+physical sound, screen-reader output and touch layout are unverified.
 
 Run the checks from the repository root:
 
@@ -490,19 +582,19 @@ node --import tsx scripts/sim.ts 6 pro
 ```
 
 The original single entry was 607.73 kB. With menu deferral and the subsequent
-rendering, focus, paused-settings, confirmation, device-save, resize, audio and
-skill-control behavior the entry is 465.76 kB and Vite no longer emits its 500 kB chunk warning.
-The complete initial static graph is **559.77 kB across
-17 JS files**, because shared domain
+rendering, focus, paused-settings, confirmation, device-save, resize, audio,
+skill-control, Daily recovery and Results continuity behavior the entry is 466.57 kB and Vite no longer emits its 500 kB chunk warning.
+The complete initial static graph is **559.52 kB across
+16 JS files**, because shared domain
 code remains necessary. The comparable web-build measurements from
 `check:bundle` are:
 
 | Initial static payload | Before    | After     | Reduction |
 | ---------------------- | --------- | --------- | --------- |
-| JavaScript             | 607.73 kB | 559.77 kB | 7.9%      |
-| JavaScript, gzip       | 189.12 kB | 182.53 kB | 3.5%      |
-| CSS                    | 58.94 kB  | 48.05 kB  | 18.5%     |
-| CSS, gzip              | 12.22 kB  | 11.32 kB  | 7.4%      |
+| JavaScript             | 607.73 kB | 559.52 kB | 7.9%      |
+| JavaScript, gzip       | 189.12 kB | 182.11 kB | 3.7%      |
+| CSS                    | 58.94 kB  | 48.01 kB  | 18.5%     |
+| CSS, gzip              | 12.22 kB  | 11.12 kB  | 9.0%      |
 
 Gzip totals use Node's `gzipSync` at its default level, summed per unique file
 with the same method before and after. These are artifact bytes, not measured
@@ -527,8 +619,19 @@ Audio recovery adds 0.13 kB initial JS (0.07 kB gzip), compared with the resize
 build, with unchanged initial CSS.
 Skill-control feedback adds 0.27 kB initial JS (0.09 kB gzip), compared with the
 audio build, with unchanged initial CSS.
+Daily recovery leaves initial raw JS unchanged at the reported precision;
+removing the unused copied-state colour rule reduces initial CSS by 0.04 kB
+(0.01 kB gzip). At that point its deferred web page grew from 4.15 to 6.28 kB JS (1.84 to
+2.61 kB gzip) and added a deferred 0.19 kB CSS file (0.16 kB gzip).
+Results continuity grows the deferred web Results chunk from 11.46 to 11.64 kB
+JS (3.90 to 4.00 kB gzip). Sharing its existing focus/save components also changes
+chunk placement: initial JS falls by 0.25 kB (0.41 kB gzip), while unchanged raw
+initial CSS compresses to 0.19 kB less across two files instead of three. The entry
+itself grows by 0.81 kB. These are bundler artifact measurements, not evidence of
+faster loading or better frame times.
 The Safari-targeted desktop-mode graph passed its check at
-567.74 kB JS (184.75 kB gzip) and 48.31 kB CSS (11.35 kB gzip); the final
+567.44 kB JS (184.31 kB gzip) across 16 files and 48.27 kB CSS (11.15 kB gzip)
+across two files; the final
 `dist/` was regenerated as the web build. Native packaging and visual or
 on-device QA remain pending.
 
@@ -566,7 +669,7 @@ are a tradeoff to profile. No FPS, input-latency or battery improvement is claim
 
 ## Next changes to validate with players
 
-The first thirteen follow-ups have now been implemented:
+The first fifteen follow-ups have now been implemented:
 
 - **First-rally lesson:** optional and replayable from How to play. A stationary
   dashed outline shows where to place the paddle. The learner moves, returns a
@@ -697,6 +800,21 @@ The first thirteen follow-ups have now been implemented:
   despite ongoing cooldown updates, and clear on hiding/reset without replaying
   old casts. Recharge and return bonuses do not create an Echo ring. The counters
   are never saved or submitted to the server. System motion settings have no effect.
+- **Daily copy and day continuity:** Copy result reports the outcome, preserves a
+  manual fallback and permits retry after refusal. Pending requests are guarded;
+  late responses cannot describe a changed record or alter focus after navigation.
+  The fallback scrolls with the content while Play stays pinned. The preview and
+  quests refresh together at midnight and on return. A stale Play press shows
+  the new goals before launch, and the next press passes the reviewed date to
+  match rules. Removing focused copy controls hands focus to Play. Daily rewards,
+  server acceptance, saved profiles and the system-motion policy retain their rules.
+- **Results continuity:** The custom result card now shares the menus' heading
+  orientation and device-save notice/retry, keeping footer actions reachable.
+  Chime callback changes do not postpone or replay the star reveal. Changed awards
+  start a fresh reveal; leaving cancels pending chimes. The graphic has a stable
+  labelled star total, and elapsed time rounds correctly across minute boundaries.
+  XP, record formats and the complete exclusion of system motion settings remain
+  unchanged. The save regression now exercises this real page.
 
 These changes still need newcomer observation, screen-reader checks, and HUD
 and Settings/result/confirmation/save-notice layout and touch checks in both orientations. The last
@@ -744,6 +862,28 @@ floor. Check that readiness updates as soon as that floor ends, ordinary recharg
 does not flash Echo, and successive cast rings replay and disappear. Pause and
 resume during feedback, then restart; neither should replay old feedback. Repeat
 in portrait/landscape, Full/Calm and with both system motion preference values.
+After clearing a Daily, copy its result and verify the actual pasted date, court,
+stars and streak. Deny clipboard access or use a context where it is absent;
+check the explanation, selectable read-only text, manual copying and later retry.
+Move focus to Play or Back before a delayed refusal and ensure it stays there.
+Try repeated presses during a pending request, then navigate away or change the
+displayed result before it completes; the old response must not announce a new
+success or move focus. Test status announcements and manual-field focus/selection
+with keyboard and touch, especially on short landscape screens with a keyboard
+or selection controls open. Leave Daily across local midnight, including year-end,
+and background it across several days. On return, preview, quests and attempts
+should agree on the current date. Press Play before a delayed refresh: it should
+show the new goals and explanation before a fresh press starts that day. Check
+focus after copy controls disappear and confirm that existing saved medals,
+streak and server-window behavior still follow their rules.
+On Results, check that the outcome heading receives focus and the star graphic
+announces its earned total immediately, while visual stars and chimes complete
+once. Change audio/settings or allow account updates during the reveal; they
+must not delay it or replay completed chimes. Leave before completion and verify
+remaining chimes stop. Simulate blocked storage with a disposable save: the real
+Results page must show the failure and allow unsuccessful/successful retry
+without adding another match or reward. Check notice/rewards/footer reachability
+in short landscape, keyboard focus after retry and both system motion values.
 Navigate menus using only the keyboard. Check that new headings announce the
 page, Tab moves into its controls, and ordinary updates preserve focus. Open
 Pause, Exit and talent details; try Tab and Shift+Tab at both ends, Escape,

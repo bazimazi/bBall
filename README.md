@@ -201,6 +201,17 @@ streak. Every seven days of streak banks a freeze (two at most), and a missed
 day quietly spends one - a busy evening never throws away a month. A cleared
 daily can be shared as a spoiler-free line of stars.
 
+**Copy result** sits below the Daily goals. It reports pending, success or failure;
+if automatic copying is unavailable, it offers selectable text for manual copying
+and a retry. Copying changes no progress, and Play stays pinned below the scrolling
+content. Duplicate presses during a pending copy do not start another write.
+
+The Daily preview refreshes at local midnight and on returning to the page. If
+Play finds that the date changed before the preview refreshed, it shows the new
+challenge first and asks you to review its goals. The next press launches that
+displayed day; its quests use the same date. A removed copy control returns focus
+to Play.
+
 Three **daily quests** - one easy, one medium, one hard - sit on the home screen
 and pay the moment they are done, with a bonus for all three.
 
@@ -503,6 +514,13 @@ Escape resumes from Pause, cancels Exit, or closes talent details. Exit starts
 on Keep playing, and talent details have a visible Close button. Dialogs block
 background controls; Pause retains the game's pause/serve/mute shortcuts.
 
+Results focuses its outcome heading on entry and shows the device-save notice
+with retry when rewards could not be saved. The notice scrolls with the rewards;
+Play again and Menu remain in the pinned footer. Star reveals keep their timing
+through ordinary updates and stop pending chimes when you leave. The star graphic
+has a labelled earned total, and elapsed time rounds across minute boundaries.
+System reduced-motion settings have no effect on this presentation.
+
 **Reduced-motion policy:** bBall completely ignores operating-system and browser
 reduced-motion settings on web, desktop and mobile. Animations, transitions,
 result reveals and canvas effects never change because of those preferences.
@@ -610,6 +628,9 @@ layout boxes and a controlled clock for skill feedback; skill checks cover point
 buttons, keyboard activation, unavailable controls and feedback cleanup. Native
 Tab behavior, CSS animations/layout and screen readers still need
 manual checks.
+Daily checks also substitute clipboard outcomes, dates and timers to cover copy
+recovery, late responses, midnight/return refresh and launching the previewed day.
+They do not use the system clipboard or establish physical browser behavior.
 Publish or package the entire `dist/` directory, including all chunk files.
 
 A match flows one way: the UI hands the engine a `MatchRules`, the engine plays

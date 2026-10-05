@@ -1,10 +1,11 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
 import { dailySpec, MAX_FREEZES, streakAlive } from '../../core/daily/daily';
 import { starGoalLabel } from '../../core/modes/stars';
 import { dayKey } from '../../core/progression/xp';
 import type { PlayerProfile } from '../../core/profile/types';
+import { DailyResultCopy } from '../components/DailyResultCopy';
 import { QuestList } from '../components/QuestList';
 import { Screen } from '../components/Screen';
 import { FlameIcon, SnowIcon, StarIcon } from '../icons/ModeIcons';
@@ -13,7 +14,7 @@ import styles from '../Screens.module.css';
 
 interface DailyScreenProps {
   profile: PlayerProfile;
-  onPlay: () => void;
+  onPlay: (day: string) => void;
   onBack: () => void;
 }
 
@@ -32,13 +33,36 @@ function untilTomorrow(now: Date): string {
  */
 export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
   const [now, setNow] = useState(() => new Date());
-  const [shared, setShared] = useState(false);
+  const [changed, setChanged] = useState(false);
+  const playButton = useRef<HTMLButtonElement>(null);
+  const copyFocused = useRef(false);
 
-  // The countdown only needs the minute, and the day can roll over while the
-  // screen is open - both are handled by re-reading the clock once a minute.
+  // Poll the minute display, wake at local midnight, and refresh on return:
+  // background timers may have been delayed for much longer than one day.
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(id);
+    let timer = 0;
+    const refresh = () => {
+      const clock = new Date();
+      setNow(clock);
+      const midnight = new Date(clock);
+      midnight.setHours(24, 0, 0, 0);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(
+        refresh,
+        Math.min(30_000, Math.max(1, midnight.getTime() - clock.getTime()))
+      );
+    };
+    const onReturn = () => {
+      if (!document.hidden) refresh();
+    };
+    refresh();
+    window.addEventListener('focus', onReturn);
+    document.addEventListener('visibilitychange', onReturn);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', onReturn);
+      document.removeEventListener('visibilitychange', onReturn);
+    };
   }, []);
 
   const today = dayKey(now);
@@ -50,22 +74,29 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
   const streak = alive ? record.streak : 0;
   const cleared = (medals & 1) === 1;
 
+  useEffect(() => {
+    if (cleared || !copyFocused.current) return;
+    copyFocused.current = false;
+    playButton.current?.focus();
+  }, [cleared]);
+
   const goals = [
     { bit: 1, label: 'Win the match' },
     { bit: 2, label: starGoalLabel(spec.goals[0]) },
     { bit: 4, label: starGoalLabel(spec.goals[1]) }
   ];
 
-  const share = async () => {
-    const stars = goals.map((goal) => (medals & goal.bit ? '★' : '☆')).join('');
-    const text = `bBall Daily ${today} · ${spec.title}\n${stars}${streak > 1 ? ` · streak ${streak}` : ''}`;
-    try {
-      await navigator.clipboard.writeText(text);
-      setShared(true);
-      window.setTimeout(() => setShared(false), 1800);
-    } catch {
-      /* no clipboard in this context - the button simply does nothing */
+  const stars = goals.map((goal) => (medals & goal.bit ? '★' : '☆')).join('');
+  const shareText = `bBall Daily ${today} · ${spec.title}\n${stars}${streak > 1 ? ` · streak ${streak}` : ''}`;
+  const play = () => {
+    const clock = new Date();
+    if (dayKey(clock) !== today) {
+      setNow(clock);
+      setChanged(true);
+      return;
     }
+    setChanged(false);
+    onPlay(today);
   };
 
   return (
@@ -75,20 +106,24 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
       onBack={onBack}
       footer={
         <>
-          <button type="button" className={styles.primary} onClick={onPlay}>
+          <button
+            ref={playButton}
+            type="button"
+            className={styles.primary}
+            onFocus={() => {
+              copyFocused.current = false;
+            }}
+            onClick={play}
+          >
             {cleared ? 'Play again' : attempts > 0 ? 'Try again' : "Play today's challenge"}
           </button>
-          {cleared && (
-            <button type="button" className={styles.ghost} onClick={() => void share()}>
-              <span className={shared ? modes.shareDone : undefined}>
-                {shared ? 'Copied to clipboard' : 'Share result'}
-              </span>
-            </button>
-          )}
         </>
       }
     >
       <div className={modes.stagger} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <p role="status" aria-atomic="true" className={styles.note}>
+          {changed ? 'A new Daily challenge is ready. Review its goals, then play when ready.' : ''}
+        </p>
         <div className={modes.detail} style={{ '--accent': 'hsl(28 95% 64%)' } as CSSProperties}>
           <div className={modes.detailHead}>
             <span className={modes.stageNum}>{today}</span>
@@ -111,6 +146,21 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
             ))}
           </div>
         </div>
+
+        {cleared && (
+          <div
+            onFocusCapture={() => {
+              copyFocused.current = true;
+            }}
+            onBlurCapture={(event) => {
+              if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+                copyFocused.current = false;
+              }
+            }}
+          >
+            <DailyResultCopy text={shareText} />
+          </div>
+        )}
 
         <div className={modes.streak}>
           <span
@@ -144,7 +194,7 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
           </span>
         </div>
 
-        <QuestList profile={profile} />
+        <QuestList profile={profile} day={today} />
 
         <p className={styles.note}>
           Everyone plays the same court today. Clear it for a bonus and to grow your streak; every

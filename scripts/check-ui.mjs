@@ -54,7 +54,7 @@ const query = (selector) => {
   assert.ok(element, `Missing ${selector}`);
   return element;
 };
-// DOM-object assertion diffs can traverse React's entire graph on a failure.
+// DOM/event-object assertion diffs can traverse React's graph on a failure.
 const absent = (selector) =>
   assert.ok(win.document.querySelector(selector) === null, `Unexpected ${selector}`);
 const focused = (element) =>
@@ -71,7 +71,7 @@ const button = (text) => {
 };
 const click = async (element) => {
   element.focus();
-  await act(() => element.click());
+  await act(async () => element.click());
 };
 const key = async (element, name, shiftKey = false) => {
   const event = new win.KeyboardEvent('keydown', {
@@ -93,6 +93,39 @@ const check = async (name, test) => {
   console.log(`✓ ${name}`);
 };
 const noop = () => {};
+async function withClipboard(clipboard, test) {
+  const original = Object.getOwnPropertyDescriptor(win.navigator, 'clipboard');
+  Object.defineProperty(win.navigator, 'clipboard', { value: clipboard, configurable: true });
+  try {
+    await test();
+  } finally {
+    await act(() => root.render(null));
+    if (original) Object.defineProperty(win.navigator, 'clipboard', original);
+    else Reflect.deleteProperty(win.navigator, 'clipboard');
+  }
+}
+async function withLocalDate(start, test) {
+  const OriginalDate = globalThis.Date;
+  let now = start.getTime();
+  class LocalDate extends OriginalDate {
+    constructor(...args) {
+      if (args.length) super(...args);
+      else super(now);
+    }
+    static now() {
+      return now;
+    }
+  }
+  globalThis.Date = LocalDate;
+  try {
+    await test((milliseconds) => {
+      now += milliseconds;
+    });
+  } finally {
+    await act(() => root.render(null));
+    globalThis.Date = OriginalDate;
+  }
+}
 // Advance only component timeouts. React/Vite keep their real Node timers.
 async function withUiClock(test) {
   const set = win.setTimeout;
@@ -123,6 +156,50 @@ async function withUiClock(test) {
     } finally {
       win.setTimeout = set;
       win.clearTimeout = clear;
+    }
+  }
+}
+// Drive the result count-up without real animation frames or incidental act warnings.
+async function withUiFrames(test) {
+  const originals = new Map(
+    ['requestAnimationFrame', 'cancelAnimationFrame'].map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(globalThis, key)
+    ])
+  );
+  const pending = new Map();
+  let now = performance.now();
+  let id = 0;
+  Object.defineProperty(globalThis, 'requestAnimationFrame', {
+    configurable: true,
+    value: (callback) => {
+      pending.set(++id, callback);
+      return id;
+    }
+  });
+  Object.defineProperty(globalThis, 'cancelAnimationFrame', {
+    configurable: true,
+    value: (handle) => pending.delete(handle)
+  });
+  try {
+    await test(async (milliseconds) => {
+      now += milliseconds;
+      await act(() => {
+        for (const [handle, callback] of [...pending]) {
+          pending.delete(handle);
+          callback(now);
+        }
+      });
+    });
+  } finally {
+    try {
+      await act(() => root.render(null));
+      assert.equal(pending.size, 0, 'unmount must cancel the result animation frame');
+    } finally {
+      for (const [key, original] of originals) {
+        if (original) Object.defineProperty(globalThis, key, original);
+        else Reflect.deleteProperty(globalThis, key);
+      }
     }
   }
 }
@@ -288,6 +365,427 @@ try {
       '/src/core/profile/defaults.ts',
       '/src/ui/components/MenuBoundary.tsx'
     ].map((path) => vite.ssrLoadModule(path))
+  );
+
+  const [{ DailyScreen }, { dayKey }, { dailySpec }] = await Promise.all(
+    [
+      '/src/ui/screens/DailyScreen.tsx',
+      '/src/core/progression/xp.ts',
+      '/src/core/daily/daily.ts'
+    ].map((path) => vite.ssrLoadModule(path))
+  );
+  const dailyProfile = (medals = 3) => {
+    const profile = createProfile();
+    Object.assign(profile.progress.daily, {
+      day: dayKey(),
+      medals,
+      attempts: 2,
+      streak: 8,
+      bestStreak: 8,
+      lastClear: dayKey()
+    });
+    return profile;
+  };
+  const copyStatus = () => {
+    const status = button('Copy result').parentElement.querySelector('[role="status"]');
+    assert.ok(status, 'Daily copy needs a status message');
+    return status;
+  };
+
+  await check(
+    'a refused Daily copy offers selectable result text without changing progress',
+    async () => {
+      await withClipboard(
+        { writeText: () => Promise.reject(new Error('Clipboard denied')) },
+        async () => {
+          const profile = dailyProfile();
+          const before = JSON.stringify(profile);
+          let plays = 0;
+          let backs = 0;
+          await mount(h(DailyScreen, { profile, onPlay: () => plays++, onBack: () => backs++ }));
+          await click(button('Copy result'));
+          const text = query('textarea[aria-label="Daily result text"]');
+          assert.equal(text.readOnly, true);
+          assert.equal(
+            text.value,
+            `bBall Daily ${dayKey()} · ${dailySpec(dayKey()).title}\n★★☆ · streak 8`
+          );
+          focused(text);
+          assert.equal(text.selectionStart, 0);
+          assert.equal(text.selectionEnd, text.value.length);
+          assert.match(copyStatus().textContent, /copy.*result below/i);
+          assert.equal(JSON.stringify(profile), before);
+          await click(button('Play again'));
+          await click(query('button[aria-label="Back"]'));
+          assert.equal(plays, 1);
+          assert.equal(backs, 1);
+        }
+      );
+    }
+  );
+
+  await check(
+    'Daily copy contains missing and throwing clipboard APIs and supports a later retry',
+    async () => {
+      for (const clipboard of [
+        undefined,
+        {
+          writeText: () => {
+            throw new Error('Clipboard blocked');
+          }
+        }
+      ]) {
+        await withClipboard(clipboard, async () => {
+          await mount(h(DailyScreen, { profile: dailyProfile(7), onPlay: noop, onBack: noop }));
+          const control = button('Copy result');
+          await click(control);
+          const field = query('textarea[aria-label="Daily result text"]');
+          assert.match(field.value, /★★★ · streak 8$/);
+          focused(field);
+          const status = copyStatus();
+          assert.equal(field.getAttribute('aria-describedby'), status.id);
+          assert.equal(status.getAttribute('aria-atomic'), 'true');
+          assert.equal(control.disabled, false);
+          const writes = [];
+          Object.defineProperty(win.navigator, 'clipboard', {
+            value: { writeText: async (text) => writes.push(text) },
+            configurable: true
+          });
+          await click(control);
+          assert.deepEqual(writes, [field.value]);
+          assert.equal(status.textContent, 'Copied to clipboard.');
+          focused(control);
+          absent('textarea');
+        });
+      }
+    }
+  );
+
+  await check(
+    'pending Daily copy requests run once and only report success after completion',
+    async () => {
+      let resolve;
+      const writes = [];
+      await withClipboard(
+        {
+          writeText: (text) => {
+            writes.push(text);
+            return new Promise((done) => {
+              resolve = done;
+            });
+          }
+        },
+        async () => {
+          await withUiClock(async (advance) => {
+            await mount(h(DailyScreen, { profile: dailyProfile(), onPlay: noop, onBack: noop }));
+            const control = button('Copy result');
+            const status = copyStatus();
+            assert.equal(status.textContent, '');
+            await act(async () => {
+              control.focus();
+              control.click();
+              control.click();
+            });
+            assert.equal(writes.length, 1, 'the guard works before React rerenders');
+            assert.equal(control.getAttribute('aria-disabled'), 'true');
+            assert.equal(control.getAttribute('aria-busy'), 'true');
+            assert.equal(control.disabled, false, 'a pending copy retains keyboard focus');
+            focused(control);
+            assert.equal(status.textContent, 'Copying result…');
+            await click(control);
+            assert.equal(writes.length, 1);
+            await act(async () => resolve());
+            assert.equal(control.getAttribute('aria-disabled'), 'false');
+            assert.equal(status.textContent, 'Copied to clipboard.');
+            await advance(10_000);
+            assert.equal(
+              status.textContent,
+              'Copied to clipboard.',
+              'no timer hides the outcome early'
+            );
+            assert.ok(
+              control.closest('footer') === null,
+              'copy feedback belongs in the scrolling body'
+            );
+            assert.ok(button('Play again').closest('footer'));
+          });
+        }
+      );
+    }
+  );
+
+  await check(
+    'changed Daily results discard old copy responses without blocking a new request',
+    async () => {
+      const requests = [];
+      await withClipboard(
+        {
+          writeText: (text) =>
+            new Promise((resolve, reject) => {
+              requests.push({ text, resolve, reject });
+            })
+        },
+        async () => {
+          let profile = dailyProfile(1);
+          const screen = () => h(DailyScreen, { profile, onPlay: noop, onBack: noop });
+          await mount(screen());
+          const control = button('Copy result');
+          await click(control);
+          profile = dailyProfile(3);
+          await act(async () => root.render(h(StrictMode, null, screen())));
+          assert.ok(
+            control === button('Copy result'),
+            'a result update preserves the copy control'
+          );
+          focused(control);
+          assert.equal(copyStatus().textContent, '');
+          await click(control);
+          assert.equal(requests.length, 2);
+          await act(async () => requests[0].reject(new Error('Old request failed')));
+          assert.equal(copyStatus().textContent, 'Copying result…');
+          absent('textarea');
+          await click(control);
+          assert.equal(requests.length, 2, 'old completion cannot release the current guard');
+          await act(async () => requests[1].resolve());
+          assert.equal(copyStatus().textContent, 'Copied to clipboard.');
+          profile = dailyProfile(7);
+          await act(async () => root.render(h(StrictMode, null, screen())));
+          assert.equal(copyStatus().textContent, '');
+          await click(control);
+          profile = dailyProfile(1);
+          await act(async () => root.render(h(StrictMode, null, screen())));
+          await act(async () => requests[2].resolve());
+          assert.equal(copyStatus().textContent, '', 'old success cannot describe a new result');
+          assert.match(requests[0].text, /★☆☆/);
+          assert.match(requests[1].text, /★★☆/);
+          assert.match(requests[2].text, /★★★/);
+        }
+      );
+    }
+  );
+
+  await check('Daily copy failures respect moved focus and keep manual text current', async () => {
+    let reject;
+    let resolve;
+    await withClipboard(
+      {
+        writeText: () =>
+          new Promise((done, fail) => {
+            resolve = done;
+            reject = fail;
+          })
+      },
+      async () => {
+        let profile = dailyProfile();
+        const screen = () => h(DailyScreen, { profile, onPlay: noop, onBack: noop });
+        await mount(screen());
+        const control = button('Copy result');
+        await click(control);
+        const play = button('Play again');
+        play.focus();
+        await act(async () => reject(new Error('Copy refused')));
+        focused(play);
+        const field = query('textarea[aria-label="Daily result text"]');
+        field.focus();
+        assert.equal(field.selectionEnd, field.value.length);
+        profile = dailyProfile(7);
+        await act(async () => root.render(h(StrictMode, null, screen())));
+        focused(field);
+        assert.match(field.value, /★★★ · streak 8$/);
+        assert.match(copyStatus().textContent, /^Select and copy/);
+        await click(control);
+        field.focus();
+        await act(async () => resolve());
+        absent('textarea');
+        focused(control);
+      }
+    );
+  });
+
+  await check(
+    'Daily navigation and unavailable records ignore late clipboard completion',
+    async () => {
+      let settle;
+      for (const succeeds of [true, false]) {
+        await withClipboard(
+          {
+            writeText: () =>
+              new Promise((resolve, reject) => {
+                settle = () => (succeeds ? resolve() : reject(new Error('Late refusal')));
+              })
+          },
+          async () => {
+            const profile = dailyProfile();
+            await mount(h(DailyScreen, { profile, onPlay: noop, onBack: noop }));
+            await click(button('Copy result'));
+            await mount(h(Screen, { title: 'Home' }, h('button', null, 'Continue')));
+            const heading = query('h2');
+            focused(heading);
+            await act(async () => settle());
+            focused(heading);
+            absent('textarea');
+            absent('[role="status"]');
+            profile.progress.daily.day = '2000-01-01';
+            await mount(h(DailyScreen, { profile, onPlay: noop, onBack: noop }));
+            assert.ok(
+              ![...host.querySelectorAll('button')].some(
+                (entry) => entry.textContent === 'Copy result'
+              )
+            );
+            profile.progress.daily.day = dayKey();
+            profile.progress.daily.medals = 0;
+            await act(async () =>
+              root.render(
+                h(StrictMode, null, h(DailyScreen, { profile, onPlay: noop, onBack: noop }))
+              )
+            );
+            assert.ok(
+              ![...host.querySelectorAll('button')].some(
+                (entry) => entry.textContent === 'Copy result'
+              )
+            );
+          }
+        );
+      }
+    }
+  );
+
+  await check(
+    'a stale Daily play press refreshes the preview before launching the reviewed day',
+    async () => {
+      await withUiClock(async () =>
+        withLocalDate(new Date(2026, 9, 4, 23, 59, 59, 900), async (moveTime) => {
+          const days = [];
+          const yesterday = dayKey();
+          await mount(
+            h(DailyScreen, {
+              profile: dailyProfile(),
+              onPlay: (day) => days.push(day),
+              onBack: noop
+            })
+          );
+          moveTime(200);
+          const today = dayKey();
+          await click(button('Play again'));
+          assert.equal(days.length, 0, 'a stale preview cannot launch unseen rules');
+          assert.ok(!host.textContent.includes(yesterday));
+          assert.ok(host.textContent.includes(today));
+          assert.match(query('[role="status"]').textContent, /new daily challenge.*review/i);
+          absent('textarea');
+          const play = button("Play today's challenge");
+          focused(play);
+          await click(play);
+          assert.deepEqual(days, [today]);
+        })
+      );
+    }
+  );
+
+  await check(
+    'Daily midnight and return events refresh the court, results and quests together',
+    async () => {
+      const [{ questStateFor, questById }] = await Promise.all(
+        ['/src/core/quests/quests.ts'].map((path) => vite.ssrLoadModule(path))
+      );
+      await withUiClock(async (advance) =>
+        withLocalDate(new Date(2026, 11, 31, 23, 59, 59, 900), async (moveTime) => {
+          const profile = dailyProfile();
+          await mount(h(DailyScreen, { profile, onPlay: noop, onBack: noop }));
+          const oldDay = dayKey();
+          button('Copy result').focus();
+          moveTime(99);
+          await advance(99);
+          assert.ok(host.textContent.includes(oldDay));
+          moveTime(1);
+          await advance(1);
+          const newDay = dayKey();
+          assert.ok(!host.textContent.includes(oldDay));
+          assert.ok(host.textContent.includes(newDay));
+          focused(button("Play today's challenge"));
+          const checkQuests = () => {
+            for (const id of questStateFor(profile.progress.quests, dayKey()).ids) {
+              assert.ok(
+                host.textContent.includes(questById(id).label),
+                'quests must share the preview day'
+              );
+            }
+          };
+          checkQuests();
+          const hidden = Object.getOwnPropertyDescriptor(win.document, 'hidden');
+          Object.defineProperty(win.document, 'hidden', {
+            value: true,
+            writable: true,
+            configurable: true
+          });
+          try {
+            moveTime(3 * 86_400_000);
+            await act(async () => win.document.dispatchEvent(new win.Event('visibilitychange')));
+            await act(async () => win.dispatchEvent(new win.Event('focus')));
+            assert.ok(
+              host.textContent.includes(newDay),
+              'hidden events do not refresh the preview'
+            );
+            win.document.hidden = false;
+            await act(async () => win.document.dispatchEvent(new win.Event('visibilitychange')));
+            assert.ok(host.textContent.includes(dayKey()));
+            assert.ok(!host.textContent.includes(newDay));
+            checkQuests();
+            moveTime(86_400_000);
+            await act(async () => win.dispatchEvent(new win.Event('focus')));
+            assert.ok(host.textContent.includes(dayKey()));
+            checkQuests();
+            const renderedDay = dayKey();
+            await act(async () => root.render(null));
+            moveTime(86_400_000);
+            await act(async () => {
+              win.dispatchEvent(new win.Event('focus'));
+              win.document.dispatchEvent(new win.Event('visibilitychange'));
+            });
+            await advance(30_000);
+            assert.equal(host.textContent, '', `listeners must be removed after ${renderedDay}`);
+          } finally {
+            if (hidden) Object.defineProperty(win.document, 'hidden', hidden);
+            else Reflect.deleteProperty(win.document, 'hidden');
+          }
+        })
+      );
+    }
+  );
+
+  await check(
+    'Daily flow launches the supplied preview day and keeps today as its default',
+    async () => {
+      const [{ useGameFlow }, { idleSnapshot }] = await Promise.all(
+        ['/src/ui/hooks/useGameFlow.ts', '/src/game/engine.ts'].map((path) =>
+          vite.ssrLoadModule(path)
+        )
+      );
+      await withLocalDate(new Date(2026, 9, 4, 23, 59, 59, 900), async (moveTime) => {
+        const reviewedDay = dayKey();
+        const launched = [];
+        const engine = { play: (rules) => launched.push(rules) };
+        function Fixture() {
+          const flow = useGameFlow(engine, idleSnapshot());
+          return h(
+            Screen,
+            { title: flow.screen },
+            h('button', { onClick: () => flow.startDaily(reviewedDay) }, 'Launch reviewed Daily'),
+            h('button', { onClick: () => flow.startDaily() }, 'Launch current Daily')
+          );
+        }
+        await mount(h(Fixture));
+        moveTime(200);
+        await click(button('Launch reviewed Daily'));
+        assert.equal(launched.length, 1);
+        assert.equal(launched[0].dailyKey, reviewedDay);
+        assert.equal(launched[0].label, `Daily · ${dailySpec(reviewedDay).title}`);
+        assert.deepEqual(launched[0].goals, dailySpec(reviewedDay).goals);
+        assert.equal(query('h2').textContent, 'playing');
+        await click(button('Launch current Daily'));
+        assert.equal(launched.length, 2);
+        assert.equal(launched[1].dailyKey, dayKey());
+      });
+    }
   );
 
   await check(
@@ -934,6 +1432,156 @@ try {
   );
   routing.installBackRouting();
 
+  const [{ ResultScreen }, { applyMatchResult }] = await Promise.all(
+    ['/src/ui/screens/ResultScreen.tsx', '/src/core/progression/apply.ts'].map((path) =>
+      vite.ssrLoadModule(path)
+    )
+  );
+  const resultWorld = createWorld(new Proxy({}, { get: () => () => 0 }), 1);
+  startMatch(resultWorld, quickMatchRules('rookie'));
+  resultWorld.match.score.you = resultWorld.rules.winScore;
+  resultWorld.match.winner = 'you';
+  resultWorld.match.elapsed = 60;
+  publishResult(resultWorld);
+  const quickResult = resultWorld.match.result;
+  const resultPage = (result = quickResult, summary = null, extra = {}) =>
+    h(ResultScreen, {
+      result,
+      summary,
+      label: 'Quick Match',
+      primaryLabel: 'Play again',
+      secondaryLabel: 'Menu',
+      onPrimary: noop,
+      onSecondary: noop,
+      onHelp: noop,
+      onTutorial: noop,
+      onTalents: noop,
+      ...extra
+    });
+  const dailyResult = { ...quickResult, mode: 'daily', dailyKey: dayKey() };
+  const starSummary = { ...applyMatchResult(createProfile(), dailyResult), stars: 5 };
+  const litStars = () => host.querySelectorAll('span[class*="bigStarOn"]').length;
+
+  await check(
+    'result stars finish on schedule with the latest callback despite rerenders',
+    async () => {
+      await withUiFrames(async (advanceFrames) => {
+        await withUiClock(async (advance) => {
+          const chimes = [];
+          const page = (version) =>
+            resultPage(dailyResult, starSummary, {
+              onStar: (index) => chimes.push(`${version}:${index}`)
+            });
+          const rerender = (version) => act(() => root.render(h(StrictMode, null, page(version))));
+          await mount(page('initial'));
+          assert.equal(query('[role="img"][aria-label="2 of 3 stars"]').textContent, '');
+          await advance(200);
+          await rerender('latest');
+          await advance(179);
+          assert.deepEqual(chimes, []);
+          await advance(1);
+          assert.deepEqual(chimes, ['latest:0']);
+          assert.equal(litStars(), 1);
+          await rerender('changed');
+          await advance(330);
+          assert.equal(litStars(), 1, 'unearned second star stays dark and silent');
+          await advance(330);
+          assert.deepEqual(chimes, ['latest:0', 'changed:2']);
+          assert.equal(litStars(), 2);
+          await rerender('after');
+          await advance(1500);
+          assert.deepEqual(chimes, ['latest:0', 'changed:2'], 'completed reveal cannot replay');
+          assert.ok(starSummary.award.total > 0, 'fixture includes a real XP award');
+          await advanceFrames(2000);
+          assert.equal(
+            query('p[class*="xpTotal"] > span:last-child').textContent,
+            `+${starSummary.award.total}`
+          );
+          focused(query('h2'));
+        });
+      });
+    }
+  );
+
+  await check(
+    'changed star awards reset the reveal and leaving Results cancels pending chimes',
+    async () => {
+      await withUiFrames(async () => {
+        await withUiClock(async (advance) => {
+          const chimes = [];
+          const onStar = (index) => chimes.push(index);
+          await mount(resultPage(dailyResult, { ...starSummary, stars: 7 }, { onStar }));
+          await advance(1040);
+          assert.equal(litStars(), 3);
+          assert.deepEqual(chimes, [0, 1, 2]);
+          await click(button('Menu'));
+          await act(() =>
+            root.render(h(StrictMode, null, resultPage(dailyResult, starSummary, { onStar })))
+          );
+          assert.equal(litStars(), 0, 'new mask cannot reuse the preceding reveal state');
+          focused(button('Menu'));
+          await advance(380);
+          assert.deepEqual(chimes, [0, 1, 2, 0]);
+          await act(() => root.render(h(StrictMode, null, resultPage(dailyResult, starSummary))));
+          await advance(660);
+          assert.equal(litStars(), 2, 'removing sound keeps the visual reveal running');
+          assert.deepEqual(chimes, [0, 1, 2, 0], 'removed callback cannot play a stale chime');
+          await act(() =>
+            root.render(
+              h(StrictMode, null, resultPage(dailyResult, { ...starSummary, stars: 7 }, { onStar }))
+            )
+          );
+          await advance(380);
+          assert.deepEqual(chimes, [0, 1, 2, 0, 0]);
+          await mount(h(Screen, { title: 'Menu' }, h('button', null, 'Continue')));
+          focused(query('h2'));
+          await advance(2000);
+          assert.deepEqual(chimes, [0, 1, 2, 0, 0]);
+        });
+      });
+    }
+  );
+
+  await check(
+    'Results owns a named heading while actions and rerenders keep player focus',
+    async () => {
+      let primary = 0;
+      let secondary = 0;
+      const page = () =>
+        resultPage(quickResult, null, {
+          onPrimary: () => primary++,
+          onSecondary: () => secondary++
+        });
+      await mount(page());
+      const heading = query('h2');
+      focused(heading);
+      assert.equal(heading.textContent, 'You win');
+      assert.equal(heading.getAttribute('tabindex'), '-1');
+      assert.equal(query('section').getAttribute('aria-labelledby'), heading.id);
+      assert.ok(heading.hasAttribute('data-screen-heading'));
+      await click(button('Play again'));
+      await act(() => root.render(h(StrictMode, null, page())));
+      focused(button('Play again'));
+      await click(button('Menu'));
+      assert.equal(primary, 1);
+      assert.equal(secondary, 1);
+    }
+  );
+
+  await check('result times round the whole duration across minute boundaries', async () => {
+    for (const [seconds, expected] of [
+      [0, '0s'],
+      [59.4, '59s'],
+      [59.6, '1m 0s'],
+      [119.6, '2m 0s']
+    ]) {
+      await mount(resultPage({ ...quickResult, seconds, flicks: 0 }));
+      const label = [...host.querySelectorAll('div')].find((node) => node.textContent === 'Time');
+      assert.ok(label);
+      assert.equal(label.parentElement.firstElementChild.textContent, expected);
+    }
+  });
+
   await check(
     'progress-loss confirmation names its consequence, keeps focus on Cancel and executes once',
     async () => {
@@ -1272,7 +1920,6 @@ try {
     'device retry survives menu changes and Demo without replaying earned rewards or saving the demo',
     async () => {
       const { HomeScreen } = await vite.ssrLoadModule('/src/ui/screens/HomeScreen.tsx');
-      const { Screen } = await vite.ssrLoadModule('/src/ui/components/Screen.tsx');
       const storage = win.localStorage;
       const original = Object.getOwnPropertyDescriptor(win, 'localStorage');
       const write = storage.setItem.bind(storage);
@@ -1296,13 +1943,38 @@ try {
         earned.match.winner = 'you';
         earned.match.elapsed = 60;
         publishResult(earned);
-        await act(() => progression.recordMatch(earned.match.result));
+        let summary;
+        await act(() => {
+          summary = progression.recordMatch(earned.match.result);
+        });
         await act(() => settingsStore.update({ touchSensitivity: 1.75 }));
         const profile = profileStore.getSnapshot();
         const settings = settingsStore.getSnapshot();
-        await mount(h(Screen, { title: 'Progress' }, h('button', null, 'Continue')));
-        assert.match(host.textContent, /could not be saved/);
-        focused(query('h2'));
+        await withUiFrames(async () => {
+          await mount(resultPage(earned.match.result, summary));
+          assert.match(host.textContent, /could not be saved/);
+          focused(query('h2'));
+          assert.ok(!button('Try saving again').closest('footer'));
+          await click(button('Try saving again'));
+          assert.match(host.textContent, /Saving is still unavailable/);
+          focused(button('Try saving again'));
+          blocked = false;
+          await click(button('Try saving again'));
+          assert.match(host.textContent, /Changes saved on this device/);
+          focused(query('[role="status"]'));
+          const saved = JSON.parse(storage.getItem('bball.profile')).data;
+          assert.equal(saved.xp, profile.xp);
+          assert.equal(saved.stats.matches, profile.stats.matches);
+          assert.ok(profileStore.getSnapshot() === profile, 'Results retry cannot reapply rewards');
+          assert.ok(
+            settingsStore.getSnapshot() === settings,
+            'Results retry cannot reapply settings'
+          );
+        });
+        // A later failure still follows the player to another menu and survives Demo.
+        blocked = true;
+        await act(() => settingsStore.update({ touchSensitivity: 1.75 }));
+        const latestSettings = settingsStore.getSnapshot();
         await mount(
           h(HomeScreen, {
             profile,
@@ -1335,7 +2007,10 @@ try {
           profileStore.getSnapshot() === profile,
           'retry must not apply a second match or change the real save'
         );
-        assert.ok(settingsStore.getSnapshot() === settings, 'retry must not reapply preferences');
+        assert.ok(
+          settingsStore.getSnapshot() === latestSettings,
+          'retry must not reapply preferences'
+        );
       } finally {
         Object.defineProperty(win, 'localStorage', original);
       }

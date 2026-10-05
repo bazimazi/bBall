@@ -975,10 +975,6 @@ button.resultRow {
   min-height: 46px;
 }
 
-.shareDone {
-  color: var(--you);
-}
-
 /*
  * Three feature cards side by side leave each one too narrow for icon, title
  * and meta on one line, so the title drops under the icon and takes the

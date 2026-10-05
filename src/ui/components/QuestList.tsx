@@ -7,14 +7,16 @@ interface QuestListProps {
   profile: PlayerProfile;
   /** A heading over the list; omitted on the result card. */
   title?: string;
+  /** A Daily preview supplies its own clock so its quests show the same day. */
+  day?: string;
 }
 
 /**
  * Today's three quests, with how far along each one is. A day that has
  * rolled over shows the new day's set at zero rather than yesterday's.
  */
-export function QuestList({ profile, title = "Today's quests" }: QuestListProps) {
-  const state = questStateFor(profile.progress.quests, dayKey());
+export function QuestList({ profile, title = "Today's quests", day = dayKey() }: QuestListProps) {
+  const state = questStateFor(profile.progress.quests, day);
   const done = state.done.filter(Boolean).length;
 
   return (

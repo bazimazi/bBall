@@ -410,6 +410,18 @@ formats. `npm run check:ui` at the repository root additionally mounts the real
 skill buttons with synthetic pointer/click events and a controlled feedback
 clock. It does not establish physical input latency or visible animation timing.
 
+Daily UI checks substitute clipboard promises and the local clock to verify
+manual copy recovery, stale-response handling, midnight/return refresh, and the
+preview date passed into match rules. The server's daily acceptance window,
+reward logic, profile and result formats retain their existing rules.
+
+Results UI checks mount the actual result card to verify heading focus, device-save
+failure/retry without duplicate rewards, star timing through callback changes,
+navigation cleanup and elapsed-time formatting. Timers and animation frames are
+controlled substitutes; physical sound, layout and assistive technology remain
+device checks. Server rewards/record formats retain their rules, and the client
+continues to ignore system reduced-motion preferences completely.
+
 | Suite                 | What it covers                                                                                                      |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `auth.test.ts`        | Registration, sign-in, rotation, reuse detection, expiry, verification, reset, deletion, authorization, rate limits |

@@ -1,0 +1,16 @@
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.copy button[aria-disabled='true'] {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.text {
+  padding: 12px 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
