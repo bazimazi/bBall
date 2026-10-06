@@ -48,12 +48,39 @@ press starts the displayed day. If rollover removes a focused copy control, Play
 receives focus. These flows retain the server's daily window and saved records;
 DOM substitutes do not verify clipboard permissions, timer delivery or layout.
 
+Home's Daily tile shares the preview's local-calendar refresh and updates its
+title, cleared stars and displayed streak at midnight and on visible return,
+preserving focus. Calendar polling stops while hidden; a 30-second foreground
+check also handles clock changes. Check Home and Daily across midnight, several
+background days, and clock/timezone changes on each physical target, including
+a daylight-saving boundary where applicable. Verify they agree on the displayed
+day and that refreshing alone does not change saved medals or consume freezes.
+Controlled DOM clocks do not verify OS clock changes or native visibility events.
+
 Results focuses the outcome heading and includes device-save failure/retry in its
 scrolling rewards body. Check heading/star-total announcements and retry focus on
 physical webviews, including a short landscape screen with a failed save. Star
 reveals must finish once through ordinary updates and stop pending chimes after
 navigation. The controlled DOM checks do not verify actual sound or visible timing.
 System reduced-motion preferences remain completely ignored for these reveals.
+
+On Profile, test typed names with physical keyboards, virtual keyboards and IMEs.
+Composition confirmation Enter must keep editing; ordinary Enter/blur commits
+the cleaned name. While the page stays open, test an account refresh with an
+untouched field and with a draft: the former follows the saved name, while the
+latter stays until committed. Restoration/sign-out/Demo/reset must discard drafts
+for the previous owner. Check stable input focus and avatar selection after sync.
+The DOM checks substitute events/store payloads and do not verify actual IME
+ordering, virtual keyboard behavior or a real network/account transition.
+
+With a disposable first-run guest profile, open an account link and complete
+sign-in after the game mounts. The Account page should retain its focused control;
+Back should reach Home and never reopen the old identity/colour form. Returning
+account data while onboarding is visible should replace it with Home. Test real
+web OAuth returns and native deep links, cached relaunch, and signing out afterward.
+Start/Skip cannot apply an old draft to the restored profile. Fresh Start/Skip
+remain optional and should reach Home with heading focus. DOM checks substitute
+profile arrivals rather than performing actual authentication or deep-link delivery.
 
 Pause, exit and talent dialogs use a shared focus scope, with JavaScript Tab
 and focus containment in addition to `inert`, so containment does not rely on

@@ -412,7 +412,10 @@ clock. It does not establish physical input latency or visible animation timing.
 
 Daily UI checks substitute clipboard promises and the local clock to verify
 manual copy recovery, stale-response handling, midnight/return refresh, and the
-preview date passed into match rules. The server's daily acceptance window,
+preview date passed into match rules. Home uses the same presentation clock;
+checks cover its title/stars/streak, foreground clock corrections, hidden-page
+polling and cleanup. Refreshing calendar presentation does not consume saved
+freezes or mutate progress. The server's daily acceptance window,
 reward logic, profile and result formats retain their existing rules.
 
 Results UI checks mount the actual result card to verify heading focus, device-save
@@ -421,6 +424,20 @@ navigation cleanup and elapsed-time formatting. Timers and animation frames are
 controlled substitutes; physical sound, layout and assistive technology remain
 device checks. Server rewards/record formats retain their rules, and the client
 continues to ignore system reduced-motion preferences completely.
+
+Profile UI checks use the real local store with constructed cloud DTOs to verify
+name drafts across profile updates/restoration, ownership changes and Demo/reset.
+They also cover unchanged-write avoidance, cleaned names, latest-avatar retention
+and composition Enter. They do not authenticate or contact an account. Identity
+validation, cache/profile formats and sync operations retain their existing rules;
+physical IME and real network transitions still need device checks.
+
+Onboarding UI checks use constructed cloud DTOs and the real local profile store
+to verify that late restoration replaces obsolete first-run navigation. Old
+Start/Skip actions cannot edit the restored identity or cosmetics; the Account
+page keeps focus and Back reaches Home. Cache restoration and normal first-run
+completion are covered without authenticating or contacting the API. Server
+identity, cache formats, progression and sync rules retain their behavior.
 
 | Suite                 | What it covers                                                                                                      |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------- |

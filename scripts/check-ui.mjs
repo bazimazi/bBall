@@ -70,8 +70,10 @@ const button = (text) => {
   return element;
 };
 const click = async (element) => {
-  element.focus();
-  await act(async () => element.click());
+  await act(async () => {
+    element.focus();
+    element.click();
+  });
 };
 const key = async (element, name, shiftKey = false) => {
   const event = new win.KeyboardEvent('keydown', {
@@ -126,6 +128,26 @@ async function withLocalDate(start, test) {
     globalThis.Date = OriginalDate;
   }
 }
+async function withVisibility(test, initiallyHidden = false) {
+  const original = Object.getOwnPropertyDescriptor(win.document, 'hidden');
+  Object.defineProperty(win.document, 'hidden', {
+    value: initiallyHidden,
+    writable: true,
+    configurable: true
+  });
+  try {
+    await test(async (hidden) => {
+      await act(() => {
+        win.document.hidden = hidden;
+        win.document.dispatchEvent(new win.Event('visibilitychange'));
+      });
+    });
+  } finally {
+    await act(() => root.render(null));
+    if (original) Object.defineProperty(win.document, 'hidden', original);
+    else Reflect.deleteProperty(win.document, 'hidden');
+  }
+}
 // Advance only component timeouts. React/Vite keep their real Node timers.
 async function withUiClock(test) {
   const set = win.setTimeout;
@@ -139,16 +161,19 @@ async function withUiClock(test) {
   };
   win.clearTimeout = (handle) => pending.delete(handle);
   try {
-    await test(async (milliseconds) => {
-      now += milliseconds;
-      await act(() => {
-        for (const [handle, timer] of [...pending]) {
-          if (timer.at > now) continue;
-          pending.delete(handle);
-          timer.callback();
-        }
-      });
-    });
+    await test(
+      async (milliseconds) => {
+        now += milliseconds;
+        await act(() => {
+          for (const [handle, timer] of [...pending]) {
+            if (timer.at > now) continue;
+            pending.delete(handle);
+            timer.callback();
+          }
+        });
+      },
+      () => pending.size
+    );
   } finally {
     try {
       await act(() => root.render(null));
@@ -386,6 +411,410 @@ try {
     });
     return profile;
   };
+  const { HomeScreen } = await vite.ssrLoadModule('/src/ui/screens/HomeScreen.tsx');
+  const homePage = (profile, onPick = noop) =>
+    h(HomeScreen, {
+      profile,
+      account: { status: 'guest', pending: 0 },
+      demoLevel: null,
+      onPick,
+      onModes: noop,
+      onExitDemo: noop,
+      onProfile: noop,
+      onTalents: noop,
+      onSettings: noop,
+      onHelp: noop
+    });
+  const dailyTile = () => {
+    const tile = [...host.querySelectorAll('button')].find((entry) =>
+      entry.textContent.includes('Daily challenge')
+    );
+    assert.ok(tile, 'Home needs a Daily tile');
+    return tile;
+  };
+  const tileTitle = () => dailyTile().querySelector('span[class*="featureSub"]').textContent;
+
+  await check(
+    'Home refreshes cleared Daily content at local midnight without losing tile focus',
+    async () => {
+      await withUiClock(async (advance) =>
+        withLocalDate(new Date(2026, 11, 31, 23, 59, 59, 900), async (moveTime) => {
+          const profile = dailyProfile(7);
+          const before = JSON.stringify(profile);
+          const played = [];
+          function Fixture() {
+            const [daily, setDaily] = useState(false);
+            return daily
+              ? h(DailyScreen, { profile, onPlay: (day) => played.push(day), onBack: noop })
+              : homePage(profile, (mode) => {
+                  if (mode === 'daily') setDaily(true);
+                });
+          }
+          await mount(h(Fixture));
+          const tile = dailyTile();
+          tile.focus();
+          assert.ok(tile.querySelector('[aria-label="3 of 3 stars"]'));
+          const oldTitle = tileTitle();
+          moveTime(99);
+          await advance(99);
+          assert.equal(tileTitle(), oldTitle);
+          assert.ok(!tile.textContent.includes('New today'));
+          moveTime(1);
+          await advance(1);
+          assert.match(tile.textContent, /New today/);
+          assert.equal(tileTitle(), dailySpec(dayKey()).title);
+          assert.ok(!tile.querySelector('[aria-label="3 of 3 stars"]'));
+          assert.equal(tile.querySelector('span[class*="featureMeta"]').textContent, '8');
+          assert.ok(dailyTile() === tile, 'rollover preserves the tile node');
+          focused(tile);
+          await click(tile);
+          assert.ok(host.textContent.includes(dayKey()));
+          assert.equal(query('h3').textContent, dailySpec(dayKey()).title);
+          await click(button("Play today's challenge"));
+          assert.deepEqual(played, [dayKey()]);
+          assert.equal(
+            JSON.stringify(profile),
+            before,
+            'calendar presentation cannot apply rewards or resets'
+          );
+        })
+      );
+    }
+  );
+  await check(
+    'Home catches up after background days without consuming saved freezes or moving other focus',
+    async () => {
+      for (const freezes of [0, 2]) {
+        await withUiClock(async (advance, pendingCount) =>
+          withLocalDate(new Date(2026, 9, 5, 12), async (moveTime) =>
+            withVisibility(async (setHidden) => {
+              const profile = dailyProfile(7);
+              profile.progress.daily.freezes = freezes;
+              const before = JSON.stringify(profile);
+              await mount(homePage(profile));
+              const settings = button('Settings');
+              settings.focus();
+              await advance(80);
+              assert.equal(
+                pendingCount(),
+                1,
+                'one calendar timer remains after the XP bar settles'
+              );
+              const oldTitle = tileTitle();
+              await setHidden(true);
+              assert.equal(pendingCount(), 0, 'hidden Home does not keep a polling timer');
+              moveTime(3 * 86_400_000);
+              await advance(3 * 86_400_000);
+              await act(() => win.dispatchEvent(new win.Event('focus')));
+              assert.equal(pendingCount(), 0, 'hidden focus cannot restart polling');
+              assert.equal(tileTitle(), oldTitle);
+              await setHidden(false);
+              assert.equal(tileTitle(), dailySpec(dayKey()).title);
+              assert.match(dailyTile().textContent, /New today/);
+              assert.equal(
+                dailyTile().querySelector('span[class*="featureMeta"]').textContent,
+                freezes ? '8' : '0'
+              );
+              focused(settings);
+              moveTime(86_400_000);
+              for (let i = 0; i < 3; i++)
+                await act(() => win.dispatchEvent(new win.Event('focus')));
+              assert.equal(tileTitle(), dailySpec(dayKey()).title);
+              assert.equal(
+                dailyTile().querySelector('span[class*="featureMeta"]').textContent,
+                '0'
+              );
+              assert.equal(pendingCount(), 1, 'repeated return events replace the pending timer');
+              assert.equal(JSON.stringify(profile), before);
+              await act(() => root.render(null));
+              await act(() => {
+                win.dispatchEvent(new win.Event('focus'));
+                win.document.dispatchEvent(new win.Event('visibilitychange'));
+              });
+              await advance(30_000);
+              assert.equal(pendingCount(), 0, 'navigation removes calendar listeners and timeouts');
+            })
+          )
+        );
+      }
+    }
+  );
+
+  await check(
+    'Home reconciles foreground clock corrections in both directions without editing the Daily record',
+    async () => {
+      await withUiClock(async (advance) =>
+        withLocalDate(new Date(2026, 9, 5, 12), async (moveTime) => {
+          const profile = dailyProfile(7);
+          const before = JSON.stringify(profile);
+          await mount(homePage(profile));
+          const tile = dailyTile();
+          tile.focus();
+          moveTime(2 * 86_400_000 + 29_999);
+          await advance(29_999);
+          assert.ok(tile.querySelector('[aria-label="3 of 3 stars"]'));
+          moveTime(1);
+          await advance(1);
+          assert.match(tile.textContent, /New today/);
+          assert.equal(tileTitle(), dailySpec(dayKey()).title);
+          assert.equal(tile.querySelector('span[class*="featureMeta"]').textContent, '0');
+          moveTime(-2 * 86_400_000 + 30_000);
+          await advance(30_000);
+          assert.ok(!tile.textContent.includes('New today'));
+          assert.ok(tile.querySelector('[aria-label="3 of 3 stars"]'));
+          assert.equal(tileTitle(), dailySpec(dayKey()).title);
+          focused(tile);
+          assert.equal(JSON.stringify(profile), before);
+        })
+      );
+    }
+  );
+
+  await check(
+    'Home and Daily mounted in the background defer calendar polling until visible return',
+    async () => {
+      for (const surface of ['home', 'daily']) {
+        await withUiClock(async (advance, pendingCount) =>
+          withLocalDate(new Date(2026, 9, 5, 12), async (moveTime) =>
+            withVisibility(async (setHidden) => {
+              const profile = dailyProfile(7);
+              await mount(
+                surface === 'home'
+                  ? homePage(profile)
+                  : h(DailyScreen, { profile, onPlay: noop, onBack: noop })
+              );
+              await advance(80);
+              assert.equal(pendingCount(), 0, 'a hidden initial mount has no calendar timeout');
+              moveTime(3 * 86_400_000);
+              await advance(90_000);
+              assert.equal(pendingCount(), 0);
+              await setHidden(false);
+              assert.equal(
+                surface === 'home' ? tileTitle() : query('h3').textContent,
+                dailySpec(dayKey()).title
+              );
+              assert.equal(pendingCount(), 1);
+              await setHidden(true);
+              assert.equal(pendingCount(), 0);
+            }, true)
+          )
+        );
+      }
+    }
+  );
+
+  const [
+    { OnboardingScreen },
+    { useGameFlow: onboardingFlow },
+    { useProfile: onboardingProfile },
+    { profileStore: onboardingStore },
+    { idleSnapshot: onboardingSnapshot }
+  ] = await Promise.all(
+    [
+      '/src/ui/screens/OnboardingScreen.tsx',
+      '/src/ui/hooks/useGameFlow.ts',
+      '/src/ui/hooks/useProfile.ts',
+      '/src/core/profile/store.ts',
+      '/src/game/engine.ts'
+    ].map((path) => vite.ssrLoadModule(path))
+  );
+  const onboardingCloud = () => ({
+    ...createProfile(),
+    userId: 'ui-onboarding-account',
+    saveId: 'ui-onboarding-save',
+    version: 1,
+    displayName: 'Cloud player',
+    avatar: 'bolt'
+  });
+  let firstRunFlow;
+  function OnboardingFixture() {
+    const profile = onboardingProfile();
+    const flow = onboardingFlow(null, onboardingSnapshot());
+    firstRunFlow = flow;
+    return flow.screen === 'onboarding'
+      ? h(OnboardingScreen, { key: profile.id, profile, onDone: () => flow.replace('home') })
+      : h(
+          Screen,
+          { title: flow.screen },
+          h('button', { onClick: flow.back }, 'Back to previous page')
+        );
+  }
+  await check(
+    'late onboarding actions cannot edit a restored profile before React commits',
+    async () => {
+      for (const action of ['Start playing', 'Skip']) {
+        try {
+          await mount(h(OnboardingFixture));
+          const input = query('#player-name');
+          const setter = Object.getOwnPropertyDescriptor(
+            win.HTMLInputElement.prototype,
+            'value'
+          ).set;
+          await act(() => {
+            setter.call(input, 'Old guest draft');
+            input.dispatchEvent(new win.Event('input', { bubbles: true }));
+          });
+          await click(query('button[aria-label="Avatar ring"]'));
+          const submit = button(action);
+          let restored;
+          await act(() => {
+            onboardingStore.signIn(onboardingCloud());
+            restored = onboardingStore.getSnapshot();
+            submit.click();
+          });
+          assert.equal(onboardingStore.getSnapshot().name, 'Cloud player');
+          assert.equal(onboardingStore.getSnapshot().avatar, 'bolt');
+          assert.ok(
+            onboardingStore.getSnapshot() === restored,
+            'old Start/Skip cannot write the restored save'
+          );
+          assert.equal(firstRunFlow.screen, 'home');
+          assert.equal(firstRunFlow.canGoBack, false);
+        } finally {
+          await act(() => root.render(null));
+          await act(() => onboardingStore.signOut(true));
+        }
+      }
+    }
+  );
+  await check(
+    'a late sign-in replaces dormant onboarding without changing the active page or focus',
+    async () => {
+      assert.equal(onboardingStore.getSnapshot().onboarded, false);
+      try {
+        await mount(h(OnboardingFixture));
+        assert.equal(firstRunFlow.screen, 'onboarding');
+        await act(() => firstRunFlow.go('account'));
+        const back = button('Back to previous page');
+        back.focus();
+        await act(() => onboardingStore.signIn(onboardingCloud()));
+        const restored = onboardingStore.getSnapshot();
+        assert.equal(firstRunFlow.screen, 'account');
+        focused(back);
+        await click(back);
+        assert.equal(
+          firstRunFlow.screen,
+          'home',
+          'Back after sign-in cannot reopen first-run editing'
+        );
+        assert.equal(firstRunFlow.canGoBack, false);
+        assert.ok(
+          onboardingStore.getSnapshot() === restored,
+          'routing cannot write the restored profile'
+        );
+      } finally {
+        await act(() => root.render(null));
+        await act(() => onboardingStore.signOut(true));
+      }
+    }
+  );
+
+  await check(
+    'completed and cached profiles dismiss active onboarding but preserve later navigation',
+    async () => {
+      const guest = { ...onboardingStore.getSnapshot(), updatedAt: 0 };
+      const dto = onboardingCloud();
+      try {
+        await mount(h(OnboardingFixture));
+        assert.equal(firstRunFlow.screen, 'onboarding');
+        await act(() => onboardingStore.signIn(dto));
+        assert.equal(firstRunFlow.screen, 'home');
+        absent('#player-name');
+        focused(query('h2'));
+        await act(() => onboardingStore.signOut());
+        assert.deepEqual({ ...onboardingStore.getSnapshot(), updatedAt: 0 }, guest);
+        assert.equal(
+          firstRunFlow.screen,
+          'home',
+          'sign-out cannot interrupt navigation with onboarding'
+        );
+
+        await act(() => root.render(null));
+        await act(() => assert.ok(onboardingStore.restoreCachedCloud(dto.userId)));
+        await mount(h(OnboardingFixture));
+        assert.equal(firstRunFlow.screen, 'home', 'a cache restored before mount starts at Home');
+        await act(() => firstRunFlow.go('profile'));
+        const back = button('Back to previous page');
+        back.focus();
+        await act(() =>
+          onboardingStore.applyCloud({ ...dto, displayName: 'Synced player', version: 2 })
+        );
+        assert.equal(firstRunFlow.screen, 'profile');
+        focused(back);
+        await click(back);
+        assert.equal(firstRunFlow.screen, 'home');
+        assert.equal(firstRunFlow.canGoBack, false);
+
+        await act(() => root.render(null));
+        await act(() => onboardingStore.signOut());
+        await mount(h(OnboardingFixture));
+        assert.equal(firstRunFlow.screen, 'onboarding');
+        await act(() => assert.ok(onboardingStore.restoreCachedCloud(dto.userId)));
+        assert.equal(
+          firstRunFlow.screen,
+          'home',
+          'a cache restored after mount dismisses the obsolete form'
+        );
+      } finally {
+        await act(() => root.render(null));
+        await act(() => onboardingStore.signOut(true));
+      }
+    }
+  );
+
+  await check(
+    'fresh onboarding keeps draft choices optional and completes once with heading focus',
+    async () => {
+      await mount(h(OnboardingFixture));
+      assert.equal(firstRunFlow.screen, 'onboarding');
+      focused(query('h1'));
+      const input = query('#player-name');
+      const setter = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+      await act(() => {
+        setter.call(input, '  New   player ');
+        input.dispatchEvent(new win.Event('input', { bubbles: true }));
+      });
+      await click(query('button[aria-label="Avatar ring"]'));
+      await click(query('button[aria-label="Violet"]'));
+      assert.equal(
+        onboardingStore.getSnapshot().onboarded,
+        false,
+        'draft choices cannot complete early'
+      );
+      const submit = button('Start playing');
+      let completed;
+      await act(() => {
+        submit.click();
+        completed = onboardingStore.getSnapshot();
+        submit.click();
+      });
+      assert.ok(
+        onboardingStore.getSnapshot() === completed,
+        'duplicate activation cannot complete twice'
+      );
+      assert.equal(firstRunFlow.screen, 'home');
+      assert.equal(firstRunFlow.canGoBack, false);
+      absent('#player-name');
+      focused(query('h2'));
+      const saved = onboardingStore.getSnapshot();
+      assert.equal(saved.name, 'New player');
+      assert.equal(saved.avatar, 'ring');
+      assert.equal(saved.equipped.accent, 'accent-violet');
+      assert.equal(saved.onboarded, true);
+      const guestSave = win.localStorage.getItem('bball.profile');
+      await act(() => firstRunFlow.go('settings'));
+      const back = button('Back to previous page');
+      back.focus();
+      await act(() => onboardingStore.setLastBot('amateur'));
+      assert.equal(firstRunFlow.screen, 'settings');
+      focused(back);
+      await click(back);
+      assert.equal(firstRunFlow.screen, 'home');
+      assert.equal(firstRunFlow.canGoBack, false);
+      assert.equal(JSON.parse(guestSave).data.name, 'New player');
+    }
+  );
+
   const copyStatus = () => {
     const status = button('Copy result').parentElement.querySelector('[role="status"]');
     assert.ok(status, 'Daily copy needs a status message');
@@ -1867,6 +2296,238 @@ try {
       assert.equal(win.localStorage.getItem('bball.settings'), deviceSave);
     }
   );
+
+  const profilePage = (profile, status = 'guest') =>
+    h(ProfileScreen, {
+      profile,
+      account: { ...accountStore.getSnapshot(), status },
+      onAccount: noop,
+      onAchievements: noop,
+      onCustomize: noop,
+      onSettings: noop,
+      onDemo: noop,
+      onBack: noop
+    });
+  const nameInput = () => query('input[aria-label="Player name"]');
+  const typeName = async (value) => {
+    const input = nameInput();
+    input.focus();
+    const setter = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    await act(() => {
+      setter.call(input, value);
+      input.dispatchEvent(new win.Event('input', { bubbles: true }));
+    });
+    assert.equal(input.value, value);
+  };
+  const cloudName = (displayName, extra = {}) => ({
+    ...createProfile(),
+    userId: 'ui-profile-name-account',
+    saveId: 'ui-profile-name-save',
+    version: 1,
+    displayName,
+    ...extra
+  });
+
+  await check(
+    'an untouched Profile name follows cloud updates and cannot overwrite them on blur',
+    async () => {
+      const guest = profileStore.getSnapshot();
+      const dto = cloudName('Before sync');
+      await act(() => profileStore.signIn(dto));
+      function Fixture() {
+        return profilePage(useProfile(), 'authenticated');
+      }
+      try {
+        await mount(h(Fixture));
+        const input = nameInput();
+        input.focus();
+        await act(() => profileStore.applyCloud({ ...dto, displayName: 'After sync', version: 2 }));
+        assert.equal(input.value, 'After sync');
+        assert.ok(nameInput() === input, 'same-account updates keep the input node');
+        focused(input);
+        const synced = profileStore.getSnapshot();
+        await act(() => input.blur());
+        assert.ok(
+          profileStore.getSnapshot() === synced,
+          'blur without an edit cannot rewrite the profile'
+        );
+        const avatar = query('button[aria-label="Avatar ring"]');
+        await click(avatar);
+        assert.equal(profileStore.getSnapshot().name, 'After sync');
+        assert.equal(profileStore.getSnapshot().avatar, 'ring');
+      } finally {
+        await act(() => root.render(null));
+        await act(() => profileStore.signOut(true));
+        assert.equal(profileStore.getSnapshot().name, guest.name);
+      }
+    }
+  );
+
+  await check(
+    'Profile keeps a real draft through sync and saves its cleaned name with the latest avatar',
+    async () => {
+      const dto = cloudName('Original', { avatar: 'orb' });
+      await act(() => profileStore.signIn(dto));
+      function Fixture() {
+        return profilePage(useProfile(), 'authenticated');
+      }
+      try {
+        await mount(h(Fixture));
+        const input = nameInput();
+        await typeName('  My   name  ');
+        // Same-account profile updates include ordinary progression and remote identity edits.
+        await act(() => profileStore.setLastBot('amateur'));
+        assert.equal(input.value, '  My   name  ');
+        await act(() =>
+          profileStore.applyCloud({ ...dto, displayName: 'Remote', avatar: 'bolt', version: 2 })
+        );
+        assert.equal(input.value, '  My   name  ');
+        focused(input);
+        await key(input, 'Enter');
+        assert.equal(profileStore.getSnapshot().name, 'My name');
+        assert.equal(profileStore.getSnapshot().avatar, 'bolt');
+        assert.equal(input.value, 'My name', 'the field reflects the actual cleaned saved name');
+        const saved = profileStore.getSnapshot();
+        input.focus();
+        await act(() => input.blur());
+        await click(query('button[aria-label="Avatar bolt"]'));
+        assert.ok(
+          profileStore.getSnapshot() === saved,
+          'unchanged blur and avatar cannot queue duplicate edits'
+        );
+        await typeName('My name ');
+        await act(() => input.blur());
+        assert.ok(
+          profileStore.getSnapshot() === saved,
+          'equivalent whitespace cannot rewrite the save'
+        );
+        assert.equal(input.value, 'My name');
+        await typeName('');
+        await act(() => input.blur());
+        assert.equal(profileStore.getSnapshot().name, 'Player');
+        assert.equal(input.value, 'Player');
+      } finally {
+        await act(() => root.render(null));
+        await act(() => profileStore.signOut(true));
+      }
+    }
+  );
+
+  await check(
+    'Profile drafts cannot cross guest/account/Demo/reset ownership changes',
+    async () => {
+      await act(() => profileStore.setIdentity('Guest name', 'orb'));
+      const guestSave = win.localStorage.getItem('bball.profile');
+      function Fixture() {
+        return profilePage(useProfile(), profileStore.isCloud() ? 'authenticated' : 'guest');
+      }
+      try {
+        await mount(h(Fixture));
+        const input = nameInput();
+        await typeName('Guest draft');
+        await act(() => profileStore.signIn(cloudName('Cloud name')));
+        assert.equal(input.value, 'Cloud name');
+        focused(input);
+        assert.equal(
+          win.localStorage.getItem('bball.profile'),
+          guestSave,
+          'restore cannot commit the guest draft'
+        );
+        await typeName('Cloud draft');
+        await act(() => profileStore.signOut(true));
+        assert.equal(input.value, 'Guest name');
+        assert.equal(profileStore.getSnapshot().name, 'Guest name');
+        focused(input);
+        await typeName('Real draft');
+        await act(() => profileStore.startDemo(5));
+        assert.equal(input.value, 'Guest name');
+        await typeName('Demo draft');
+        await act(() => profileStore.endDemo());
+        assert.equal(input.value, 'Guest name');
+        assert.equal(profileStore.getSnapshot().name, 'Guest name');
+        await typeName('Reset draft');
+        await act(() => profileStore.reset());
+        assert.equal(input.value, 'Player');
+        focused(input);
+        await act(() => input.blur());
+        assert.equal(profileStore.getSnapshot().name, 'Player');
+      } finally {
+        await act(() => root.render(null));
+        await act(() => {
+          profileStore.endDemo();
+          profileStore.signOut(true);
+        });
+      }
+    }
+  );
+
+  await check(
+    'identity actions use the current store when a restore or rename precedes React commit',
+    async () => {
+      await act(() => profileStore.setIdentity('Guest name', 'orb'));
+      function Fixture() {
+        return profilePage(useProfile(), profileStore.isCloud() ? 'authenticated' : 'guest');
+      }
+      try {
+        await mount(h(Fixture));
+        await typeName('Guest draft');
+        const input = nameInput();
+        const dto = cloudName('Cloud name', { avatar: 'orb' });
+        let restored;
+        await act(() => {
+          profileStore.signIn(dto);
+          restored = profileStore.getSnapshot();
+          input.blur();
+        });
+        assert.ok(
+          profileStore.getSnapshot() === restored,
+          'a late guest blur cannot modify the restored account'
+        );
+        assert.equal(input.value, 'Cloud name');
+        const avatar = query('button[aria-label="Avatar ring"]');
+        await act(() => {
+          profileStore.applyCloud({ ...dto, displayName: 'Latest name', version: 2 });
+          avatar.click();
+        });
+        assert.equal(profileStore.getSnapshot().name, 'Latest name');
+        assert.equal(profileStore.getSnapshot().avatar, 'ring');
+        assert.equal(input.value, 'Latest name');
+      } finally {
+        await act(() => root.render(null));
+        await act(() => profileStore.signOut(true));
+      }
+    }
+  );
+
+  await check('Enter during name composition keeps editing until a deliberate commit', async () => {
+    await act(() => profileStore.setIdentity('Before', 'orb'));
+    function Fixture() {
+      return profilePage(useProfile());
+    }
+    await mount(h(Fixture));
+    await typeName('雨');
+    const input = nameInput();
+    const before = profileStore.getSnapshot();
+    for (const [isComposing, keyCode] of [
+      [true, 0],
+      [false, 229]
+    ]) {
+      await act(() =>
+        input.dispatchEvent(
+          new win.KeyboardEvent('keydown', { key: 'Enter', isComposing, keyCode, bubbles: true })
+        )
+      );
+      focused(input);
+      assert.ok(
+        profileStore.getSnapshot() === before,
+        'composition confirmation cannot save prematurely'
+      );
+      assert.equal(input.value, '雨');
+    }
+    await key(input, 'Enter');
+    assert.equal(profileStore.getSnapshot().name, '雨');
+    assert.equal(input.value, '雨');
+  });
 
   await check(
     'failed device saves are visible and Exit never promises unsaved progress is safe',

@@ -1,6 +1,6 @@
 # bBall player experience review
 
-Reviewed on 3 October 2026; continued on 4 October 2026. This review covers the current React and canvas game,
+Reviewed on 3 October 2026; continued on 4–5 October 2026. This review covers the current React and canvas game,
 its shared physics and mode rules, input handling, first-run flow, menus,
 feedback, settings and regression coverage.
 
@@ -220,6 +220,60 @@ and [MDN: Array compatibility data](https://github.com/mdn/browser-compat-data/b
 
 ## Reproduced problems and implemented changes
 
+The onboarding audit reproduced Back from Account reopening first-run editing
+after a late sign-in. A second regression delivered a restored profile and an
+old Start click before React committed; the old guest draft replaced the account
+name and avatar. Cached restoration in `main.tsx` already precedes the initial
+render, so the fix concerns completed profiles arriving after launch. Routing
+now subscribes to the saved onboarding flag and replaces an obsolete onboarding
+root with Home before commit, preserving pages above it and their control focus.
+Start and Skip read the current profile and only operate on their own unfinished
+owner; onboarding drafts are keyed by owner. Normal completion still uses the
+existing identity/cosmetic operations, while a later sign-out preserves navigation.
+This applies React's external-store subscription and guarded render adjustment
+guidance. Real sign-in/deep-link behavior and player enjoyment remain unverified.
+[React: useSyncExternalStore](https://react.dev/reference/react/useSyncExternalStore)
+and [React: Adjusting state when props change](https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
+
+The Home audit reproduced yesterday's cleared Daily tile remaining visible after
+local midnight without an unrelated rerender. Home and Daily now share a local
+presentation clock. The tile refreshes its title, cleared stars and displayed
+streak at midnight and on visible return, retaining its node and the player's
+focus. Foreground clock corrections are picked up by the existing 30-second poll;
+hidden pages stop polling and catch up on return. MDN documents background timer
+throttling and visibility events, so return refresh is necessary even with a
+midnight timer. The next midnight uses local calendar hours rather than adding
+24 elapsed hours, following `setHours`' documented daylight-saving behavior.
+Refreshing changes no saved medals, rewards or freezes. This is a consistency
+fix; perceived enjoyment and real webview timer delivery remain unmeasured.
+[MDN: Page Visibility API](https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API)
+and [MDN: Date.setHours](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/setHours).
+
+The Profile audit reproduced a name field remaining on `Before sync` after the
+real profile store received `After sync`. The old blur and avatar handlers used
+that stale local value, risking a later identity write that reverted the update.
+The field now tracks its saved source and profile owner: an untouched value follows
+new profile names, an unfinished edit survives updates for the same player, and
+guest/account/Demo/reset ownership changes discard the old draft. The input node
+and focus remain stable. Handlers also read the current store and reject a changed
+owner before writing, covering a restore that precedes React's next commit. An
+untouched avatar choice uses the latest saved name; a name commit keeps the latest
+avatar. Equivalent names/avatars do not issue another identity operation, and
+successful edits show the existing `cleanName` result, including the Player default.
+This applies React's guidance for adjusting local state before DOM commit rather
+than briefly rendering stale state and repairing it in an effect. Preserving a
+same-player draft is a design choice, not a measured player preference.
+[React: Adjusting state when props change](https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+and [React: Controlled inputs](https://react.dev/reference/react-dom/components/input#controlling-an-input-with-a-state-variable).
+
+The Profile Enter handler also blurred unconditionally, including an IME
+confirmation key. It now leaves composition Enter alone, checking `isComposing`
+and the 229 key-code boundary case documented by MDN. Ordinary Enter and blur
+retain the existing save behavior. These fixes change only the editor; identity
+validation, profile/cache formats, sync operations and reward rules retain their
+behavior. System reduced-motion preferences remain completely ignored.
+[MDN: Keydown during IME composition](https://developer.mozilla.org/en-US/docs/Web/API/Element/keydown_event#keydown_events_with_ime).
+
 The Results audit found that its custom card bypassed the shared menu shell:
 the finished page had neither heading focus nor the device-save notice, although
 the pending Results download inherited both from its loading page. The earlier
@@ -336,6 +390,9 @@ comfort need physical-device testing.
 
 | Area                    | Evidence from the original code or regressions                                                                                                              | Resulting behaviour                                                                                                                                                                                    |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Onboarding continuity   | Back reopened first-run editing after sign-in; an old Start action replaced a restored identity before React committed.                                     | Home replaces obsolete onboarding in the stack, active pages keep focus, and Start/Skip reject another or already completed profile.                                                                   |
+| Home Daily continuity   | Yesterday's cleared tile remained visible after midnight without an unrelated rerender.                                                                     | Title, stars and displayed streak refresh at midnight/visible return, with stable focus, no hidden polling and no saved-progress changes.                                                              |
+| Profile editing         | A mounted field retained its initial name after cloud replacement; handlers could reuse it. Enter also ended editing during composition.                    | Untouched names follow updates, same-player drafts survive, changed owners discard drafts, identity actions read the current store, and IME confirmation retains editing.                              |
 | Results continuity      | The custom card omitted menu heading focus/save notices; callback rerenders restarted star timers; minute-boundary rounding displayed 60-second remainders. | A named focused outcome, actual save failure/retry, uninterrupted star reveals using the latest callback, labelled star totals and correct duration formatting.                                        |
 | Daily copying           | Clipboard refusal produced no feedback or fallback, and overlapping requests used unmanaged reset timers.                                                   | Pending/success/failure status, manual text and retry; duplicate pending requests are blocked and stale UI responses ignored.                                                                          |
 | Daily rollover          | A 30-second-old preview could launch a different day's challenge; removing copy controls lost focus.                                                        | Midnight/return refresh, matching quest date, a stale-press review step, explicit preview key at launch and focus return to Play.                                                                      |
@@ -568,6 +625,44 @@ unchanged profile/settings snapshots, and later failure recovery after navigatin
 to Home and entering Demo. These remain synthetic UI checks; visible reveals,
 physical sound, screen-reader output and touch layout are unverified.
 
+The Profile batch adds five mounted checks, bringing `check:ui` to **43 passing
+checks**, with **318 domain/API tests** still passing. The untouched-name regression
+failed before the fix. Tests use the real local profile store's sign-in, authoritative
+replacement, sign-out, Demo and reset paths with constructed cloud DTOs and isolated
+Happy DOM storage; no account is contacted. Native input-setter/event substitutes
+exercise typing, draft preservation, focus, canonical/empty names, unchanged-write
+avoidance, latest-avatar retention, changed owners and actions in the same batch as
+a restore/rename. Synthetic Enter events cover ordinary commit, `isComposing` and
+key code 229. The click helper includes its focus/blur events in React's `act`
+scope. These checks do not verify physical IME event ordering, mobile keyboard
+behavior or real account/network transitions.
+
+The Home Daily batch adds four mounted checks, bringing `check:ui` to **47 passing
+checks**, with **318 domain/API tests** still passing. The year-end midnight
+regression failed before the fix with the previous cleared tile still visible.
+Controlled dates, timeouts and visibility events cover the new title/stars/streak,
+matching Daily preview and launch, multi-day return with/without saved freezes,
+foreground clock corrections in both directions, stable tile/other-control focus,
+hidden initial mounts and timer/listener cleanup after navigation. Repeated return
+events retain one calendar timeout; hidden pages retain none. Profile snapshots
+remain unchanged, including saved freezes. Existing Daily copy, stale-Play and
+quest-date checks pass with the shared hook. These substitutes do not change a
+device clock or player save and do not verify actual OS clock/timezone changes,
+daylight-saving transitions or physical browser/webview visibility delivery.
+
+The onboarding batch adds four mounted checks, bringing `check:ui` to **51 passing
+checks**, with **318 domain/API tests** still passing. Both Back reopening the form
+and a pre-commit Start overwriting the restored name failed before the fix. Tests
+use the real routing hook, onboarding component and isolated profile store with
+constructed cloud DTOs. They cover stale Start/Skip actions without profile writes,
+active/dormant onboarding, Account focus, cached restoration before/after mount,
+later sign-out/navigation, ordinary profile updates and normal Start with cleaned
+name, selected avatar/colour, heading focus and duplicate-activation protection.
+Guest progress comparisons exclude the store's normal commit timestamp. No actual
+account is contacted; OAuth, native deep-link delivery and assistive technology
+remain physical-browser/device checks. Existing match, pause and Results checks
+also pass with the routing subscription.
+
 Run the checks from the repository root:
 
 ```powershell
@@ -583,16 +678,18 @@ node --import tsx scripts/sim.ts 6 pro
 
 The original single entry was 607.73 kB. With menu deferral and the subsequent
 rendering, focus, paused-settings, confirmation, device-save, resize, audio,
-skill-control, Daily recovery and Results continuity behavior the entry is 466.57 kB and Vite no longer emits its 500 kB chunk warning.
-The complete initial static graph is **559.52 kB across
+skill-control, Daily recovery, Results continuity, Profile editing, Home Daily
+and onboarding behavior the entry is 467.40 kB and Vite no longer emits its
+500 kB chunk warning.
+The complete initial static graph is **560.35 kB across
 16 JS files**, because shared domain
 code remains necessary. The comparable web-build measurements from
 `check:bundle` are:
 
 | Initial static payload | Before    | After     | Reduction |
 | ---------------------- | --------- | --------- | --------- |
-| JavaScript             | 607.73 kB | 559.52 kB | 7.9%      |
-| JavaScript, gzip       | 189.12 kB | 182.11 kB | 3.7%      |
+| JavaScript             | 607.73 kB | 560.35 kB | 7.8%      |
+| JavaScript, gzip       | 189.12 kB | 182.37 kB | 3.6%      |
 | CSS                    | 58.94 kB  | 48.01 kB  | 18.5%     |
 | CSS, gzip              | 12.22 kB  | 11.12 kB  | 9.0%      |
 
@@ -629,8 +726,17 @@ chunk placement: initial JS falls by 0.25 kB (0.41 kB gzip), while unchanged raw
 initial CSS compresses to 0.19 kB less across two files instead of three. The entry
 itself grows by 0.81 kB. These are bundler artifact measurements, not evidence of
 faster loading or better frame times.
+Profile editing grows its deferred web page from 4.54 to 4.91 kB JS (1.76 to
+1.92 kB gzip). The initial web graph and CSS retain their reported byte totals;
+the additional behavior remains deferred. No load-time improvement is claimed.
+Home Daily continuity adds 0.64 kB initial JS (0.17 kB gzip) compared with the
+Profile build, with unchanged initial CSS. Extracting the shared clock shrinks
+the deferred Daily page from 6.25 to 5.80 kB JS (2.59 to 2.44 kB gzip). These
+are artifact costs and code placement, not measured loading or battery gains.
+Onboarding continuity adds about 0.20 kB initial JS (0.09 kB gzip) compared with
+the Home Daily build, with unchanged initial CSS. No load-time gain is claimed.
 The Safari-targeted desktop-mode graph passed its check at
-567.44 kB JS (184.31 kB gzip) across 16 files and 48.27 kB CSS (11.15 kB gzip)
+568.28 kB JS (184.58 kB gzip) across 16 files and 48.27 kB CSS (11.15 kB gzip)
 across two files; the final
 `dist/` was regenerated as the web build. Native packaging and visual or
 on-device QA remain pending.
@@ -669,7 +775,7 @@ are a tradeoff to profile. No FPS, input-latency or battery improvement is claim
 
 ## Next changes to validate with players
 
-The first fifteen follow-ups have now been implemented:
+The first eighteen follow-ups have now been implemented:
 
 - **First-rally lesson:** optional and replayable from How to play. A stationary
   dashed outline shows where to place the paddle. The learner moves, returns a
@@ -815,6 +921,25 @@ The first fifteen follow-ups have now been implemented:
   labelled star total, and elapsed time rounds correctly across minute boundaries.
   XP, record formats and the complete exclusion of system motion settings remain
   unchanged. The save regression now exercises this real page.
+- **Profile edit continuity:** untouched name fields follow new profile data,
+  while a same-player draft survives ordinary updates. Changed profile owners
+  discard the draft; a late old-owner action cannot edit the new save. Commit
+  keeps the latest avatar, avatar selection keeps an untouched latest name, and
+  the field shows the existing cleaned/default name afterward. Equivalent saves
+  do not queue another identity operation. Enter confirms the edit outside IME
+  composition. Profile formats, identity validation, sync and motion policy retain
+  their behavior.
+- **Home Daily continuity:** the tile and Daily preview use the same local-calendar
+  hook, refreshing at midnight and visible return while preserving focus. The
+  tile follows the current title, stars and displayed streak; hidden pages stop
+  calendar polling. A 30-second foreground check also handles clock changes.
+  The display never awards rewards, consumes freezes or rewrites saved progress.
+- **Onboarding continuity:** a completed profile arriving after launch replaces
+  the obsolete first-run root with Home, keeping active pages and their focus.
+  Start/Skip reject a restored or already completed profile before applying draft
+  choices. Drafts are keyed by owner, normal first-run completion remains optional,
+  and later sign-out does not interrupt navigation. Identity/cosmetic operations,
+  profile/cache formats and the system-motion policy retain their rules.
 
 These changes still need newcomer observation, screen-reader checks, and HUD
 and Settings/result/confirmation/save-notice layout and touch checks in both orientations. The last
@@ -876,6 +1001,14 @@ should agree on the current date. Press Play before a delayed refresh: it should
 show the new goals and explanation before a fresh press starts that day. Check
 focus after copy controls disappear and confirm that existing saved medals,
 streak and server-window behavior still follow their rules.
+Leave Home open across midnight and background it for several days, then compare
+its Daily title, stars, New today tag and streak with the Daily page. Check focus
+on the tile and on another control during refresh. With disposable data, test
+foreground clock corrections, timezone changes and a daylight-saving boundary
+where applicable. Hidden pages should stop calendar polling and visible return
+should catch up promptly without consuming freezes or changing saved records.
+Record actual browser/webview timer and visibility delivery separately from the
+controlled DOM checks.
 On Results, check that the outcome heading receives focus and the star graphic
 announces its earned total immediately, while visual stars and chimes complete
 once. Change audio/settings or allow account updates during the reveal; they
@@ -906,6 +1039,21 @@ request and check the stated result. Use touch and keyboard in both orientations
 including short landscape screens; ensure both actions remain reachable while
 scrolling. Change the saved run/cup or account/demo state during confirmation
 and verify that the previous request closes and cannot reappear on return.
+On Profile, leave the name untouched during a real account refresh and check that
+it follows the updated name without moving focus or reverting it on blur/avatar
+selection. Repeat with an unfinished draft; it should survive for that player,
+then save with the latest avatar. Sign in/out, enter/leave Demo or reset while an
+edit is pending: the old draft must not reach the new owner. Test trimmed/empty
+names and IMEs using physical and virtual keyboards; composition confirmation
+must keep editing, while ordinary Enter/blur saves the displayed cleaned name.
+Use disposable accounts and saves for these transitions.
+With a disposable first-run guest, launch an account link and complete sign-in
+after the game mounts. Verify Account focus stays on the current control and
+Back reaches Home, with no first-run identity form beneath it. Repeat a profile
+arrival while onboarding is visible, cached relaunch, sign-out and later profile
+updates. Check that the restored name/avatar/colour are preserved and normal
+fresh Start/Skip still reach Home. Include actual web OAuth return and native
+deep-link delivery; these account transitions were substituted in the DOM checks.
 In a disposable test profile, deny storage access or force a full-storage write
 error, change settings and record a result. Check the save notice in Results,
 Home, Profile, Pause and Exit; offline text must not falsely reassure. Navigate

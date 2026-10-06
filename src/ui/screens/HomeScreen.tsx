@@ -13,6 +13,7 @@ import { BrandLogo } from '../components/BrandLogo';
 import { SyncBadge } from '../components/SyncBadge';
 import { SaveNotice } from '../components/SaveNotice';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
+import { useLocalClock } from '../hooks/useLocalClock';
 import { GearIcon, SparkIcon } from '../icons/MenuIcons';
 import { FlameIcon, HeartIcon, MapIcon, StarIcon, StarRow, SwordsIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
@@ -81,7 +82,8 @@ function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () =
 }
 
 function DailyTile({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
-  const today = dayKey();
+  const { now } = useLocalClock();
+  const today = dayKey(now);
   const spec = dailySpec(today);
   const record = profile.progress.daily;
   const medals = record.day === today ? record.medals : 0;

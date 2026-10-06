@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import type { BotLevelId } from '../../core/bots/types';
 import { stageById } from '../../core/campaign/journey';
@@ -82,6 +82,8 @@ export interface GameFlow {
   leaveResult: (screen: ScreenId) => void;
 }
 
+const onboardingComplete = () => profileStore.getSnapshot().onboarded;
+
 /**
  * Routing and match start-up: which screen is showing, and what each mode
  * does when it is picked. Keeping it here means the screens stay presentational
@@ -95,9 +97,15 @@ export interface GameFlow {
  * the honest next step.
  */
 export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): GameFlow {
-  const [stack, setStack] = useState<ScreenId[]>(() =>
-    profileStore.getSnapshot().onboarded ? ['home'] : ['onboarding']
+  const onboarded = useSyncExternalStore(
+    profileStore.subscribe,
+    onboardingComplete,
+    onboardingComplete
   );
+  const [stack, setStack] = useState<ScreenId[]>(() => (onboarded ? ['home'] : ['onboarding']));
+  // A sign-in can complete over another menu. Replace the obsolete root before
+  // commit, preserving that menu and preventing Back from reopening first-run edits.
+  if (onboarded && stack[0] === 'onboarding') setStack(['home', ...stack.slice(1)]);
   const screen = stack[stack.length - 1] as ScreenId;
   const setScreen = useCallback(
     (next: ScreenId) =>

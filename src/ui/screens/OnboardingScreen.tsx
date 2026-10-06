@@ -24,13 +24,22 @@ export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
   const [avatar, setAvatar] = useState<AvatarId>(profile.avatar);
   const [accent, setAccent] = useState(profile.equipped.accent);
 
+  const canComplete = () => {
+    const current = profileStore.getSnapshot();
+    // A restoration can arrive before React removes the old form. Its draft
+    // belongs only to this uncompleted profile, including the Skip action.
+    return current.id === profile.id && !current.onboarded;
+  };
+
   const start = () => {
+    if (!canComplete()) return;
     setIdentity(name, avatar);
     equipCosmetic('accent', accent);
     onDone();
   };
 
   const skip = () => {
+    if (!canComplete()) return;
     profileStore.skipOnboarding();
     onDone();
   };

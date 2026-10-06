@@ -254,7 +254,7 @@ export function App() {
       />
 
       {flow.screen === 'onboarding' && (
-        <OnboardingScreen profile={profile} onDone={() => flow.replace('home')} />
+        <OnboardingScreen key={profile.id} profile={profile} onDone={() => flow.replace('home')} />
       )}
 
       {flow.screen === 'home' && (

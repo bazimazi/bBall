@@ -206,13 +206,16 @@ if automatic copying is unavailable, it offers selectable text for manual copyin
 and a retry. Copying changes no progress, and Play stays pinned below the scrolling
 content. Duplicate presses during a pending copy do not start another write.
 
-The Daily preview refreshes at local midnight and on returning to the page. If
-Play finds that the date changed before the preview refreshed, it shows the new
+Home's Daily tile and the Daily preview refresh at local midnight and on returning
+to the page. Home updates the challenge title, cleared stars and displayed streak
+without moving focus. A 30-second foreground check also picks up clock changes;
+calendar polling pauses while the page is hidden. If Play finds that the date
+changed before the preview refreshed, it shows the new
 challenge first and asks you to review its goals. The next press launches that
 displayed day; its quests use the same date. A removed copy control returns focus
 to Play.
 
-Three **daily quests** - one easy, one medium, one hard - sit on the home screen
+Three **daily quests** - one easy, one medium, one hard - sit on the Daily page
 and pay the moment they are done, with a bonus for all three.
 
 ### Gauntlet
@@ -375,6 +378,17 @@ is repaired field by field rather than thrown away; anything genuinely
 unreadable is parked under `bball.profile.broken` and the game starts fresh.
 Unspent points are never trusted from the file - they are recomputed from your
 level and what you have spent, every time the profile is read.
+
+First-run name, avatar and colour choices are optional. When a completed profile
+arrives after launch, Home replaces the old onboarding entry in Back navigation;
+an open Account page keeps its focus. Old Start/Skip actions cannot write onto
+the restored profile. Signing out later keeps the current navigation.
+
+On Profile, the name saves on blur or Enter. Untouched names follow updates;
+unfinished edits survive updates for the same player and are discarded when
+the profile owner changes. Avatar selection keeps the latest name unless you
+have edited it. The field shows the saved, cleaned name afterward; IME confirmation
+Enter keeps editing so you can finish composing the name.
 
 If a device write fails, menus, Pause and Exit show a save notice. Keep bBall
 open while changes are unsaved: closing or reloading may lose them. **Try saving
@@ -630,6 +644,10 @@ Tab behavior, CSS animations/layout and screen readers still need
 manual checks.
 Daily checks also substitute clipboard outcomes, dates and timers to cover copy
 recovery, late responses, midnight/return refresh and launching the previewed day.
+Home checks cover its matching title/stars/streak, clock corrections, hidden-page
+polling and cleanup without changing saved medals or consuming streak freezes.
+Onboarding checks cover late profile restoration, Back navigation, stale form
+actions, cached profiles and normal completion using isolated local stores.
 They do not use the system clipboard or establish physical browser behavior.
 Publish or package the entire `dist/` directory, including all chunk files.
 

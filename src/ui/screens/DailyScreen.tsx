@@ -8,6 +8,7 @@ import type { PlayerProfile } from '../../core/profile/types';
 import { DailyResultCopy } from '../components/DailyResultCopy';
 import { QuestList } from '../components/QuestList';
 import { Screen } from '../components/Screen';
+import { useLocalClock } from '../hooks/useLocalClock';
 import { FlameIcon, SnowIcon, StarIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
@@ -32,38 +33,10 @@ function untilTomorrow(now: Date): string {
  * things that change every day, on one screen.
  */
 export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
-  const [now, setNow] = useState(() => new Date());
+  const { now, refresh } = useLocalClock();
   const [changed, setChanged] = useState(false);
   const playButton = useRef<HTMLButtonElement>(null);
   const copyFocused = useRef(false);
-
-  // Poll the minute display, wake at local midnight, and refresh on return:
-  // background timers may have been delayed for much longer than one day.
-  useEffect(() => {
-    let timer = 0;
-    const refresh = () => {
-      const clock = new Date();
-      setNow(clock);
-      const midnight = new Date(clock);
-      midnight.setHours(24, 0, 0, 0);
-      window.clearTimeout(timer);
-      timer = window.setTimeout(
-        refresh,
-        Math.min(30_000, Math.max(1, midnight.getTime() - clock.getTime()))
-      );
-    };
-    const onReturn = () => {
-      if (!document.hidden) refresh();
-    };
-    refresh();
-    window.addEventListener('focus', onReturn);
-    document.addEventListener('visibilitychange', onReturn);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('focus', onReturn);
-      document.removeEventListener('visibilitychange', onReturn);
-    };
-  }, []);
 
   const today = dayKey(now);
   const spec = dailySpec(today);
@@ -91,7 +64,7 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
   const play = () => {
     const clock = new Date();
     if (dayKey(clock) !== today) {
-      setNow(clock);
+      refresh(clock);
       setChanged(true);
       return;
     }

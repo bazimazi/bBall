@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
 import { ACHIEVEMENTS } from '../../core/achievements/catalog';
-import { NAME_MAX } from '../../core/profile/defaults';
+import { cleanName, NAME_MAX } from '../../core/profile/defaults';
 import { setIdentity } from '../../core/account/progression';
 import { profileStore } from '../../core/profile/store';
-import { AVATARS, type PlayerProfile } from '../../core/profile/types';
+import { AVATARS, type AvatarId, type PlayerProfile } from '../../core/profile/types';
 import type { AccountState } from '../../core/account/store';
 import { Avatar } from '../components/Avatar';
 import { Screen } from '../components/Screen';
@@ -79,7 +79,21 @@ export function ProfileScreen({
   onDemo,
   onBack
 }: ProfileScreenProps) {
-  const [name, setName] = useState(profile.name);
+  const [nameDraft, setNameDraft] = useState({
+    owner: profile.id,
+    saved: profile.name,
+    value: profile.name
+  });
+  const edited = nameDraft.value !== nameDraft.saved;
+  // Follow new names while untouched, retain edits only for the same player.
+  // Adjust before commit so a replaced profile never displays another player's draft.
+  if (nameDraft.owner !== profile.id || nameDraft.saved !== profile.name) {
+    setNameDraft({
+      owner: profile.id,
+      saved: profile.name,
+      value: nameDraft.owner === profile.id && edited ? nameDraft.value : profile.name
+    });
+  }
   const demoLevel = useDemoLevel();
 
   const stats = profile.stats;
@@ -88,8 +102,14 @@ export function ProfileScreen({
   const winRate = played > 0 ? Math.round((stats.wins / played) * 100) : 0;
   const earned = Object.keys(profile.achievements).length;
 
-  const commitName = () => {
-    if (name !== profile.name) setIdentity(name, profile.avatar);
+  const saveIdentity = (avatar?: AvatarId) => {
+    const current = profileStore.getSnapshot();
+    // A restore/sign-out may arrive before React has committed its next render.
+    if (current.id !== nameDraft.owner) return;
+    const name = edited ? cleanName(nameDraft.value) : current.name;
+    const nextAvatar = avatar ?? current.avatar;
+    if (name !== current.name || nextAvatar !== current.avatar) setIdentity(name, nextAvatar);
+    setNameDraft({ owner: current.id, saved: name, value: name });
   };
 
   return (
@@ -99,13 +119,20 @@ export function ProfileScreen({
         <div style={{ flex: '1 1 auto', minWidth: 0 }}>
           <input
             className={styles.input}
-            value={name}
+            value={nameDraft.value}
             maxLength={NAME_MAX}
             aria-label="Player name"
-            onChange={(event) => setName(event.target.value)}
-            onBlur={commitName}
+            onChange={(event) => setNameDraft({ ...nameDraft, value: event.target.value })}
+            onBlur={() => saveIdentity()}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') event.currentTarget.blur();
+              // IME confirmation can arrive just after compositionend with keyCode 229.
+              if (
+                event.key === 'Enter' &&
+                !event.nativeEvent.isComposing &&
+                event.nativeEvent.keyCode !== 229
+              ) {
+                event.currentTarget.blur();
+              }
             }}
           />
         </div>
@@ -137,7 +164,7 @@ export function ProfileScreen({
             }
             aria-label={`Avatar ${avatar}`}
             aria-pressed={avatar === profile.avatar}
-            onClick={() => setIdentity(name, avatar)}
+            onClick={() => saveIdentity(avatar)}
           >
             <Avatar avatar={avatar} />
           </button>
@@ -196,7 +223,6 @@ export function ProfileScreen({
           key={profile.id}
           onReset={() => {
             profileStore.reset();
-            setName('Player');
           }}
         />
       )}
