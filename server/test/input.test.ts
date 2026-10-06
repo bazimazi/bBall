@@ -7,6 +7,7 @@ import { GameEngine } from '../../src/game/engine';
 import type { World } from '../../src/game/world';
 import { toScreenX, toScreenY } from '../../src/game/view';
 import { abilityViews } from '../../src/game/abilities';
+import type { DiagnosticMatchEvent, FrameSample } from '../../src/dev/frameCapture';
 
 class TestElement extends EventTarget {
   tagName = 'CANVAS';
@@ -131,6 +132,84 @@ const CUSTOM_KEYS = {
   mute: ['n'],
   skill1: ['h']
 };
+
+it('frame diagnostics add clocks only while observed and stale cleanup cannot detach a newer observer', (t) => {
+  const { engine, world, advance } = harness(t);
+  const saved = Object.getOwnPropertyDescriptor(globalThis, 'performance');
+  let clocks = 0;
+  Object.defineProperty(globalThis, 'performance', {
+    configurable: true,
+    value: { now: () => ++clocks }
+  });
+  t.after(() => {
+    if (saved) Object.defineProperty(globalThis, 'performance', saved);
+  });
+  advance(16);
+  assert.equal(clocks, 0, 'ordinary engine frames must not take diagnostic timings');
+  const old: FrameSample[] = [];
+  const current: FrameSample[] = [];
+  const unold = engine.observeFrames((sample) => old.push(sample));
+  const uncurrent = engine.observeFrames((sample) => current.push(sample));
+  unold();
+  advance(16);
+  assert.equal(clocks, 3);
+  assert.equal(old.length, 0);
+  assert.equal(current.length, 1);
+  assert.equal(current[0]!.updateMs, 1);
+  assert.equal(current[0]!.drawMs, 1);
+  assert.equal(current[0]!.phase, world.match.status);
+  uncurrent();
+  advance(16);
+  assert.equal(clocks, 3);
+  assert.equal(engine.getDiagnostics().fieldWidth, world.view.w);
+});
+
+it('a failed diagnostic observer cannot stop real gameplay or keep adding frame clocks', (t) => {
+  const { engine, world, advance } = harness(t);
+  const warn = console.warn;
+  let warnings = 0;
+  console.warn = () => warnings++;
+  t.after(() => {
+    console.warn = warn;
+  });
+  let called = 0;
+  engine.observeFrames(() => {
+    called++;
+    throw new Error('capture failed');
+  });
+  advance(16);
+  advance(16);
+  assert.equal(called, 1);
+  assert.equal(warnings, 1);
+  assert.ok(Number.isFinite(world.ball.x));
+});
+
+it('attempt diagnostics record retries and quits before reset but do not count a completed result as abandonment', (t) => {
+  const { engine, world } = harness(t);
+  const events: DiagnosticMatchEvent[] = [];
+  const unobserve = engine.observeMatches((event) => events.push(event));
+  engine.play(quickMatchRules('rookie'));
+  world.match.score.you = 1;
+  world.match.elapsed = 10;
+  engine.replay();
+  assert.deepEqual(
+    events.map((event) => event.kind),
+    ['started', 'abandoned', 'started']
+  );
+  assert.equal(events[1]!.scoreYou, 1);
+  assert.equal(events[1]!.seconds, 10);
+  engine.quitToMenu();
+  assert.equal(events[3]!.kind, 'abandoned');
+  engine.quitToMenu();
+  assert.equal(events.length, 4);
+  engine.play(quickMatchRules('amateur'));
+  world.match.status = 'over';
+  engine.quitToMenu();
+  assert.equal(events.length, 5);
+  unobserve();
+  engine.play(quickMatchRules('pro'));
+  assert.equal(events.length, 5);
+});
 
 it('remapped movement supports simultaneous alternates and releases by physical key', (t) => {
   const { engine, world, win, key, advance } = harness(t);

@@ -18,6 +18,18 @@ the CSS viewport and pointer coordinates. Check court sharpness and frame times
 at all three qualities on physical devices; a successful asset build does not
 verify webview performance.
 
+The [experience validation guide](player-experience-validation.md) supplies a
+physical-device matrix and opt-in local timing/attempt capture. Browser test
+sessions use `?experience=1`; packaged debug builds can explicitly set
+`VITE_EXPERIENCE_CAPTURE=1` for their build command and inspect
+`window.bballExperience` in the debug webview. Leave it unset for normal releases
+and keep committed environment/packaging defaults unchanged. The recorder is
+deferred, exports locally and adds no native permissions or server telemetry.
+Use inspector-copy JSON if downloading is unavailable; verify that path on the
+target device. Successful Safari-targeted assets do not verify an installer,
+physical input, displayed-frame timing or enjoyment. Capture compares explicit
+in-game effects/quality; it never reads system reduced-motion preferences.
+
 Audio recovery handles both suspended and interrupted contexts, including the
 WebKit audio constructor. First use explicitly requests resume; later game
 gestures retry recovery without changing mute or volume. Hidden pages request

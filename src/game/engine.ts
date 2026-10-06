@@ -1,4 +1,5 @@
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
+import type { DiagnosticMatchEvent, FrameSample } from '../dev/frameCapture';
 import type { MatchRules } from '../core/modes/types';
 import { SHAKE_SCALE, type DeviceSettings } from '../core/settings/store';
 import {
@@ -151,6 +152,8 @@ export class GameEngine {
   private haptics = true;
   private resumeCountdown = true;
   private preferences: DeviceSettings | null = null;
+  private frameObserver: ((sample: FrameSample) => void) | null = null;
+  private matchObserver: ((event: DiagnosticMatchEvent) => void) | null = null;
 
   private readonly canvas: HTMLCanvasElement;
 
@@ -192,6 +195,8 @@ export class GameEngine {
     if (this.layoutHandle) cancelAnimationFrame(this.layoutHandle);
     this.removeListeners();
     this.audio.dispose();
+    this.frameObserver = null;
+    this.matchObserver = null;
     this.listeners.clear();
   }
 
@@ -204,15 +209,71 @@ export class GameEngine {
 
   getSnapshot = (): GameSnapshot => this.snapshot;
 
+  /** Read only when the local profiling tool requests comparison context. */
+  getDiagnostics() {
+    const { view, rules, loadout } = this.world;
+    return {
+      fieldWidth: view.w,
+      rotated: view.rotated,
+      stageId: rules.stageId ?? null,
+      bot: rules.bot.id,
+      level: loadout.level,
+      effects: { ...loadout.effects },
+      abilities: [...loadout.equipped]
+    };
+  }
+
+  /** Explicit diagnostic capture only; ordinary frames read no extra clocks. */
+  observeFrames(observer: (sample: FrameSample) => void): () => void {
+    this.frameObserver = observer;
+    return () => {
+      if (this.frameObserver === observer) this.frameObserver = null;
+    };
+  }
+
+  observeMatches(observer: (event: DiagnosticMatchEvent) => void): () => void {
+    this.matchObserver = observer;
+    return () => {
+      if (this.matchObserver === observer) this.matchObserver = null;
+    };
+  }
+
+  private noteDiagnosticMatch(kind: DiagnosticMatchEvent['kind']): void {
+    const observer = this.matchObserver;
+    if (!observer || this.world.tutorial) return;
+    const { match, rules } = this.world;
+    if (kind === 'abandoned' && !['serve', 'play', 'paused', 'resuming'].includes(match.status))
+      return;
+    try {
+      observer({
+        kind,
+        mode: rules.mode,
+        stageId: rules.stageId ?? null,
+        bot: rules.bot.id,
+        ranked: rules.ranked,
+        scoreYou: match.score.you,
+        scoreBot: match.score.bot,
+        seconds: match.elapsed,
+        hits: match.hits,
+        bestRally: Math.max(match.rally, match.bestThisMatch)
+      });
+    } catch (error) {
+      if (this.matchObserver === observer) this.matchObserver = null;
+      console.warn('bBall attempt capture stopped after an observer failure.', error);
+    }
+  }
+
   // ------------------------------------------------------------ commands
 
   /** Start a match under `rules`. Every mode goes through here. */
   play = (rules: MatchRules): void => {
+    this.noteDiagnosticMatch('abandoned');
     this.audio.unlock();
     this.clearInput();
     this.audio.startMusic(songFor(rules));
     startMatch(this.world, rules);
     this.publish();
+    this.noteDiagnosticMatch('started');
   };
 
   /** Replay the match that just finished, with the same rules. */
@@ -225,6 +286,7 @@ export class GameEngine {
   };
 
   learn = (): void => {
+    this.noteDiagnosticMatch('abandoned');
     this.audio.unlock();
     this.clearInput();
     this.audio.startMusic(null);
@@ -267,6 +329,7 @@ export class GameEngine {
 
   /** Leave the match and go back to the attract-mode demo behind the menus. */
   quitToMenu = (): void => {
+    this.noteDiagnosticMatch('abandoned');
     this.audio.ui();
     this.clearInput();
     returnToMenu(this.world);
@@ -517,6 +580,8 @@ export class GameEngine {
   // ----------------------------------------------------------- main loop
 
   private frame = (now: number): void => {
+    const observer = this.frameObserver;
+    const startedAt = observer ? performance.now() : 0;
     this.frameHandle = requestAnimationFrame(this.frame);
     const { world } = this;
     const { fx, match } = world;
@@ -584,7 +649,22 @@ export class GameEngine {
     }
 
     this.publish();
+    const drawAt = observer ? performance.now() : 0;
     this.renderer.render(world);
+    if (observer) {
+      try {
+        observer({
+          timestampMs: now,
+          updateMs: drawAt - startedAt,
+          drawMs: performance.now() - drawAt,
+          steps,
+          phase: replayHolding(world) ? 'replay' : match.status
+        });
+      } catch (error) {
+        if (this.frameObserver === observer) this.frameObserver = null;
+        console.warn('bBall frame capture stopped after an observer failure.', error);
+      }
+    }
   };
 
   // -------------------------------------------------------------- input

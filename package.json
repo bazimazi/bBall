@@ -38,7 +38,10 @@
     "test:audio": "node scripts/check-audio.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
     "check:menus": "node scripts/check-menus.mjs",
-    "check:ui": "node scripts/check-ui.mjs"
+    "check:ui": "node scripts/check-ui.mjs",
+    "check:experience": "node scripts/check-experience.mjs",
+    "soak": "node --import tsx scripts/sim.ts",
+    "summarize:experience": "node --import tsx scripts/summarize-experience.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

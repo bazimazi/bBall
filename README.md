@@ -16,21 +16,24 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-| Script                 | What it does                                                |
-| ---------------------- | ----------------------------------------------------------- |
-| `npm run dev`          | Vite dev server with hot reload                             |
-| `npm run build`        | Type-check the project, then build to `dist/`               |
-| `npm run preview`      | Serve the production build locally                          |
-| `npm run typecheck`    | Type-check without emitting                                 |
-| `npm run lint`         | ESLint over the whole project                               |
-| `npm run format`       | Prettier write                                              |
-| `npm run server`       | The backend, with reload                                    |
-| `npm test`             | Client domain/engine and backend tests                      |
-| `npm run desktop`      | The game in a native window, with hot reload                |
-| `npm run icons`        | Regenerate web and native icons from one mark               |
-| `npm run check:bundle` | Check built menu boundaries and report initial JS/CSS bytes |
-| `npm run check:menus`  | Render all lazy menu pages and their pending state in Node  |
-| `npm run check:ui`     | Check mounted menus, dialogs and skill controls in a DOM    |
+| Script                              | What it does                                                |
+| ----------------------------------- | ----------------------------------------------------------- |
+| `npm run dev`                       | Vite dev server with hot reload                             |
+| `npm run build`                     | Type-check the project, then build to `dist/`               |
+| `npm run preview`                   | Serve the production build locally                          |
+| `npm run typecheck`                 | Type-check without emitting                                 |
+| `npm run lint`                      | ESLint over the whole project                               |
+| `npm run format`                    | Prettier write                                              |
+| `npm run server`                    | The backend, with reload                                    |
+| `npm test`                          | Client domain/engine and backend tests                      |
+| `npm run desktop`                   | The game in a native window, with hot reload                |
+| `npm run icons`                     | Regenerate web and native icons from one mark               |
+| `npm run check:bundle`              | Check built menu boundaries and report initial JS/CSS bytes |
+| `npm run check:menus`               | Render all lazy menu pages and their pending state in Node  |
+| `npm run check:ui`                  | Check mounted menus, dialogs and skill controls in a DOM    |
+| `npm run check:experience`          | Check opt-in local capture, boundaries and cleanup          |
+| `npm run soak -- …`                 | Run seeded headless matches with stability alerts           |
+| `npm run summarize:experience -- …` | Summarize local playtest exports without duplicate trials   |
 
 ## Platforms
 
@@ -760,13 +763,31 @@ pre-rendered sprites stamped with `drawImage`, and every effect is a
 fixed-size pool.
 
 `scripts/sim.ts` plays the real engine headless - a bot on your paddle against
-every stage, boss and daily court - and prints win rate, rally length and
-match length per court, along with any stall or broken ball:
+every stage, boss and daily court. It prints completed matches, win rate, rally
+and match length, and alerts for stalls, non-finite states, stuck replays or
+timeouts. Randomness is seeded per case/trial and live play is unaffected:
 
 ```bash
-npx tsx scripts/sim.ts 30 pro
+npm run soak -- 30 pro --seed candidate-a --width 750 --output .temp/experience/soak.json
 ```
 
 System and browser reduced-motion settings are intentionally ignored throughout
 the game, including menu transitions and result animations. Only the game's
 explicit visual-effects and screen-shake controls affect their supported effects.
+
+### Validating player experience
+
+The [experience review](docs/player-experience-review.md) records the implemented
+plan and its evidence. The [validation guide](docs/player-experience-validation.md)
+provides the remaining human playtest and physical-device protocol. Bot results
+and bundle bytes do not establish enjoyment or perceived responsiveness.
+
+For a disposable test session, open a production build with `?experience=1` to
+enable `window.bballExperience`. It records local startup/menu timings, scoped
+frame samples and match attempts, including quits, without changing progression.
+It is deferred and inactive during ordinary play; no capture data is sent to the
+server or written to game storage. Export before reloading. The guide covers
+labels, timing limits, JSON summaries and the explicit `VITE_EXPERIENCE_CAPTURE=1`
+option for debug native builds. Leave that option unset for normal releases.
+System reduced-motion preferences remain completely ignored throughout capture
+and play; compare the game's own effects, shake and quality controls independently.

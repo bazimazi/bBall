@@ -70,5 +70,8 @@ if (!reportOnly) {
     assert.ok(manifest[key]?.isDynamicEntry, `${name} is no longer a deferred page.`);
     assert.ok(!jsFiles.has(manifest[key].file), `${name} is part of the initial load.`);
   }
+  const diagnostics = manifest['src/dev/experience.ts'];
+  assert.ok(diagnostics?.isDynamicEntry, 'Experience capture must remain opt-in and deferred.');
+  assert.ok(!jsFiles.has(diagnostics.file), 'Experience recorder is part of ordinary startup.');
   console.log('All menu chunks and CSS exist; optional pages are outside the initial JS graph.');
 }

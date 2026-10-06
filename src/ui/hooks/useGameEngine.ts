@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import type { ResolvedTheme } from '../../core/cosmetics/theme';
 import { GameEngine, idleSnapshot } from '../../game/engine';
 import type { GameSnapshot } from '../../game/types';
+import { experienceEngine } from '../../dev/experienceBridge';
 
 const noop = () => () => {};
 
@@ -31,9 +32,11 @@ export function useGameEngine(theme: ResolvedTheme): UseGameEngine {
 
     const instance = new GameEngine(canvas, themeRef.current);
     const dispose = instance.start();
+    experienceEngine(instance);
     setEngine(instance);
 
     return () => {
+      experienceEngine(null);
       dispose();
       setEngine(null);
     };

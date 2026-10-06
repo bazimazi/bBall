@@ -4,6 +4,14 @@ Reviewed on 3 October 2026; continued on 4–6 October 2026. This review covers 
 its shared physics and mode rules, input handling, first-run flow, menus,
 feedback, settings and regression coverage.
 
+**Implementation status, 6 October:** the twenty experience fixes and the final
+capture/validation tooling are implemented. All automated checks listed below
+pass. Human Journey/boss tuning, physical performance comparisons and the
+existing native/assistive-technology checks remain validation work; no player
+or physical-device evidence was available to justify changing difficulty or
+quality defaults. The [validation guide](player-experience-validation.md)
+provides the exact collection, comparison and decision workflow.
+
 **Project policy, updated at the user's request:** completely ignore operating-system
 and browser reduced-motion settings on web, desktop and mobile. Do not reintroduce
 CSS media queries, JavaScript preference checks/listeners, native preference checks,
@@ -33,7 +41,7 @@ Match opponents, 30 Journey stages, 14 challenges, 14 courts and six dailies.
 That is 414 matches before the changes and 414 afterward. Both runs reported
 zero stalls, broken ball states or stuck closing replays. The script checks
 stalls longer than 90 seconds per point; it is a stability soak, not a measure
-of human enjoyment. Randomness is unseeded and the sample per case is small,
+of human enjoyment. Those historical runs used unseeded randomness and the sample per case is small,
 so before/after win-rate differences cannot establish an improvement.
 
 Selected baseline results show why balance needs human evidence before tuning:
@@ -217,6 +225,14 @@ target is Safari 13. Those calls now use indexed access. Removing the method
 in a DOM check reproduces the missing capability, not an entire Safari runtime.
 [MDN: inert](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert)
 and [MDN: Array compatibility data](https://github.com/mdn/browser-compat-data/blob/main/javascript/builtins/Array.json).
+
+The final validation workflow uses the real engine's animation-frame timestamps,
+scoped engine/canvas-submission costs, available browser startup/first-input
+signals and measured lazy imports. Each timing has a defined boundary; unavailable
+signals remain unavailable. The protocol and primary browser API references are
+in the [validation guide](player-experience-validation.md#what-the-measurements-mean).
+This supplies the evidence collection missing from the two remaining tuning tasks,
+without inferring human latency or enjoyment from browser diagnostics.
 
 ## Reproduced problems and implemented changes
 
@@ -471,9 +487,11 @@ choices survive. Profile and cloud progression formats are unchanged.
 
 ## Validation
 
-All 341 tests passed, as did client and server type checking, ESLint and the
-production build. The two simulation soaks completed 828 matches in total with
-none of their reported stability alerts.
+All 360 tests passed, along with 56 mounted UI checks, nine capture checks,
+all 16 menu renders, client/server type checking, ESLint and web/Safari-targeted
+asset builds. The original simulation pair completed 828 matches; the final
+seeded narrow/wide pair completed another 828. Both pairs reported no stability
+alerts. These results verify the stated automated boundaries, not physical play.
 
 The final automated checks cover the three reproduced physics failures,
 frozen pause state, cancellable resume, deliberate manual serving, inability to
@@ -749,6 +767,28 @@ perform OAuth sign-in, native deep links, physical focus or browser persistence.
 The shared guest accessors serve those claim paths by source inspection; their
 physical behavior remains a device check. System motion preferences remain ignored.
 
+The final evidence batch adds **19 domain/engine/summary tests** and **nine capture
+checks**, bringing the totals to **360 tests, 56 UI checks and nine capture checks**.
+The real engine takes additional clocks only with an attached frame probe;
+observer failures leave play running, old disposers cannot clear replacement
+probes, and retry/quit events preserve the unfinished trial's counters before
+reset. Capture fixtures cover duration/visibility/context segmentation, cleanup,
+unsupported/refused browser timing APIs, frozen attempt labels, the 200th trial,
+immutable exports, privacy field selection and no profile/settings/API writes.
+Summary tests recompute raw distributions, reject missing/non-finite/inconsistent
+intervals, deduplicate repeated exports and keep different starting contexts
+separate. The real CLI handles paths with spaces and rejects malformed reports.
+These use substituted rendering/audio, events and clocks; they are not benchmarks.
+
+Seeded soaks use the final revision at widths 750 and 1290, six matches for each
+of 69 cases, with seed `final-review-20261006`. All **828/828** completed with
+zero stalls, broken states, replay failures or timeouts. Two small Quick runs
+with identical seed/options also produced identical tallies. The first boss
+cleared in 3/6 matches at both widths, with mean times around 145/221 seconds.
+This is controlled bot stability evidence; it does not supply a human tuning
+target. The [validation guide](player-experience-validation.md) defines how to
+collect and compare real attempts and physical timings before making that decision.
+
 Run the checks from the repository root:
 
 ```powershell
@@ -759,23 +799,25 @@ npm run build
 npm run check:bundle
 npm run check:menus
 npm run check:ui
-node --import tsx scripts/sim.ts 6 pro
+npm run check:experience
+npm run soak -- 6 pro --seed final-review-20261006 --width 750 --output .temp/experience/soak-narrow.json
+npm run soak -- 6 pro --seed final-review-20261006 --width 1290 --output .temp/experience/soak-wide.json
 ```
 
 The original single entry was 607.73 kB. With menu deferral and the subsequent
 rendering, focus, paused-settings, confirmation, device-save, resize, audio,
 skill-control, Daily recovery, Results continuity, Profile editing, Home Daily,
-onboarding, account recovery and Demo continuity behavior the entry is 469.90 kB and Vite no longer emits its
+onboarding, account recovery, Demo continuity and opt-in evidence capture the entry is 460.27 kB and Vite no longer emits its
 500 kB chunk warning.
-The complete initial static graph is **562.85 kB across
-16 JS files**, because shared domain
+The complete initial static graph is **566.29 kB across
+19 JS files**, because shared domain
 code remains necessary. The comparable web-build measurements from
 `check:bundle` are:
 
 | Initial static payload | Before    | After     | Reduction |
 | ---------------------- | --------- | --------- | --------- |
-| JavaScript             | 607.73 kB | 562.85 kB | 7.4%      |
-| JavaScript, gzip       | 189.12 kB | 182.99 kB | 3.2%      |
+| JavaScript             | 607.73 kB | 566.29 kB | 6.8%      |
+| JavaScript, gzip       | 189.12 kB | 185.01 kB | 2.2%      |
 | CSS                    | 58.94 kB  | 48.01 kB  | 18.5%     |
 | CSS, gzip              | 12.22 kB  | 11.12 kB  | 9.0%      |
 
@@ -828,9 +870,16 @@ measured load-time or recovery-latency gains.
 Demo continuity adds about 0.08 kB initial JS (0.02 kB gzip) compared with account
 recovery, with unchanged initial CSS and all 16 menus still deferred. These are
 artifact costs, not a measured loading or player-experience improvement.
+Local capture adds 3.44 kB initial JS (2.02 kB gzip) compared with Demo continuity,
+with unchanged initial CSS. Shared code moves into three more initial files;
+the smaller entry is not a startup improvement. The 9,259-byte recorder chunk
+is deferred and requested only with the explicit URL/build opt-in; ordinary
+play installs no recorder/listeners or additional frame clocks. All 16 menus
+remain deferred. Physical performance remains unmeasured.
 The Safari-targeted desktop-mode graph passed its check at
-570.99 kB JS (185.27 kB gzip) across 16 files and 48.27 kB CSS (11.15 kB gzip)
-across two files; the final
+574.47 kB JS (187.39 kB gzip) across 19 files and 48.27 kB CSS (11.15 kB gzip)
+across two files. An explicitly capture-enabled Safari asset build also passed
+its bundle check; normal assets retain the URL opt-in. The final
 `dist/` was regenerated as the web build. Native packaging and visual or
 on-device QA remain pending.
 
@@ -868,7 +917,7 @@ are a tradeoff to profile. No FPS, input-latency or battery improvement is claim
 
 ## Next changes to validate with players
 
-The first twenty follow-ups have now been implemented:
+The twenty fixes and final evidence workflow have now been implemented:
 
 - **First-rally lesson:** optional and replayable from How to play. A stationary
   dashed outline shows where to place the paddle. The learner moves, returns a
@@ -1047,6 +1096,13 @@ The first twenty follow-ups have now been implemented:
   payloads use the real guest throughout Demo. Real queued rewards sync once,
   failed cache writes retry the latest account data and forgetting cancels them.
   Demo edits remain throwaway; server reward and record formats retain their rules.
+- **Evidence workflow:** explicitly enabled local startup/menu/frame capture and
+  started/completed/abandoned trial records retain their actual starting context.
+  JSON summaries deduplicate repeated exports, preserve unavailable measurements
+  and separate unlike comparison groups. Seeded narrow/wide stability runs and
+  the human/device protocol make the remaining validation reproducible. Ordinary
+  play remains uninstrumented; no balance or quality default is changed without
+  the human/physical evidence needed to support it. System motion remains ignored.
 
 These changes still need newcomer observation, screen-reader checks, and HUD
 and Settings/result/confirmation/save-notice layout and touch checks in both orientations. The last
@@ -1054,10 +1110,13 @@ browser inventory again returned no available surfaces. Automated lesson
 completion is evidence of functionality, not evidence that a human finds the
 lesson easy or the game more enjoyable.
 
-| Priority | Proposed work                                                                     | Evidence needed before implementation                                                                                                      |
-| -------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Medium   | Tune early Journey transitions and boss difficulty.                               | Human win rates and attempts across player skill groups, builds and narrow/wide courts. Six bot matches per case are insufficient.         |
-| Medium   | Profile cold starts, first menu loads and low-end rendering after menu splitting. | Cold-start timing, first-input delay and frame times on representative devices, including Full/Calm effects and High/Balanced/Low quality. |
+The code implementation stage is complete. The remaining decisions are validation
+tasks with an implemented [collection and decision workflow](player-experience-validation.md):
+
+| Decision                                     | Current status                                  | Evidence still needed                                                                                                                                             |
+| -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Early Journey transitions and bosses         | Trial capture/summary ready; tuning deferred    | Human attempts, quit reasons and observations across skill/input/build and narrow/wide courts. Six bot matches per case are insufficient.                         |
+| Startup, first menus and lower-end rendering | Timing capture ready; quality defaults retained | Cold/warm launches and repeated physical frame/input/readability checks under Full/Calm at High/Balanced/Low. Browser diagnostic timing is not perceived latency. |
 
 For the next playtest, include newcomers and returning players using a mouse,
 keyboard and touch in portrait and landscape. Observe the first three rallies,

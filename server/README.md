@@ -413,6 +413,16 @@ samples or verify audible browser/device recovery. See the
 [player experience review](../docs/player-experience-review.md) for current
 counts and physical-device checks.
 
+Local experience capture is an explicit client diagnostic (`?experience=1`, or
+an explicitly enabled debug asset build), not a server endpoint or stored record.
+`npm run check:experience` verifies it with substituted clocks/browser APIs;
+engine tests cover opt-in probes and retry/quit events without altering gameplay.
+The summary CLI validates exported samples, keeps unlike contexts separate and
+deduplicates overlapping downloads. Seeded soaks exercise stability, not human
+difficulty. See the [validation guide](../docs/player-experience-validation.md)
+for the commands, evidence boundaries and physical playtest protocol. Capture
+does not change API/save formats, rewards or the reduced-motion policy.
+
 Skill regressions cover accepted casts, Echo clears, ordinary recharge, match
 reset and cached HUD readiness after a recast lockout. Their feedback counters
 live only in the match runtime; profile saves and API result fields retain their
@@ -449,19 +459,21 @@ page keeps focus and Back reaches Home. Cache restoration and normal first-run
 completion are covered without authenticating or contacting the API. Server
 identity, cache formats, progression and sync rules retain their behavior.
 
-| Suite                      | What it covers                                                                                                                    |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.test.ts`             | Registration, sign-in, rotation, reuse detection, expiry, verification, reset, deletion, authorization, rate limits               |
-| `oauth.test.ts`            | The whole social flow against a stand-in provider, plus ID token verification with generated keys                                 |
-| `progression.test.ts`      | XP, levels, talents, cosmetics, cups, duplicates, idempotency, version conflicts                                                  |
-| `antiCheat.test.ts`        | Every rejection rule - and that honest matches still pass                                                                         |
-| `sync.test.ts`             | Claiming, merging, clamping, pushing, pulling                                                                                     |
-| `concurrency.test.ts`      | Ten matches at once, double-submitted matches, racing purchases                                                                   |
-| `database.test.ts`         | Migrations, checksums, rollback, constraints, cascades, health                                                                    |
-| `modes.test.ts`            | Journey stars and stage gates, the daily window and streak, Gauntlet drafts and picks                                             |
-| `journey.test.ts`          | The whole flow, with the real client modules                                                                                      |
-| `account-recovery.test.ts` | Missing caches, offline boot, retained sessions/queues, shared refresh, manual retry and account changes during delayed responses |
-| `demo-continuity.test.ts`  | Background sync during Demo, parked guest claims, offline rewards once, delayed responses and real cache-write recovery           |
+| Suite                        | What it covers                                                                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.test.ts`               | Registration, sign-in, rotation, reuse detection, expiry, verification, reset, deletion, authorization, rate limits               |
+| `oauth.test.ts`              | The whole social flow against a stand-in provider, plus ID token verification with generated keys                                 |
+| `progression.test.ts`        | XP, levels, talents, cosmetics, cups, duplicates, idempotency, version conflicts                                                  |
+| `antiCheat.test.ts`          | Every rejection rule - and that honest matches still pass                                                                         |
+| `sync.test.ts`               | Claiming, merging, clamping, pushing, pulling                                                                                     |
+| `concurrency.test.ts`        | Ten matches at once, double-submitted matches, racing purchases                                                                   |
+| `database.test.ts`           | Migrations, checksums, rollback, constraints, cascades, health                                                                    |
+| `modes.test.ts`              | Journey stars and stage gates, the daily window and streak, Gauntlet drafts and picks                                             |
+| `journey.test.ts`            | The whole flow, with the real client modules                                                                                      |
+| `account-recovery.test.ts`   | Missing caches, offline boot, retained sessions/queues, shared refresh, manual retry and account changes during delayed responses |
+| `demo-continuity.test.ts`    | Background sync during Demo, parked guest claims, offline rewards once, delayed responses and real cache-write recovery           |
+| `experience.test.ts`         | Frame statistics, sample bounds, invalid clocks, soak arguments and scoped deterministic randomness                               |
+| `experience-summary.test.ts` | Export validation, recomputed statistics, duplicate trials, comparison groups and the real summary CLI                            |
 
 `journey.test.ts` is the one worth reading. It installs a fake browser -
 localStorage as a Map, `fetch` routed at `app.inject` with a cookie jar, a

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { accountStore } from './core/account/store';
+import { experienceEnabled } from './dev/experienceBridge';
 import { installBackRouting } from './core/platform/back';
 import { installNativeInsets } from './core/platform/insets';
 import { installDeepLinkRouting } from './core/platform/shell';
@@ -36,3 +37,11 @@ createRoot(container).render(
     <App />
   </StrictMode>
 );
+
+// Local opt-in profiling, deferred out of ordinary game startup.
+if (experienceEnabled)
+  void import('./dev/experience')
+    .then(({ installExperience }) => installExperience())
+    .catch((error: unknown) => {
+      console.warn('bBall experience capture could not start.', error);
+    });
