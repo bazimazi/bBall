@@ -50,7 +50,8 @@ export interface FakeBrowser {
   readonly storage: MemoryStorage;
   /** Switch the network off; every request then fails as it would offline. */
   goOffline(): void;
-  goOnline(): void;
+  /** Pass false to model a restored network without an online notification. */
+  goOnline(notify?: boolean): void;
   readonly online: boolean;
   /** Requests the client has made, for asserting on traffic. */
   readonly requests: { method: string; url: string }[];
@@ -163,9 +164,9 @@ export function installBrowser(app: FastifyInstance): FakeBrowser {
       online = false;
       windowStub.dispatchEvent({ type: 'offline' });
     },
-    goOnline() {
+    goOnline(notify = true) {
       online = true;
-      windowStub.dispatchEvent({ type: 'online' });
+      if (notify) windowStub.dispatchEvent({ type: 'online' });
     },
     restore() {
       if (saved.window === undefined) delete (globalThis as Record<string, unknown>).window;

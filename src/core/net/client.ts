@@ -62,11 +62,21 @@ export class NetworkError extends Error {
   }
 }
 
+/** A request from the previous account must not retry with new credentials. */
+export class AccountChangedError extends Error {
+  constructor() {
+    super('The account changed before the request completed.');
+    this.name = 'AccountChangedError';
+  }
+}
+
 export function isOffline(error: unknown): boolean {
   return error instanceof NetworkError;
 }
 
 export interface TokenProvider {
+  /** Changes on sign-in/out so an older request cannot use the next account. */
+  generation(): number;
   /** The current access token, or null when signed out. */
   accessToken(): string | null;
   /** Obtain a fresh access token. Resolves false when the session is gone. */
@@ -142,6 +152,13 @@ async function parseError(response: Response): Promise<ApiError> {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const provider = tokens;
+  const generation = provider?.generation();
+  const checkAccount = () => {
+    if (options.auth !== false && (tokens !== provider || tokens?.generation() !== generation)) {
+      throw new AccountChangedError();
+    }
+  };
   const method = options.method ?? 'GET';
   const unsafe = method !== 'GET';
   const attempts = Math.max(1, options.attempts ?? (unsafe ? DEFAULT_ATTEMPTS : 2));
@@ -155,6 +172,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   let lastError: unknown;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
+    checkAccount();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
     const onAbort = () => controller.abort();
@@ -183,15 +201,18 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
         signal: controller.signal,
         ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) })
       });
+      checkAccount();
 
       if (response.status === 204) return undefined as T;
 
       if (response.ok) {
         const text = await response.text();
+        checkAccount();
         return (text.length > 0 ? JSON.parse(text) : undefined) as T;
       }
 
       const error = await parseError(response);
+      checkAccount();
 
       // One refresh, one retry. A second 401 after a successful refresh means
       // the session is genuinely gone.
@@ -202,6 +223,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       ) {
         refreshed = true;
         const ok = await refreshOnce();
+        checkAccount();
         if (ok) {
           attempt -= 1; // the refresh is not one of the retries
           continue;
@@ -218,7 +240,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       if (attempt < attempts - 1) await sleep(Math.min(wait, 8000));
       continue;
     } catch (error) {
-      if (error instanceof ApiError) throw error;
+      checkAccount();
+      if (error instanceof ApiError || error instanceof AccountChangedError) throw error;
 
       const network = new NetworkError(
         controller.signal.aborted ? 'The server took too long to answer.' : 'No connection.',

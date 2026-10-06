@@ -241,6 +241,16 @@ is what makes it survive a lost phone.
   `/v1/sync/push` drains it on reconnect.
   Operations carry client-generated ids and apply at most once.
 
+Client relaunch recovery retains the remembered session and outbox on connection
+or temporary server failure. A matching cached account can keep playing and
+queue changes while restoration is pending. Without a cache, guest play remains
+separate until a verified server profile is loaded. Online/visible-return events
+retry restoration; Account's explicit retry attempts the server even when the
+browser's connectivity hint is stale. Token rotation is shared by boot and
+request-time refresh. Account changes invalidate old refresh/profile/sync results
+and stop obsolete requests from retrying with another account's credentials.
+Confirmed authentication refusal still returns to the parked guest save.
+
 The client reports failed writes of profiles, device settings and outbox records
 in menus and Pause/Exit. It retains the latest failed record in memory until a
 successful write, cancellation of that record or the page closes. A device-save
@@ -439,17 +449,19 @@ page keeps focus and Back reaches Home. Cache restoration and normal first-run
 completion are covered without authenticating or contacting the API. Server
 identity, cache formats, progression and sync rules retain their behavior.
 
-| Suite                 | What it covers                                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `auth.test.ts`        | Registration, sign-in, rotation, reuse detection, expiry, verification, reset, deletion, authorization, rate limits |
-| `oauth.test.ts`       | The whole social flow against a stand-in provider, plus ID token verification with generated keys                   |
-| `progression.test.ts` | XP, levels, talents, cosmetics, cups, duplicates, idempotency, version conflicts                                    |
-| `antiCheat.test.ts`   | Every rejection rule - and that honest matches still pass                                                           |
-| `sync.test.ts`        | Claiming, merging, clamping, pushing, pulling                                                                       |
-| `concurrency.test.ts` | Ten matches at once, double-submitted matches, racing purchases                                                     |
-| `database.test.ts`    | Migrations, checksums, rollback, constraints, cascades, health                                                      |
-| `modes.test.ts`       | Journey stars and stage gates, the daily window and streak, Gauntlet drafts and picks                               |
-| `journey.test.ts`     | The whole flow, with the real client modules                                                                        |
+| Suite                      | What it covers                                                                                                                    |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.test.ts`             | Registration, sign-in, rotation, reuse detection, expiry, verification, reset, deletion, authorization, rate limits               |
+| `oauth.test.ts`            | The whole social flow against a stand-in provider, plus ID token verification with generated keys                                 |
+| `progression.test.ts`      | XP, levels, talents, cosmetics, cups, duplicates, idempotency, version conflicts                                                  |
+| `antiCheat.test.ts`        | Every rejection rule - and that honest matches still pass                                                                         |
+| `sync.test.ts`             | Claiming, merging, clamping, pushing, pulling                                                                                     |
+| `concurrency.test.ts`      | Ten matches at once, double-submitted matches, racing purchases                                                                   |
+| `database.test.ts`         | Migrations, checksums, rollback, constraints, cascades, health                                                                    |
+| `modes.test.ts`            | Journey stars and stage gates, the daily window and streak, Gauntlet drafts and picks                                             |
+| `journey.test.ts`          | The whole flow, with the real client modules                                                                                      |
+| `account-recovery.test.ts` | Missing caches, offline boot, retained sessions/queues, shared refresh, manual retry and account changes during delayed responses |
+| `demo-continuity.test.ts`  | Background sync during Demo, parked guest claims, offline rewards once, delayed responses and real cache-write recovery           |
 
 `journey.test.ts` is the one worth reading. It installs a fake browser -
 localStorage as a Map, `fetch` routed at `app.inject` with a cookie jar, a
@@ -459,6 +471,27 @@ refresh. Guest play, account creation with a claim, online sync, offline play,
 a simulated restart, reconnection, a second device, and sign-out restoring the
 guest save. It is the test that would catch the client and the server each
 being correct while disagreeing with each other.
+
+`account-recovery.test.ts` uses the same real client/API/SQLite boundary and
+cookie jar. It recreates access-token and cloud-metadata reload boundaries while
+retaining simulated storage/cookies, switches the network and delays selected
+responses. It verifies offline match rewards once, guest/account separation,
+temporary server faults, shared boot/request refresh and genuine session expiry.
+It does not launch a new browser process or use a real device/account. The root
+UI command also mounts Account with substitute store updates and promises to
+check status, pending/failure/retry, focus handoff and stale connectivity hints.
+API formats, reward rules, stored-record formats and the reduced-motion policy
+retain their existing behavior.
+
+`demo-continuity.test.ts` uses the real client/API boundary to keep account sync
+separate from the visible throwaway profile. Sync updates the parked account and
+its cache; Demo edits never enter storage or the outbox. Registration and manual
+claims use the real parked guest, not demo XP or matches. Tests cover replies
+crossing Demo entry/exit, reconnecting queued real rewards once, switching demo
+levels, failed/latest cache writes, retry and forgetting the cache. Mounted UI
+checks use constructed profile data to verify the import preview and demo draft
+focus. No physical browser, OAuth return or native relaunch is exercised here;
+server validation, rewards and save/API formats retain their rules.
 
 ## Deploying
 

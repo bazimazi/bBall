@@ -2297,6 +2297,142 @@ try {
     }
   );
 
+  const { AccountScreen } = await vite.ssrLoadModule('/src/ui/screens/AccountScreen.tsx');
+  async function withAccountUi(test) {
+    const methods = {
+      getSnapshot: accountStore.getSnapshot,
+      subscribe: accountStore.subscribe,
+      flush: accountStore.flush,
+      loadProviders: accountStore.loadProviders
+    };
+    let state = {
+      ...methods.getSnapshot(),
+      status: 'restoring',
+      sync: 'offline',
+      online: false,
+      email: 'returning@example.test',
+      providers: []
+    };
+    const listeners = new Set();
+    let work = async () => {};
+    const calls = [];
+    accountStore.getSnapshot = () => state;
+    accountStore.subscribe = (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    };
+    accountStore.loadProviders = async () => [];
+    accountStore.flush = async (force) => {
+      calls.push(force);
+      await work();
+    };
+    try {
+      await test({
+        calls,
+        retry: (next) => {
+          work = next;
+        },
+        update: async (patch) =>
+          act(() => {
+            state = { ...state, ...patch };
+            for (const listener of listeners) listener();
+          })
+      });
+    } finally {
+      await act(() => root.render(null));
+      Object.assign(accountStore, methods);
+    }
+  }
+
+  await check(
+    'uncached account recovery reports guest play and allows explicit retry despite offline hints',
+    async () => {
+      await withAccountUi(async ({ update, calls }) => {
+        const before = JSON.stringify(profileStore.getSnapshot());
+        await mount(h(AccountScreen, { onBack: noop }));
+        assert.match(query('[role="status"]').textContent, /Account offline.*playing as guest/);
+        const restore = button('Try restoring account');
+        assert.equal(restore.getAttribute('aria-disabled'), 'false');
+        await update({ sync: 'syncing' });
+        assert.match(query('[role="status"]').textContent, /Restoring your account/);
+        await click(restore);
+        assert.deepEqual(calls, [], 'a restoring request cannot be activated again');
+        await update({ sync: 'error', notice: 'Try again later.' });
+        assert.match(
+          query('[role="status"]').textContent,
+          /Could not restore account.*playing as guest/
+        );
+        assert.ok(host.textContent.includes('Try again later.'));
+        await click(restore);
+        assert.deepEqual(calls, [true]);
+        await update({ status: 'authenticated', sync: 'offline', notice: null });
+        assert.equal(button('Sync now').disabled, false);
+        await click(button('Sync now'));
+        assert.deepEqual(calls, [true, true], 'both retry routes override advisory connectivity');
+        assert.equal(JSON.stringify(profileStore.getSnapshot()), before);
+      });
+    }
+  );
+
+  await check(
+    'account retry preserves focus on failure and hands it to Sync only while the retry owns focus',
+    async () => {
+      for (const keepFocus of [true, false]) {
+        await withAccountUi(async ({ retry, update, calls }) => {
+          let refuse;
+          retry(
+            () =>
+              new Promise((_, reject) => {
+                refuse = reject;
+              })
+          );
+          await mount(h(AccountScreen, { onBack: noop }));
+          const restore = button('Try restoring account');
+          await click(restore);
+          focused(restore);
+          assert.equal(restore.getAttribute('aria-disabled'), 'true');
+          await click(restore);
+          assert.equal(calls.length, 1);
+          await act(() => refuse(new Error('No connection.')));
+          focused(restore);
+          assert.equal(restore.getAttribute('aria-disabled'), 'false');
+          let finish;
+          retry(
+            () =>
+              new Promise((resolve) => {
+                finish = resolve;
+              })
+          );
+          await click(restore);
+          const back = query('button[aria-label="Back"]');
+          if (!keepFocus) await act(() => back.focus());
+          await update({ status: 'authenticated', sync: 'idle', online: true });
+          await act(() => finish());
+          focused(keepFocus ? button('Sync now') : back);
+          absent('button[aria-disabled="true"]');
+        });
+      }
+    }
+  );
+
+  await check(
+    'an ended remembered session explains sign-in recovery on the Account page',
+    async () => {
+      await withAccountUi(async ({ update }) => {
+        await update({
+          status: 'guest',
+          sync: 'idle',
+          notice: 'Your session ended. Sign in again to sync.'
+        });
+        await mount(h(AccountScreen, { onBack: noop }));
+        assert.ok(host.textContent.includes('Your session ended. Sign in again to sync.'));
+        assert.ok(host.querySelector('#account-email'));
+        assert.ok(!host.textContent.includes('Try restoring account'));
+        focused(query('h2'));
+      });
+    }
+  );
+
   const profilePage = (profile, status = 'guest') =>
     h(ProfileScreen, {
       profile,
@@ -2327,6 +2463,71 @@ try {
     displayName,
     ...extra
   });
+
+  await check(
+    'Account offers the real guest progress during Demo and never a throwaway level',
+    async () => {
+      await withAccountUi(async ({ update }) => {
+        await update({ status: 'guest', sync: 'idle', email: null, notice: null });
+        await act(() => profileStore.reset());
+        for (const earned of [false, true]) {
+          if (earned) await act(() => progression.recordMatch(quickResult));
+          const guest = profileStore.getSnapshot();
+          const guestBytes = win.localStorage.getItem('bball.profile');
+          await act(() => profileStore.startDemo(400));
+          await act(() => progression.recordMatch(quickResult));
+          try {
+            await mount(h(AccountScreen, { onBack: noop }));
+            assert.equal(!!host.querySelector('input[type="checkbox"]'), earned);
+            if (earned) {
+              const hint = host.querySelector('input[type="checkbox"]').parentElement.textContent;
+              assert.ok(hint.includes('1 matches'));
+              assert.ok(!hint.includes('Level 400'));
+              assert.equal(profileStore.guestSave().saveId, guest.id);
+            }
+            assert.equal(win.localStorage.getItem('bball.profile'), guestBytes);
+            focused(query('h2'));
+          } finally {
+            await act(() => root.render(null));
+            await act(() => profileStore.endDemo());
+          }
+        }
+      });
+    }
+  );
+
+  await check(
+    'Profile keeps the demo name draft and focus during hidden account sync, then shows the latest real name',
+    async () => {
+      const dto = cloudName('Before sync');
+      await act(() => profileStore.signIn(dto));
+      await act(() => profileStore.startDemo(40));
+      function Fixture() {
+        return profilePage(useProfile(), 'authenticated');
+      }
+      try {
+        await mount(h(Fixture));
+        await typeName('Demo draft');
+        const input = nameInput();
+        const demo = profileStore.getSnapshot();
+        await act(() =>
+          profileStore.applyCloud({ ...dto, displayName: 'Latest real', version: 2 })
+        );
+        assert.ok(profileStore.getSnapshot() === demo);
+        assert.ok(nameInput() === input);
+        assert.equal(input.value, 'Demo draft');
+        assert.match(host.textContent, /Demo profile.*level 40/);
+        focused(input);
+        await act(() => profileStore.endDemo());
+        assert.equal(nameInput().value, 'Latest real');
+        await act(() => nameInput().blur());
+        assert.equal(profileStore.getSnapshot().name, 'Latest real');
+      } finally {
+        await act(() => root.render(null));
+        await act(() => profileStore.signOut(true));
+      }
+    }
+  );
 
   await check(
     'an untouched Profile name follows cloud updates and cannot overwrite them on blur',

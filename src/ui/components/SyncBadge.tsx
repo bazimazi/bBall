@@ -19,6 +19,12 @@ function describe(account: AccountState, unsaved: boolean): { tone: string; text
     };
   }
   if (account.status === 'restoring') {
+    if (account.sync === 'offline') {
+      return { tone: dot(styles.dotOffline), text: 'Account offline - playing as guest' };
+    }
+    if (account.sync === 'error') {
+      return { tone: dot(styles.dotError), text: 'Could not restore account - playing as guest' };
+    }
     return { tone: dot(styles.dotSyncing), text: 'Restoring your account...' };
   }
   switch (account.sync) {

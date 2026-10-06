@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { accountStore } from '../../core/account/store';
 import { ApiError } from '../../core/net/client';
@@ -75,6 +75,20 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const restoreFocused = useRef(false);
+  const syncButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (
+      account.status === 'authenticated' &&
+      !working &&
+      restoreFocused.current &&
+      syncButton.current
+    ) {
+      restoreFocused.current = false;
+      syncButton.current.focus({ preventScroll: true });
+    }
+  }, [account.status, working, mode]);
 
   const guest = guestProgress();
   const providers = account.providers ?? [];
@@ -176,10 +190,11 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
           {error && <p className={styles.error}>{error}</p>}
 
           <button
+            ref={syncButton}
             type="button"
             className={screens.ghost}
-            disabled={working || !account.online}
-            onClick={() => void run(() => accountStore.flush())}
+            disabled={working}
+            onClick={() => void run(() => accountStore.flush(true))}
           >
             Sync now
             {account.pending > 0 && <span className={screens.badge}>{account.pending}</span>}
@@ -246,6 +261,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
 
   const title =
     mode === 'forgot' ? 'Reset password' : mode === 'reset' ? 'Choose a password' : 'Account';
+  const notice = account.status === 'restoring' ? info : (info ?? account.notice);
 
   return (
     <Screen
@@ -255,6 +271,28 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
         : {})}
       onBack={onBack}
     >
+      {account.status === 'restoring' && mode !== 'reset' && (
+        <div className={styles.form}>
+          <SyncBadge account={account} />
+          {account.notice && <p className={styles.info}>{account.notice}</p>}
+          <button
+            type="button"
+            className={screens.ghost}
+            aria-disabled={working || account.sync === 'syncing'}
+            onFocus={() => {
+              restoreFocused.current = true;
+            }}
+            onBlur={() => {
+              restoreFocused.current = false;
+            }}
+            onClick={() => {
+              if (!working && account.sync !== 'syncing') void run(() => accountStore.flush(true));
+            }}
+          >
+            Try restoring account
+          </button>
+        </div>
+      )}
       <form className={styles.form} onSubmit={submit}>
         {(mode === 'signin' || mode === 'register') && (
           <div className={styles.tabs} role="tablist">
@@ -384,7 +422,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
           </div>
         )}
 
-        {info && <p className={styles.info}>{info}</p>}
+        {notice && <p className={styles.info}>{notice}</p>}
         {error && <p className={styles.error}>{error}</p>}
 
         <button type="submit" className={screens.primary} disabled={working}>

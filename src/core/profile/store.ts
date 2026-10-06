@@ -61,8 +61,8 @@ class ProfileStore {
   private readonly listeners = new Set<Listener>();
 
   /**
-   * The real save, parked while Demo mode runs. Its presence is what makes
-   * the store ephemeral: nothing is written to storage until it is back.
+   * The real save, parked while Demo mode runs. Demo edits stay in memory;
+   * incoming account sync updates this copy and its cache separately.
    */
   private parked: PlayerProfile | null = null;
 
@@ -164,7 +164,7 @@ class ProfileStore {
     this.notify();
   }
 
-  /** Drop the demo and hand the real save back, untouched. */
+  /** Drop the demo and hand back the real save, including any account sync. */
   endDemo(): void {
     if (!this.parked) return;
     this.profile = this.parked;
@@ -185,16 +185,16 @@ class ProfileStore {
   /**
    * The guest save, packaged for the server.
    *
-   * Read from the parked copy when an account is already signed in, so the
-   * "bring my progress over" button still knows what it is offering.
+   * Always use the real guest, including during Demo, so an account claim
+   * cannot carry over throwaway levels, matches or edits.
    */
   guestSave(): ReturnType<typeof toLocalSave> {
-    return toLocalSave(this.guest ?? this.profile);
+    return toLocalSave(this.guestProfile());
   }
 
   /** The guest profile itself, for deciding whether it is worth offering. */
   guestProfile(): PlayerProfile {
-    return this.guest ?? this.profile;
+    return this.guest ?? this.parked ?? this.profile;
   }
 
   /**
@@ -223,7 +223,15 @@ class ProfileStore {
   applyCloud(dto: CloudProfileDto): void {
     if (!this.cloud || this.cloud.userId !== dto.userId) return;
     this.cloud = cloudMetaOf(dto);
-    this.commit(this.reconciled(cloudToProfile(dto)));
+    const profile = this.reconciled(cloudToProfile(dto));
+    if (this.parked) {
+      // Sync belongs to the real account, never the throwaway view. Keep its
+      // latest save durable without replacing the demo or notifying its UI.
+      this.parked = profile;
+      saveRecord(cloudSpec(dto.userId), profile);
+      return;
+    }
+    this.commit(profile);
   }
 
   /**

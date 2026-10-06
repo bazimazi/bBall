@@ -82,6 +82,30 @@ Start/Skip cannot apply an old draft to the restored profile. Fresh Start/Skip
 remain optional and should reach Home with heading focus. DOM checks substitute
 profile arrivals rather than performing actual authentication or deep-link delivery.
 
+Test a signed-in relaunch offline with a disposable account, both with its cached
+profile present and with only that cache removed. Session/cookie and outbox must
+remain on connection or temporary server failure. Cached play stays on the account;
+without a cache, guest edits stay separate until the cloud profile loads. Reconnect
+and visible return should retry, while Account's Try restoring account/Sync now
+allow an explicit attempt even with a stale browser offline hint. Check pending
+status, failed retry focus and handoff to Sync now after successful focused retry.
+Repeat with delayed refresh/profile replies followed by sign-out or another
+sign-in, and verify that old data cannot return. A genuinely ended session should
+offer sign-in recovery. The in-memory API tests recreate reload boundaries and
+network errors; they do not verify real cookie persistence, OS connectivity,
+process relaunch, native webview events or keyboard/screen-reader announcements.
+
+With disposable guest/account saves, enter Demo while real offline work is queued,
+then reconnect or return to the app. The demo level, build and edits should remain
+visible while only the real work syncs; Exit demo should reveal the latest account
+save. Switch demo levels after an update and check that the new preview uses the
+latest real identity. Open Account during a guest demo: any import offer must
+describe the parked real guest, and creating an account or finishing a social
+sign-in must never claim demo XP/matches. Check a failed account-cache write,
+retry while Demo is active, then Exit/relaunch; only the latest real save belongs
+in the cache. Include native visibility/deep-link delivery and keyboard/touch
+focus. The automated API/DOM fixtures do not verify those physical behaviors.
+
 Pause, exit and talent dialogs use a shared focus scope, with JavaScript Tab
 and focus containment in addition to `inert`, so containment does not rely on
 native `inert` support. Menu/Back routing and Gauntlet score display use indexed

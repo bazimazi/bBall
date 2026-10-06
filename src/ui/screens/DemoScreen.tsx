@@ -34,8 +34,8 @@ function Fact({ value, label }: { value: string | number; label: string }) {
  * Type a level and play the game as it is there.
  *
  * The demo runs on a throwaway profile, so every choice on this screen is
- * reversible by definition - leaving hands the real save back exactly as it
- * was, whatever happened in between.
+ * reversible by definition - leaving hands the real save back, including
+ * account updates received while the demo was running.
  */
 export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenProps) {
   const [level, setLevel] = useState(demoLevel ?? 1);

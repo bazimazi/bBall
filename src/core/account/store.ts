@@ -22,7 +22,13 @@ import type {
   UserDto
 } from '../../../shared/protocol';
 import { profileStore } from '../profile/store';
-import { ApiError, browserOnline, isOffline, setTokenProvider } from '../net/client';
+import {
+  AccountChangedError,
+  ApiError,
+  browserOnline,
+  isOffline,
+  setTokenProvider
+} from '../net/client';
 import { api } from '../net/api';
 import { isNativeShell, openExternal } from '../platform/shell';
 import {
@@ -97,6 +103,17 @@ class AccountStore {
   private flushAgain = false;
   /** Cached answer from the providers endpoint, including an empty one. */
   private providers: readonly OAuthProviderDto[] | null = null;
+  private watchingConnectivity = false;
+  private restorationUser: string | null = null;
+  private resuming: Promise<void> | null = null;
+  private refreshRequest: Promise<boolean> | null = null;
+  private sessionGeneration = 0;
+  private readonly tokenProvider = {
+    generation: () => this.sessionGeneration,
+    accessToken: () => currentAccessToken(),
+    refresh: () => this.refreshTokens(),
+    onSignedOut: () => this.forceSignOut('Your session ended. Sign in again to sync.')
+  };
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
@@ -121,51 +138,95 @@ class AccountStore {
    * that cache up to date.
    */
   start(): void {
-    setTokenProvider({
-      accessToken: () => currentAccessToken(),
-      refresh: () => this.refreshTokens(),
-      onSignedOut: () => this.forceSignOut('Your session ended. Sign in again to sync.')
-    });
+    setTokenProvider(this.tokenProvider);
 
     this.watchConnectivity();
 
     const remembered = storedSession();
     if (!remembered) return;
 
+    if (this.restorationUser === remembered.userId) {
+      void this.flush();
+      return;
+    }
+    this.cancelRestoration();
+    this.restorationUser = remembered.userId;
+
     // The cached save goes on screen first. A signed-in player relaunching on
     // a plane still sees their own level, build and history.
     profileStore.restoreCachedCloud(remembered.userId);
-    this.set({ status: 'restoring', email: remembered.email, sync: 'syncing' });
-    void this.resume();
+    this.set({
+      status: 'restoring',
+      user: null,
+      email: remembered.email,
+      sync: 'syncing',
+      notice: null
+    });
+    void this.flush();
   }
 
-  private async resume(): Promise<void> {
+  private cancelRestoration(): void {
+    this.sessionGeneration += 1;
+    this.restorationUser = null;
+    this.resuming = null;
+    this.refreshRequest = null;
+  }
+
+  private resume(): Promise<void> {
+    if (this.resuming) return this.resuming;
+    const userId = this.restorationUser;
+    if (!userId) return Promise.resolve();
+    const pending = this.restore(userId, this.sessionGeneration).finally(() => {
+      if (this.resuming === pending) this.resuming = null;
+    });
+    this.resuming = pending;
+    return pending;
+  }
+
+  private async restore(userId: string, generation: number): Promise<void> {
+    const current = () =>
+      generation === this.sessionGeneration &&
+      this.restorationUser === userId &&
+      storedSession()?.userId === userId;
+    this.set({ sync: 'syncing' });
     try {
       const ok = await this.refreshTokens();
+      if (!current()) return;
       if (!ok) {
-        this.forceSignOut(null);
+        this.forceSignOut('Your session ended. Sign in again to sync.');
         return;
       }
       const me = await api.me();
-      this.set({ status: 'authenticated', user: me.user, email: me.user.email });
-      profileStore.applyCloud(me.profile);
-      await this.flush();
-    } catch (error) {
-      if (isOffline(error)) {
-        // Offline with a cached save is a perfectly good state to play in.
-        this.set({ status: 'authenticated', sync: 'offline', online: false });
+      if (!current()) return;
+      if (me.user.id !== userId || me.profile.userId !== userId) {
+        this.forceSignOut('Your account changed. Sign in again to sync.');
         return;
       }
-      this.forceSignOut(null);
+      if (profileStore.getCloudMeta()?.userId === userId) profileStore.applyCloud(me.profile);
+      else profileStore.signIn(me.profile);
+      this.restorationUser = null;
+      this.set({ status: 'authenticated', user: me.user, email: me.user.email, notice: null });
+    } catch (error) {
+      if (!current()) return;
+      const cached = profileStore.getCloudMeta()?.userId === userId;
+      // A failed request is not a revoked session. Keep its cache and outbox;
+      // without a cache, play remains guest until this account actually loads.
+      this.set({
+        status: cached ? 'authenticated' : 'restoring',
+        sync: isOffline(error) ? 'offline' : 'error',
+        online: isOffline(error) ? false : browserOnline(),
+        notice: error instanceof ApiError ? error.message : null
+      });
     }
   }
 
   private watchConnectivity(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || this.watchingConnectivity) return;
+    this.watchingConnectivity = true;
 
     const online = () => {
       this.set({ online: true });
-      if (this.state.status === 'authenticated') this.scheduleFlush(0);
+      if (this.state.status !== 'guest') this.scheduleFlush(0);
     };
     const offline = () => this.set({ online: false, sync: 'offline' });
 
@@ -173,7 +234,7 @@ class AccountStore {
     window.addEventListener('offline', offline);
     // Coming back to the tab is the moment a queue most often needs draining.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && this.state.status === 'authenticated') {
+      if (document.visibilityState === 'visible' && this.state.status !== 'guest') {
         this.scheduleFlush(0);
       }
     });
@@ -234,6 +295,7 @@ class AccountStore {
     tokens: Parameters<typeof saveSession>[1],
     profile: CloudProfileDto
   ): void {
+    this.cancelRestoration();
     saveSession(user, tokens);
     profileStore.signIn(profile);
     this.set({
@@ -411,6 +473,9 @@ class AccountStore {
   }
 
   private finishSignOut(forget: boolean, notice: string | null): void {
+    this.cancelRestoration();
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    this.flushTimer = null;
     clearSession();
     clearOutbox();
     profileStore.signOut(forget);
@@ -432,20 +497,33 @@ class AccountStore {
     this.finishSignOut(false, notice);
   }
 
-  private async refreshTokens(): Promise<boolean> {
+  private refreshTokens(): Promise<boolean> {
+    if (this.refreshRequest) return this.refreshRequest;
+    const pending = this.rotateTokens().finally(() => {
+      if (this.refreshRequest === pending) this.refreshRequest = null;
+    });
+    this.refreshRequest = pending;
+    return pending;
+  }
+
+  private async rotateTokens(): Promise<boolean> {
     if (!hasRememberedSession()) return false;
+    const generation = this.sessionGeneration;
     try {
       const response = await api.refresh(storedRefreshToken());
+      if (generation !== this.sessionGeneration) throw new AccountChangedError();
       updateTokens(response.tokens);
       return true;
     } catch (error) {
-      // A network failure is not a sign-out: the session may be perfectly
-      // valid and simply unreachable.
-      if (isOffline(error)) {
-        this.set({ online: false, sync: 'offline' });
+      if (generation !== this.sessionGeneration) throw new AccountChangedError();
+      if (
+        error instanceof ApiError &&
+        (error.code === 'SESSION_EXPIRED' || error.code === 'UNAUTHENTICATED')
+      )
         return false;
-      }
-      return false;
+      // Propagate connection/server failures so neither boot nor a request's
+      // token refresh can mistake an unreachable account for a signed-out one.
+      throw error;
     }
   }
 
@@ -487,7 +565,13 @@ class AccountStore {
    * confirms it afterwards.
    */
   enqueue(op: SyncOp): void {
-    if (!this.isAuthenticated()) return;
+    const meta = profileStore.getCloudMeta();
+    if (
+      !meta ||
+      (!this.isAuthenticated() &&
+        !(this.state.status === 'restoring' && meta.userId === this.restorationUser))
+    )
+      return;
     enqueueOp(op);
     this.set({ pending: pendingCount() });
     this.scheduleFlush(FLUSH_DEBOUNCE_MS);
@@ -508,18 +592,22 @@ class AccountStore {
    * flag rather than starting a parallel push, because two pushes of the same
    * queue would race on which ops get resolved.
    */
-  async flush(): Promise<void> {
+  async flush(force = false): Promise<void> {
+    if (this.restorationUser) await this.resume();
+    if (this.restorationUser) return;
     if (!this.isAuthenticated()) return;
     if (this.flushing) {
       this.flushAgain = true;
       return;
     }
-    if (!browserOnline()) {
+    // Explicit retry may succeed even when the browser's connectivity hint is stale.
+    if (!force && !browserOnline()) {
       this.set({ online: false, sync: 'offline' });
       return;
     }
 
     this.flushing = true;
+    const generation = this.sessionGeneration;
     this.set({ sync: 'syncing' });
 
     try {
@@ -532,6 +620,8 @@ class AccountStore {
           deviceId(),
           `push:${batch.map((op) => op.opId).join(',')}`.slice(0, 120)
         );
+
+        if (generation !== this.sessionGeneration) return;
 
         resolveOps(response.results.map((result) => result.opId));
         profileStore.applyCloud(response.profile);
@@ -557,6 +647,7 @@ class AccountStore {
       // Even with an empty queue, a flush is the moment to notice that another
       // device has been playing.
       if (pendingCount() === 0) await this.pull();
+      if (generation !== this.sessionGeneration) return;
 
       if (droppedCount() > 0) {
         this.set({
@@ -567,6 +658,7 @@ class AccountStore {
 
       this.set({ sync: 'idle', online: true, lastSyncedAt: Date.now(), pending: pendingCount() });
     } catch (error) {
+      if (generation !== this.sessionGeneration) return;
       if (isOffline(error)) {
         this.set({ sync: 'offline', online: false });
       } else if (error instanceof ApiError) {
@@ -586,7 +678,9 @@ class AccountStore {
   /** Take the server's copy. Used on resume and after a conflict. */
   async pull(): Promise<void> {
     if (!this.isAuthenticated()) return;
+    const generation = this.sessionGeneration;
     const response = await api.pull(deviceId());
+    if (generation !== this.sessionGeneration) return;
     profileStore.applyCloud(response.profile);
     this.set({ lastSyncedAt: Date.now(), online: true });
   }

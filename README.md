@@ -238,12 +238,18 @@ each unlocked by clearing the one below it.
 Home screen → **Demo a level** takes a level typed into a number field (1 to 999) and drops you into the game as it is there: the talent points that level
 has earned, its skill slots, its cup tiers and its cosmetics. Nothing a demo
 does is kept - matches, XP, builds and cosmetic changes all live in memory
-only, and **Exit** hands your real save back exactly as it was.
+only, and **Exit** hands your real save back, including any account updates
+received while you were trying the demo.
 
 It works by parking the real profile and swapping in a throwaway one whose `xp`
 sits at the chosen level (`core/profile/demo.ts`). Every screen, gate and mode
 reads level from `xp` and nothing else, so none of them need to know a demo is
-running; the profile store simply refuses to write to storage while one is.
+running. Demo edits never enter storage or the account queue. Background account
+sync updates the parked real profile and its cache without replacing the demo's
+level, build or edits. Switching demo levels starts a fresh preview from that
+latest real profile. Account claim previews and payloads always use the real
+guest save, including registration or social sign-in during a demo; throwaway
+levels and matches cannot become imported progress.
 
 ### Bots
 
@@ -429,8 +435,17 @@ The local save stays in charge of how the game feels:
   that survives a closed tab when device storage is available, and drains when
   the connection comes back. Failed device writes show the save notice.
 
-A small dot on the home screen says which of those you are in, and that is the
-only place the account intrudes.
+On a signed-in relaunch, connection or temporary server failures retain the
+remembered account and queued changes. With a cached profile, play continues on
+that account. Without one, play stays guest until the account loads; guest edits
+remain separate and are not automatically imported. Reconnect or return to the
+page retries recovery. Account offers **Try restoring account** when needed,
+and **Sync now** remains usable even if the browser reports offline. A genuinely
+ended session explains that you need to sign in again. Retry keeps focus after
+failure and moves it to Sync now after recovery only if you stayed on the retry.
+
+A small dot on Home and status in Profile/Account report cloud sync. The
+device-save notice separately reports changes that could not be saved here.
 
 The other half of having a server is that progression stops being editable.
 XP, levels, talent points, unlocks, achievements and competitive records are
@@ -648,6 +663,13 @@ Home checks cover its matching title/stars/streak, clock corrections, hidden-pag
 polling and cleanup without changing saved medals or consuming streak freezes.
 Onboarding checks cover late profile restoration, Back navigation, stale form
 actions, cached profiles and normal completion using isolated local stores.
+Account recovery checks use the real client and an in-memory API with a cookie
+jar to cover missing caches, offline relaunch, queued rewards, transient failures,
+concurrent refresh and obsolete responses after account changes. Mounted Account
+checks substitute state/requests to verify status, retry and focus behavior.
+Demo continuity checks exercise background sync, real offline rewards, guest
+claims and cache-write recovery against the in-memory API. Mounted checks cover
+the real guest import preview and retaining a demo name draft/focus during sync.
 They do not use the system clipboard or establish physical browser behavior.
 Publish or package the entire `dist/` directory, including all chunk files.
 

@@ -1,6 +1,6 @@
 # bBall player experience review
 
-Reviewed on 3 October 2026; continued on 4–5 October 2026. This review covers the current React and canvas game,
+Reviewed on 3 October 2026; continued on 4–6 October 2026. This review covers the current React and canvas game,
 its shared physics and mode rules, input handling, first-run flow, menus,
 feedback, settings and regression coverage.
 
@@ -220,6 +220,51 @@ and [MDN: Array compatibility data](https://github.com/mdn/browser-compat-data/b
 
 ## Reproduced problems and implemented changes
 
+The Demo audit reproduced a background account pull replacing a level-40 demo
+with the account's level-1 profile, while the old real profile remained parked.
+The replacement skipped persistence because Demo was active, so Exit could also
+discard the incoming update. A real client/API registration regression reproduced
+a level-400 guest demo importing 1,760 XP instead of the real guest's 270 XP;
+server validation clamped the throwaway claim but did not make it the right save.
+Source tracing found registration, social completion and manual claims sharing
+the same guest accessors, and all authoritative sync paths using `applyCloud`.
+
+Guest accessors now return the real parked guest throughout Demo. Incoming account
+data updates and persists the parked account separately, leaving the demo's
+snapshot, chosen level, build, draft and focus intact. Exit reveals the latest
+real account; switching demo levels builds from that updated source. Existing
+device-save retry retains only the latest failed real cache write, and forgetting
+the account cancels it. Demo edits still bypass persistence and the account queue.
+These fixes make the existing preview/claim promises consistent; they do not
+establish improved enjoyment, and reward/validation/profile/API formats retain
+their rules.
+
+The account recovery regression reproduced a removed cloud cache leaving the
+guest profile loaded while the account reported authenticated and synced. The
+server profile was sent to `applyCloud`, which deliberately ignores data without
+matching cloud metadata. Restoration now adopts that verified profile when the
+cache is absent, parking the guest instead of silently continuing against it.
+Source inspection also found connection/server refresh failures returning the
+same false result as an ended session; boot then cleared the remembered account
+and outbox. Temporary failures now retain the session, cache and queue. Matching
+cached accounts can queue changes while restoration is pending; uncached play
+stays guest, and those edits are not automatically imported into the account.
+
+Online/visible-return events and explicit Account retry resume recovery. Boot
+and request-time token refresh share one rotation, and account changes invalidate
+old refresh/profile/sync results; obsolete requests cannot retry using the new
+account's credentials. A confirmed authentication refusal still returns to the
+parked guest and explains signing in again. The uncached status explicitly says
+the player is a guest, retry remains available after failure, and focused recovery
+hands focus to Sync now without taking it from another control. MDN documents
+that the browser's online hint cannot establish server reachability. Explicit
+retry therefore attempts the server even when that hint says offline; automatic
+ordinary sync retains its existing hint-based scheduling. The mechanisms are
+covered with the real client and in-memory API, not a measured improvement in
+enjoyment or physical-device recovery.
+[MDN: Navigator.onLine](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine)
+and [MDN: Online event](https://developer.mozilla.org/en-US/docs/Web/API/Window/online_event).
+
 The onboarding audit reproduced Back from Account reopening first-run editing
 after a late sign-in. A second regression delivered a restored profile and an
 old Start click before React committed; the old guest draft replaced the account
@@ -390,6 +435,8 @@ comfort need physical-device testing.
 
 | Area                    | Evidence from the original code or regressions                                                                                                              | Resulting behaviour                                                                                                                                                                                    |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Demo continuity         | Background pulls replaced the demo and skipped its real cache; registration claimed throwaway XP instead of parked guest progress.                          | Sync updates the parked real save/cache while Demo stays visible; Exit uses the latest account, and claims/previews use only the real guest.                                                           |
+| Account recovery        | A missing cache left guest data loaded under a synced account; temporary refresh failures followed the sign-out path and cleared queued work.               | Verified restoration adopts a missing cache, temporary failures retain the account/outbox, uncached guest edits remain separate, retries recover, and obsolete account requests are cancelled.         |
 | Onboarding continuity   | Back reopened first-run editing after sign-in; an old Start action replaced a restored identity before React committed.                                     | Home replaces obsolete onboarding in the stack, active pages keep focus, and Start/Skip reject another or already completed profile.                                                                   |
 | Home Daily continuity   | Yesterday's cleared tile remained visible after midnight without an unrelated rerender.                                                                     | Title, stars and displayed streak refresh at midnight/visible return, with stable focus, no hidden polling and no saved-progress changes.                                                              |
 | Profile editing         | A mounted field retained its initial name after cloud replacement; handlers could reuse it. Enter also ended editing during composition.                    | Untouched names follow updates, same-player drafts survive, changed owners discard drafts, identity actions read the current store, and IME confirmation retains editing.                              |
@@ -424,7 +471,7 @@ choices survive. Profile and cloud progression formats are unchanged.
 
 ## Validation
 
-All 318 tests passed, as did client and server type checking, ESLint and the
+All 341 tests passed, as did client and server type checking, ESLint and the
 production build. The two simulation soaks completed 828 matches in total with
 none of their reported stability alerts.
 
@@ -663,6 +710,45 @@ account is contacted; OAuth, native deep-link delivery and assistive technology
 remain physical-browser/device checks. Existing match, pause and Results checks
 also pass with the routing subscription.
 
+The account recovery batch adds **13 client/API regressions** and **three mounted
+UI checks**, bringing the totals to **331 tests and 54 UI checks**. The missing-cache
+test failed before the fix with absent cloud metadata despite a synced account.
+The real client, in-memory SQLite/API and simulated cookie jar cover cached and
+uncached recovery, network failure, a 503 refresh response, retained queued edits
+and offline match rewards applied once. Reload fixtures forget in-memory access
+tokens/cloud metadata while retaining storage/cookies; they do not launch another
+browser process. A network return without an online notification exercises visible
+return, while explicit retry is checked against a false connectivity hint with an
+actually reachable API. Delayed boot/request responses cover sign-out and a newer
+sign-in, including cancellation without an obsolete retry or resolving newer queued
+work. Concurrent return/retry and authenticated requests use one token rotation.
+A queued push held in network backoff is cancelled before another request can
+send its old body under a newer sign-in. Account checks surround authenticated
+retries and response reads as well as token refresh.
+Genuine server session expiry still clears account-only queued work and restores
+the guest. Mounted Account checks substitute store updates/promises to cover
+status text, blocked pending retry, failure focus, focused-success handoff, moved
+focus, manual Sync and ended-session explanations without contacting an account.
+Physical cookie persistence, process relaunch, native connectivity/visibility and
+assistive technology remain manual checks. Server reward/API/storage formats and
+the complete exclusion of system reduced-motion settings retain their rules.
+
+The Demo batch adds **10 client/API regressions** and **two mounted UI checks**,
+bringing the totals to **341 tests and 56 UI checks**. Background replacement and
+registration importing throwaway XP both failed before the fix. The real client,
+in-memory API/SQLite and cookie jar cover profile pulls crossing Demo entry/exit,
+background identity updates, real offline rewards applied once, demo talent/edit
+exclusion, current cloud metadata/cache, level switching, real guest registration
+and repeated manual claims. Injected cache-write failures cover blocked retry,
+latest-write recovery while Demo remains visible and cancellation when forgetting
+an account. Cache restoration models the profile boundary, not a process relaunch.
+Mounted Account/Profile checks use constructed store data to cover a fresh guest
+with no import offer, a real-progress preview, retained demo name draft/input/focus
+during background sync and the latest real name after Exit. This batch does not
+perform OAuth sign-in, native deep links, physical focus or browser persistence.
+The shared guest accessors serve those claim paths by source inspection; their
+physical behavior remains a device check. System motion preferences remain ignored.
+
 Run the checks from the repository root:
 
 ```powershell
@@ -678,18 +764,18 @@ node --import tsx scripts/sim.ts 6 pro
 
 The original single entry was 607.73 kB. With menu deferral and the subsequent
 rendering, focus, paused-settings, confirmation, device-save, resize, audio,
-skill-control, Daily recovery, Results continuity, Profile editing, Home Daily
-and onboarding behavior the entry is 467.40 kB and Vite no longer emits its
+skill-control, Daily recovery, Results continuity, Profile editing, Home Daily,
+onboarding, account recovery and Demo continuity behavior the entry is 469.90 kB and Vite no longer emits its
 500 kB chunk warning.
-The complete initial static graph is **560.35 kB across
+The complete initial static graph is **562.85 kB across
 16 JS files**, because shared domain
 code remains necessary. The comparable web-build measurements from
 `check:bundle` are:
 
 | Initial static payload | Before    | After     | Reduction |
 | ---------------------- | --------- | --------- | --------- |
-| JavaScript             | 607.73 kB | 560.35 kB | 7.8%      |
-| JavaScript, gzip       | 189.12 kB | 182.37 kB | 3.6%      |
+| JavaScript             | 607.73 kB | 562.85 kB | 7.4%      |
+| JavaScript, gzip       | 189.12 kB | 182.99 kB | 3.2%      |
 | CSS                    | 58.94 kB  | 48.01 kB  | 18.5%     |
 | CSS, gzip              | 12.22 kB  | 11.12 kB  | 9.0%      |
 
@@ -735,8 +821,15 @@ the deferred Daily page from 6.25 to 5.80 kB JS (2.59 to 2.44 kB gzip). These
 are artifact costs and code placement, not measured loading or battery gains.
 Onboarding continuity adds about 0.20 kB initial JS (0.09 kB gzip) compared with
 the Home Daily build, with unchanged initial CSS. No load-time gain is claimed.
+Account recovery adds 2.42 kB initial JS (0.60 kB gzip) compared with the
+onboarding build, with unchanged initial CSS. The deferred Account page grows
+from 10.00 to 10.64 kB JS (3.66 to 3.83 kB gzip). These are artifact costs, not
+measured load-time or recovery-latency gains.
+Demo continuity adds about 0.08 kB initial JS (0.02 kB gzip) compared with account
+recovery, with unchanged initial CSS and all 16 menus still deferred. These are
+artifact costs, not a measured loading or player-experience improvement.
 The Safari-targeted desktop-mode graph passed its check at
-568.28 kB JS (184.58 kB gzip) across 16 files and 48.27 kB CSS (11.15 kB gzip)
+570.99 kB JS (185.27 kB gzip) across 16 files and 48.27 kB CSS (11.15 kB gzip)
 across two files; the final
 `dist/` was regenerated as the web build. Native packaging and visual or
 on-device QA remain pending.
@@ -775,7 +868,7 @@ are a tradeoff to profile. No FPS, input-latency or battery improvement is claim
 
 ## Next changes to validate with players
 
-The first eighteen follow-ups have now been implemented:
+The first twenty follow-ups have now been implemented:
 
 - **First-rally lesson:** optional and replayable from How to play. A stationary
   dashed outline shows where to place the paddle. The learner moves, returns a
@@ -940,6 +1033,20 @@ The first eighteen follow-ups have now been implemented:
   choices. Drafts are keyed by owner, normal first-run completion remains optional,
   and later sign-out does not interrupt navigation. Identity/cosmetic operations,
   profile/cache formats and the system-motion policy retain their rules.
+- **Account recovery continuity:** verified restoration loads a missing cache;
+  transient connection/server failure retains remembered sessions and queued work.
+  Cached players can keep queueing while restoration waits, while uncached guest
+  edits remain separate. Return and explicit retry recover without duplicate rewards;
+  token rotation is shared across boot/request paths. Old responses and request
+  retries cannot cross account changes. Account distinguishes guest fallback from
+  cached offline play, explains ended sessions and preserves retry/control focus.
+  Explicit retry can attempt the server despite an offline browser hint.
+- **Demo continuity:** account sync updates and caches the parked real save while
+  preserving the visible demo level, build and edits. Exit reveals the latest
+  account; switching levels uses that updated source. Guest import previews and
+  payloads use the real guest throughout Demo. Real queued rewards sync once,
+  failed cache writes retry the latest account data and forgetting cancels them.
+  Demo edits remain throwaway; server reward and record formats retain their rules.
 
 These changes still need newcomer observation, screen-reader checks, and HUD
 and Settings/result/confirmation/save-notice layout and touch checks in both orientations. The last
@@ -1054,6 +1161,27 @@ arrival while onboarding is visible, cached relaunch, sign-out and later profile
 updates. Check that the restored name/avatar/colour are preserved and normal
 fresh Start/Skip still reach Home. Include actual web OAuth return and native
 deep-link delivery; these account transitions were substituted in the DOM checks.
+Using a disposable account, relaunch offline with and without its cloud cache.
+Check displayed identity, remembered session, saved outbox and guest/account
+separation. Reconnect without a browser online event, return visibly, and try
+manual recovery with a stale offline hint. Record one offline match and verify
+its rewards once after repeated retry. Test a temporary server fault and a truly
+ended session separately. Delay refresh/profile/sync responses while signing out
+or changing accounts; older responses must not restore the old account or consume
+new queued work. Check retry status, failure focus, success handoff and a player
+who moved focus elsewhere. Include actual cookie persistence and process relaunch
+in browsers and packaged webviews; the automated fixtures model those boundaries.
+With disposable saves, enter Demo while real account work is queued, then reconnect
+or return visibly. Check that the demo level/build/name draft and focus stay in
+place, and that Exit reveals the latest real progress with rewards counted once.
+Switch demo levels after an account update and check the new preview's identity.
+Open Account during a guest demo with and without real guest progress; import
+offers must describe only the real guest. Register or complete an actual social
+sign-in and verify that no throwaway XP/matches were claimed. Deny cache writes,
+retry during Demo, then Exit/relaunch and check that only the latest real account
+save persists. Forget the account before retry and ensure its cache stays removed.
+Include web OAuth and native deep-link/visibility delivery, touch and keyboard;
+the API/DOM checks do not exercise those physical paths.
 In a disposable test profile, deny storage access or force a full-storage write
 error, change settings and record a result. Check the save notice in Results,
 Home, Profile, Pause and Exit; offline text must not falsely reassure. Navigate
