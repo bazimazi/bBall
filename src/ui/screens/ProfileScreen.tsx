@@ -23,6 +23,7 @@ interface ProfileScreenProps {
   onAccount: () => void;
   onAchievements: () => void;
   onCustomize: () => void;
+  onWorkshop?: () => void;
   onSettings: () => void;
   onDemo: () => void;
   onBack: () => void;
@@ -78,6 +79,7 @@ export function ProfileScreen({
   onAccount,
   onAchievements,
   onCustomize,
+  onWorkshop,
   onSettings,
   onDemo,
   onBack
@@ -180,7 +182,7 @@ export function ProfileScreen({
         <Stat value={stats.wins} label="Wins" />
         <Stat value={`${winRate}%`} label="Win rate" />
         <Stat value={stats.bestRally} label="Best rally" />
-        <Stat value={stats.endlessBest} label="Endless" />
+        <Stat value={stats.endlessBest} label="Legacy Endless" />
         <Stat value={stats.bestStreak} label="Streak" />
         <Stat value={stats.cupsWon} label="Cups won" />
         <Stat value={stats.challengesCleared} label="Challenges" />
@@ -237,6 +239,9 @@ export function ProfileScreen({
         </button>
         <button type="button" className={styles.ghost} onClick={onCustomize}>
           Customise
+        </button>
+        <button type="button" className={styles.ghost} onClick={onWorkshop}>
+          Paddle Workshop · {profile.progress.workshop.marks} Marks
         </button>
       </div>
       <button type="button" className={styles.ghost} onClick={onSettings}>

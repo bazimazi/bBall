@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { accountStore } from '../../core/account/store';
+import { localPracticeRecords } from '../../core/account/localPractice';
 import { ApiError } from '../../core/net/client';
 import { profileStore } from '../../core/profile/store';
 import { levelFromXp } from '../../core/progression/levels';
@@ -47,10 +48,16 @@ function titleCase(value: string): string {
 function guestProgress(): { has: boolean; summary: string } {
   const guest = profileStore.guestProfile();
   const level = levelFromXp(guest.xp).level;
-  const has = guest.xp > 0 || guest.stats.matches > 0 || guest.stats.endlessRuns > 0;
+  const has =
+    guest.xp > 0 ||
+    guest.stats.matches > 0 ||
+    guest.stats.endlessRuns > 0 ||
+    guest.progress.workshop.introduced;
   const parts: string[] = [`Level ${level}`];
   if (guest.stats.matches > 0) parts.push(`${guest.stats.matches} matches`);
   if (guest.stats.bestRally > 0) parts.push(`best rally ${guest.stats.bestRally}`);
+  if (guest.progress.workshop.introduced)
+    parts.push(`${guest.progress.workshop.marks} Workshop Marks`);
   return { has, summary: parts.join(' · ') };
 }
 
@@ -160,6 +167,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
 
   if (account.status === 'authenticated' && mode !== 'reset') {
     const user = account.user;
+    const practice = user ? localPracticeRecords(user.id) : [];
     return (
       <Screen title="Account" onBack={onBack}>
         <div className={styles.form}>
@@ -185,9 +193,34 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
 
           <SyncBadge account={account} />
 
-          {account.conflict && <p className={styles.info}>{account.conflict}</p>}
+          {account.conflict && (
+            <p className={styles.info}>
+              {account.conflict} Unaccepted matches are kept on this device as practice records
+              without rewards.
+            </p>
+          )}
           {(info ?? account.notice) && <p className={styles.info}>{info ?? account.notice}</p>}
           {error && <p className={styles.error}>{error}</p>}
+
+          {practice.length > 0 && (
+            <details className={screens.card}>
+              <summary>Device practice history · {practice.length}</summary>
+              <p>
+                These matches could not be accepted by the account. Their scores remain here without
+                rewards.
+              </p>
+              {practice
+                .slice()
+                .reverse()
+                .map((record) => (
+                  <p key={record.id}>
+                    {record.mode} · {record.scoreYou} : {record.scoreBot} ·{' '}
+                    {Math.round(record.seconds)}s<br />
+                    <small>{record.reason}</small>
+                  </p>
+                ))}
+            </details>
+          )}
 
           <button
             ref={syncButton}
@@ -332,6 +365,10 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
             <span className={styles.checkText}>
               Bring my progress with me
               <span className={styles.checkHint}>{guest.summary}</span>
+              <span className={styles.checkHint}>
+                An existing Workshop keeps its account Marks and crafted parts. Supported guest
+                technique and cosmetic progress carry over.
+              </span>
             </span>
           </label>
         )}

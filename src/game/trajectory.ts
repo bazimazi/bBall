@@ -36,6 +36,18 @@ export function forecast(
     value: { ...world.match, score: { ...world.match.score }, status: 'play' }
   });
   Object.defineProperties(ghost, {
+    player: {
+      value: {
+        ...world.player,
+        material: { ...world.player.material, stats: { ...world.player.material.stats } }
+      }
+    },
+    bot: {
+      value: {
+        ...world.bot,
+        material: { ...world.bot.material, stats: { ...world.bot.material.stats } }
+      }
+    },
     arena: { value: arena },
     ball: { value: ball },
     botBrain: { value: { ...world.botBrain } },

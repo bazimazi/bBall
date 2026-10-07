@@ -1,7 +1,9 @@
 import { BALANCE } from '../core/balance/config';
+import { contactAngle } from '../core/equipment/catalog';
+import { returnPace, FLICK_EDGE, FLICK_SPEED } from './returnPace';
 import { applyArenaForces, bossReturned, collideArena, playerReturned } from './arena';
 import { abilityById } from '../core/talents/abilities';
-import { BALL_R, COMBO_STEPS, FIELD_H, PADDLE_W, SPIN_INFLUENCE } from './constants';
+import { BALL_R, COMBO_STEPS, FIELD_H, PADDLE_W } from './constants';
 import { scorePoint } from './match';
 import { hsla } from './palette';
 import {
@@ -39,9 +41,6 @@ import {
  * wrist - and it pays in the only currency that wins points against a
  * composed opponent: a return that is harder to read.
  */
-const FLICK_EDGE = 0.55;
-const FLICK_SPEED = 650;
-const FLICK_PACE = 1.06;
 const FLICK_HEFT = 0.12;
 /** Contact this far out is an edge save: a beat of slow motion to see it. */
 const EDGE_SAVE = 0.88;
@@ -99,42 +98,30 @@ function onPaddleHit(
   const mods = talented ? playerReturn(actor, raw) : plainReturn(world, raw);
   const off = mods.off;
 
-  const before = ball.speed;
-  // Track only the bonus still present above the unboosted rally pace.
-  // A return's ceiling can already remove that bonus before surge bleeds.
-  const plain = clamp(
-    Math.max(BALANCE.ball.hardMin, before - actor.talents.surge - foe.talents.surge) *
-      tuning.speedPerHit,
-    BALANCE.ball.hardMin,
-    Math.min(BALANCE.ball.hardMax, tuning.maxSpeed)
-  );
-  const ceiling = Math.min(BALANCE.ball.hardMax, mods.ceiling);
-  ball.speed = clamp(before * mods.growth, BALANCE.ball.hardMin, ceiling);
-
+  const pace = returnPace(world, paddle, mods, raw);
+  ball.speed = pace.speed;
   const human = isHuman(world, paddle.side);
   const pan = panAt(world, paddle.x, contactY);
-  const flick =
-    match.status !== 'menu' &&
-    Math.abs(raw) >= FLICK_EDGE &&
-    Math.abs(paddle.vy) >= FLICK_SPEED &&
-    Math.sign(paddle.vy) === Math.sign(raw);
-  if (flick) ball.speed = Math.min(ceiling, ball.speed * FLICK_PACE);
+  const flick = pace.flick;
 
   if (talented) {
-    // Each side hands back the opponent's surviving bonus under the same
-    // rule. A ceiling may have already removed it; never bleed plain pace.
-    const incoming = Math.min(Math.max(0, ball.speed - plain), foe.talents.surge * mods.growth);
-    const given = incoming * BALANCE.ball.surgeBleed;
-    ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed - given);
-    foe.talents.surge = incoming - given;
-    actor.talents.surge = Math.max(0, ball.speed - plain - foe.talents.surge);
+    const E = BALANCE.equipment;
+    foe.talents.surge = pace.foeSurge;
+    actor.talents.surge = pace.actorSurge;
+    const material = paddle.material;
+    material.switchesSeen = pace.switches;
+    material.stored = pace.stored;
+    if (pace.absorbed) material.stats.absorbed++;
+    if (pace.released) material.stats.releases++;
+    material.switchCharge = false;
+    if (Math.abs(raw) <= E.steelBand && !mods.charged && !mods.crit) material.stats.centres++;
+    if (Math.abs(paddle.vy) >= FLICK_SPEED) material.stats.moving++;
+    if (Math.abs(raw) >= FLICK_EDGE) material.stats.edges++;
   }
 
   // Angle comes from where the ball struck, nudged by the paddle's own motion.
   const limit = mods.angleLimit;
-  const vy = Math.sin(off * limit) * ball.speed + paddle.vy * SPIN_INFLUENCE * mods.spin;
-  const wanted = Math.atan2(vy, Math.abs(Math.cos(off * limit) * ball.speed));
-  const angle = clamp(wanted, -limit, limit);
+  const angle = contactAngle(off, ball.speed, paddle.vy, mods.spin, limit);
   ball.vx = Math.cos(angle) * ball.speed * dir;
   ball.vy = Math.sin(angle) * ball.speed;
   ball.owner = paddle.side;
@@ -238,7 +225,18 @@ function onPaddleHit(
 
   // The attract demo plays silently and never raises a combo banner.
   if (match.status !== 'menu') {
-    world.audio.hit(p, match.rally, pan);
+    world.audio.hit(
+      p,
+      match.rally,
+      pan,
+      paddle.equipment.surface === 'rubber' ||
+        paddle.equipment.core === 'cork' ||
+        paddle.equipment.core === 'memory-gel'
+        ? 'soft'
+        : paddle.equipment.core === 'springsteel' || paddle.equipment.surface === 'ceramic'
+          ? 'firm'
+          : 'neutral'
+    );
     checkCombo(world);
   }
 }

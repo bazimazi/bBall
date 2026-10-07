@@ -63,7 +63,8 @@ if (!reportOnly) {
     'ResultScreen',
     'SettingsScreen',
     'TalentScreen',
-    'TournamentScreen'
+    'TournamentScreen',
+    'WorkshopScreen'
   ];
   for (const name of expected) {
     const key = `src/ui/screens/${name}.tsx`;

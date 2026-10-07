@@ -14,6 +14,7 @@
  */
 
 import { DEFAULT_BOT, isBotLevelId } from '../../../src/core/bots/levels';
+import { snapshotOf } from '../../../src/core/equipment/catalog';
 import {
   DEFAULT_EQUIPPED,
   EQUIP_SLOTS,
@@ -89,6 +90,7 @@ interface TalentStatsRow {
 }
 
 interface TournamentRow {
+  equipment_json: string | null;
   format: string | null;
   season: number;
   id: string;
@@ -116,7 +118,14 @@ function parseTournament(row: TournamentRow | undefined): TournamentSave | null 
   } catch {
     results = [];
   }
+  let equipment: TournamentSave['equipment'];
+  try {
+    equipment = snapshotOf(JSON.parse(row.equipment_json ?? 'null'));
+  } catch {
+    // Invalid older storage repairs to the legacy neutral rules.
+  }
   return {
+    ...(equipment ? { equipment } : {}),
     tier: row.tier,
     ...(CUP_FORMATS.includes(row.format as TournamentFormat)
       ? { format: row.format as TournamentFormat, season: row.season }
@@ -610,9 +619,10 @@ function upsertTournament(
     .get(userId, save.startedAt, save.season ?? 0, save.format ?? '') as { id: string } | undefined;
 
   const results = JSON.stringify(save.results);
+  const equipment = save.equipment ? JSON.stringify(save.equipment) : null;
   if (existing) {
     db.prepare(
-      `UPDATE tournaments SET tier = ?, round = ?, results_json = ?, status = ?, champion = ?, format = ?, season = ?,
+      `UPDATE tournaments SET tier = ?, round = ?, results_json = ?, status = ?, champion = ?, format = ?, season = ?, equipment_json = ?,
          updated_at = ?, finished_at = CASE WHEN ? = 'finished' THEN COALESCE(finished_at, ?) ELSE NULL END
        WHERE id = ?`
     ).run(
@@ -623,6 +633,7 @@ function upsertTournament(
       save.champion ? 1 : 0,
       save.format ?? null,
       save.season ?? 0,
+      equipment,
       now,
       status,
       now,
@@ -634,8 +645,8 @@ function upsertTournament(
   const id = newId();
   db.prepare(
     `INSERT INTO tournaments
-       (id, user_id, tier, round, results_json, status, champion, started_at, updated_at, finished_at,format,season)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, user_id, tier, round, results_json, status, champion, started_at, updated_at, finished_at,format,season,equipment_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     userId,
@@ -648,7 +659,8 @@ function upsertTournament(
     now,
     status === 'finished' ? now : null,
     save.format ?? null,
-    save.season ?? 0
+    save.season ?? 0,
+    equipment
   );
   return id;
 }

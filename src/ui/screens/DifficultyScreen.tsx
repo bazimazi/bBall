@@ -7,6 +7,7 @@ import { botProfile, SELECTABLE_BOTS } from '../../core/bots/levels';
 import type { BotLevelId } from '../../core/bots/types';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
+import { PaddleNotice } from '../components/PaddleNotice';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { GamePicker } from '../components/GamePicker';
 import styles from '../Screens.module.css';
@@ -75,6 +76,7 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
         )
       }
     >
+      <PaddleNotice profile={profile} />
       {practice && <PracticePaceChoice />}
       <MenuDisclosure
         title={practice ? 'Practice setup' : 'Match setup'}

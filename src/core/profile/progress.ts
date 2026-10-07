@@ -1,4 +1,7 @@
 import { isStageId, type JourneyProgress } from '../campaign/journey';
+import { createWorkshop, cloneWorkshop, workshopOf } from '../equipment/workshop';
+import type { WorkshopState } from '../equipment/types';
+import { snapshotOf } from '../equipment/catalog';
 import { ARENA_PRESETS } from '../modes/arenas';
 import { masteryOf } from '../progression/mastery';
 import { createDailyRecord, isDayKey, MAX_FREEZES, type DailyRecord } from '../daily/daily';
@@ -24,6 +27,7 @@ import { MAX_RUN_DEPTH, RUN_HISTORY, RUN_FORMATS, type RunFormat } from '../run/
  * document, so a new mode adds a field here rather than a table there.
  */
 export interface ProgressState {
+  workshop: WorkshopState;
   endlessRecords: Record<string, { rally: number; waves: number }>;
   mastery: Record<string, number>;
   /** Stage id -> star mask. */
@@ -46,6 +50,7 @@ export interface ProgressState {
 
 export function createProgress(): ProgressState {
   return {
+    workshop: createWorkshop(),
     endlessRecords: {},
     mastery: {},
     journey: {},
@@ -64,6 +69,7 @@ export function createProgress(): ProgressState {
 
 export function cloneProgress(progress: ProgressState): ProgressState {
   return {
+    workshop: cloneWorkshop(progress.workshop ?? createWorkshop()),
     endlessRecords: Object.fromEntries(
       Object.entries(progress.endlessRecords ?? {}).map(([k, v]) => [k, { ...v }])
     ),
@@ -92,6 +98,7 @@ export function cloneProgress(progress: ProgressState): ProgressState {
 function cloneRun(run: RunSave): RunSave {
   return {
     ...run,
+    ...(run.equipment ? { equipment: snapshotOf(run.equipment) } : {}),
     boons: { ...run.boons },
     offer: run.offer ? [...run.offer] : null,
     results: run.results.map((item) => ({ ...item }))
@@ -183,6 +190,10 @@ function runOf(value: unknown): RunSave | null {
   const results = Array.isArray(source.results) ? source.results : [];
   return {
     seed,
+    ...(snapshotOf(source.equipment) ? { equipment: snapshotOf(source.equipment) } : {}),
+    workshopEligible: source.workshopEligible === true,
+    workshopActs: num(source.workshopActs, 0),
+    workshopActHits: num(source.workshopActHits, 0, 0, 3),
     ...(source.version === 2
       ? {
           draftRoll: num(source.draftRoll, 0),
@@ -264,6 +275,7 @@ export function progressOf(value: unknown): ProgressState {
     run = null;
   }
   return {
+    workshop: workshopOf(source.workshop),
     endlessRecords: Object.fromEntries(
       ['open', 'waves', ...ARENA_PRESETS.map((a) => a.id)]
         .filter((k) => bag(source.endlessRecords)[k] !== undefined)

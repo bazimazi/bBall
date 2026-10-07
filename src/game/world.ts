@@ -1,4 +1,5 @@
 import { botProfile } from '../core/bots/levels';
+import { NEUTRAL_KIT, materialRuntime } from '../core/equipment/types';
 import { BALANCE, rankScale } from '../core/balance/config';
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
 import { quickMatchRules } from '../core/modes/rules';
@@ -109,6 +110,8 @@ export interface World {
 
 function createPaddle(side: Side): Paddle {
   return {
+    equipment: { ...NEUTRAL_KIT },
+    material: materialRuntime(),
     side,
     x: 0,
     y: FIELD_H / 2,

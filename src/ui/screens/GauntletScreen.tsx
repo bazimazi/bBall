@@ -18,6 +18,8 @@ import {
   type RunSave
 } from '../../core/run/run';
 import { Screen } from '../components/Screen';
+import { kitName } from '../../core/equipment/catalog';
+import { PaddleNotice } from '../components/PaddleNotice';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { ChoiceGroup } from '../components/ChoiceGroup';
 import { GamePicker } from '../components/GamePicker';
@@ -43,6 +45,7 @@ interface GauntletScreenProps {
   onPick: (boonId: string) => void;
   onAbandon: () => void;
   onBack: () => void;
+  onWorkshop?: (() => void) | undefined;
 }
 
 const FAMILY_HUE: Record<BoonFamily, number> = {
@@ -89,11 +92,13 @@ export function GauntletScreen({
   onPlay,
   onPick,
   onAbandon,
-  onBack
+  onBack,
+  onWorkshop
 }: GauntletScreenProps) {
   const run = profile.progress.run;
   if (!isRunActive(run)) return <StartView profile={profile} onStart={onStart} onBack={onBack} />;
-  if (run.offer) return <DraftView run={run} onPick={onPick} onBack={onBack} />;
+  if (run.offer && (run.equipment?.version ?? 0) <= 1)
+    return <DraftView run={run} onPick={onPick} onBack={onBack} />;
   return (
     <RunView
       key={`${profile.id}:${run.seed}:${run.startedAt}:${run.stage}:${run.hearts}`}
@@ -101,6 +106,7 @@ export function GauntletScreen({
       onPlay={onPlay}
       onAbandon={onAbandon}
       onBack={onBack}
+      onWorkshop={onWorkshop}
     />
   );
 }
@@ -137,6 +143,7 @@ function StartView({
         </button>
       }
     >
+      <PaddleNotice profile={profile} policy="run" />
       <div className={modes.stagger} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div className={modes.detail} style={accent(340)}>
           <div className={modes.detailHead}>
@@ -261,6 +268,10 @@ function DraftView({
       subtitle={`Encounter ${run.stage} won · ${run.format ?? 'Sprint'}`}
       onBack={onBack}
     >
+      <p className={styles.note}>
+        {run.equipment ? kitName(run.equipment.kit) : 'Legacy neutral paddle'} · starting kit saved
+        for this run
+      </p>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <Hearts run={run} />
       </div>
@@ -396,12 +407,14 @@ function RunView({
   run,
   onPlay,
   onAbandon,
-  onBack
+  onBack,
+  onWorkshop
 }: {
   run: RunSave;
   onPlay: () => void;
   onAbandon: () => void;
   onBack: () => void;
+  onWorkshop?: (() => void) | undefined;
 }) {
   const [confirm, setConfirm] = useState(false);
   const next = encounterFor(run);
@@ -423,6 +436,7 @@ function RunView({
           <button
             type="button"
             className={styles.primary}
+            disabled={(run.equipment?.version ?? 0) > 1}
             onClick={() => {
               if (run.attempt) {
                 if (!runAction('restart')) return;
@@ -460,6 +474,11 @@ function RunView({
         <Hearts run={run} />
       </div>
 
+      <p className={styles.note}>
+        {(run.equipment?.version ?? 0) > 1
+          ? 'This run uses unsupported paddle rules. End this run and start another; your banked rewards stay.'
+          : `${run.equipment ? kitName(run.equipment.kit) : 'Legacy neutral paddle'} · kit saved for this run`}
+      </p>
       <div className={modes.acts} aria-label="Upcoming acts">
         <ActTrack run={run} act={currentAct} />
       </div>
@@ -512,6 +531,16 @@ function RunView({
           title="Act services"
           hint={`${run.credits ?? 0} credits · repair, upgrade or recycle`}
         >
+          {onWorkshop && run.stage > 0 && run.equipment?.version === 1 && (
+            <button
+              type="button"
+              className={styles.ghost}
+              disabled={(run.credits ?? 0) < 2}
+              onClick={onWorkshop}
+            >
+              Paddle service · 2 credits
+            </button>
+          )}
           <button
             type="button"
             className={styles.ghost}

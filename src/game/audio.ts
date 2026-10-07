@@ -233,11 +233,19 @@ export class GameAudio {
    * rally, so a long exchange audibly winds itself up and the point that ends
    * it lands from the top of the scale.
    */
-  hit(power: number, rally = 0, pan = 0): void {
+  hit(power: number, rally = 0, pan = 0, material: 'neutral' | 'firm' | 'soft' = 'neutral'): void {
     const step = RALLY_STEPS[Math.min(RALLY_STEPS.length - 1, Math.floor(rally / 2))]!;
     const strength = Math.max(0, Math.min(1, power));
     const f = Math.min(AUDIO_MIX.maxHitPitch, (250 + strength * 340) * Math.pow(2, step / 12));
-    this.tone(f, 0.085, 'triangle', 0.34 + strength * 0.1, f * 0.62, 0, pan);
+    this.tone(
+      f,
+      0.085,
+      material === 'firm' ? 'sine' : 'triangle',
+      0.34 + strength * 0.1,
+      f * (material === 'soft' ? 0.45 : 0.62),
+      0,
+      pan
+    );
     this.tone(f * 2, 0.035, 'sine', 0.045, 0, 0, pan);
     // A little body under the hard ones, so pace is heard as well as seen.
     if (power > 0.55) this.tone(f * 0.5, 0.06, 'sine', 0.12 * power, f * 0.3, 0, pan);

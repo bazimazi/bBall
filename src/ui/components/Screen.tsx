@@ -5,6 +5,7 @@ import { SaveNotice } from './SaveNotice';
 import styles from '../Screens.module.css';
 
 interface ScreenProps {
+  className?: string | undefined;
   title: string;
   subtitle?: string;
   onBack?: (() => void) | undefined;
@@ -28,12 +29,20 @@ function BackIcon() {
  * optional footer. Keeping the shell in one place is what stops the menus
  * drifting apart as modes are added.
  */
-export function Screen({ title, subtitle, onBack, onEscape, children, footer }: ScreenProps) {
+export function Screen({
+  title,
+  subtitle,
+  onBack,
+  onEscape,
+  children,
+  footer,
+  className
+}: ScreenProps) {
   const heading = useScreenFocus();
   const titleId = useId();
   return (
     <section
-      className={styles.screen}
+      className={`${styles.screen}${className ? ` ${className}` : ''}`}
       aria-labelledby={titleId}
       onKeyDown={
         onEscape

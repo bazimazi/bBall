@@ -1,4 +1,8 @@
 import type { TournamentFormat } from '../../../src/core/tournament/bracket';
+import { workshopActionOn, withAttempt, ownsKit } from '../../../src/core/equipment/workshop';
+import { kitOf, sameKit, neutralKit } from '../../../src/core/equipment/catalog';
+import { fixedDailyKit } from '../../../src/core/equipment/policy';
+import type { WorkshopAction, EquipmentSnapshot } from '../../../src/core/equipment/types';
 /**
  * Server-authoritative progression.
  *
@@ -245,6 +249,7 @@ export function recordMatch(
 
 function toSummary(applied: ReturnType<typeof applyMatchResult>): ProgressionSummaryDto {
   return {
+    workshop: applied.workshop,
     xpBefore: applied.xpBefore,
     xpAfter: applied.xpAfter,
     xpAwarded: applied.award.total,
@@ -301,6 +306,62 @@ function mutate(
 }
 
 // -------------------------------------------------------------- talents
+
+export function applyWorkshopAction(
+  context: ServiceContext,
+  userId: string,
+  action: WorkshopAction
+): ServerProfile {
+  return mutate(context, userId, undefined, (profile) => {
+    const next = workshopActionOn(profile, action);
+    if (!next)
+      throw rejected('That Workshop action is unavailable. Check ownership, Marks and milestone.');
+    return next;
+  });
+}
+
+export function prepareEquipmentMatch(
+  context: ServiceContext,
+  userId: string,
+  payload: { id: string; equipment: EquipmentSnapshot; identity: string }
+): ServerProfile {
+  return mutate(context, userId, undefined, (profile) => {
+    const e = payload.equipment;
+    if (e.version !== 0 && e.version !== 1)
+      throw rejected('This equipment rules version is unsupported. Banked progress is safe.');
+    if (!sameKit(e.kit, kitOf(e.kit)) || (e.version === 0 && !neutralKit(e.kit)))
+      throw rejected('That kit is invalid.');
+    let identity: unknown;
+    try {
+      identity = JSON.parse(payload.identity);
+    } catch {
+      throw rejected('That attempt is invalid.');
+    }
+    if (!Array.isArray(identity)) throw rejected('That attempt is invalid.');
+    const loan =
+      identity[0] === 'daily' &&
+      typeof identity[4] === 'string' &&
+      sameKit(e.kit, fixedDailyKit(identity[4]));
+    const session =
+      identity[0] === 'run'
+        ? profile.progress.run?.equipment
+        : identity[0] === 'tournament'
+          ? profile.tournament?.equipment
+          : undefined;
+    if (!loan && !ownsKit(profile.progress.workshop, e.kit) && !neutralKit(e.kit))
+      throw rejected('That paddle is not owned.');
+    if (session && (session.version !== e.version || !sameKit(session.kit, e.kit)))
+      throw rejected('That session uses its starting paddle.');
+    if (profile.progress.workshop.attempts[payload.id])
+      throw conflict('That attempt already exists.');
+    return withAttempt(profile, payload.id, {
+      equipment: { ...e, attemptId: payload.id },
+      identity: payload.identity,
+      talents: profile.talents,
+      xp: profile.xp
+    });
+  });
+}
 
 export function purchaseTalent(
   context: ServiceContext,
@@ -488,6 +549,7 @@ export function startTournament(
     }
 
     const save: TournamentSave = createTournament(tier, context.now(), format);
+    save.equipment = { version: 1, kit: { ...profile.progress.workshop.equipped } };
     return {
       ...profile,
       tournament: save,

@@ -1,4 +1,6 @@
 import { ARENA_PRESETS, arenaPreset } from '../../../src/core/modes/arenas';
+import { encounterIdentity, playerEquipment } from '../../../src/core/equipment/policy';
+import { sameKit, neutralKit } from '../../../src/core/equipment/catalog';
 import { masteryTags } from '../../../src/core/progression/mastery';
 import { dominantBranch } from '../../../src/core/talents/save';
 import { masterCardLoadout } from '../../../src/core/talents/builds';
@@ -87,6 +89,11 @@ export const LIMITS = {
 } as const;
 
 export type RejectionCode =
+  | 'invalid-equipment-attempt'
+  | 'invalid-mode-equipment'
+  | 'unsupported-equipment'
+  | 'invalid-material-stats'
+  | 'missing-equipment'
   | 'invalid-match-options'
   | 'locked-contract'
   | 'invalid-court-events'
@@ -514,6 +521,56 @@ export function validateMatch(
   const rules = resolveRules(submission, context.profile, context.now);
   if ('ok' in rules) return rules;
 
+  let buildProfile = context.profile;
+  if (submission.equipment) {
+    const e = submission.equipment;
+    const attempt = e.attemptId
+      ? context.profile.progress.workshop.attempts[e.attemptId]
+      : undefined;
+    if (
+      !attempt ||
+      attempt.identity !== encounterIdentity(submission) ||
+      attempt.equipment.version !== e.version ||
+      !sameKit(attempt.equipment.kit, e.kit)
+    )
+      return reject(
+        'invalid-equipment-attempt',
+        'This match does not match an accepted starting paddle and build.'
+      );
+    const expected = playerEquipment(context.profile, rules);
+    if (
+      (rules.mode === 'daily' ||
+        rules.mode === 'challenge' ||
+        rules.mode === 'run' ||
+        rules.mode === 'tournament') &&
+      (expected.version !== e.version || !sameKit(expected.kit, e.kit))
+    )
+      return reject('invalid-mode-equipment', 'That mode uses its declared paddle.');
+    if (e.version !== 0 && e.version !== 1)
+      return reject('unsupported-equipment', 'That equipment rules version is unsupported.');
+    buildProfile = { ...context.profile, xp: attempt.xp, talents: attempt.talents };
+    for (const n of Object.values(submission.material ?? {}))
+      if (!Number.isInteger(n) || n < 0 || n > submission.hits)
+        return reject('invalid-material-stats', 'Material contacts cannot exceed paddle contacts.');
+    if ((submission.material?.absorbed ?? 0) > 0 && !['cork', 'memory-gel'].includes(e.kit.core))
+      return reject('invalid-material-stats', 'This core cannot absorb bonus pace.');
+    if (
+      (submission.material?.releases ?? 0) > 0 &&
+      e.kit.core !== 'memory-gel' &&
+      e.kit.insert !== 'copper'
+    )
+      return reject('invalid-material-stats', 'This paddle cannot store a charge.');
+  } else if (submission.material)
+    return reject('missing-equipment', 'Material contacts require a starting paddle.');
+  else if (rules.mode === 'run' || rules.mode === 'tournament') {
+    const session = playerEquipment(context.profile, rules);
+    if (session.version > 0 && !neutralKit(session.kit))
+      return reject(
+        'missing-equipment',
+        'This session requires its starting paddle snapshot. Update the game to continue; banked rewards are safe.'
+      );
+  }
+
   if ((submission.flicks ?? 0) > submission.hits) {
     return reject('impossible-rally', 'More flicks than returns played.');
   }
@@ -524,7 +581,7 @@ export function validateMatch(
   const rallyProblem = checkRallyAndTime(submission, rules);
   if (rallyProblem) return rallyProblem;
 
-  const talentProblem = checkTalentUse(submission, context.profile, rules);
+  const talentProblem = checkTalentUse(submission, buildProfile, rules);
   if (talentProblem) return talentProblem;
 
   // The budget is the backstop the per-match checks cannot provide: each
@@ -552,11 +609,15 @@ export function validateMatch(
     return reject('invalid-court-events', 'Those court contacts cannot occur in this encounter.');
   }
   const core = {
+    ...(submission.equipment
+      ? {
+          equipment: submission.equipment,
+          ...(submission.material ? { material: { ...submission.material } } : {})
+        }
+      : {}),
     mastery: masteryTags(
       rules,
-      rules.fixedBuild
-        ? (masterCardLoadout().branch ?? null)
-        : dominantBranch(context.profile.talents)
+      rules.fixedBuild ? (masterCardLoadout().branch ?? null) : dominantBranch(buildProfile.talents)
     ),
     mode: rules.mode,
     ...(submission.waves !== undefined ? { waves: submission.waves } : {}),

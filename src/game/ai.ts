@@ -1,4 +1,7 @@
 import { forecast } from './trajectory';
+import { previewReturn } from './talents';
+import { contactAngle } from '../core/equipment/catalog';
+import { returnPace } from './returnPace';
 import { fireAbility } from './abilities';
 import { combatant } from './combatant';
 import type { BotProfile } from '../core/bots/types';
@@ -226,15 +229,18 @@ function chooseShot(world: World, paddle: Paddle, brain: BotBrain, cross: number
   let best = 0,
     score = -Infinity;
   for (const offset of [-0.86, -0.5, 0, 0.5, 0.86]) {
-    const angle = offset * 1.05;
-    const vx = direction * Math.cos(angle) * world.ball.speed,
-      vy = Math.sin(angle) * world.ball.speed;
+    const response = previewReturn(combatant(world, paddle.side), offset);
+    const speed = returnPace(world, paddle, response, offset).speed;
+    const angle = contactAngle(response.off, speed, paddle.vy, response.spin, response.angleLimit);
+    const vx = direction * Math.cos(angle) * speed,
+      vy = Math.sin(angle) * speed;
     const projected: World = {
       ...world,
       ball: {
         ...world.ball,
         x: paddle.x + direction * (BALL_R + 8),
         y: cross,
+        speed,
         vx,
         vy,
         owner: paddle.side

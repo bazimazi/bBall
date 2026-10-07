@@ -1,4 +1,5 @@
 import { stepPractice, practiceLanding } from './practice';
+import { kitName } from '../core/equipment/catalog';
 import { combatant } from './combatant';
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
 import type { DiagnosticMatchEvent, FrameSample } from '../dev/frameCapture';
@@ -518,6 +519,10 @@ export class GameEngine {
       tutorialFeedback: this.world.tutorial?.feedback ?? null,
       abilities: this.abilityView(),
       enemyAbilities: rules.versus || status === 'menu' ? NO_ABILITIES : this.abilityView(true),
+      paddleKit: kitName(this.world.player.equipment),
+      opponentKit: kitName(this.world.bot.equipment),
+      materialCharge:
+        this.world.player.material.stored > 0 || this.world.player.material.switchCharge,
       opponentName: rules.versus
         ? 'P2'
         : `${rules.bot.name} · ${rules.bot.personality ?? 'opportunist'}`,

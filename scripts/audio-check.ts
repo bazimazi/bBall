@@ -55,6 +55,8 @@ async function runAudioCheck() {
   const effects: Record<string, (audio: GameAudio) => void> = {
     serve: (a) => a.serve(),
     hit: (a) => a.hit(1, 30),
+    firmHit: (a) => a.hit(1, 30, 0, 'firm'),
+    softHit: (a) => a.hit(1, 30, 0, 'soft'),
     wall: (a) => a.wall(1),
     flick: (a) => a.flick(),
     bumper: (a) => a.bumper(1),

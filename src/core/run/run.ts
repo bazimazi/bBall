@@ -1,3 +1,4 @@
+import type { EquipmentSnapshot } from '../equipment/types';
 import type { Personality } from '../modes/recipes';
 import type { BotLevelId } from '../bots/types';
 import { presetsOn } from '../modes/arenas';
@@ -65,6 +66,10 @@ export interface RunMatchRecord {
 
 /** A run in progress, kept in the profile so it survives closing the app. */
 export interface RunSave {
+  equipment?: EquipmentSnapshot | undefined;
+  workshopEligible?: boolean;
+  workshopActs?: number;
+  workshopActHits?: number;
   /** A started encounter remains committed across app closure. */
   attempt?: { stage: number } | undefined;
   draftRoll?: number;

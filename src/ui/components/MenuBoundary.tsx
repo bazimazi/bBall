@@ -21,6 +21,7 @@ const TITLES: Record<MenuScreenId, string> = {
   customize: 'Customise',
   settings: 'Settings',
   talents: 'Talents',
+  workshop: 'Paddle Workshop',
   demo: 'Demo a level',
   result: 'Results'
 };

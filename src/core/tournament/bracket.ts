@@ -1,3 +1,4 @@
+import type { EquipmentSnapshot } from '../equipment/types';
 import type { BotLevelId } from '../bots/types';
 
 /**
@@ -81,6 +82,7 @@ export interface TournamentRoundResult {
 
 /** The saved state of a cup run. Lives inside the player profile. */
 export interface TournamentSave {
+  equipment?: EquipmentSnapshot;
   tier: number;
   format?: TournamentFormat;
   season?: number;

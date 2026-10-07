@@ -1,4 +1,5 @@
 import type { TournamentFormat } from '../tournament/bracket';
+import { snapshotOf } from '../equipment/catalog';
 import { isAchievementId } from '../achievements/catalog';
 import { isBotLevelId, DEFAULT_BOT } from '../bots/levels';
 import {
@@ -24,8 +25,8 @@ import { progressOf } from './progress';
 import { AVATARS, type AvatarId, type ChallengeRecord, type PlayerProfile } from './types';
 
 export const PROFILE_KEY = 'bball.profile';
-/** 1: the original profile. 2: adds the talent build. 3: adds the Journey, daily, quests and Gauntlet. */
-export const PROFILE_VERSION = 3;
+/** 1: original. 2: talents. 3: Journey, Daily, quests and Gauntlet. 4: Paddle Workshop. */
+export const PROFILE_VERSION = 4;
 
 type Bag = Record<string, unknown>;
 
@@ -74,6 +75,7 @@ function tournamentOf(value: unknown): TournamentSave | null {
   const tier = num(source.tier, 0, 0, TOURNAMENT_TIERS.length - 1);
   return {
     tier,
+    ...(snapshotOf(source.equipment) ? { equipment: snapshotOf(source.equipment)! } : {}),
     ...(format ? { format, season: num(source.season, 0) } : {}),
     round: num(source.round, 0, 0, length),
     results: results.slice(0, length).map((entry) => {
@@ -228,6 +230,8 @@ function migrateProfile(data: unknown, from: number): unknown {
     // 2 -> 3: the new modes arrive with nothing played in them. The repair
     // pass builds the empty record; the step exists so the version is honest.
     case 2:
+      return { ...source, progress: source.progress ?? null };
+    case 3:
       return { ...source, progress: source.progress ?? null };
     default:
       return source;

@@ -1,4 +1,6 @@
 import type { TournamentFormat } from '../tournament/bracket';
+import { workshopActionOn, withAttempt } from '../equipment/workshop';
+import type { WorkshopAction, WorkshopAttempt } from '../equipment/types';
 import { talentBuildOn } from '../talents/builds';
 import type { CloudProfileDto } from '../../../shared/protocol';
 import type { BotLevelId } from '../bots/types';
@@ -378,6 +380,7 @@ class ProfileStore {
 
   startTournament(tier: number, format?: TournamentFormat): TournamentSave {
     const save = createTournament(tier, Date.now(), format);
+    save.equipment = { version: 1, kit: { ...this.profile.progress.workshop.equipped } };
     this.patch((draft) => {
       draft.tournament = save;
       draft.stats.cupsPlayed += 1;
@@ -440,6 +443,17 @@ class ProfileStore {
     const summary = applyMatchResult(this.profile, result);
     if (summary.profile !== this.profile) this.commit(summary.profile);
     return summary;
+  }
+
+  workshopAction(action: WorkshopAction): boolean {
+    const next = workshopActionOn(this.profile, action);
+    if (!next) return false;
+    this.commit(next);
+    return true;
+  }
+
+  prepareMatch(id: string, attempt: WorkshopAttempt): void {
+    this.commit(withAttempt(this.profile, id, attempt));
   }
 
   /**

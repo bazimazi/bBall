@@ -188,22 +188,27 @@
   background: var(--card);
 }
 
-.screen .disclosure > summary {
+.disclosureTrigger {
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 3px;
   min-height: 54px;
+  width: 100%;
   padding: 12px 42px 12px 14px;
-  list-style: none;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
-.disclosure > summary::-webkit-details-marker {
-  display: none;
-}
-
-.disclosure > summary::after {
+.disclosureTrigger::after {
   content: '';
   position: absolute;
   right: 18px;
@@ -212,9 +217,10 @@
   border-right: 2px solid var(--muted);
   border-bottom: 2px solid var(--muted);
   transform: rotate(45deg);
+  transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.25, 1);
 }
 
-.disclosure[open] > summary::after {
+.disclosure[data-open='true'] > .disclosureTrigger::after {
   transform: rotate(225deg);
 }
 
@@ -228,6 +234,30 @@
   font-size: 12px;
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+.disclosurePanel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.26s cubic-bezier(0.2, 0.8, 0.25, 1),
+    opacity 0.2s ease,
+    visibility 0s linear 0.26s;
+}
+
+.disclosure[data-open='true'] > .disclosurePanel {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+/* Clip the padded body inside the grid track so it can close all the way. */
+.disclosureContent {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .disclosureBody {
@@ -302,7 +332,7 @@
 }
 
 .choice:hover,
-.disclosure > summary:hover {
+.disclosureTrigger:hover {
   background: rgba(238, 242, 255, 0.04);
 }
 

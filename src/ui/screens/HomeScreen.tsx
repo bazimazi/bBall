@@ -15,7 +15,7 @@ import { SyncBadge } from '../components/SyncBadge';
 import { SaveNotice } from '../components/SaveNotice';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
 import { useLocalClock } from '../hooks/useLocalClock';
-import { GearIcon, SparkIcon } from '../icons/MenuIcons';
+import { GearIcon, SparkIcon, WrenchIcon } from '../icons/MenuIcons';
 import { FlameIcon, HeartIcon, MapIcon, StarIcon, StarRow, SwordsIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
@@ -32,6 +32,7 @@ interface HomeScreenProps {
   onExitDemo: () => void;
   onProfile: () => void;
   onTalents: () => void;
+  onWorkshop?: () => void;
   onSettings: () => void;
   onHelp: () => void;
 }
@@ -170,6 +171,7 @@ export function HomeScreen({
   onExitDemo,
   onProfile,
   onTalents,
+  onWorkshop,
   onSettings,
   onHelp
 }: HomeScreenProps) {
@@ -255,6 +257,10 @@ export function HomeScreen({
           <SparkIcon />
           <span>Talents</span>
           {points > 0 && <span className={modes.homePoints}>{points}</span>}
+        </button>
+        <button type="button" className={modes.homeUtility} onClick={onWorkshop}>
+          <WrenchIcon />
+          <span>Workshop</span>
         </button>
         <button type="button" className={modes.homeUtility} onClick={onSettings}>
           <GearIcon />

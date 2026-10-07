@@ -1,3 +1,4 @@
+import type { PaddleKit, MaterialRuntime } from '../core/equipment/types';
 import type { BotProfile } from '../core/bots/types';
 import type { MatchResult, ModeId } from '../core/modes/types';
 import type { AbilityId, TalentId, TalentMatchStats } from '../core/talents/types';
@@ -15,6 +16,8 @@ export interface Vec2 {
 }
 
 export interface Paddle {
+  equipment: PaddleKit;
+  material: MaterialRuntime;
   readonly side: Side;
   /** Paddle centre, in field units. */
   x: number;
@@ -427,6 +430,9 @@ export interface GoalView {
 
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
+  paddleKit?: string;
+  opponentKit?: string;
+  materialCharge?: boolean;
   practiceLanding?: string | null;
   enemyAbilities?: readonly AbilityView[];
   rallyPressure?: number;

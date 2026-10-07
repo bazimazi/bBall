@@ -177,6 +177,8 @@ export function isBlank(profile: PlayerProfile): boolean {
     profile.xp === 0 &&
     profile.stats.matches === 0 &&
     profile.stats.endlessRuns === 0 &&
-    Object.keys(profile.achievements).length === 0
+    Object.keys(profile.achievements).length === 0 &&
+    !profile.progress.workshop.introduced &&
+    profile.progress.workshop.marks === 0
   );
 }

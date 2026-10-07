@@ -47,6 +47,7 @@ export interface ResolvedTheme {
   paddleRound: number;
   paddleGlow: number;
   paddleStyle: PaddleStyle;
+  paddleEngraving: number;
 
   trailAlpha: number;
   trailWidth: number;
@@ -94,6 +95,7 @@ export function resolveTheme(equipped: Equipped): ResolvedTheme {
     paddleRound: paddle.round,
     paddleGlow: paddle.glow,
     paddleStyle: paddle.style,
+    paddleEngraving: paddle.engraving ?? 0,
     trailAlpha: trail.alpha,
     trailWidth: trail.width,
     trailStyle: trail.style,

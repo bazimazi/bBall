@@ -39,6 +39,10 @@ import { step } from '../src/game/simulation';
 import { createBrain, createWorld, placePaddles } from '../src/game/world';
 import { simulationOptions, withSoakRandom } from './sim-options';
 import { seeded } from '../src/core/util/random';
+import { NEUTRAL_KIT } from '../src/core/equipment/types';
+import { kitName } from '../src/core/equipment/catalog';
+import { combatant } from '../src/game/combatant';
+import { resetRuntime } from '../src/game/talents';
 
 // The engine only ever calls methods on its audio; a stand-in that accepts
 // any call and answers 0 is all a headless run needs.
@@ -83,6 +87,13 @@ function play(name: string, rules: MatchRules): Tally {
       const brain = createBrain(botProfile(playerBot));
       if (options.build) world.baseLoadout = benchmarkBuild(options.build, options.level ?? 50);
       startMatch(world, rules);
+      if (options.group === 'workshop') {
+        // Equal talent effects and movement budgets isolate equipment choices.
+        world.loadout = { ...world.loadout, paddleSpeed: botProfile(playerBot).speed };
+        world.botLoadout = world.loadout;
+        resetRuntime(world);
+        resetRuntime(combatant(world, 'bot'));
+      }
       world.random = seeded('soak-combat', options.seed, name, m);
       let pointTime = 0;
       let lastPoints = 0;
@@ -92,7 +103,11 @@ function play(name: string, rules: MatchRules): Tally {
           const y = world.player.y;
           driveAi(world, world.player, brain, FIXED_DT);
           world.player.y = y;
-          if (options.build) benchmarkSkills(world, options.policy ?? 'balanced');
+          if (options.build) {
+            benchmarkSkills(world, options.policy ?? 'balanced');
+            if (options.group === 'workshop')
+              benchmarkSkills(combatant(world, 'bot'), options.policy ?? 'balanced');
+          }
         }
         step(world, FIXED_DT);
         const { ball, match } = world;
@@ -227,6 +242,57 @@ if (options.group === 'expansion') {
       );
   for (const chapter of EXPANSION_WORLDS)
     report(`boss ${chapter.id}`, campaignRules(chapter.stages[23]!));
+}
+if (options.group === 'workshop') {
+  const kits = ['balanced-core', 'springsteel', 'cork'].flatMap((core) =>
+    ['balanced-surface', 'rubber', 'ceramic'].map((surface) => ({ ...NEUTRAL_KIT, core, surface }))
+  );
+  for (const [i, kit] of kits.entries())
+    for (const [j, rival] of kits.entries()) {
+      report(`workshop ${i}/${j} ${kitName(kit)} vs ${kitName(rival)}`, {
+        ...quickMatchRules(playerBot),
+        equipment: { version: 1, kit },
+        opponentEquipment: rival
+      });
+    }
+  for (const [i, kit] of [
+    {
+      ...NEUTRAL_KIT,
+      core: 'memory-gel',
+      surface: 'split',
+      frame: 'extended',
+      tuning: 'grip' as const
+    },
+    { ...NEUTRAL_KIT, surface: 'graphite', frame: 'compact', insert: 'copper' },
+    { ...NEUTRAL_KIT, core: 'springsteel', surface: 'woven', tuning: 'firm' as const }
+  ].entries())
+    for (const preset of ARENA_PRESETS.filter((a) =>
+      ['gatehouse-1', 'storm-circuit-1', 'rift-bank-1'].includes(a.id)
+    )) {
+      for (const reverse of [false, true])
+        report(`advanced ${i} ${preset.id} side ${reverse ? 'bot' : 'you'}`, {
+          ...quickMatchRules(playerBot, { arenaId: preset.id }),
+          equipment: { version: 1, kit: reverse ? { ...NEUTRAL_KIT } : kit },
+          opponentEquipment: reverse ? kit : { ...NEUTRAL_KIT }
+        });
+    }
+  const review = kits.map((kit, i) => {
+    const rates = kits
+      .map((_, j) => {
+        const left = cases.find((c) => c.name.startsWith(`workshop ${i}/${j} `))!;
+        const right = cases.find((c) => c.name.startsWith(`workshop ${j}/${i} `))!;
+        return (
+          (left.wins + right.completed - right.wins) / Math.max(1, left.completed + right.completed)
+        );
+      })
+      .filter((_, j) => i !== j);
+    return {
+      kit: kitName(kit),
+      comparisonsAbove60: rates.filter((rate) => rate > 0.6).length,
+      rates
+    };
+  });
+  console.log(`Mirrored diagnostic (small bot samples): ${JSON.stringify(review)}`);
 }
 const alerts = cases.reduce(
   (count, tally) => count + tally.stalls + tally.broken + tally.replays + tally.timedOut,

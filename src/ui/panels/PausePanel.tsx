@@ -20,6 +20,7 @@ interface PausePanelProps {
   onSettings: () => void;
   onRestart: () => void;
   onQuit: () => void;
+  quitLabel?: string;
   versus?: boolean;
   objective?: string | null;
   goals?: readonly GoalView[];
@@ -37,6 +38,7 @@ export function PausePanel({
   onSettings,
   onRestart,
   onQuit,
+  quitLabel = 'Quit to menu',
   versus = false,
   objective,
   goals = [],
@@ -109,7 +111,7 @@ export function PausePanel({
         Restart
       </PanelButton>
       <PanelButton variant="ghost" onClick={onQuit}>
-        Quit to menu
+        {quitLabel}
       </PanelButton>
       <SaveNotice />
       <details className={styles.controls}>

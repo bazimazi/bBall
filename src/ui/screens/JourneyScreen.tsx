@@ -20,6 +20,7 @@ import { bossById } from '../../core/modes/bosses';
 import { starGoalLabel } from '../../core/modes/stars';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
+import { PaddleNotice } from '../components/PaddleNotice';
 import { GamePicker } from '../components/GamePicker';
 import { LockIcon, StarIcon, StarRow } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
@@ -116,6 +117,7 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
         </button>
       }
     >
+      <PaddleNotice profile={profile} />
       <div className={styles.fieldGrid}>
         <GamePicker<'story' | 'veteran' | 'ascendant'>
           label="Journey rules"

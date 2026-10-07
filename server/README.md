@@ -5,7 +5,8 @@ Identity, authoritative progression and cloud saves for bBall.
 **Client reduced-motion policy:** the project completely ignores operating-system
 and browser reduced-motion settings on every platform. Do not introduce preference
 checks or animation overrides in shared code, client integration or test expectations.
-This includes the client's choice-panel entrance and exit transitions.
+This includes the client's choice-panel entrance/exit and menu disclosure
+expand/collapse transitions.
 See the [root README](../README.md) and [project instructions](../AGENTS.md).
 
 The game stays exactly what it was: a local simulation that runs at 120 Hz and
@@ -554,6 +555,39 @@ since a client can otherwise forge its own address and escape rate limiting.
 Put `DATABASE_FILE` on a volume that is actually backed up. `SIGTERM` drains
 in-flight requests before exiting, so a deploy cannot cut a match submission
 in half.
+
+## Paddle Workshop
+
+Workshop state is part of the existing progress document. Local profile schema 4
+adds bounded Marks, component ownership, tuning, three presets, finite contracts,
+signature records, equipment categories and accepted attempt snapshots. Migration 7
+adds the nullable tournament equipment snapshot; existing cups keep legacy neutral
+rules, and new cups preserve their starting paddle through every round.
+
+The sync API accepts `workshop.action` (compare, craft, equip, preset and service)
+and `match.prepare`. Definitions compute crafting prices and conditional rules;
+client-authored coefficients are never accepted. An accepted preparation binds a
+kit, rules version, encounter identity, talent build and XP to its attempt ID.
+Match validation checks that snapshot and the mode's declared equipment, then
+bounds material contacts against actual reported hits and permitted triggers.
+Operation IDs and transactions keep retries and competing purchases idempotent.
+
+Ordered offline crafting must succeed before a dependent preparation/match can
+be accepted. Rejected matches remain in the account's device practice history
+without rewards. A blank account can adopt a bounded guest Workshop; an existing
+Workshop keeps its Marks and purchased parts while supported records carry over.
+Legacy results and sessions use neutral rules version 0. Unsupported session
+versions keep banked progress and offer an explicit end-session recovery path.
+
+Deploy the client and server together and apply migration 7: older servers do not
+recognize the new operations. Active nonneutral sessions require their starting
+snapshot; gearless legacy neutral results remain supported. Material counters use
+the existing plausibility-validation trust
+model; they are not authoritative input replays. The client continues to ignore
+all system/browser reduced-motion preferences, including material contact cues
+and Workshop navigation. Sliding selections, directional panels and detail-popup
+transitions run in both Full and Calm without changing API or progression rules.
+See the [Workshop report](../docs/validation/paddle-workshop-report.md).
 
 ## Extension points
 

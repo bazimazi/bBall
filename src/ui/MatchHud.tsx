@@ -54,6 +54,15 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
           Reach −{snapshot.rallyPressure}%
         </p>
       )}
+      {!versus && snapshot.paddleKit && (
+        <p
+          className={`${styles.objective} ${styles.equipment}`}
+          title={`Your paddle: ${snapshot.paddleKit}. Rival: ${snapshot.opponentKit ?? 'Neutral paddle'}`}
+        >
+          {snapshot.materialCharge ? 'Impact stored ◇ · ' : ''}
+          {snapshot.paddleKit}
+        </p>
+      )}
       {!versus && !!snapshot.enemyAbilities?.length && (
         <div className={styles.enemy} role="group" aria-label="Opponent skills">
           <span className={styles.enemyLabel}>Rival</span>

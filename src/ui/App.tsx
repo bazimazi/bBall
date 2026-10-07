@@ -42,6 +42,7 @@ import {
   ResultScreen,
   SettingsScreen,
   TalentScreen,
+  WorkshopScreen,
   TournamentScreen
 } from './screens/deferred';
 
@@ -55,6 +56,13 @@ interface ResultActions {
 /** What "next" means depends on the mode the player just finished. */
 function resultActions(result: MatchResult, flow: GameFlow): ResultActions {
   const menu = { secondaryLabel: 'Menu', onSecondary: () => flow.leaveResult('home') };
+  if (result.options?.bench)
+    return {
+      primaryLabel: 'Try again',
+      onPrimary: flow.replay,
+      secondaryLabel: 'Workshop',
+      onSecondary: () => flow.leaveResult('workshop')
+    };
 
   if (flow.series && (result.mode === 'quick' || result.mode === 'versus')) {
     const done = seriesComplete(flow.series);
@@ -196,7 +204,7 @@ export function App() {
     // The match behind a result card is over, so the screens that started it
     // are not somewhere to go back to.
     if (flow.screen === 'result') {
-      flow.leaveResult('home');
+      flow.leaveResult(flow.result?.options?.bench ? 'workshop' : 'home');
       return;
     }
     if (flow.canGoBack) flow.back();
@@ -275,6 +283,7 @@ export function App() {
           onExitDemo={flow.exitDemo}
           onProfile={() => flow.go('profile')}
           onTalents={() => flow.go('talents')}
+          onWorkshop={() => flow.go('workshop')}
           onSettings={() => flow.go('settings')}
           onHelp={() => flow.go('help')}
         />
@@ -324,6 +333,7 @@ export function App() {
               onPick={flow.pickBoon}
               onAbandon={flow.abandonRun}
               onBack={flow.back}
+              onWorkshop={() => flow.go('workshop')}
             />
           )}
 
@@ -348,6 +358,7 @@ export function App() {
               onAccount={openAccount}
               onAchievements={() => flow.go('achievements')}
               onCustomize={() => flow.go('customize')}
+              onWorkshop={() => flow.go('workshop')}
               onSettings={() => flow.go('settings')}
               onDemo={() => flow.go('demo')}
               onBack={flow.back}
@@ -363,6 +374,15 @@ export function App() {
           )}
 
           {flow.screen === 'talents' && <TalentScreen profile={profile} onBack={flow.back} />}
+          {flow.screen === 'workshop' && (
+            <WorkshopScreen
+              profile={profile}
+              initialKit={flow.workshopKit}
+              onBack={flow.back}
+              onBench={flow.startBench}
+              onCustomize={() => flow.go('customize')}
+            />
+          )}
 
           {flow.screen === 'achievements' && (
             <AchievementsScreen profile={profile} onBack={flow.back} />
@@ -398,6 +418,7 @@ export function App() {
               onTutorial={flow.startTutorial}
               onStar={(index) => engine?.chime(index)}
               onTalents={() => flow.leaveResult('talents')}
+              onWorkshop={() => flow.leaveResult('workshop')}
               {...resultActions(flow.result, flow)}
             />
           )}
@@ -425,6 +446,7 @@ export function App() {
           onSettings={() => flow.go('settings')}
           onRestart={flow.replay}
           onQuit={flow.quitToMenu}
+          quitLabel={flow.workshopKit ? 'Back to Workshop' : 'Quit to menu'}
           versus={snapshot.mode === 'versus'}
           objective={(coarse && snapshot.objectiveTouch) || snapshot.objective}
           goals={snapshot.goals}

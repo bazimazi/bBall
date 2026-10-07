@@ -1,3 +1,5 @@
+import { componentById } from '../../../src/core/equipment/catalog';
+import { WORKSHOP_CONTRACTS, workshopOf } from '../../../src/core/equipment/workshop';
 /**
  * Carrying a guest save into an account.
  *
@@ -182,6 +184,40 @@ function sanitizeProgress(
     record.waves = clamp(record.waves, Math.floor(hits / 12));
   }
   progress.contracts = clamp(progress.contracts ?? 0, wins);
+  const workshop = progress.workshop;
+  workshop.attempts = {};
+  for (const c of WORKSHOP_CONTRACTS) {
+    const cap =
+      c.id === 'route'
+        ? wins
+        : c.id === 'school'
+          ? matches
+          : Math.min(hits, matches * (c.id === 'centre' ? 8 : c.id === 'absorb' ? 4 : 6));
+    workshop.contracts[c.id] = clamp(workshop.contracts[c.id] ?? 0, cap);
+  }
+  const earnedContracts = WORKSHOP_CONTRACTS.reduce(
+    (n, c) => n + ((workshop.contracts[c.id] ?? 0) >= c.target ? c.reward : 0),
+    0
+  );
+  const budget = (workshop.introduced ? 12 : 0) + matches * 4 + earnedContracts;
+  let spent = 0;
+  workshop.owned = workshop.owned.filter((id) => {
+    const part = componentById(id);
+    if (!part) return false;
+    if (part.cost === 0) return true;
+    if (spent + part.cost > budget) return false;
+    spent += part.cost;
+    return true;
+  });
+  workshop.marks = clamp(workshop.marks, Math.max(0, budget - spent));
+  // Fixed Daily cards can teach a surface the guest has never crafted.
+  workshop.surfaces = workshop.surfaces.slice(0, matches);
+  workshop.signatures = clamp(workshop.signatures, wins);
+  for (const record of Object.values(workshop.endless)) {
+    record.rally = clamp(record.rally, hits * 2 + 1);
+    record.waves = clamp(record.waves, Math.floor(hits / 12));
+  }
+  progress.workshop = workshopOf(workshop);
   for (const id of Object.keys(progress.mastery))
     progress.mastery[id] = clamp(progress.mastery[id]!, wins * 8);
   const master = progress.dailyMaster;
@@ -390,6 +426,35 @@ export function mergeProfiles(cloud: PlayerProfile, local: PlayerProfile): Playe
 /** The better of two newer-mode records, field by field. Nothing is ever lost. */
 function mergeProgress(cloud: ProgressState, local: ProgressState): ProgressState {
   const merged = cloneProgress(cloud);
+  const cloudWorkshop = merged.workshop;
+  const localWorkshop = local.workshop;
+  if (
+    !cloudWorkshop.introduced &&
+    cloudWorkshop.marks === 0 &&
+    cloudWorkshop.owned.every((id) => componentById(id)?.cost === 0) &&
+    Object.values(cloudWorkshop.contracts).every((n) => n === 0) &&
+    !Object.keys(cloudWorkshop.endless).length
+  ) {
+    merged.workshop = workshopOf(localWorkshop);
+    merged.workshop.attempts = {};
+  } else {
+    for (const c of WORKSHOP_CONTRACTS)
+      cloudWorkshop.contracts[c.id] = Math.max(
+        cloudWorkshop.contracts[c.id] ?? 0,
+        localWorkshop.contracts[c.id] ?? 0
+      );
+    cloudWorkshop.surfaces = [...new Set([...cloudWorkshop.surfaces, ...localWorkshop.surfaces])];
+    cloudWorkshop.signatures = Math.max(cloudWorkshop.signatures, localWorkshop.signatures);
+  }
+  for (const [key, record] of Object.entries(localWorkshop.endless)) {
+    const before = merged.workshop.endless[key];
+    if (
+      !before ||
+      record.waves > before.waves ||
+      (record.waves === before.waves && record.rally > before.rally)
+    )
+      merged.workshop.endless[key] = { ...record, kit: { ...record.kit } };
+  }
   for (const [id, mask] of Object.entries(local.journey)) {
     merged.journey[id] =
       id === 'frontier-v2'

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { loadCouchPresets, saveCouchPresets } from '../../core/modes/couchPresets';
 import { endlessRecordKey } from '../../core/modes/sessions';
+import { neutralKit } from '../../core/equipment/catalog';
 import { ARENA_PRESETS } from '../../core/modes/arenas';
 import type { MatchOptions } from '../../core/modes/types';
 import { botProfile } from '../../core/bots/levels';
@@ -31,7 +32,7 @@ function metaFor(mode: ModeInfo, profile: PlayerProfile): string {
     case 'quick':
       return botProfile(profile.preferences.lastBot).name;
     case 'endless':
-      return profile.stats.endlessBest > 0 ? `Best ${profile.stats.endlessBest}` : '3 lives';
+      return profile.stats.endlessBest > 0 ? `Legacy ${profile.stats.endlessBest}` : '3 lives';
     case 'challenge': {
       const cleared = CHALLENGES.filter((item) => profile.challenges[item.id]?.cleared).length;
       return `${cleared} / ${CHALLENGES.length}`;
@@ -67,7 +68,12 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
     ...(mirror ? { mirror: true } : {}),
     ...(duel ? { duel } : {})
   };
-  const record = profile.progress.endlessRecords[endlessRecordKey({ arenaId, waves })];
+  const recordKey = endlessRecordKey({ arenaId, waves });
+  const legacy = profile.progress.endlessRecords[recordKey];
+  const category = neutralKit(profile.progress.workshop.equipped) ? 'neutral' : 'workshop';
+  const record = profile.progress.workshop.endless[`${category}-${recordKey}`];
+  const best = (value: { waves: number; rally: number } | undefined) =>
+    waves ? (value?.waves ?? 0) : (value?.rally ?? 0);
   return (
     <Screen title="More modes" subtitle="Quick games, cups and couch play" onBack={onBack}>
       <MenuDisclosure
@@ -99,9 +105,12 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
           />
         </div>
         <p className={styles.rowBlurb}>
-          {waves
-            ? `Best ${record?.waves ?? 0} waves · Court choice seeds the route. Courts change safely between waves.`
-            : `Course best rally ${record?.rally ?? 0}`}
+          {category === 'neutral' ? 'Neutral equipment' : 'Workshop equipment'} best: {best(record)}{' '}
+          {waves ? 'waves' : 'returns'}. Neutral:{' '}
+          {best(profile.progress.workshop.endless[`neutral-${recordKey}`])} · Workshop:{' '}
+          {best(profile.progress.workshop.endless[`workshop-${recordKey}`])} · Legacy:{' '}
+          {best(legacy)}.
+          {waves && ' Court choice seeds the route. Courts change safely between waves.'}
         </p>
         <div className={styles.fieldGrid}>
           <GamePicker<1 | 3 | 5>
@@ -197,7 +206,7 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
               <span className={styles.rowTitle}>{mode.name}</span>
               <span className={styles.rowBlurb}>
                 {mode.id === 'endless'
-                  ? `${waves ? 'Waves' : 'Classic rally'} · ${ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'} · best ${waves ? (record?.waves ?? 0) : (record?.rally ?? 0)}`
+                  ? `${waves ? 'Waves' : 'Classic rally'} · ${ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'} · ${category} best ${best(record)}`
                   : mode.id === 'versus'
                     ? `${series > 1 ? `Best of ${series}` : 'Single match'} · ${duel === 'precision' ? 'Precision' : duel === 'speed' ? 'Fast ball' : 'Standard'}${mirror ? ' · Mirrored' : ''}`
                     : mode.blurb}

@@ -62,6 +62,8 @@ export interface PaddleCosmetic extends Cosmetic {
   /** Corner radius as a fraction of half the paddle width. 1 is a capsule. */
   readonly round: number;
   readonly glow: number;
+  /** Decorative Workshop chevrons. No collision effect. */
+  readonly engraving?: number;
 }
 
 export interface TrailCosmetic extends Cosmetic {
@@ -538,6 +540,15 @@ export const BALLS: readonly BallCosmetic[] = [
 ];
 export const PADDLES: readonly PaddleCosmetic[] = [
   ...BASE_PADDLES,
+  ...[2, 3, 4, 5].map((stage): PaddleCosmetic => ({
+    ...BASE_PADDLES[stage - 2]!,
+    id: `paddle-workshop-${stage}`,
+    engraving: stage - 1,
+    name: ['Contact engraving', 'Frame engraving', 'Material engraving', 'Signature engraving'][
+      stage - 2
+    ]!,
+    unlock: { type: 'achievement', id: `workshop-${stage}` }
+  })),
   ...BUILD_NAMES.map((name, i): PaddleCosmetic => ({
     ...BASE_PADDLES[i]!,
     id: `paddle-mastery-${BUILD_IDS[i]}`,

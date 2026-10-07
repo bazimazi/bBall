@@ -3,6 +3,7 @@ import { botProfile } from '../../core/bots/levels';
 import { CHALLENGES, contractChallenge } from '../../core/modes/challenges';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
+import { PaddleNotice } from '../components/PaddleNotice';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { GamePicker } from '../components/GamePicker';
 import styles from '../Screens.module.css';
@@ -28,6 +29,7 @@ export function ChallengeScreen({ profile, onPick, onBack }: ChallengeScreenProp
       subtitle={`${cleared} of ${CHALLENGES.length} cleared`}
       onBack={onBack}
     >
+      <PaddleNotice profile={profile} policy="neutral" />
       <MenuDisclosure
         title="Five-trial contract playlist"
         hint={`Set ${Math.ceil(seriesStart / 5)} · ${(profile.progress.contracts ?? 0) - seriesStart + 1}/5 cleared`}

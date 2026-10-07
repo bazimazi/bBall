@@ -1,4 +1,7 @@
 import type { RunAction } from '../run/ops';
+import type { WorkshopAction } from '../equipment/types';
+import { withEquipmentRules, rulesIdentity } from '../equipment/policy';
+import type { MatchRules } from '../modes/types';
 import type { RunFormat } from '../run/formats';
 import type { TournamentFormat } from '../tournament/bracket';
 /**
@@ -56,6 +59,7 @@ function queue(op: SyncOp): void {
  */
 export function toSubmission(result: MatchResult, clientMatchId: string): MatchSubmissionDto {
   return {
+    ...(result.equipment ? { equipment: result.equipment, material: result.material } : {}),
     clientMatchId,
     mode: result.mode,
     botId: result.botId,
@@ -220,4 +224,27 @@ export function abandonTournament(): void {
   if (!profileStore.getSnapshot().tournament) return;
   profileStore.abandonTournament();
   queue({ kind: 'tournament.abandon', opId: newOpId('cup'), payload: {} });
+}
+
+export function workshopAction(action: WorkshopAction): boolean {
+  if (!profileStore.workshopAction(action)) return false;
+  queue({ kind: 'workshop.action', opId: newOpId('workshop'), payload: action });
+  return true;
+}
+
+export function prepareMatch(rules: MatchRules): MatchRules {
+  const profile = profileStore.getSnapshot();
+  // A ranked rematch resolves today's equipped/session policy again. Only
+  // unranked drills may carry an explicit loan kit from their previous setup.
+  const resolved = withEquipmentRules(
+    profile,
+    rules.ranked ? { ...rules, equipment: undefined } : rules
+  );
+  if (!rules.ranked) return resolved;
+  const id = newOpId('attempt');
+  const equipment = { ...resolved.equipment!, attemptId: id };
+  const identity = rulesIdentity(resolved);
+  profileStore.prepareMatch(id, { equipment, identity, talents: profile.talents, xp: profile.xp });
+  queue({ kind: 'match.prepare', opId: newOpId('prepare'), payload: { id, equipment, identity } });
+  return { ...resolved, equipment };
 }

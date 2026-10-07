@@ -1,3 +1,5 @@
+import type { EquipmentSnapshot, MaterialStats, WorkshopAction } from '../src/core/equipment/types';
+import type { WorkshopReward } from '../src/core/equipment/workshop';
 import type { TournamentFormat } from '../src/core/tournament/bracket';
 import type { RunAction } from '../src/core/run/ops';
 import type { MatchOptions } from '../src/core/modes/types';
@@ -336,6 +338,8 @@ export interface UpdateProfileRequest {
  * evidence, and implausible evidence is rejected outright.
  */
 export interface MatchSubmissionDto {
+  readonly equipment?: EquipmentSnapshot | undefined;
+  readonly material?: MaterialStats | undefined;
   waves?: number | undefined;
   options?: MatchOptions | undefined;
   court?: { banks: number; switches: number; breaks: number; gates: number } | undefined;
@@ -390,6 +394,7 @@ export interface XpLineDto {
 
 /** What the server actually granted. The client shows this, not its own sum. */
 export interface ProgressionSummaryDto {
+  readonly workshop?: WorkshopReward;
   readonly xpBefore: number;
   readonly xpAfter: number;
   readonly xpAwarded: number;
@@ -500,6 +505,20 @@ export interface ClaimResponse {
 }
 
 export type SyncOp =
+  | {
+      readonly kind: 'workshop.action';
+      readonly opId: string;
+      readonly payload: WorkshopAction;
+    }
+  | {
+      readonly kind: 'match.prepare';
+      readonly opId: string;
+      readonly payload: {
+        id: string;
+        equipment: EquipmentSnapshot;
+        identity: string;
+      };
+    }
   | {
       readonly kind: 'talent.build';
       readonly opId: string;

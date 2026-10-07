@@ -17,6 +17,7 @@ import {
   vacuumExpired
 } from '../src/db/index';
 import { MIGRATIONS, type Migration } from '../src/db/migrations';
+import { loadProfile, saveProfile } from '../src/repositories/profiles';
 import {
   auth,
   makeServer,
@@ -47,6 +48,44 @@ describe('migrations', () => {
       migrate(db);
       assert.equal(migrate(db).length, 0);
       assert.ok(migrationStatus(db).every((item) => item.applied));
+    } finally {
+      db.close();
+    }
+  });
+
+  it('upgrades existing cups without assigning newly equipped material rules', () => {
+    const db = openDatabase({ file: ':memory:' });
+    try {
+      migrate(
+        db,
+        MIGRATIONS.filter((item) => item.version < 7)
+      );
+      db.exec(`
+        INSERT INTO users (id, email, email_normalized, created_at, updated_at)
+        VALUES ('legacy-cup-user', 'cup@example.test', 'cup@example.test', 1, 1);
+        INSERT INTO profiles
+          (user_id, save_id, version, display_name, avatar, xp, daily_day, daily_matches,
+           last_bot, last_practice_bot, created_at, updated_at)
+        VALUES ('legacy-cup-user', 'legacy-save', 1, 'Cup', 'orb', 0, '2026-01-01', 0,
+                'rookie', 'rookie', 1, 1);
+        INSERT INTO tournaments
+          (id, user_id, tier, round, results_json, status, champion, started_at, updated_at)
+        VALUES ('legacy-cup', 'legacy-cup-user', 0, 1,
+                '[{"you":3,"bot":1,"won":true}]', 'active', 0, 1, 1);
+      `);
+      assert.deepEqual(
+        migrate(db).map((item) => item.version),
+        [7]
+      );
+      const loaded = loadProfile(db, 'legacy-cup-user')!;
+      assert.equal(loaded.profile.tournament!.round, 1);
+      assert.deepEqual(loaded.profile.tournament!.results, [{ you: 3, bot: 1, won: true }]);
+      assert.equal(loaded.profile.tournament!.equipment, undefined);
+      saveProfile(db, loaded, 2);
+      const row = db
+        .prepare('SELECT equipment_json FROM tournaments WHERE id = ?')
+        .get('legacy-cup') as { equipment_json: string | null };
+      assert.equal(row.equipment_json, null);
     } finally {
       db.close();
     }

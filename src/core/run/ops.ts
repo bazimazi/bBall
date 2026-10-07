@@ -44,6 +44,7 @@ export function startRunOn(
     return null;
   const next = cloneProgress(progress);
   next.run = createRun(seed, pressure, now, format);
+  next.run.equipment = { version: 1, kit: { ...profile.progress.workshop.equipped } };
   return { ...profile, progress: next };
 }
 

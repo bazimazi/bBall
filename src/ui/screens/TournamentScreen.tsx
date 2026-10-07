@@ -15,6 +15,7 @@ import {
   tierForLevel
 } from '../../core/tournament/bracket';
 import { Screen } from '../components/Screen';
+import { PaddleNotice } from '../components/PaddleNotice';
 import { ChoiceGroup } from '../components/ChoiceGroup';
 import { ConfirmAction } from '../components/ConfirmAction';
 import styles from '../Screens.module.css';
@@ -83,7 +84,12 @@ function ActiveCup({
       onBack={onBack}
       footer={
         <>
-          <button type="button" className={styles.primary} onClick={onPlay}>
+          <button
+            type="button"
+            className={styles.primary}
+            onClick={onPlay}
+            disabled={(active.equipment?.version ?? 0) > 1}
+          >
             Play {round.name}
           </button>
           <button
@@ -96,6 +102,7 @@ function ActiveCup({
         </>
       }
     >
+      <PaddleNotice profile={profile} policy="cup" />
       <div className={styles.card}>
         <p className={styles.sectionLabel}>
           Next opponent · {rules.bot.name} · {school}
@@ -157,6 +164,7 @@ export function TournamentScreen({
         </button>
       }
     >
+      <PaddleNotice profile={profile} policy="cup" />
       {last && (
         <div className={styles.card}>
           <p className={styles.sectionLabel}>Last cup</p>

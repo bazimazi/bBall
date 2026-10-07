@@ -1,3 +1,4 @@
+import type { EquipmentSnapshot, PaddleKit, MaterialStats } from '../equipment/types';
 import type { TournamentFormat } from '../tournament/bracket';
 import type { MasteryTags } from '../progression/mastery';
 import type { Personality } from './recipes';
@@ -204,6 +205,7 @@ export interface MatchObjective {
 }
 
 export interface MatchOptions {
+  readonly bench?: 'routine' | 'attack' | 'edge' | undefined;
   /** Each game keeps its normal reward policy; no series bonus. */
   series?: 1 | 3 | 5 | undefined;
   waves?: boolean | undefined;
@@ -218,6 +220,8 @@ export interface MatchOptions {
 
 /** A fully resolved match setup. The engine takes one of these and plays it. */
 export interface MatchRules {
+  readonly equipment?: EquipmentSnapshot | undefined;
+  readonly opponentEquipment?: PaddleKit;
   readonly courtFamily?: string;
   readonly arenaIntensity?: number;
   readonly fixedBuild?: boolean;
@@ -261,6 +265,8 @@ export interface MatchRules {
 
 /** What a finished match reports back. Pure data - no engine references. */
 export interface MatchResult {
+  readonly equipment?: EquipmentSnapshot | undefined;
+  readonly material?: MaterialStats | undefined;
   readonly waves?: number | undefined;
   /** Derived encounter/build identity; the server never trusts client tags. */
   readonly mastery?: MasteryTags | undefined;

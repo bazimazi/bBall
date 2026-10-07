@@ -53,6 +53,8 @@ import {
 import type { ServiceContext } from './context';
 import {
   abandonRun,
+  applyWorkshopAction,
+  prepareEquipmentMatch,
   abandonTournament,
   equipAbilitySlot,
   pickRunBoon,
@@ -173,6 +175,9 @@ export function claimLocalSave(
       notes.push('Your guest progress is now on your account.');
     } else {
       merged = mergeProfiles(server.profile, sanitized.profile);
+      notes.push(
+        'Your account keeps its Workshop Marks and crafted parts. Supported guest technique records and cosmetic progress carry over.'
+      );
       const moved = merged.xp > xpBefore || progressMoved(server.profile, merged);
       outcome = moved ? 'merged' : 'kept-cloud';
       notes.push(
@@ -257,6 +262,12 @@ function applyOne(context: ServiceContext, userId: string, op: SyncOp): SyncOpRe
 
   try {
     switch (op.kind) {
+      case 'workshop.action':
+        applyWorkshopAction(context, userId, op.payload);
+        break;
+      case 'match.prepare':
+        prepareEquipmentMatch(context, userId, op.payload);
+        break;
       case 'talent.build':
         applyTalentBuild(context, userId, op.payload.slot, op.payload.action, op.payload.name);
         break;

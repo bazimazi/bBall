@@ -21,6 +21,22 @@ changes follow the user's reported experience and request; the older review's
 small proxy sample is not evidence of human balance. The prioritisation and
 content descriptions below document the earlier round.
 
+**Paddle Workshop, 7 October:** the complete material progression is implemented.
+Players can compare loaned parts, try repeatable contacts, craft permanent parts,
+save paddles and earn tuning, frames, advanced materials and cosmetic engravings.
+Build, Practice, Progress and Saved now use compact views with paged materials,
+contracts and presets. Their main content fits the tested phone, tablet, desktop
+and landscape sizes without vertical scrolling; detailed explanations open in
+bounded popups. Sliding selection highlights, directional panel changes and
+animated popup entry/exit provide navigation feedback without adding scrolling
+or losing keyboard focus. These transitions run in Full and Calm and ignore
+system/browser motion preferences. Equip and the bench action stay pinned. Material identity and
+stored-charge cues remain visible in Calm and with sound muted, and all contact
+motion continues to ignore system/browser reduced-motion preferences. The
+[Workshop report](validation/paddle-workshop-report.md) records engine, economy,
+account, browser and simulation evidence. Human recognition targets and physical
+input/webview checks remain unmeasured.
+
 **Project policy, updated at the user's request:** completely ignore operating-system
 and browser reduced-motion settings on web, desktop and mobile. Do not reintroduce
 CSS media queries, JavaScript preference checks/listeners, native preference checks,
@@ -32,6 +48,11 @@ motion recommendations discussed below. See [AGENTS.md](../AGENTS.md) and the
 Choice-panel entrance and exit animations follow this policy, including the
 phone bottom sheets. The [expansion UI review](validation/endless-ui-review.md)
 records their motion, backdrop and dismissal checks.
+
+Menu disclosures, including More modes' Court & couch rules, now animate their
+height, content opacity and chevron in both directions. Collapsed contents are
+inert and hidden from assistive technology; rapid toggles reverse the transition
+without resetting the selected rules. System motion settings have no effect.
 
 The strongest opportunity is to make the existing game easier to understand and
 trust. It already has nine modes, differentiated opponents, hazard courts,

@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useId, useState, type CSSProperties } from '
 import { botProfile } from '../../core/bots/levels';
 import { stageById } from '../../core/campaign/journey';
 import { dailySpec } from '../../core/daily/daily';
+import { nextWorkshopRecipe, WORKSHOP_CONTRACTS } from '../../core/equipment/workshop';
 import { bossById } from '../../core/modes/bosses';
 import { coachingFor } from '../../core/modes/coaching';
 import { starGoalLabel, type StarGoal } from '../../core/modes/stars';
@@ -30,6 +31,7 @@ interface ResultScreenProps {
   onTutorial: () => void;
   /** Offered only when there is something to spend. */
   onTalents: () => void;
+  onWorkshop?: () => void;
   /** A star has just landed on the card - the engine plays its chime. */
   onStar?: (index: number) => void;
 }
@@ -167,6 +169,7 @@ export function ResultScreen({
   onHelp,
   onTutorial,
   onTalents,
+  onWorkshop,
   onStar
 }: ResultScreenProps) {
   const heading = useScreenFocus();
@@ -338,6 +341,32 @@ export function ResultScreen({
           </button>
         )}
 
+        {(summary?.workshop?.marks ?? 0) > 0 && (
+          <div className={styles.card}>
+            <p>
+              Workshop Marks <b>+{summary!.workshop.marks}</b> ·{' '}
+              {summary!.profile.progress.workshop.marks} available
+            </p>
+            {summary!.workshop.contracts.map((name) => (
+              <p key={name}>{name} complete</p>
+            ))}
+            <p>{nextWorkshopRecipe(summary!.profile.progress.workshop)}</p>
+            {WORKSHOP_CONTRACTS.filter(
+              (c) => (summary!.profile.progress.workshop.contracts[c.id] ?? 0) < c.target
+            )
+              .slice(0, 2)
+              .map((c) => (
+                <p key={c.id}>
+                  {c.name} · {summary!.profile.progress.workshop.contracts[c.id] ?? 0}/{c.target}
+                </p>
+              ))}
+            {onWorkshop && (
+              <button type="button" className={styles.ghost} onClick={onWorkshop}>
+                Paddle Workshop
+              </button>
+            )}
+          </div>
+        )}
         {summary && award && award.total > 0 ? (
           <div className={styles.card}>
             <div className={styles.xpLines}>

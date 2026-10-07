@@ -1,4 +1,7 @@
 import { endlessRecordKey } from '../modes/sessions';
+import { applyWorkshopReward, type WorkshopReward } from '../equipment/workshop';
+import { NEUTRAL_KIT } from '../equipment/types';
+import { neutralKit } from '../equipment/catalog';
 import { ACHIEVEMENTS, type Achievement } from '../achievements/catalog';
 import { trainMastery } from './mastery';
 import { stageById, starXp } from '../campaign/journey';
@@ -18,6 +21,7 @@ import { levelFromXp, levelOf } from './levels';
 import { computeMatchXp, dayKey, EMPTY_AWARD, type XpAward, type XpLine } from './xp';
 
 export interface ProgressSummary {
+  readonly workshop: WorkshopReward;
   readonly profile: PlayerProfile;
   readonly award: XpAward;
   readonly xpBefore: number;
@@ -144,6 +148,26 @@ function applyStats(profile: PlayerProfile, result: MatchResult): boolean {
 
   if (result.mode === 'endless') {
     const key = endlessRecordKey(result.options);
+    if (result.equipment?.version === 1) {
+      const kit = result.equipment.kit;
+      const category = `${neutralKit(kit) ? 'neutral' : 'workshop'}-${key}`;
+      const record = profile.progress.workshop.endless[category] ?? {
+        rally: 0,
+        waves: 0,
+        kit: { ...NEUTRAL_KIT }
+      };
+      if (
+        (result.waves ?? 0) > record.waves ||
+        ((result.waves ?? 0) === record.waves && result.bestRally > record.rally)
+      )
+        profile.progress.workshop.endless[category] = {
+          rally: result.bestRally,
+          waves: result.waves ?? 0,
+          kit: { ...kit }
+        };
+      stats.endlessRuns++;
+      return result.bestRally > record.rally;
+    }
     const before = profile.progress.endlessRecords[key] ?? { rally: 0, waves: 0 };
     profile.progress.endlessRecords[key] = {
       rally: Math.max(before.rally, result.bestRally),
@@ -276,6 +300,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   const counts = result.ranked && !result.abandoned;
   if (!counts) {
     return {
+      workshop: { marks: 0, contracts: [] },
       profile: source,
       award: EMPTY_AWARD,
       xpBefore,
@@ -316,6 +341,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
     talentXpMul: 1
   });
   const modes = applyModes(profile, result);
+  const workshop = applyWorkshopReward(profile, result, modes.run);
   const award = withExtraLines(base, modes.lines);
   profile.xp += award.total;
   profile.daily.matches += 1;
@@ -334,6 +360,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
 
   return {
     profile,
+    workshop,
     award,
     xpBefore,
     xpAfter: profile.xp,

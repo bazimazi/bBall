@@ -1,4 +1,7 @@
 import { waveRecipe } from '../core/modes/sessions';
+import { BALANCE } from '../core/balance/config';
+import { NEUTRAL_KIT, materialRuntime } from '../core/equipment/types';
+import { kitName } from '../core/equipment/catalog';
 import { objectiveMet } from '../core/modes/rules';
 import { dayKey } from '../core/progression/xp';
 import type { MatchResult, MatchRules } from '../core/modes/types';
@@ -57,6 +60,11 @@ export function beginServe(world: World, dir: 1 | -1): void {
   centreBall(world);
   resetRally(world);
   resetRally(combatant(world, 'bot'));
+  for (const paddle of [world.player, world.bot]) {
+    paddle.material.stored = 0;
+    paddle.material.switchCharge = false;
+    paddle.material.switchesSeen = world.arena.course.events[paddle.side].switches;
+  }
   arenaServe(world);
   world.replay.reset();
   for (const brain of [botBrain, demoBrain]) {
@@ -156,6 +164,23 @@ export function launchBall(world: World): void {
   ball.vy = Math.sin(angle) * ball.speed;
   ball.owner = match.serveDir > 0 ? 'you' : 'bot';
 
+  if (world.rules.options?.bench) {
+    const bench = world.rules.options.bench;
+    ball.x = world.view.w * 0.65;
+    ball.y = FIELD_H / 2 + (bench === 'edge' ? 0.8 * world.player.half : 0);
+    ball.speed =
+      bench === 'attack'
+        ? Math.min(tuning.maxSpeed, BALANCE.equipment.benchAttackPace)
+        : BALANCE.equipment.benchPace;
+    ball.vx = -ball.speed;
+    ball.vy = 0;
+    ball.owner = 'bot';
+    world.botTalents.surge =
+      bench === 'attack'
+        ? Math.min(BALANCE.equipment.benchSurge, ball.speed - BALANCE.ball.hardMin)
+        : 0;
+  }
+
   if (match.status !== 'menu') world.audio.serve();
   match.status = 'play';
   // Intro cards should never cover the opening return after a quick serve.
@@ -253,6 +278,12 @@ export function celebrate(world: World): void {
 function buildResult(world: World, won: boolean, abandoned: boolean): MatchResult {
   const { match, rules } = world;
   const core = {
+    ...(rules.equipment
+      ? {
+          equipment: { ...rules.equipment, kit: { ...world.player.equipment } },
+          material: { ...world.player.material.stats }
+        }
+      : {}),
     mastery: masteryTags(rules, world.loadout.branch ?? null),
     ...(rules.options?.waves ? { waves: match.waveDepth } : {}),
     mode: rules.mode,
@@ -488,6 +519,10 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   const { match, fx } = world;
   world.tutorial = null;
   world.rules = rules;
+  world.player.equipment = { ...(rules.equipment?.kit ?? NEUTRAL_KIT) };
+  world.bot.equipment = { ...(rules.opponentEquipment ?? NEUTRAL_KIT) };
+  world.player.material = materialRuntime();
+  world.bot.material = materialRuntime();
   world.tuning = tuningFor(rules);
   // The build this match is played with: none at all in a two-player match,
   // the run's boons folded in for a Gauntlet one, the player's own otherwise.
@@ -561,7 +596,7 @@ function introBanner(world: World): void {
     // from their own ends of the court.
     fx.vsLeft = rules.versus ? 'Player 1' : world.playerName;
     fx.vsRight = rules.versus ? 'Player 2' : rules.bot.name;
-    fx.vsSub = rules.label;
+    fx.vsSub = rules.equipment ? `${rules.label} · ${kitName(world.bot.equipment)}` : rules.label;
     fx.vsTimer = VS_TIME;
     match.serveTimer += 0.55;
     return;
@@ -579,6 +614,8 @@ export function returnToMenu(world: World): void {
   const { match, fx } = world;
   world.tutorial = null;
   world.rules = attractRules();
+  world.player.equipment = { ...NEUTRAL_KIT };
+  world.bot.equipment = { ...NEUTRAL_KIT };
   world.tuning = tuningFor(world.rules);
   world.loadout = world.baseLoadout;
   applyPaddleSizes(world);

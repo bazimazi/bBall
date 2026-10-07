@@ -1,3 +1,4 @@
+import type { PaddleKit } from '../../core/equipment/types';
 import { advanceSeries, seriesComplete, type MatchSeries } from '../../core/modes/sessions';
 import type { TournamentFormat } from '../../core/tournament/bracket';
 import type { MatchOptions } from '../../core/modes/types';
@@ -54,6 +55,7 @@ export type ScreenId =
   | 'settings'
   | 'help'
   | 'talents'
+  | 'workshop'
   | 'demo'
   | 'playing'
   | 'result';
@@ -75,6 +77,9 @@ export interface GameFlow {
   pickMode: (mode: ModeId, options?: MatchOptions) => void;
   startQuick: (bot: BotLevelId, options?: MatchOptions) => void;
   startPractice: (bot: BotLevelId, options?: MatchOptions) => void;
+  startBench: (kit: PaddleKit, serve: 'routine' | 'attack' | 'edge') => void;
+  /** Trial kit restored when returning from Workshop practice. */
+  workshopKit: PaddleKit | null;
   startTutorial: () => void;
   startChallenge: (id: string) => void;
   startCup: (tier?: number, format?: TournamentFormat) => void;
@@ -120,23 +125,24 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   // commit, preserving that menu and preventing Back from reopening first-run edits.
   if (onboarded && stack[0] === 'onboarding') setStack(['home', ...stack.slice(1)]);
   const screen = stack[stack.length - 1] as ScreenId;
-  const setScreen = useCallback(
-    (next: ScreenId) =>
-      setStack((current) => (current[current.length - 1] === next ? current : [...current, next])),
-    []
-  );
+  const [workshopKit, setWorkshopKit] = useState<PaddleKit | null>(null);
+  const setScreen = useCallback((next: ScreenId) => {
+    if (next === 'workshop') setWorkshopKit(null);
+    setStack((current) => (current[current.length - 1] === next ? current : [...current, next]));
+  }, []);
   const replace = useCallback(
     (next: ScreenId) => setStack((current) => [...current.slice(0, -1), next]),
     []
   );
-  const back = useCallback(
-    () => setStack((current) => (current.length > 1 ? current.slice(0, -1) : current)),
-    []
-  );
+  const back = useCallback(() => {
+    if (screen === 'workshop') setWorkshopKit(null);
+    setStack((current) => (current.length > 1 ? current.slice(0, -1) : current));
+  }, [screen]);
   const [series, setSeries] = useState<MatchSeries | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [summary, setSummary] = useState<ProgressSummary | null>(null);
   const handled = useRef(0);
+  const lastRules = useRef<MatchRules | null>(null);
 
   const processFinished = useEffectEvent((finished: MatchResult) => {
     setResult(finished);
@@ -156,7 +162,10 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   const play = useCallback(
     (rules: MatchRules) => {
       enterPreferredFullscreen();
-      engine?.play(rules);
+      const prepared = progression.prepareMatch(rules);
+      if (!prepared.options?.bench) setWorkshopKit(null);
+      lastRules.current = prepared;
+      engine?.play(prepared);
       setScreen('playing');
     },
     [engine, setScreen]
@@ -185,9 +194,33 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const startTutorial = useCallback(() => {
     enterPreferredFullscreen();
+    lastRules.current = null;
+    setWorkshopKit(null);
     engine?.learn();
     setScreen('playing');
   }, [engine, setScreen]);
+
+  const startBench = useCallback(
+    (kit: PaddleKit, serve: 'routine' | 'attack' | 'edge') => {
+      setWorkshopKit({ ...kit });
+      progression.workshopAction({ type: 'compare', kit });
+      play({
+        ...practiceRules('wall', 'normal', { bench: serve }),
+        equipment: { version: 1, kit },
+        opponentEquipment: {
+          ...kit,
+          core: 'balanced-core',
+          surface: 'balanced-surface',
+          frame: 'balanced-frame',
+          insert: 'empty-insert',
+          tuning: 'standard'
+        },
+        label: 'Workshop bench · no rewards',
+        seed: `bench-${serve}`
+      });
+    },
+    [play]
+  );
 
   const startChallenge = useCallback(
     (id: string) => {
@@ -251,6 +284,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       // A demo swaps the whole profile out, so any match in flight belongs to
       // the save being parked and is dropped rather than carried over.
       engine?.quitToMenu();
+      lastRules.current = null;
+      setWorkshopKit(null);
       profileStore.startDemo(level);
       setResult(null);
       setSummary(null);
@@ -261,6 +296,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const exitDemo = useCallback(() => {
     engine?.quitToMenu();
+    lastRules.current = null;
+    setWorkshopKit(null);
     profileStore.endDemo();
     setResult(null);
     setSummary(null);
@@ -308,9 +345,21 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   );
 
   const quitToMenu = useCallback(() => {
+    const bench = !!lastRules.current?.options?.bench;
     engine?.quitToMenu();
+    lastRules.current = null;
     setSeries(null);
-    setStack(['home']);
+    setResult(null);
+    setSummary(null);
+    if (bench) {
+      setStack((current) => {
+        const workshop = current.lastIndexOf('workshop');
+        return workshop >= 0 ? current.slice(0, workshop + 1) : ['home', 'workshop'];
+      });
+    } else {
+      setWorkshopKit(null);
+      setStack(['home']);
+    }
   }, [engine]);
 
   const replay = useCallback(() => {
@@ -335,9 +384,10 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     }
     if (series && seriesComplete(series)) setSeries({ ...series, games: 0, you: 0, foe: 0 });
     enterPreferredFullscreen();
-    engine?.replay();
+    if (lastRules.current) play(lastRules.current);
+    else engine?.replay();
     replace('playing');
-  }, [engine, replace, snapshot.mode, playRun, series]);
+  }, [engine, replace, snapshot.mode, playRun, series, play]);
 
   /**
    * Leave the result card for a menu, tidying the finished match away.
@@ -349,6 +399,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   const leaveResult = useCallback(
     (next: ScreenId) => {
       engine?.quitToMenu();
+      if (next !== 'workshop' || !lastRules.current?.options?.bench) setWorkshopKit(null);
+      lastRules.current = null;
       setSeries(null);
       setStack(next === 'home' ? ['home'] : ['home', next]);
     },
@@ -367,6 +419,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     pickMode,
     startQuick,
     startPractice,
+    startBench,
+    workshopKit,
     startTutorial,
     startChallenge,
     startCup,

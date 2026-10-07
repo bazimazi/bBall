@@ -45,6 +45,12 @@ export const REPLAY_HIT_BOT = 2;
 export const REPLAY_WALL = 4;
 
 export class ReplayRecorder {
+  private readonly pg = new Float32Array(CAPACITY);
+  private readonly og = new Float32Array(CAPACITY);
+  private readonly pc = new Uint8Array(CAPACITY);
+  private readonly oc = new Uint8Array(CAPACITY);
+  private readonly pyHit = new Float32Array(CAPACITY);
+  private readonly oyHit = new Float32Array(CAPACITY);
   private readonly bx = new Float32Array(CAPACITY);
   private readonly by = new Float32Array(CAPACITY);
   private readonly bvx = new Float32Array(CAPACITY);
@@ -114,6 +120,12 @@ export class ReplayRecorder {
     this.py[i] = player.y;
     this.ph[i] = player.half;
     this.pf[i] = player.flash;
+    this.pg[i] = player.material.stored;
+    this.og[i] = bot.material.stored;
+    this.pc[i] = Number(player.material.switchCharge);
+    this.oc[i] = Number(bot.material.switchCharge);
+    this.pyHit[i] = player.hitY;
+    this.oyHit[i] = bot.hitY;
     this.oy[i] = bot.y;
     this.oh[i] = bot.half;
     this.of[i] = bot.flash;
@@ -239,6 +251,12 @@ export class ReplayRecorder {
     player.y = mix(this.py);
     player.half = mix(this.ph);
     player.flash = mix(this.pf);
+    player.material.stored = this.pg[a]!;
+    bot.material.stored = this.og[a]!;
+    player.material.switchCharge = this.pc[a] === 1;
+    bot.material.switchCharge = this.oc[a] === 1;
+    player.hitY = this.pyHit[a]!;
+    bot.hitY = this.oyHit[a]!;
     bot.y = mix(this.oy);
     bot.half = mix(this.oh);
     bot.flash = mix(this.of);

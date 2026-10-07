@@ -8,6 +8,7 @@ import type { PlayerProfile } from '../../core/profile/types';
 import { DailyResultCopy } from '../components/DailyResultCopy';
 import { QuestList } from '../components/QuestList';
 import { Screen } from '../components/Screen';
+import { PaddleNotice } from '../components/PaddleNotice';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { ChoiceGroup } from '../components/ChoiceGroup';
 import { GamePicker } from '../components/GamePicker';
@@ -108,6 +109,7 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
           { value: 'master', name: 'Master · Legend' }
         ]}
       />
+      <PaddleNotice profile={profile} policy="daily" dailyKey={key} />
       <div className={modes.stagger} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p role="status" aria-atomic="true" className={styles.note}>
           {changed ? 'A new Daily challenge is ready. Review its goals, then play when ready.' : ''}
@@ -215,6 +217,7 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
           >
             Play archive
           </button>
+          {archive && <PaddleNotice profile={profile} policy="daily" dailyKey={`a2-${archive}`} />}
         </MenuDisclosure>
 
         <p className={styles.note}>

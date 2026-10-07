@@ -101,6 +101,8 @@ try {
     onPrimary: noop,
     onSecondary: noop,
     onTalents: noop,
+    onBench: noop,
+    onWorkshop: noop,
     onHelp: noop,
     onTutorial: noop,
     onPractice: noop,
@@ -124,7 +126,8 @@ try {
     ['ResultScreen', 'result'],
     ['SettingsScreen', 'settings'],
     ['TalentScreen', 'talents'],
-    ['TournamentScreen', 'tournament']
+    ['TournamentScreen', 'tournament'],
+    ['WorkshopScreen', 'workshop']
   ];
   for (const [name, screen] of cases) {
     const component = createElement(pages[name], props);
@@ -170,7 +173,7 @@ try {
   assert.match(pending, /aria-label="Back"/);
   assert.match(pending, /Opening Settings/);
   console.log(
-    'All 16 lazy menu pages, Practice and court quality choices render; pending menus offer Back.'
+    'All 17 lazy menu pages, Practice and court quality choices render; pending menus offer Back.'
   );
 } finally {
   await vite.close();

@@ -7,6 +7,7 @@ import type { TalentMatchStats } from '../core/talents/types';
 import { aegisSaveCast, zenithRefundCast } from './casts';
 import { BALL_R, FIELD_H, MAX_BOUNCE_ANGLE } from './constants';
 import { growPaddle } from './paddle';
+import { equipmentReach, reboundBonus, surfaceResponse } from '../core/equipment/catalog';
 import { hsla, sideHue } from './palette';
 import type { AbilitySlot, Paddle, TalentRuntime } from './types';
 import { clamp } from './utils/math';
@@ -240,7 +241,11 @@ export function playerLength(world: World): number {
   const runtime = world.talents;
   const { talents } = BALANCE;
 
-  let length = clamp(effects.length + boostLength(world), talents.minLength, talents.maxLength);
+  let length = clamp(
+    effects.length + boostLength(world) + equipmentReach(world.player.equipment),
+    talents.minLength,
+    talents.maxLength
+  );
   // Clutch is a last stand rather than an everyday source, so like an
   // ultimate it may go past the everyday ceiling.
   if (effects.clutchLength > 0 && inClutch(world)) length += effects.clutchLength;
@@ -399,7 +404,12 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   // paddle the build has lengthened would quietly flatten every return -
   // more reach bought with worse placement. Scaling by the stretch keeps the
   // angle a given contact produces exactly where it was.
-  const rawOff = clamp(offset * world.player.grow, -1, 1);
+  const response = surfaceResponse(
+    world.player.equipment,
+    clamp(offset * world.player.grow, -1, 1),
+    offset
+  );
+  const rawOff = response.off;
 
   runtime.drive++;
   runtime.rallyReturns++;
@@ -474,6 +484,9 @@ export function playerReturn(world: World, offset: number): ReturnMods {
     runtime.tactics.rebound = 0;
   }
   if (inClutch(world)) growth += effects.clutchGrowth;
+  growth += reboundBonus(world.player.equipment, offset, charged || crit || guarded);
+  if (world.player.equipment.insert === 'copper' && growth > tuning.speedPerHit)
+    growth = tuning.speedPerHit + (growth - tuning.speedPerHit) * BALANCE.equipment.copperPassive;
   growth = Math.min(growth, BALANCE.talents.maxHitGrowth);
 
   // A heavy return may outrun the match's top speed by exactly what made it
@@ -503,7 +516,7 @@ export function playerReturn(world: World, offset: number): ReturnMods {
     off,
     growth: Math.max(0.5, growth),
     ceiling: Math.min(BALANCE.ball.hardMax, ceiling),
-    spin: effects.spinMul,
+    spin: Math.min(BALANCE.equipment.overallSpinMax, effects.spinMul * response.grip),
     angleLimit: Math.min(
       1.15,
       MAX_BOUNCE_ANGLE * (effects.angleMul + flowStacks(world) * effects.flowAngle)
@@ -514,6 +527,30 @@ export function playerReturn(world: World, offset: number): ReturnMods {
     overloaded,
     heft
   };
+}
+
+/** Inspect a return without spending live charges, touching counters or drawing gameplay randomness. */
+export function previewReturn(world: World, offset: number): ReturnMods {
+  const ghost = Object.create(world) as World;
+  const runtime = world.talents;
+  Object.defineProperties(ghost, {
+    player: {
+      value: {
+        ...world.player,
+        material: { ...world.player.material, stats: { ...world.player.material.stats } }
+      }
+    },
+    talents: {
+      value: {
+        ...runtime,
+        stats: { ...runtime.stats },
+        tactics: { ...runtime.tactics },
+        slots: runtime.slots.map((s) => ({ ...s }))
+      }
+    },
+    random: { value: () => 1 }
+  });
+  return playerReturn(ghost, offset);
 }
 
 // ------------------------------------------------------------ ball in flight

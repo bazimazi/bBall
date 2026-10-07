@@ -67,6 +67,15 @@
   cursor: pointer;
 }
 
+.equipment {
+  font-size: 10px;
+  line-height: 1.2;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .goals strong {
   flex: 1;
 }

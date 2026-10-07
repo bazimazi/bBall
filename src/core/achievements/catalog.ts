@@ -1,4 +1,5 @@
 import { starCount } from '../modes/stars';
+import { workshopMilestone } from '../equipment/workshop';
 import { MASTERY_TRACKS } from '../progression/mastery';
 import { JOURNEY, LEGACY_STAGES, totalStars, worldCleared } from '../campaign/journey';
 import { LEGACY_BOSSES, BOSSES } from '../modes/bosses';
@@ -409,6 +410,17 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     check: ({ profile }: AchievementContext) => profile.progress.runRecords.bestPressure >= n,
     progress: ({ profile }: AchievementContext) =>
       ratio(Math.max(0, profile.progress.runRecords.bestPressure), n)
+  })),
+  ...[2, 3, 4, 5].map((stage) => ({
+    id: `workshop-${stage}`,
+    name: ['Contact artisan', 'Frame artisan', 'Material artisan', 'Signature artisan'][stage - 2]!,
+    description: `Reach Workshop milestone ${stage}`,
+    group: 'skill' as const,
+    xp: 100,
+    check: ({ profile }: AchievementContext) =>
+      workshopMilestone(profile.progress.workshop) >= stage,
+    progress: ({ profile }: AchievementContext) =>
+      ratio(workshopMilestone(profile.progress.workshop), stage)
   })),
   ...MASTERY_TRACKS.map((t) => ({
     id: `track-${t.id}`,

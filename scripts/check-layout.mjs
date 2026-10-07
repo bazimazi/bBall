@@ -26,6 +26,9 @@ import { dayKey } from '/src/core/progression/xp.ts';
 import { idleSnapshot } from '/src/game/engine.ts';
 import { HomeScreen } from '/src/ui/screens/HomeScreen.tsx';
 import { ModesScreen } from '/src/ui/screens/ModesScreen.tsx';
+import { WorkshopScreen } from '/src/ui/screens/WorkshopScreen.tsx';
+import { COMPONENTS } from '/src/core/equipment/catalog.ts';
+import { WORKSHOP_CONTRACTS } from '/src/core/equipment/workshop.ts';
 import { DifficultyScreen } from '/src/ui/screens/DifficultyScreen.tsx';
 import { JourneyScreen } from '/src/ui/screens/JourneyScreen.tsx';
 import { GauntletScreen } from '/src/ui/screens/GauntletScreen.tsx';
@@ -46,7 +49,7 @@ import { Hud } from '/src/ui/Hud.tsx';
 const root = createRoot(document.getElementById('root'));
 let revision = 0;
 const noop = () => {};
-const components = { home: HomeScreen, modes: ModesScreen, quick: DifficultyScreen,
+const components = { home: HomeScreen, workshop: WorkshopScreen, modes: ModesScreen, quick: DifficultyScreen,
   practice: DifficultyScreen, journey: JourneyScreen, gauntlet: GauntletScreen,
   run: GauntletScreen, draft: GauntletScreen, daily: DailyScreen,
   challenge: ChallengeScreen, tournament: TournamentScreen, profile: ProfileScreen, talents: TalentScreen,
@@ -57,6 +60,15 @@ window.layoutReview = {
   async render(name, state = 'fresh') {
     const profile = state === 'fresh' ? createProfile() : createDemoProfile(100, createProfile());
     profile.onboarded = true;
+    if (name === 'workshop' && state !== 'fresh') {
+      Object.assign(profile.progress.workshop, {introduced:true, marks:9999,
+        owned:COMPONENTS.map(c=>c.id), surfaces:['rubber','ceramic'], signatures:1234,
+        contracts:Object.fromEntries(WORKSHOP_CONTRACTS.map(c=>[c.id,c.target])),
+        equipped:{core:'memory-gel',surface:'split',frame:'extended',insert:'empty-insert',tuning:'grip'}});
+      profile.progress.workshop.presets = ['Centre placement paddle', 'Rubbery moving edge kit', '攻撃を受け止めて次の一撃で返すための長い名前'].map(name => ({name,kit:{...profile.progress.workshop.equipped}}));
+      profile.progress.run = {...createRun('layout-workshop', 20, Date.now(), 'expedition'), stage:6, credits:6,
+        equipment:{version:1,kit:{...profile.progress.workshop.equipped}}};
+    }
     if (state !== 'fresh') {
       profile.stats.matches = 50;
       profile.progress.journey = Object.fromEntries(LEGACY_STAGES.map(s => [s.id, 7]));
@@ -99,6 +111,8 @@ window.layoutReview = {
     const snapshot = {...idleSnapshot(), mode:state === 'goals' ? 'campaign' : 'quick',
       scoreYou:3, scoreBot:2, winScore:5, canPause:true, opponentName:'Legend · opportunist',
       rallyPressure:40, enemyAbilities:ABILITY_DEFS.slice(0,4).map(skill),
+      paddleKit:'Memory gel · Split surface · Extended frame · Grip tuning',
+      opponentKit:'Springsteel · Ceramic', materialCharge:true,
       goals:state === 'goals' ? [{id:'win', label:'Win the match',progress:'3 / 5 points',state:'active'},
         {id:'rails',label:'Land 6 rail banks',progress:'4 / 6 rail banks',state:'reached'},
         {id:'margin',label:'Win by two points',progress:'1 / 2 points',state:'active'}] : []};
@@ -108,6 +122,7 @@ window.layoutReview = {
       onPick:(...args)=>window.layoutReview.actions.push(args), onPlay:noop, onBack:noop,
       onAbandon:noop, onModes:noop, onExitDemo:noop, onProfile:noop, onTalents:noop,
       onSettings:noop, onHelp:noop, onAccount:noop, onAchievements:noop, onCustomize:noop, onDemo:noop,
+      onWorkshop:noop, onBench:noop,
       onPreview:noop, onMusicPreview:noop, onStopPreview:noop, onTutorial:noop, onPractice:noop, onExit:noop};
     if (name === 'result') Object.assign(props, {result, summary:applyMatchResult(profile,result),
       label:'Layout review', primaryLabel:'Continue', secondaryLabel:'Menu', onPrimary:noop, onSecondary:noop});
@@ -169,8 +184,14 @@ try {
   }
   async function layout(label) {
     await page.waitForFunction(() =>
-      [...document.querySelectorAll('[data-picker-sheet]')].every((sheet) =>
-        sheet.getAnimations().every((animation) => animation.playState === 'finished')
+      [
+        ...document.querySelectorAll(
+          '[data-picker-sheet], [data-disclosure], [data-workshop-view], [data-workshop-detail]'
+        )
+      ].every((sheet) =>
+        sheet
+          .getAnimations({ subtree: true })
+          .every((animation) => animation.playState === 'finished')
       )
     );
     const problems = await page.evaluate(() => {
@@ -180,7 +201,7 @@ try {
       if (screen.querySelector('select, input[type="date"]'))
         problems.push('Browser-owned picker remains');
       for (const el of screen.querySelectorAll('button, select, input, summary, progress')) {
-        if (!el.getClientRects().length) continue;
+        if (!el.getClientRects().length || el.closest('[inert], [aria-hidden="true"]')) continue;
         let scrolls = false;
         for (
           let parent = el.parentElement;
@@ -199,6 +220,12 @@ try {
           problems.push('Small target: ' + el.textContent.trim().slice(0, 35));
       }
       for (const dialog of document.querySelectorAll('[role="dialog"]')) {
+        const detail = dialog.querySelector('[data-workshop-detail]');
+        if (detail) {
+          const r = detail.getBoundingClientRect();
+          if (r.left < 0 || r.top < 0 || r.right > innerWidth || r.bottom > innerHeight)
+            problems.push('Workshop detail outside viewport');
+        }
         const sheet = dialog.querySelector('[class*="_sheet_"]');
         if (!sheet) continue;
         const r = sheet.getBoundingClientRect();
@@ -221,6 +248,35 @@ try {
           problems.push('Result row overflows: ' + el.textContent);
       }
       const body = [...screen.children].find((el) => getComputedStyle(el).overflowY === 'auto');
+      if (screen.querySelector('[data-workshop-view]') && body) {
+        if (body.scrollHeight > body.clientHeight + 1)
+          problems.push(
+            `Workshop view requires vertical scrolling: ${body.scrollHeight}/${body.clientHeight}`
+          );
+        const bounds = body.getBoundingClientRect();
+        for (const el of body.querySelectorAll('button, input')) {
+          const box = el.getBoundingClientRect();
+          if (box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1)
+            problems.push(
+              'Workshop control outside visible body: ' +
+                (el.getAttribute('aria-label') || el.textContent)
+            );
+          if (box.height < 43) problems.push('Small Workshop target: ' + el.textContent);
+        }
+      }
+      const comparison = screen.querySelector('[data-workshop-comparison]');
+      if (comparison) {
+        const bounds = comparison.getBoundingClientRect();
+        for (const el of comparison.querySelectorAll('button, p, b')) {
+          const box = el.getBoundingClientRect();
+          if (
+            box.left < bounds.left ||
+            box.right > bounds.right ||
+            el.scrollWidth > el.clientWidth + 1
+          )
+            problems.push('Workshop comparison content escapes its card');
+        }
+      }
       if (body && body.clientHeight < 80) problems.push('Menu body crushed');
       const heading = screen.querySelector('header > span');
       const sound = document.querySelector('[aria-label="Mute sound"]');
@@ -325,11 +381,260 @@ try {
     assert.equal(await page.locator('#root').getAttribute('inert'), null);
     checks++;
   }
+  async function disclosureMotion(size) {
+    await render('modes');
+    const trigger = page.getByRole('button', { name: /^Court & couch rules/ });
+    const panel = page.locator(`[id="${await trigger.getAttribute('aria-controls')}"]`);
+    const sample = (interrupted = false) =>
+      panel.evaluate((el, interrupted) => {
+        const trigger = el.previousElementSibling;
+        const animations = [...el.getAnimations(), ...trigger.getAnimations({ subtree: true })];
+        if (!animations.length) return null;
+        for (const animation of animations) animation.pause();
+        const frames = [0, 0.5, 1].map((progress) => {
+          for (const animation of animations)
+            animation.currentTime = animation.effect.getTiming().duration * progress;
+          return {
+            height: el.getBoundingClientRect().height,
+            opacity: Number(getComputedStyle(el).opacity),
+            chevron: getComputedStyle(trigger, '::after').transform
+          };
+        });
+        const durations = animations.map((animation) => animation.effect.getTiming().duration);
+        for (const animation of animations) {
+          if (interrupted) animation.currentTime = animation.effect.getTiming().duration / 2;
+          else animation.finish();
+        }
+        return { frames, durations };
+      }, interrupted);
+    assert.equal(await panel.getAttribute('inert'), '');
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+    assert.equal(await panel.evaluate((el) => el.getBoundingClientRect().height), 0);
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    const opening = await sample();
+    assert.ok(opening, `${size}: disclosure opening animates`);
+    const [closed, middle, open] = opening.frames;
+    assert.equal(closed.height, 0);
+    assert.ok(middle.height > closed.height && middle.height < open.height);
+    assert.equal(closed.opacity, 0);
+    assert.ok(middle.opacity > 0 && middle.opacity < 1);
+    assert.equal(open.opacity, 1);
+    assert.notEqual(closed.chevron, middle.chevron);
+    assert.notEqual(middle.chevron, open.chevron);
+    assert.equal(await panel.getAttribute('inert'), null);
+    await page.keyboard.press('Tab');
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Court for Endless and Versus', exact: true })
+        .evaluate((el) => el === document.activeElement),
+      true,
+      'expanded rules are keyboard reachable'
+    );
+    await choose('Versus series', 3);
+    await trigger.focus();
+    await page.keyboard.press('Space');
+    const closing = await sample();
+    assert.ok(closing, `${size}: disclosure closing animates`);
+    assert.ok(closing.frames[0].height > closing.frames[1].height);
+    assert.ok(closing.frames[1].height > closing.frames[2].height);
+    assert.equal(closing.frames[2].height, 0);
+    assert.ok(closing.frames[0].opacity > closing.frames[1].opacity);
+    assert.equal(closing.frames[2].opacity, 0);
+    assert.equal(closing.frames[2].chevron, closed.chevron);
+    assert.equal(await panel.getAttribute('aria-hidden'), 'true');
+    await page.keyboard.press('Tab');
+    assert.equal(
+      await page
+        .getByRole('button', { name: /Quick Match/ })
+        .evaluate((el) => el === document.activeElement),
+      true,
+      'collapsed rules are skipped by Tab'
+    );
+    await trigger.evaluate((el) => el.click());
+    const interrupted = await sample(true);
+    assert.ok(interrupted, `${size}: rapid opening animates`);
+    await trigger.evaluate((el) => el.click());
+    const reversed = await sample();
+    assert.ok(reversed, `${size}: rapid closing animates`);
+    assert.ok(Math.abs(reversed.frames[0].height - interrupted.frames[1].height) < 1);
+    assert.ok(Math.abs(reversed.frames[0].opacity - interrupted.frames[1].opacity) < 0.01);
+    assert.equal(reversed.frames[2].height, 0);
+    await trigger.click();
+    await sample();
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Versus series', exact: true })
+        .getAttribute('data-value'),
+      '3',
+      'selected rules survive collapse and rapid reversals'
+    );
+    checks++;
+    return { opening, closing };
+  }
+  async function workshopMotion(size) {
+    await render('workshop', 'advanced');
+    const tab = (name) => page.getByRole('button', { name, exact: true });
+    const panel = (name) => page.locator(`[data-workshop-motion="${name}"]`);
+    const sample = (target, marker = false, interrupted = false) =>
+      target.evaluate(
+        (el, { marker, interrupted }) => {
+          const animation = el
+            .getAnimations({ subtree: marker })
+            .find((a) =>
+              marker
+                ? a.transitionProperty === 'transform'
+                : a.effect.getKeyframes().some((frame) => frame.transform !== undefined)
+            );
+          if (!animation) return null;
+          animation.pause();
+          const duration = animation.effect.getTiming().duration;
+          const frames = [0, 0.5, 1].map((progress) => {
+            animation.currentTime = duration * progress;
+            const style = getComputedStyle(el, marker ? '::before' : null);
+            const matrix = new DOMMatrixReadOnly(style.transform);
+            return {
+              x: matrix.m41,
+              y: matrix.m42,
+              scale: matrix.a,
+              opacity: Number(style.opacity)
+            };
+          });
+          if (interrupted) animation.currentTime = duration / 2;
+          else animation.finish();
+          return { duration, frames };
+        },
+        { marker, interrupted }
+      );
+    const assertSlide = (motion, direction, name) => {
+      assert.ok(motion, `${size}: ${name} animates`);
+      assert.equal(motion.duration, 260);
+      assert.equal(motion.frames[0].x, direction * 10);
+      assert.ok(Math.abs(motion.frames[1].x) < 10 && Math.abs(motion.frames[1].x) > 0);
+      assert.equal(motion.frames[2].x, 0);
+      assert.equal(motion.frames[0].opacity, 0);
+      assert.ok(motion.frames[1].opacity > 0 && motion.frames[1].opacity < 1);
+      assert.equal(motion.frames[2].opacity, 1);
+    };
+    const click = async (name) => {
+      await tab(name).focus();
+      await tab(name).evaluate((el) => el.click());
+    };
+    await click('Practice');
+    const forward = await sample(panel('view'));
+    assertSlide(forward, 1, 'view change');
+    const marker = await sample(page.getByRole('navigation', { name: 'Workshop views' }), true);
+    assert.ok(marker, `${size}: active view marker slides`);
+    assert.equal(marker.duration, 240);
+    assert.ok(marker.frames[0].x < marker.frames[1].x && marker.frames[1].x < marker.frames[2].x);
+    assert.equal(await tab('Practice').evaluate((el) => el === document.activeElement), true);
+    await click('Build');
+    assertSlide(await sample(panel('view')), -1, 'backward view change');
+    await click('Progress');
+    const partial = await sample(panel('view'), false, true);
+    await click('Saved');
+    const reversed = await sample(panel('view'));
+    assert.ok(
+      Math.abs(reversed.frames[0].x - partial.frames[1].x) < 0.1,
+      'rapid tab changes continue from the visible position'
+    );
+    assert.ok(Math.abs(reversed.frames[0].opacity - partial.frames[1].opacity) < 0.01);
+    await click('Paddle preset 3');
+    assertSlide(await sample(panel('preset')), 1, 'preset change');
+    await page.getByLabel('Preset name').fill('Keep my draft');
+    await click('Build');
+    await sample(panel('view'));
+    await click('Core');
+    assertSlide(await sample(panel('materials')), -1, 'part change');
+    const coreMarker = await sample(
+      page.getByRole('group', { name: 'Paddle parts', exact: true }),
+      true
+    );
+    assert.ok(coreMarker, `${size}: part marker slides`);
+    await click('Previous materials');
+    assertSlide(await sample(panel('materials')), -1, 'previous materials');
+    await click('Next materials');
+    assertSlide(await sample(panel('materials')), 1, 'next materials');
+    await click('Select Cork');
+    const paddle = await sample(panel('paddle'));
+    assert.ok(paddle, `${size}: selected paddle responds`);
+    assert.equal(paddle.duration, 240);
+    assert.ok(
+      paddle.frames[0].scale < paddle.frames[1].scale &&
+        paddle.frames[1].scale < paddle.frames[2].scale
+    );
+    assert.equal(await tab('Select Cork').evaluate((el) => el === document.activeElement), true);
+    await click('Tuning');
+    await sample(panel('materials'));
+    await page
+      .getByRole('group', { name: 'Tuning settings' })
+      .getByRole('button')
+      .filter({ hasText: 'Firm' })
+      .evaluate((el) => el.click());
+    assert.ok(
+      await sample(page.getByRole('group', { name: 'Tuning settings' }), true),
+      'tuning marker slides'
+    );
+    await click('Progress');
+    await sample(panel('view'));
+    await click('Next contract');
+    assertSlide(await sample(panel('contract')), 1, 'contract change');
+    await click('Saved');
+    await sample(panel('view'));
+    assert.equal(await page.getByLabel('Preset name').inputValue(), 'Keep my draft');
+    await click('Practice');
+    await sample(panel('view'));
+    await click('Compare return paths');
+    const detail = page.locator('[data-workshop-detail]');
+    const opening = await sample(detail, false, true);
+    assert.ok(opening, `${size}: detail opens with motion`);
+    assert.equal(opening.duration, 280);
+    assert.ok(
+      opening.frames[0].y > opening.frames[1].y && opening.frames[1].y > opening.frames[2].y
+    );
+    await page.keyboard.press('Escape');
+    const closing = await sample(detail);
+    assert.ok(closing, `${size}: detail closes with motion`);
+    assert.equal(closing.duration, 180);
+    assert.ok(
+      Math.abs(closing.frames[0].y - opening.frames[1].y) < 0.1,
+      'early dismissal continues from the visible position'
+    );
+    assert.ok(Math.abs(closing.frames[0].opacity - opening.frames[1].opacity) < 0.01);
+    assert.equal(
+      await page.locator('#root').getAttribute('inert'),
+      '',
+      'background stays blocked through exit'
+    );
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    assert.equal(
+      await tab('Compare return paths').evaluate((el) => el === document.activeElement),
+      true
+    );
+    assert.equal(await page.locator('#root').getAttribute('inert'), null);
+    await click('Compare return paths');
+    await sample(detail);
+    await click('Moving');
+    assertSlide(await sample(panel('paths')), 1, 'contact motion change');
+    assert.ok(await sample(page.getByRole('group', { name: 'Contact motion' }), true));
+    await click('Close details');
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    await click('Build');
+    await sample(panel('view'));
+    assert.match(
+      await page.locator('[aria-label^="Paddle assembly preview:"]').getAttribute('aria-label'),
+      /Cork.*Firm/
+    );
+    await layout(`${size}-workshop-motion`);
+    checks++;
+    return { forward, marker, paddle, opening };
+  }
   for (const [size, viewport] of Object.entries(viewports)) {
     await page.setViewportSize(viewport);
     for (const name of [
       'home',
       'modes',
+      'workshop',
       'quick',
       'practice',
       'journey',
@@ -360,10 +665,88 @@ try {
         );
       }
       if (['modes', 'quick', 'practice', 'profile', 'talents'].includes(name)) {
-        await page.locator('details > summary').first().click();
+        await page.locator('[data-disclosure] > button').first().click();
         await layout(`${size}-${name}-expanded`);
       }
     }
+    const disclosure = await disclosureMotion(size);
+    if (size === 'phone') {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      assert.deepEqual(
+        await disclosureMotion('phone-reduced-motion'),
+        disclosure,
+        'system reduced motion has no effect on disclosure transitions'
+      );
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+    }
+    const motion = await workshopMotion(size);
+    if (size === 'phone') {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      assert.deepEqual(
+        await workshopMotion('phone-reduced-motion'),
+        motion,
+        'system reduced motion has no effect on Workshop navigation'
+      );
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+    }
+    await render('workshop', 'advanced');
+    await layout(`${size}-workshop-advanced`);
+    await page.getByRole('button', { name: 'Contact surface', exact: true }).click();
+    await layout(`${size}-workshop-material-choices`);
+    const selectMaterial = async (name) => {
+      const previous = page.getByRole('button', { name: 'Previous materials', exact: true });
+      while (await previous.isEnabled()) await previous.click();
+      const material = page.getByRole('button', { name: `Select ${name}`, exact: true });
+      for (let i = 0; i < 3 && !(await material.count()); i++)
+        await page.getByRole('button', { name: 'Next materials', exact: true }).click();
+      return material;
+    };
+    await selectMaterial('Rubber');
+    const rubber = page.getByRole('button', { name: 'Select Rubber', exact: true });
+    await rubber.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await rubber.getAttribute('aria-pressed'), 'true');
+    assert.equal(await rubber.evaluate((el) => el === document.activeElement), true);
+    await layout(`${size}-workshop-rubber`);
+    await page.getByRole('button', { name: 'Core', exact: true }).click();
+    await layout(`${size}-workshop-cores`);
+    await page.getByRole('button', { name: 'Frame', exact: true }).click();
+    await layout(`${size}-workshop-frames`);
+    await page.getByRole('button', { name: 'Insert', exact: true }).click();
+    await page.getByRole('button', { name: 'Select Copper', exact: true }).click();
+    await layout(`${size}-workshop-copper`);
+    await page.getByRole('button', { name: 'Tuning', exact: true }).click();
+    await layout(`${size}-workshop-tuning`);
+    await page.getByRole('button', { name: 'Tuning details', exact: true }).click();
+    await layout(`${size}-workshop-tuning-details`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'Progress', exact: true }).click();
+    await layout(`${size}-workshop-contracts`);
+    for (let i = 1; i < 6; i++) {
+      await page.getByRole('button', { name: 'Next contract', exact: true }).click();
+      await layout(`${size}-workshop-contract-${i + 1}`);
+    }
+    await page.getByRole('button', { name: 'Saved', exact: true }).click();
+    await layout(`${size}-workshop-presets`);
+    await page.getByRole('button', { name: 'Paddle preset 3', exact: true }).click();
+    await layout(`${size}-workshop-long-preset`);
+    await page.getByRole('button', { name: 'Gauntlet service', exact: true }).click();
+    await layout(`${size}-workshop-service`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'Practice', exact: true }).click();
+    await layout(`${size}-workshop-practice`);
+    await page.getByRole('button', { name: 'Compare return paths', exact: true }).click();
+    await layout(`${size}-workshop-paths`);
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Compare return paths', exact: true })
+        .evaluate((el) => el === document.activeElement),
+      true
+    );
     await render('journey');
     await pickerMotion(size);
     if (size === 'phone') {
@@ -640,10 +1023,104 @@ try {
     await unsupportedPage.close();
   }
 
+  // Check the Workshop's column/compact breakpoints as well as device-sized views.
+  for (const [size, viewport] of Object.entries({
+    'compact-wide': { width: 701, height: 568 },
+    'compact-medium': { width: 699, height: 660 }
+  })) {
+    await page.setViewportSize(viewport);
+    await render('workshop', 'advanced');
+    for (const view of ['Build', 'Practice', 'Progress', 'Saved']) {
+      await page.getByRole('button', { name: view, exact: true }).click();
+      await layout(`${size}-workshop-${view.toLowerCase()}`);
+    }
+  }
+
   // Exercise the actual app and canvas, using an isolated browser save.
   await page.setViewportSize(viewports.phone);
   await page.goto(url);
   await page.getByRole('button', { name: 'Skip', exact: true }).click();
+  await page.getByRole('button', { name: 'Workshop', exact: true }).click();
+  await page.getByRole('button', { name: 'Select Rubber', exact: true }).click();
+  await page.getByRole('button', { name: 'Compare selected kit', exact: true }).click();
+  await page.getByRole('button', { name: 'Craft · 12 Marks', exact: true }).click();
+  await page.getByRole('button', { name: 'Equip paddle', exact: true }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  for (const effects of ['Full', 'Calm']) {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page
+      .getByRole('group', { name: 'Visual effects', exact: true })
+      .getByRole('button', { name: effects, exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: 'Workshop', exact: true }).click();
+    await page.getByRole('button', { name: 'Core', exact: true }).click();
+    await page.getByRole('button', { name: 'Next materials', exact: true }).click();
+    await page.getByRole('button', { name: 'Select Memory gel', exact: true }).click();
+    const bench = page.getByRole('button', {
+      name: 'Try selected paddle · no rewards',
+      exact: true
+    });
+    const box = await bench.boundingBox();
+    assert.ok(box.y + box.height <= viewports.phone.height, 'Loan bench action stays visible');
+    await page.getByRole('button', { name: 'Practice', exact: true }).click();
+    await page.getByRole('button', { name: 'Incoming attack', exact: true }).click();
+    await page.getByRole('button', { name: 'Pause game', exact: true }).waitFor();
+    const mute = page.getByRole('button', { name: 'Mute sound', exact: true });
+    if (await mute.count()) await mute.click();
+    await page.waitForTimeout(1800);
+    await page.keyboard.press('Space');
+    await page.getByText(/Impact stored/).waitFor();
+    if (screenshots)
+      await page.screenshot({
+        path: join(screenshots, `app-phone-workshop-${effects.toLowerCase()}-muted.png`)
+      });
+    await page.getByRole('button', { name: 'Pause game', exact: true }).click();
+    await page.getByRole('button', { name: 'Back to Workshop', exact: true }).click();
+    await page.getByRole('heading', { name: 'Paddle Workshop', exact: true }).waitFor();
+    assert.match(
+      await page.getByRole('img', { name: /^Paddle assembly preview:/ }).getAttribute('aria-label'),
+      /Memory gel/
+    );
+    if (effects === 'Full') {
+      await page.getByRole('button', { name: 'Tuning', exact: true }).click();
+      await page
+        .getByRole('group', { name: 'Tuning settings', exact: true })
+        .getByRole('button', { name: /^Grip/ })
+        .click();
+      await page
+        .getByRole('button', { name: 'Try selected paddle · no rewards', exact: true })
+        .click();
+      await page.getByRole('button', { name: 'Pause game', exact: true }).click();
+      await page.getByRole('button', { name: 'Restart', exact: true }).click();
+      await page.getByRole('button', { name: 'Pause game', exact: true }).waitFor();
+      // Browser/native Back first pauses, then exits to the Workshop.
+      await page.evaluate(() => window.dispatchEvent(new window.PopStateEvent('popstate')));
+      await page.getByRole('heading', { name: 'Paused', exact: true }).waitFor();
+      await page.evaluate(() => window.dispatchEvent(new window.PopStateEvent('popstate')));
+      await page.getByRole('heading', { name: 'Paddle Workshop', exact: true }).waitFor();
+      assert.match(
+        await page
+          .getByRole('img', { name: /^Paddle assembly preview:/ })
+          .getAttribute('aria-label'),
+        /Memory gel.*Grip tuning/
+      );
+      checks++;
+    }
+    if (screenshots)
+      await page.screenshot({
+        path: join(screenshots, `app-phone-workshop-return-${effects.toLowerCase()}.png`),
+        animations: 'disabled'
+      });
+    const workshop = await page.evaluate(
+      () => JSON.parse(window.localStorage.getItem('bball.profile')).data.progress.workshop
+    );
+    assert.equal(workshop.equipped.core, 'balanced-core');
+    assert.equal(workshop.equipped.surface, 'rubber');
+    assert.equal(workshop.marks, 0, 'Loan practice pays no Marks');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    checks++;
+  }
   await page.getByRole('button', { name: 'More modes', exact: true }).click();
   await page.getByRole('button', { name: /Quick Match/ }).click();
   await page.getByRole('button', { name: /Legend/ }).click();

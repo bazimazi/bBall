@@ -155,6 +155,40 @@ export const updateProfileSchema = z
 
 const count = (max: number) => z.number().int().min(0).max(max);
 
+export const paddleKitSchema = z
+  .object({
+    core: z.enum(['balanced-core', 'springsteel', 'cork', 'memory-gel']),
+    surface: z.enum(['balanced-surface', 'rubber', 'ceramic', 'graphite', 'woven', 'split']),
+    frame: z.enum(['balanced-frame', 'extended', 'compact']),
+    insert: z.enum(['empty-insert', 'copper']),
+    tuning: z.enum(['standard', 'firm', 'grip'])
+  })
+  .strict();
+export const equipmentSnapshotSchema = z
+  .object({ version: count(1), kit: paddleKitSchema, attemptId: clientIdSchema.optional() })
+  .strict();
+export const workshopActionSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('compare'), kit: paddleKitSchema }).strict(),
+  z.object({ type: z.literal('craft'), component: z.string().min(1).max(32) }).strict(),
+  z.object({ type: z.literal('equip'), kit: paddleKitSchema }).strict(),
+  z.object({ type: z.literal('service'), kit: paddleKitSchema }).strict(),
+  z
+    .object({
+      type: z.literal('preset'),
+      slot: count(2),
+      action: z.enum(['save', 'load']),
+      name: z.string().max(24).optional()
+    })
+    .strict()
+]);
+export const prepareMatchSchema = z
+  .object({
+    id: clientIdSchema,
+    equipment: equipmentSnapshotSchema,
+    identity: z.string().min(1).max(512)
+  })
+  .strict();
+
 export const talentMatchStatsSchema = z
   .object({
     abilitiesUsed: count(100_000),
@@ -171,6 +205,17 @@ export const talentMatchStatsSchema = z
 
 export const matchSubmissionSchema = z
   .object({
+    equipment: equipmentSnapshotSchema.optional(),
+    material: z
+      .object({
+        centres: count(100000),
+        moving: count(100000),
+        edges: count(100000),
+        absorbed: count(100000),
+        releases: count(100000)
+      })
+      .strict()
+      .optional(),
     clientMatchId: clientIdSchema,
     mode: modeSchema,
     botId: botSchema,
@@ -279,6 +324,8 @@ export const claimSchema = z.object({ save: localSaveSchema }).strict();
 const opId = clientIdSchema;
 
 export const syncOpSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('workshop.action'), opId, payload: workshopActionSchema }).strict(),
+  z.object({ kind: z.literal('match.prepare'), opId, payload: prepareMatchSchema }).strict(),
   z.object({ kind: z.literal('match'), opId, payload: matchSubmissionSchema }).strict(),
   z
     .object({

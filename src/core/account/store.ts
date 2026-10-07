@@ -22,6 +22,7 @@ import type {
   UserDto
 } from '../../../shared/protocol';
 import { profileStore } from '../profile/store';
+import { keepLocalPractice } from './localPractice';
 import {
   AccountChangedError,
   ApiError,
@@ -623,6 +624,16 @@ class AccountStore {
 
         if (generation !== this.sessionGeneration) return;
 
+        for (const result of response.results) {
+          if (result.status !== 'rejected') continue;
+          const op = batch.find((entry) => entry.opId === result.opId);
+          if (op?.kind === 'match')
+            keepLocalPractice(
+              response.profile.userId,
+              op.payload,
+              result.reason ?? 'Not accepted for rewards.'
+            );
+        }
         resolveOps(response.results.map((result) => result.opId));
         profileStore.applyCloud(response.profile);
 

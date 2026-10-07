@@ -89,7 +89,9 @@ export function drawPaddleBody(
   const y0 = top + inset;
   const y1 = top + h - inset;
   // A gentle bow of the whole paddle, deepest at the contact - never a kink.
-  const bow = Math.min(1, flash) * 3.6;
+  const rubbery = paddle.equipment.surface === 'rubber' || paddle.equipment.surface === 'split';
+  const firm = paddle.equipment.core === 'springsteel' || paddle.equipment.surface === 'ceramic';
+  const bow = Math.min(1, flash) * (rubbery ? 5 : firm ? 1.8 : 3.6);
   const hitY = paddle.y + clamp(paddle.hitY, -paddle.half, paddle.half) * 0.6;
   const sigma = Math.max(22, h * 0.45);
   for (let i = 0; i < SPINE; i++) {
@@ -125,6 +127,58 @@ export function drawPaddleBody(
       spineLight(ctx, hue, w, flash, 1);
   }
 
+  if (styled && theme.paddleEngraving > 0) {
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = hsla(hue, 20, 98, 0.85);
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < theme.paddleEngraving; i++) {
+      const y = top + h * 0.2 + i * 6;
+      ctx.beginPath();
+      ctx.moveTo(cx - w * 0.3, y);
+      ctx.lineTo(cx, y + 3);
+      ctx.lineTo(cx + w * 0.3, y);
+      ctx.stroke();
+    }
+  }
+  // Contact identity survives muted sound and the Calm effects setting.
+  if (
+    paddle.equipment.surface !== 'balanced-surface' ||
+    paddle.equipment.core !== 'balanced-core'
+  ) {
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = hsla(hue, 25, 94, 0.9);
+    ctx.lineWidth = 1.5;
+    const marks = paddle.equipment.surface === 'ceramic' ? 1 : rubbery ? 3 : 2;
+    for (let i = 0; i < marks; i++) {
+      const y = paddle.y + (i - (marks - 1) / 2) * 7;
+      ctx.beginPath();
+      ctx.moveTo(cx - w / 3, y);
+      ctx.lineTo(cx + w / 3, y);
+      ctx.stroke();
+    }
+    if (paddle.equipment.surface === 'split') {
+      for (const sign of [-1, 1]) {
+        const y = paddle.y + sign * paddle.half * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - w / 2, y);
+        ctx.lineTo(cx + w / 2, y);
+        ctx.stroke();
+      }
+    }
+  }
+  if (paddle.material.stored > 0 || paddle.material.switchCharge) {
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = hsla(hue, 50, 95, 1);
+    ctx.lineWidth = 2;
+    const y = paddle.y;
+    ctx.beginPath();
+    ctx.moveTo(cx + dir * 18, y - 7);
+    ctx.lineTo(cx + dir * 24, y);
+    ctx.lineTo(cx + dir * 18, y + 7);
+    ctx.lineTo(cx + dir * 12, y);
+    ctx.closePath();
+    ctx.stroke();
+  }
   // The contact ring: a rounded outline that flares and fades with the hit.
   if (flash > 0.02) {
     ctx.globalAlpha = flash * 0.5 * alpha;

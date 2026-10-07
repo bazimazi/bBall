@@ -322,6 +322,46 @@ Player movement still comes from level, build and explicit match rules; difficul
 does not secretly adapt to wins or equipment. Shared balance, bot and recipe
 definitions supply the bounded values used by the client and server.
 
+### Paddle Workshop
+
+Open **Workshop** from Home to build a paddle from a core, surface, frame and
+insert. Compare neutral equipment with any different core or surface for a
+one-time 12-Mark grant. Every recipe can be loaned on the contact bench before
+crafting: repeat routine, attack and edge serves with your usual controls.
+Build, Practice, Progress and Saved are compact separate views. Materials and
+contracts use page arrows; detailed explanations open in popups. Equip and Test
+stay pinned, and changing views preserves your trial paddle. Find tuning under
+**Build → Tune**, presets under **Saved**, and eligible Gauntlet service there too.
+Leave a paddle test through **Pause → Back to Workshop** to continue editing the
+same trial kit. Browser/native Back also returns there after pausing the test.
+Sliding highlights track Workshop tabs, parts, tuning and presets. Panels move
+in the navigation direction, the paddle responds to material changes, and detail
+popups animate both opening and closing while keeping keyboard focus contained.
+These transitions run in Full and Calm and ignore system motion preferences.
+
+Springsteel rewards settled centre attacks; Cork absorbs incoming bonus pace;
+Rubber rewards moving contact; Ceramic steadies centre placement. Memory gel
+stores absorbed attack pace for a later return, Graphite favours moving edges,
+Woven fibre softens outer placement, and Split blends a steady centre with
+grippy ends. Extended and Compact frames trade reach for control. A Copper insert
+charges one return after a real switch hit, at a cost to passive attack and grip;
+it cannot share a kit with Memory gel. Parts change contact response without
+adding input inertia or enlarging decorative collision shapes.
+
+Eligible scored wins/losses earn 4/2 Marks after at least three player contacts.
+Gauntlet pays per completed act; Practice, archive play, Versus and survival
+Endless pay no Marks. Six technique contracts unlock free tuning, frames,
+advanced recipes and four decorative engravings. Crafting is permanent, swapping
+owned parts is free, and three named paddle presets sync with your account.
+
+Daily cards supply equal date-defined equipment. Challenges and Versus use
+neutral equipment. Runs and cups pin their starting kit; Gauntlet allows a
+2-credit swap at an eligible act boundary. New Endless records separate neutral
+and Workshop equipment, with older records visible as Legacy. Material charge
+and identity cues remain visible with muted sound and Calm effects. System and
+browser reduced-motion preferences remain completely ignored on all platforms.
+See the [implementation and validation report](docs/validation/paddle-workshop-report.md).
+
 ### Talents
 
 One point per level to level 50: 49 points against 64 talents. Free respec and
@@ -607,6 +647,10 @@ own behavior and explicit in-game controls. This policy also lives in
 Choice panels slide/fade on entry and exit, with a light backdrop that keeps the
 page visible. Their transitions follow the same system-preference policy;
 focus returns to the opener after the exit finishes.
+
+Menu disclosures, including Court & couch rules, smoothly expand/collapse and
+fade their contents while the chevron rotates. Collapsed controls are excluded
+from keyboard navigation. These transitions also ignore system motion settings.
 
 The [player experience review](docs/player-experience-review.md) records the
 research, reproduced issues, implemented changes and remaining playtest work.

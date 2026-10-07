@@ -213,6 +213,7 @@ export function collideCourse(world: World): void {
     course.switchLocks[i] = arena.time + 1;
     course.openUntil[s.gate] = arena.time + 3;
     events.switches++;
+    if (actor.player.equipment.insert === 'copper') actor.player.material.switchCharge = true;
     if ((actor.talents.tactics.relay ?? 0) > 0) {
       applyTempo(actor, 2);
       actor.talents.tactics.relay = 0;

@@ -2,8 +2,13 @@
 
 Proposed on 7 October 2026 as a follow-up to the
 [endless progression expansion](endless-progression-improvement-plan.md).
-Material rules, prices and validation thresholds below are proposed tuning
-targets. The Paddle Workshop is not implemented.
+**Implemented on 7 October 2026 at the user's request:** the complete functional
+catalogue, bench, crafting, tuning, frames, Copper insert, advanced materials,
+presets, contracts, engravings and mode/account integration now ship together.
+The [implementation report](validation/paddle-workshop-report.md) records the
+actual rules, automated evidence and remaining human/device validation.
+This document retains the original proposal, phased rollout suggestions and
+unmeasured acceptance targets as design history.
 
 Add a **Paddle Workshop** where players build a paddle from a core and a contact
 surface, then develop it through new materials, tuning choices and technique

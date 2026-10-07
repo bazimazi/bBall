@@ -16,11 +16,11 @@ optional second scoring ball remains gated as described below.
 documents the menu and gameplay presentation fixes made after the expansion,
 with screenshots and reproducible layout checks.
 
-**Paddle progression proposal, 7 October:** the
-[material and upgrade plan](paddle-material-progression-plan.md) proposes a Paddle
-Workshop with cores, contact surfaces, bounded tuning and technique contracts.
-Its first playable scope has nine core and surface combinations; it is a design
-proposal, not an implemented part of this expansion.
+**Paddle Workshop, 7 October:** the
+[material and upgrade plan](paddle-material-progression-plan.md) is now implemented,
+including its advanced materials, frames and conditional insert. The
+[Workshop report](validation/paddle-workshop-report.md) records the shipped rules
+and validation. Permanent combat bonuses remain bounded.
 
 Expand bBall around three connected systems: a much larger Journey, a Gauntlet
 that can continue indefinitely, and opponents that challenge developed builds

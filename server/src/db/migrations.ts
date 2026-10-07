@@ -426,11 +426,18 @@ ALTER TABLE tournaments ADD COLUMN format TEXT CHECK (format IN ('classic', 'mar
 ALTER TABLE tournaments ADD COLUMN season INTEGER NOT NULL DEFAULT 0 CHECK (season >= 0);
 `;
 
+const paddleEquipment = `
+-- Null identifies cups started before equipment rules existed. They keep
+-- version 0 neutral rules rather than adopting the player's current paddle.
+ALTER TABLE tournaments ADD COLUMN equipment_json TEXT;
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'init', up: init },
   { version: 2, name: 'sync_state', up: syncState },
   { version: 3, name: 'oauth', up: oauth },
   { version: 4, name: 'oauth_client', up: oauthClient },
   { version: 5, name: 'progress', up: progress },
-  { version: 6, name: 'endless_content', up: endlessContent }
+  { version: 6, name: 'endless_content', up: endlessContent },
+  { version: 7, name: 'paddle_equipment', up: paddleEquipment }
 ];

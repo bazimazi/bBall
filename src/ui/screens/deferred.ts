@@ -77,3 +77,8 @@ export const TournamentScreen = lazy(() =>
     import('./TournamentScreen').then((page) => ({ default: page.TournamentScreen }))
   )
 );
+export const WorkshopScreen = lazy(() =>
+  loadMenu('Workshop', () =>
+    import('./WorkshopScreen').then((page) => ({ default: page.WorkshopScreen }))
+  )
+);

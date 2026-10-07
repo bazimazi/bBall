@@ -11,6 +11,8 @@ read or forward those preferences to change animations, effects or timing.
 Only explicit in-game settings control their supported effects. See the
 [root README](../README.md) and [project instructions](../AGENTS.md).
 Choice-panel slide/fade transitions follow this policy in packaged webviews too.
+Menu disclosure expansion, collapse, content fades and chevron rotation follow
+the same policy on every platform.
 
 The endless-content expansion requires its matching API build and migration 6.
 Publish web/native assets alongside the updated server; an older server rejects
@@ -26,6 +28,20 @@ skill use, pause stepping, and restart after process termination. Gauntlet
 preserves committed choices rather than a mid-rally snapshot; restarting an
 unfinished encounter consumes one heart. Asset/DOM checks do not verify native
 installers, visible layout, performance or perceived challenge.
+
+The Paddle Workshop also requires the matching API build and database migration 7,
+which preserves each cup's starting paddle. No new native permission is needed.
+Deploy both sides together. Profile schema 4
+repairs old saves to neutral equipment; existing runs/cups keep legacy neutral
+rules. On physical devices, check the pinned loan-bench action, material choice
+panels, keyboard/pointer/touch contacts, material marks, split seams, stored-impact
+diamonds and engraved finishes in Full/Calm with sound both on and muted. Confirm
+that process restarts preserve crafted ownership, presets and session kits.
+Material flex and timing ignore all system/browser reduced-motion preferences.
+Workshop selection highlights, directional panel changes and popup entry/exit
+also ignore those preferences and run in both Full and Calm on every platform.
+The [Workshop report](validation/paddle-workshop-report.md) records automated
+coverage; browser screenshots do not establish native feel or performance.
 
 The explicit Court image quality setting uses the same High/Balanced/Low
 backing-density caps in web and native builds (2.5/1.5/1). It is stored on the

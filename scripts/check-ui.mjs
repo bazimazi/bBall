@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
-import { act, createElement as h, Fragment, lazy, StrictMode, useState } from 'react';
+import {
+  act,
+  createElement as h,
+  Fragment,
+  lazy,
+  StrictMode,
+  useState,
+  useSyncExternalStore
+} from 'react';
 import { createServer } from 'vite';
 
 // Real React DOM mounts/events in a local DOM implementation. Layout boxes
@@ -3294,8 +3302,9 @@ try {
     );
     const control = field?.querySelector('button');
     assert.ok(control, label);
-    const details = field.closest('details');
-    if (details && !details.open) await click(details.querySelector('summary'));
+    const disclosure = field.closest('[data-disclosure]');
+    const trigger = disclosure?.querySelector(':scope > button');
+    if (trigger?.getAttribute('aria-expanded') === 'false') await click(trigger);
     await click(control);
     const option = [...win.document.querySelectorAll('[role="option"]')].find(
       (e) => e.getAttribute('data-value') === String(value)
@@ -3443,9 +3452,7 @@ try {
       await choose('Versus series', 1);
       await click(button('Load couch 1'));
       await click(
-        [...host.querySelectorAll('button')].find(
-          (b) => b.textContent.includes('Versus') && !b.textContent.includes('Save')
-        )
+        [...host.querySelectorAll('button')].find((b) => b.textContent.startsWith('Versus'))
       );
       assert.deepEqual(picked.at(-1), {
         mode: 'versus',
@@ -3466,7 +3473,7 @@ try {
     profile.progress.contracts = 2;
     await mount(h(ChallengeScreen, { profile, onPick: noop, onBack: noop }));
     await click(
-      [...host.querySelectorAll('summary')].find((s) =>
+      [...host.querySelectorAll('[data-disclosure] > button')].find((s) =>
         s.textContent.includes('Five-trial contract playlist')
       )
     );
@@ -3504,6 +3511,356 @@ try {
       await click(rules);
       assert.equal(opened, 2);
       focused(rules);
+    }
+  );
+  await check(
+    'Workshop tests return to their originating Workshop and preserve loan kits after restart',
+    async () => {
+      const [
+        { useGameFlow },
+        { idleSnapshot },
+        { WorkshopScreen },
+        { profileStore },
+        { NEUTRAL_KIT }
+      ] = await Promise.all(
+        [
+          '/src/ui/hooks/useGameFlow.ts',
+          '/src/game/engine.ts',
+          '/src/ui/screens/WorkshopScreen.tsx',
+          '/src/core/profile/store.ts',
+          '/src/core/equipment/types.ts'
+        ].map((path) => vite.ssrLoadModule(path))
+      );
+      const launched = [];
+      let flow;
+      let publish;
+      const engine = {
+        play: (rules) => {
+          launched.push(rules);
+          publish({ ...idleSnapshot(), mode: rules.mode, status: 'paused', label: rules.label });
+        },
+        quitToMenu: () => publish(idleSnapshot()),
+        learn: () => publish({ ...idleSnapshot(), mode: 'practice', status: 'paused' })
+      };
+      function Fixture() {
+        const [snapshot, setSnapshot] = useState(idleSnapshot());
+        publish = setSnapshot;
+        flow = useGameFlow(engine, snapshot);
+        const profile = useSyncExternalStore(profileStore.subscribe, profileStore.getSnapshot);
+        if (flow.screen === 'workshop')
+          return h(WorkshopScreen, {
+            profile,
+            initialKit: flow.workshopKit,
+            onBack: flow.back,
+            onBench: flow.startBench,
+            onCustomize: noop
+          });
+        if (flow.screen === 'playing')
+          return h(PausePanel, {
+            label: snapshot.label,
+            onResume: noop,
+            onSettings: () => flow.go('settings'),
+            onRestart: flow.replay,
+            onQuit: flow.quitToMenu,
+            quitLabel: flow.workshopKit ? 'Back to Workshop' : 'Quit to menu'
+          });
+        return h(
+          Screen,
+          { title: flow.screen },
+          h('button', { onClick: () => flow.go('workshop') }, 'Open Workshop')
+        );
+      }
+      profileStore.startDemo(1);
+      try {
+        await mount(h(Fixture));
+        await act(() => {
+          flow.go('gauntlet');
+        });
+        await click(button('Open Workshop'));
+        const original = { ...profileStore.getSnapshot().progress.workshop.equipped };
+        const marks = profileStore.getSnapshot().progress.workshop.marks;
+        for (const serve of ['routine', 'attack', 'edge']) {
+          await click(query('[aria-label="Core"]'));
+          const next = query('[aria-label="Next materials"]');
+          if (!next.disabled) await click(next);
+          await click(query('[aria-label="Select Memory gel"]'));
+          if (serve === 'routine')
+            await click(query('[aria-label="Try selected paddle · no rewards"]'));
+          else {
+            await click(button('Practice'));
+            await click(
+              query(`[aria-label="${serve === 'attack' ? 'Incoming attack' : 'Edge approach'}"]`)
+            );
+          }
+          assert.equal(flow.screen, 'playing');
+          assert.equal(launched.at(-1).options.bench, serve);
+          assert.equal(launched.at(-1).equipment.kit.core, 'memory-gel');
+          await click(button('Restart'));
+          assert.equal(launched.at(-1).equipment.kit.core, 'memory-gel');
+          assert.equal(launched.at(-1).options.bench, serve);
+          await click(button('Back to Workshop'));
+          assert.equal(flow.screen, 'workshop');
+          assert.match(
+            query('[aria-label^="Paddle assembly preview:"]').getAttribute('aria-label'),
+            /Memory gel/
+          );
+          assert.equal(
+            profileStore.getSnapshot().progress.workshop.owned.includes('memory-gel'),
+            false
+          );
+          assert.deepEqual(profileStore.getSnapshot().progress.workshop.equipped, original);
+          assert.equal(profileStore.getSnapshot().progress.workshop.marks, marks);
+        }
+        // Workshop is still above Gauntlet rather than above the abandoned test game.
+        await click(query('[aria-label="Back"]'));
+        assert.equal(flow.screen, 'gauntlet');
+        await click(button('Open Workshop'));
+        assert.equal(flow.workshopKit, null, 'A fresh Workshop starts with owned equipment');
+        await act(() => {
+          flow.startPractice('wall');
+        });
+        await click(button('Quit to menu'));
+        assert.equal(flow.screen, 'home');
+        await act(() => {
+          flow.startBench({ ...NEUTRAL_KIT, core: 'memory-gel' }, 'routine');
+        });
+        await click(button('Back to Workshop'));
+        assert.equal(
+          flow.screen,
+          'workshop',
+          'Bench entry without a Workshop stack still has a safe return'
+        );
+        await act(() => {
+          flow.startTutorial();
+        });
+        await click(button('Quit to menu'));
+        assert.equal(flow.screen, 'home', 'Tutorial cannot inherit a previous bench return');
+        await act(() => {
+          flow.startQuick('rookie');
+        });
+        await click(button('Quit to menu'));
+        assert.equal(flow.screen, 'home');
+      } finally {
+        await act(() => root.render(null));
+        profileStore.endDemo();
+      }
+    }
+  );
+  await check(
+    'Workshop comparison, crafting, equipment, presets and loan bench work through the real store',
+    async () => {
+      const [{ WorkshopScreen }, { profileStore }, { createWorkshop }] = await Promise.all([
+        vite.ssrLoadModule('/src/ui/screens/WorkshopScreen.tsx'),
+        vite.ssrLoadModule('/src/core/profile/store.ts'),
+        vite.ssrLoadModule('/src/core/equipment/workshop.ts')
+      ]);
+      profileStore.startDemo(1);
+      profileStore.getSnapshot().progress.workshop = createWorkshop();
+      const launches = [];
+      function Workshop() {
+        const profile = useSyncExternalStore(profileStore.subscribe, profileStore.getSnapshot);
+        return h(WorkshopScreen, {
+          profile,
+          onBack: noop,
+          onCustomize: noop,
+          onBench: (...args) => launches.push(args)
+        });
+      }
+      try {
+        await withUiClock(async (advance) => {
+          await mount(h(Workshop));
+          assert.equal(
+            query('[aria-label="Contact surface"]').getAttribute('aria-pressed'),
+            'true'
+          );
+          await click(query('[aria-label="Select Rubber"]'));
+          assert.equal(query('[aria-label="Select Rubber"]').getAttribute('aria-pressed'), 'true');
+          assert.match(
+            query('[aria-label^="Paddle assembly preview:"]').getAttribute('aria-label'),
+            /Rubber/
+          );
+          assert.equal(button('Unlock at Contact craft').disabled, true);
+          await click(button('Compare selected kit'));
+          assert.equal(profileStore.getSnapshot().progress.workshop.marks, 12);
+          focused(button('Compare selected kit'));
+          await click(button('Compare selected kit'));
+          assert.equal(profileStore.getSnapshot().progress.workshop.marks, 12);
+          await click(button('Craft · 12 Marks'));
+          await click(button('Equip paddle'));
+          assert.equal(profileStore.getSnapshot().progress.workshop.equipped.surface, 'rubber');
+          const [{ prepareMatch }, { quickMatchRules }, { NEUTRAL_KIT }] = await Promise.all([
+            vite.ssrLoadModule('/src/core/account/progression.ts'),
+            vite.ssrLoadModule('/src/core/modes/rules.ts'),
+            vite.ssrLoadModule('/src/core/equipment/types.ts')
+          ]);
+          await act(() => {
+            const replay = prepareMatch({
+              ...quickMatchRules('amateur'),
+              equipment: { version: 1, kit: { ...NEUTRAL_KIT } }
+            });
+            assert.equal(
+              replay.equipment.kit.surface,
+              'rubber',
+              'Ranked rematches use the newly equipped kit'
+            );
+          });
+          await click(button('Saved'));
+          await click(
+            [...host.querySelectorAll('button')].find((b) => b.textContent === 'Save equipped')
+          );
+          assert.equal(
+            profileStore.getSnapshot().progress.workshop.presets[0].kit.surface,
+            'rubber'
+          );
+          await click(button('Build'));
+          assert.equal(query('[aria-label="Select Rubber"]').getAttribute('aria-pressed'), 'true');
+          await click(query('[aria-label="Core"]'));
+          await click(query('[aria-label="Next materials"]'));
+          await click(query('[aria-label="Select Memory gel"]'));
+          await click(button('Practice'));
+          await click(query('[aria-label="Incoming attack"]'));
+          assert.equal(launches.at(-1)[0].core, 'memory-gel');
+          assert.equal(launches.at(-1)[1], 'attack');
+          assert.equal(
+            profileStore.getSnapshot().progress.workshop.owned.includes('memory-gel'),
+            false
+          );
+          await click(button('Build'));
+          await click(query('[aria-label="Insert"]'));
+          await click(query('[aria-label="Select Copper"]'));
+          await click(query('[aria-label="Try selected paddle · no rewards"]'));
+          assert.equal(launches.at(-1)[0].core, 'balanced-core');
+          assert.equal(launches.at(-1)[0].insert, 'copper');
+          await click(query('[aria-label="Core"]'));
+          await click(query('[aria-label="Next materials"]'));
+          await click(query('[aria-label="Select Memory gel"]'));
+          await click(query('[aria-label="Try selected paddle · no rewards"]'));
+          assert.equal(launches.at(-1)[0].insert, 'empty-insert');
+          assert.equal(profileStore.getSnapshot().progress.workshop.equipped.surface, 'rubber');
+          assert.equal(profileStore.getSnapshot().progress.workshop.marks, 0);
+          await click(button('Material details'));
+          assert.match(query('[role="dialog"]').textContent, /Stores absorbed attack pace/);
+          await key(query('[role="dialog"]'), 'Escape');
+          assert.equal(host.getAttribute('inert'), '', 'Workshop stays blocked during detail exit');
+          await advance(240);
+          absent('[role="dialog"]');
+          focused(button('Material details'));
+          await click(button('Progress'));
+          assert.equal(host.querySelectorAll('progress').length, 1, 'One contract at a time');
+          const firstContract = query('progress').getAttribute('aria-label');
+          await click(query('[aria-label="Next contract"]'));
+          assert.notEqual(query('progress').getAttribute('aria-label'), firstContract);
+          await click(button('Saved'));
+          await click(query('[aria-label="Load paddle slot 1"]'));
+          await click(button('Build'));
+          await click(query('[aria-label="Tuning"]'));
+          await click(
+            [...query('[aria-label="Tuning settings"]').querySelectorAll('button')].find((b) =>
+              b.textContent.startsWith('Grip')
+            )
+          );
+          await click(query('[aria-label="Try selected paddle · no rewards"]'));
+          assert.equal(launches.at(-1)[0].tuning, 'grip');
+          absent('select');
+        });
+      } finally {
+        await act(() => root.render(null));
+        profileStore.endDemo();
+      }
+    }
+  );
+  await check(
+    'Workshop detail exits retain the focus trap, tolerate repeated Escape and clear timers on unmount',
+    async () => {
+      const [{ WorkshopScreen }, { createProfile }] = await Promise.all([
+        vite.ssrLoadModule('/src/ui/screens/WorkshopScreen.tsx'),
+        vite.ssrLoadModule('/src/core/profile/defaults.ts')
+      ]);
+      const animate = win.HTMLElement.prototype.animate;
+      try {
+        // Suspend animation completion to exercise the component's exit fallback.
+        win.HTMLElement.prototype.animate = () => ({ finished: Promise.resolve(), cancel: noop });
+        await withUiClock(async (advance, pending) => {
+          await mount(
+            h(WorkshopScreen, {
+              profile: createProfile(),
+              onBack: noop,
+              onBench: noop,
+              onCustomize: noop
+            })
+          );
+          await click(button('Material details'));
+          await click(button('✕'));
+          assert.equal(query('[data-workshop-detail]').dataset.closing, 'true');
+          assert.equal(host.getAttribute('inert'), '');
+          await key(win.document.activeElement, 'Escape');
+          await key(win.document.activeElement, 'Escape');
+          assert.equal(pending(), 1, 'repeat dismissal cannot schedule another exit');
+          await advance(239);
+          query('[role="dialog"]');
+          assert.equal(host.getAttribute('inert'), '');
+          await advance(1);
+          absent('[role="dialog"]');
+          focused(button('Material details'));
+          assert.equal(host.getAttribute('inert'), null);
+          await click(button('Material details'));
+          await key(win.document.activeElement, 'Escape');
+          assert.equal(pending(), 1);
+          await act(() => root.render(null));
+          assert.equal(pending(), 0);
+          assert.equal(host.getAttribute('inert'), null);
+          await advance(240);
+          absent('[role="dialog"]');
+        });
+      } finally {
+        win.HTMLElement.prototype.animate = animate;
+      }
+      try {
+        win.HTMLElement.prototype.animate = undefined;
+        await mount(
+          h(WorkshopScreen, {
+            profile: createProfile(),
+            onBack: noop,
+            onBench: noop,
+            onCustomize: noop
+          })
+        );
+        await click(button('Material details'));
+        await key(win.document.activeElement, 'Escape');
+        absent('[role="dialog"]');
+        focused(button('Material details'));
+      } finally {
+        await act(() => root.render(null));
+        win.HTMLElement.prototype.animate = animate;
+      }
+    }
+  );
+  await check(
+    'device practice rejection history is bounded, survives reload and rejects malformed entries',
+    async () => {
+      const { keepLocalPractice, localPracticeRecords } = await vite.ssrLoadModule(
+        '/src/core/account/localPractice.ts'
+      );
+      for (let i = 0; i < 24; i++)
+        keepLocalPractice(
+          'workshop-ui',
+          {
+            clientMatchId: String(i),
+            mode: 'quick',
+            scoreYou: 5,
+            scoreBot: 3,
+            seconds: 60,
+            playedAt: Date.now()
+          },
+          'Unowned starting paddle'
+        );
+      assert.equal(localPracticeRecords('workshop-ui').length, 20);
+      assert.equal(localPracticeRecords('workshop-ui')[0].id, '4');
+      win.localStorage.setItem(
+        'bball.local-practice.workshop-ui',
+        JSON.stringify([null, { id: 'bad' }])
+      );
+      assert.deepEqual(localPracticeRecords('workshop-ui'), []);
     }
   );
   console.log(
