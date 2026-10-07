@@ -152,7 +152,12 @@ the expert ceiling.
 
 ### Human and physical validation
 
-No browser/app surface was available to perform visual review in this session.
+No browser/app surface was available during the original expansion session.
+A subsequent [browser UI review](endless-ui-review.md) inspected the menus,
+progression states, results and live gameplay in Chromium at five viewport sizes,
+then corrected the layout and readability issues it found. Its screenshots and
+checks cover browser presentation; physical input, performance and human balance
+measurements remain separate work.
 Use the [existing validation guide](../player-experience-validation.md) to collect
 actual first-clear, retry, fairness and difficulty ratings across undeveloped and
 developed builds, the six schools, early expansion worlds and deep Pressure.

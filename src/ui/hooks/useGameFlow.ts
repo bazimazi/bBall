@@ -34,6 +34,7 @@ import { tierForLevel } from '../../core/tournament/bracket';
 import type { GameEngine } from '../../game/engine';
 import type { GameSnapshot } from '../../game/types';
 import { settingsStore } from '../../core/settings/store';
+import { enterPreferredFullscreen } from '../../core/platform/fullscreen';
 
 export type ScreenId =
   | 'onboarding'
@@ -154,6 +155,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const play = useCallback(
     (rules: MatchRules) => {
+      enterPreferredFullscreen();
       engine?.play(rules);
       setScreen('playing');
     },
@@ -182,6 +184,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   );
 
   const startTutorial = useCallback(() => {
+    enterPreferredFullscreen();
     engine?.learn();
     setScreen('playing');
   }, [engine, setScreen]);
@@ -331,6 +334,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       }
     }
     if (series && seriesComplete(series)) setSeries({ ...series, games: 0, you: 0, foe: 0 });
+    enterPreferredFullscreen();
     engine?.replay();
     replace('playing');
   }, [engine, replace, snapshot.mode, playRun, series]);

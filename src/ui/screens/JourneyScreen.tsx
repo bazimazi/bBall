@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
 import {
@@ -20,6 +20,7 @@ import { bossById } from '../../core/modes/bosses';
 import { starGoalLabel } from '../../core/modes/stars';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
+import { GamePicker } from '../components/GamePicker';
 import { LockIcon, StarIcon, StarRow } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
@@ -48,7 +49,7 @@ function lockReason(
 }
 
 /**
- * The Journey map: a tab per world, its six stages, and the chosen stage in
+ * The Journey map: a tab per world, six stages at a time, and the chosen stage in
  * detail with its three stars spelled out. Always opens on the stage the
  * player should play next.
  */
@@ -59,6 +60,7 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
   const [worldId, setWorldId] = useState(upcoming?.world ?? 1);
   const [stageId, setStageId] = useState<string | null>(upcoming?.id ?? null);
   const [variant, setVariant] = useState<'story' | 'veteran' | 'ascendant'>('story');
+  const activeTab = useRef<HTMLButtonElement>(null);
 
   const world = worldById(worldId) ?? JOURNEY[0]!;
   const open = worldOpen(journey, world);
@@ -68,6 +70,16 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
       )
     : undefined;
   const shown = selected && selected.world === world.id ? selected : undefined;
+  const stagePage = Math.floor((shown?.index ?? 0) / 6);
+  const pageCount = Math.ceil(world.stages.length / 6);
+  const worlds =
+    worldId > 30
+      ? [world]
+      : JOURNEY.slice(Math.floor((worldId - 1) / 5) * 5, Math.floor((worldId - 1) / 5) * 5 + 5);
+
+  useEffect(() => {
+    activeTab.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [worldId]);
 
   const pickWorld = (id: number) => {
     setWorldId(id);
@@ -104,62 +116,93 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
         </button>
       }
     >
-      <label className={styles.sectionLabel}>
-        Journey rules
-        <select value={variant} onChange={(e) => setVariant(e.target.value as typeof variant)}>
-          <option value="story">Story</option>
-          <option value="veteran">Veteran · clear the original stage first</option>
-          <option value="ascendant">Ascendant · Legend opponents and a shorter paddle</option>
-        </select>
-      </label>
-      {(journey['w5-6'] ?? 0) & 1 ? (
-        <button
-          type="button"
-          className={styles.ghost}
-          onClick={() => {
-            const next = nextFrontierStage(journey);
-            setWorldId(next.world);
-            setStageId(next.id);
-          }}
-        >
-          Journey Beyond · next frontier sector
-        </button>
-      ) : null}
-      <label className={styles.sectionLabel}>
-        Chapter{' '}
-        <select
+      <div className={styles.fieldGrid}>
+        <GamePicker<'story' | 'veteran' | 'ascendant'>
+          label="Journey rules"
+          value={worldId > 30 ? 'story' : variant}
+          disabled={worldId > 30}
+          onChange={setVariant}
+          options={[
+            {
+              value: 'story',
+              name: 'Story',
+              hint: 'The original journey. Clear stages and earn stars.'
+            },
+            { value: 'veteran', name: 'Veteran', hint: 'Harder rematches after each Story clear.' },
+            {
+              value: 'ascendant',
+              name: 'Ascendant',
+              hint: 'Legend opponents and a shorter paddle after each Story clear.'
+            }
+          ]}
+        />
+        <GamePicker
+          label="Chapter"
           value={worldId > 30 ? 6 : Math.floor((worldId - 1) / 5)}
-          onChange={(e) => {
-            const chapter = Number(e.target.value);
+          onChange={(chapter) => {
             if (chapter === 6) {
               const next = nextFrontierStage(journey);
               setWorldId(next.world);
               setStageId(next.id);
             } else pickWorld(chapter * 5 + 1);
           }}
-        >
-          {[
-            'Original Journey',
-            'Precision Circuit',
-            'Reactive Courts',
-            'Rival Schools',
-            'Fractured Worlds',
-            'Apex Dominion'
-          ].map((name, i) => (
-            <option key={name} value={i}>
-              {name} · worlds {i * 5 + 1}–{i * 5 + 5}
-            </option>
-          ))}
-          <option value={6} disabled={!((journey['w5-6'] ?? 0) & 1)}>
-            Journey Beyond
-          </option>
-        </select>
-      </label>
-      <div className={modes.tabs} role="tablist">
-        {(worldId > 30
-          ? [world]
-          : JOURNEY.slice(Math.floor((worldId - 1) / 5) * 5, Math.floor((worldId - 1) / 5) * 5 + 5)
-        ).map((item) => {
+          options={[
+            ...[
+              'Original Journey',
+              'Precision Circuit',
+              'Reactive Courts',
+              'Rival Schools',
+              'Fractured Worlds',
+              'Apex Dominion'
+            ].map((name, i) => ({
+              value: i,
+              name,
+              tag: String(i + 1).padStart(2, '0'),
+              hint: `Worlds ${i * 5 + 1}–${i * 5 + 5}`
+            })),
+            {
+              value: 6,
+              name: 'Journey Beyond',
+              tag: '∞',
+              hint:
+                (journey['w5-6'] ?? 0) & 1
+                  ? 'Continuing frontier sectors'
+                  : 'Beat the World 5 boss to open',
+              disabled: !((journey['w5-6'] ?? 0) & 1)
+            }
+          ]}
+        />
+      </div>
+      {variant !== 'story' && worldId <= 30 && (
+        <p className={styles.rowBlurb} style={{ margin: 0 }}>
+          {variant === 'veteran'
+            ? 'Clear each Story stage to unlock its Veteran rematch.'
+            : 'Clear each Story stage to face Legend with a shorter paddle.'}
+        </p>
+      )}
+      <div
+        className={modes.tabs}
+        role="tablist"
+        aria-label="Journey worlds"
+        onKeyDown={(event) => {
+          const current = worlds.findIndex((item) => item.id === worldId);
+          const index =
+            event.key === 'ArrowRight'
+              ? (current + 1) % worlds.length
+              : event.key === 'ArrowLeft'
+                ? (current + worlds.length - 1) % worlds.length
+                : event.key === 'Home'
+                  ? 0
+                  : event.key === 'End'
+                    ? worlds.length - 1
+                    : null;
+          if (index === null) return;
+          event.preventDefault();
+          pickWorld(worlds[index]!.id);
+          event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[index]?.focus();
+        }}
+      >
+        {worlds.map((item) => {
           const unlocked = worldOpen(journey, item);
           const classes = [modes.tab];
           if (item.id === world.id) classes.push(modes.tabOn);
@@ -169,6 +212,10 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
               key={item.id}
               type="button"
               role="tab"
+              ref={item.id === world.id ? activeTab : undefined}
+              tabIndex={item.id === world.id ? 0 : -1}
+              id={`world-tab-${item.id}`}
+              aria-controls="journey-stages"
               aria-selected={item.id === world.id}
               className={classes.join(' ')}
               style={accent(item.hue)}
@@ -197,8 +244,37 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
         </p>
       )}
 
-      <div className={modes.stages} key={world.id}>
-        {world.stages.map((base) => {
+      {pageCount > 1 && (
+        <nav className={styles.pager} aria-label="Stage pages">
+          <button
+            type="button"
+            className={styles.ghost}
+            disabled={stagePage === 0}
+            onClick={() => setStageId(world.stages[(stagePage - 1) * 6]!.id)}
+          >
+            Previous
+          </button>
+          <span>
+            Stages {stagePage * 6 + 1}–{Math.min((stagePage + 1) * 6, world.stages.length)}
+          </span>
+          <button
+            type="button"
+            className={styles.ghost}
+            disabled={stagePage === pageCount - 1}
+            onClick={() => setStageId(world.stages[(stagePage + 1) * 6]!.id)}
+          >
+            Next
+          </button>
+        </nav>
+      )}
+      <div
+        className={`${modes.stages} ${pageCount > 1 ? modes.stagesCompact : ''}`}
+        key={world.id}
+        id="journey-stages"
+        role="tabpanel"
+        aria-labelledby={`world-tab-${world.id}`}
+      >
+        {world.stages.slice(stagePage * 6, (stagePage + 1) * 6).map((base) => {
           const item =
             variant === 'story' || base.id.startsWith('f2-')
               ? base
@@ -226,6 +302,19 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
           mask={journey[shown.id] ?? 0}
         />
       )}
+      {(journey['w5-6'] ?? 0) & 1 ? (
+        <button
+          type="button"
+          className={styles.ghost}
+          onClick={() => {
+            const next = nextFrontierStage(journey);
+            setWorldId(next.world);
+            setStageId(next.id);
+          }}
+        >
+          Journey Beyond · next frontier sector
+        </button>
+      ) : null}
     </Screen>
   );
 }

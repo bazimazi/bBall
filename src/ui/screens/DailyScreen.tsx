@@ -8,6 +8,9 @@ import type { PlayerProfile } from '../../core/profile/types';
 import { DailyResultCopy } from '../components/DailyResultCopy';
 import { QuestList } from '../components/QuestList';
 import { Screen } from '../components/Screen';
+import { MenuDisclosure } from '../components/MenuDisclosure';
+import { ChoiceGroup } from '../components/ChoiceGroup';
+import { GamePicker } from '../components/GamePicker';
 import { useLocalClock } from '../hooks/useLocalClock';
 import { FlameIcon, SnowIcon, StarIcon } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
@@ -96,41 +99,15 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
         </>
       }
     >
-      <div className={styles.tabs}>
-        {(['standard', 'master'] as const).map((k) => (
-          <button
-            type="button"
-            key={k}
-            className={kind === k ? styles.tabActive : styles.tab}
-            onClick={() => setKind(k)}
-          >
-            {k === 'standard' ? 'Standard' : 'Master · Legend'}
-          </button>
-        ))}
-      </div>
-      <div className={styles.card}>
-        <label>
-          Daily archive · practice without streak or XP{' '}
-          <input
-            type="date"
-            aria-label="Archive date"
-            value={archive}
-            max={today}
-            min={dayKey(new Date(now.getTime() - 30 * 86400000))}
-            onChange={(e) => setArchive(e.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className={styles.ghost}
-          disabled={
-            !archive || archive > today || archive < dayKey(new Date(now.getTime() - 30 * 86400000))
-          }
-          onClick={() => onPlay(`a2-${archive}`)}
-        >
-          Play archive
-        </button>
-      </div>
+      <ChoiceGroup<'standard' | 'master'>
+        label="Challenge tier"
+        value={kind}
+        onChange={setKind}
+        options={[
+          { value: 'standard', name: 'Standard' },
+          { value: 'master', name: 'Master · Legend' }
+        ]}
+      />
       <div className={modes.stagger} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p role="status" aria-atomic="true" className={styles.note}>
           {changed ? 'A new Daily challenge is ready. Review its goals, then play when ready.' : ''}
@@ -206,6 +183,39 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
         </div>
 
         <QuestList profile={profile} day={today} />
+
+        <MenuDisclosure title="Daily archive" hint="Past 30 days · practice without XP or streaks">
+          <GamePicker
+            label="Archive date"
+            placeholder="Choose a date"
+            value={archive}
+            onChange={setArchive}
+            options={Array.from({ length: 31 }, (_, i) => {
+              const date = new Date(now.getTime() - i * 86400000);
+              return {
+                value: dayKey(date),
+                name: date.toLocaleDateString(undefined, {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric'
+                }),
+                hint: dayKey(date)
+              };
+            })}
+          />
+          <button
+            type="button"
+            className={styles.ghost}
+            disabled={
+              !archive ||
+              archive > today ||
+              archive < dayKey(new Date(now.getTime() - 30 * 86400000))
+            }
+            onClick={() => onPlay(`a2-${archive}`)}
+          >
+            Play archive
+          </button>
+        </MenuDisclosure>
 
         <p className={styles.note}>
           Everyone plays the same court today. Clear it for a bonus and to grow your streak; every

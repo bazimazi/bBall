@@ -23,3 +23,6 @@
 -keepclassmembers class games.bazimazi.bball.MainActivity$InsetsBridge {
    @android.webkit.JavascriptInterface <methods>;
 }
+-keepclassmembers class games.bazimazi.bball.MainActivity$ScreenBridge {
+   @android.webkit.JavascriptInterface <methods>;
+}

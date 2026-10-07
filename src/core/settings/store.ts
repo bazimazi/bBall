@@ -37,6 +37,8 @@ export interface DeviceSettings {
   effects: EffectsLevel;
   /** Court pixel density; independent of effects, input and simulation timing. */
   canvasQuality: CanvasQuality;
+  /** Hide mobile system bars; a browser re-enters on the next play gesture. */
+  fullscreen: boolean;
   /** Automatically launch after the serve delay, or wait for the player. */
   autoServe: boolean;
   /** A short 3–2–1 before a paused rally resumes. */
@@ -57,6 +59,7 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
   replays: true,
   effects: 'full',
   canvasQuality: 'high',
+  fullscreen: false,
   autoServe: true,
   resumeCountdown: true,
   keyBindings: DEFAULT_BINDINGS,
@@ -101,6 +104,8 @@ const SPEC: StoreSpec<DeviceSettings> = {
         source.canvasQuality === 'balanced' || source.canvasQuality === 'low'
           ? source.canvasQuality
           : DEFAULT_SETTINGS.canvasQuality,
+      fullscreen:
+        typeof source.fullscreen === 'boolean' ? source.fullscreen : DEFAULT_SETTINGS.fullscreen,
       autoServe:
         typeof source.autoServe === 'boolean' ? source.autoServe : DEFAULT_SETTINGS.autoServe,
       resumeCountdown:

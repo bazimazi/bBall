@@ -11,6 +11,10 @@ import {
 } from '../../core/settings/store';
 import { Screen } from '../components/Screen';
 import { useSettings } from '../hooks/useSettings';
+import { useCoarsePointer } from '../hooks/useCoarsePointer';
+import { useFullscreen } from '../hooks/useFullscreen';
+import { setFullscreenPreference } from '../../core/platform/fullscreen';
+import { isNativeShell } from '../../core/platform/shell';
 import styles from '../Screens.module.css';
 import { KeyBindingsEditor } from '../components/KeyBindingsEditor';
 import { keyList } from '../../core/settings/controls';
@@ -72,12 +76,14 @@ function Segmented<T extends string | boolean>({
   label,
   choices,
   value,
-  onChange
+  onChange,
+  disabled = false
 }: {
   label: string;
   choices: readonly Choice<T>[];
   value: T;
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className={styles.segmented} role="group" aria-label={label}>
@@ -87,6 +93,7 @@ function Segmented<T extends string | boolean>({
           type="button"
           className={choice.id === value ? `${styles.ghost} ${styles.selected}` : styles.ghost}
           aria-pressed={choice.id === value}
+          disabled={disabled}
           onClick={() => onChange(choice.id)}
         >
           {choice.label}
@@ -143,6 +150,12 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   useEffect(() => onStopPreview, [onStopPreview]);
   const settings = useSettings();
+  const fullscreen = useFullscreen();
+  const touch = useCoarsePointer();
+  const mobile =
+    (!isNativeShell && touch) || fullscreen.target === 'android' || fullscreen.target === 'ios';
+  const fullscreenSupported =
+    fullscreen.target !== 'checking' && fullscreen.target !== 'unsupported';
   const set = (patch: Partial<DeviceSettings>) => settingsStore.update(patch);
 
   return (
@@ -159,6 +172,30 @@ export function SettingsScreen({
         )
       }
     >
+      {mobile && (
+        <>
+          <p className={styles.sectionLabel}>Fullscreen</p>
+          <Segmented
+            label="Fullscreen"
+            choices={TOGGLE}
+            value={settings.fullscreen}
+            disabled={!fullscreenSupported || fullscreen.pending}
+            onChange={(enabled) => void setFullscreenPreference(enabled)}
+          />
+          <p className={styles.note} role="status">
+            {fullscreen.error ??
+              (fullscreen.target === 'checking'
+                ? 'Checking fullscreen support…'
+                : !fullscreenSupported
+                  ? 'Fullscreen is unavailable in this browser or app.'
+                  : settings.fullscreen && !fullscreen.active && !fullscreen.pending
+                    ? 'Tap On or start a match to enter fullscreen again.'
+                    : fullscreen.target === 'ios'
+                      ? 'Hide the status bar and let the Home indicator fade while playing.'
+                      : 'Hide system bars for more room to play. Swipe from the screen edge to reveal them.')}
+          </p>
+        </>
+      )}
       <p className={styles.sectionLabel}>Sound</p>
       <div className={styles.card}>
         <div className={styles.settingStack}>

@@ -1,11 +1,11 @@
 /*
  * The in-game ability buttons.
  *
- * A bottom corner, where a thumb rests - left by default, right if the
+ * Near a bottom corner, where a thumb rests - left by default, right if the
  * player asks for it on the profile screen. In portrait the court is drawn
- * rotated, so both bottom corners are behind the player's *own* goal line - the one part of the
- * field the ball only reaches once the point is already decided. The buttons
- * are translucent over it either way, and nothing else is added to the HUD.
+ * rotated. The strip sits above the player's paddle lane so a drag can reach
+ * either end beneath the circles. The buttons are translucent over the court,
+ * and nothing else is added to the HUD.
  *
  * Every button carries its skill's own hue in `--hue`, set inline from the
  * catalogue. Three states have to be told apart without reading anything:
@@ -17,7 +17,8 @@
 .bar {
   position: fixed;
   right: calc(var(--safe-r) + 12px);
-  bottom: calc(var(--safe-b) + 14px);
+  /* Leave the bottom paddle lane visible and available for pointer input. */
+  bottom: calc(var(--safe-b) + 96px);
   z-index: 4;
   display: flex;
   flex-direction: column-reverse;
@@ -325,23 +326,23 @@
   transition: stroke-dashoffset 0.15s linear;
 }
 
-/*
- * Landscape phones: the court fills almost the whole viewport, so the buttons
- * shrink and hug the very edge rather than stacking further into it.
- */
+/* Short landscape screens use a row to keep the controls within reach. */
 @media (max-height: 460px) {
   .bar {
     flex-direction: row;
     gap: 8px;
     right: calc(var(--safe-r) + 6px);
-    bottom: calc(var(--safe-b) + 6px);
+    bottom: calc(var(--safe-b) + 48px);
   }
 
   .left {
     right: auto;
     left: calc(var(--safe-l) + 6px);
   }
+}
 
+/* Compact buttons also keep a full loadout below the HUD on short phones. */
+@media (max-height: 640px) {
   .button {
     width: 48px;
     height: 48px;
@@ -390,7 +391,7 @@
   border-color: rgba(255, 202, 58, 0.9);
 }
 
-@media (max-height: 460px) {
+@media (max-height: 640px) {
   .ultimate {
     width: 56px;
     height: 56px;

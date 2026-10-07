@@ -168,27 +168,228 @@
   padding: 14px 16px;
 }
 
-.screen label:has(> select),
-.screen label:has(> input[type='date']) {
+.fieldGrid {
   display: grid;
-  gap: 8px;
-  margin-block: 8px 14px;
-  color: var(--muted);
-  font-size: 13px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.screen select,
-.screen input[type='date'] {
-  min-height: 44px;
-  max-width: 100%;
+.fieldGrid > * {
   min-width: 0;
-  width: 100%;
-  padding: 9px 12px;
+}
+
+.fieldGrid > :only-child {
+  grid-column: 1 / -1;
+}
+
+.disclosure {
   border: 1px solid var(--edge);
-  border-radius: 12px;
-  background: #111827;
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.screen .disclosure > summary {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-height: 54px;
+  padding: 12px 42px 12px 14px;
+  list-style: none;
+}
+
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure > summary::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+}
+
+.disclosure[open] > summary::after {
+  transform: rotate(225deg);
+}
+
+.disclosureTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.disclosureHint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.disclosureBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 2px 14px 14px;
+}
+
+.disclosureBody > p {
+  margin: 0;
+}
+
+.choiceGroup {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choiceGroup > legend {
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.choices:has(> :nth-child(2):last-child) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.note:empty {
+  margin: 0;
+}
+
+.choice,
+.choiceOn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 6px;
+  border: 1px solid var(--edge);
+  border-radius: 13px;
+  background: rgba(16, 20, 34, 0.66);
   color: var(--ink);
   font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.choice small,
+.choiceOn small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.choiceOn {
+  border-color: var(--you);
+  background: rgba(79, 240, 214, 0.09);
+  box-shadow: 0 0 0 1px var(--you) inset;
+}
+
+.choice:hover,
+.disclosure > summary:hover {
+  background: rgba(238, 242, 255, 0.04);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager > button {
+  width: auto;
+  padding-inline: 14px;
+  min-height: 44px;
+}
+
+.pager > [data-picker] {
+  flex: 1;
+  width: auto;
+  max-width: 180px;
+  min-width: 0;
+}
+
+.pager > [data-picker] button {
+  padding-inline: 8px;
+  font-size: 12px;
+}
+
+/* The global sound control stays in the viewport corner on menu screens. */
+@media (max-width: 707px) {
+  .header {
+    padding-right: 48px;
+  }
+}
+
+.runActions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.masteryTracks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.masteryTrack {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.masteryTrack small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.masteryTrack progress {
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--edge);
+  accent-color: var(--you);
+}
+
+.masteryTrack progress::-webkit-progress-bar {
+  background: var(--edge);
+}
+
+.masteryTrack progress::-webkit-progress-value {
+  background: var(--you);
+}
+
+.masteryTrack progress::-moz-progress-bar {
+  background: var(--you);
 }
 
 .screen summary {
@@ -557,6 +758,10 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.statsFour {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .stat {

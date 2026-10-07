@@ -5,6 +5,7 @@ import { accountStore } from './core/account/store';
 import { experienceEnabled } from './dev/experienceBridge';
 import { installBackRouting } from './core/platform/back';
 import { installNativeInsets } from './core/platform/insets';
+import { restoreFullscreen } from './core/platform/fullscreen';
 import { installDeepLinkRouting } from './core/platform/shell';
 import { installWindowShortcuts } from './core/platform/window';
 import { App } from './ui/App';
@@ -28,6 +29,7 @@ installBackRouting();
 // On Android, the status and navigation bars the WebView leaves out of
 // `env(safe-area-inset-*)`. Before the first render, so nothing lays out twice.
 installNativeInsets();
+void restoreFullscreen();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('bBall: #root is missing from index.html.');

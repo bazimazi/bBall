@@ -39,6 +39,7 @@
     "check:bundle": "node scripts/check-bundle.mjs",
     "check:menus": "node scripts/check-menus.mjs",
     "check:ui": "node scripts/check-ui.mjs",
+    "check:layout": "node scripts/check-layout.mjs",
     "check:experience": "node scripts/check-experience.mjs",
     "soak": "node --import tsx scripts/sim.ts",
     "summarize:experience": "node --import tsx scripts/summarize-experience.ts"
@@ -63,6 +64,7 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
     "happy-dom": "^20.14.5",
+    "playwright": "^1.63.0",
     "prettier": "^3.9.8",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",

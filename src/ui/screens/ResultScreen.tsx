@@ -9,7 +9,7 @@ import { starGoalLabel, type StarGoal } from '../../core/modes/stars';
 import type { MatchResult } from '../../core/modes/types';
 import type { ProgressSummary } from '../../core/progression/apply';
 import { QUEST_BONUS_XP, QUEST_XP } from '../../core/quests/quests';
-import { RUN_STAGES } from '../../core/run/run';
+import { runLength } from '../../core/run/formats';
 import { XpBar } from '../components/XpBar';
 import { ResultCoaching } from '../components/ResultCoaching';
 import { SaveNotice } from '../components/SaveNotice';
@@ -233,7 +233,7 @@ export function ResultScreen({
           </div>
         )}
 
-        <div className={styles.stats}>
+        <div className={`${styles.stats} ${result.waves !== undefined ? styles.statsFour : ''}`}>
           <Stat value={result.bestRally} label="Best rally" />
           <Stat value={result.hits} label="Returns" />
           {result.waves !== undefined && <Stat value={result.waves} label="Waves cleared" />}
@@ -243,6 +243,25 @@ export function ResultScreen({
             <Stat value={duration(result.seconds)} label="Time" />
           )}
         </div>
+
+        {run && !run.ended && (
+          <div
+            className={modes.resultRow}
+            style={{ '--accent': 'hsl(340 90% 66%)' } as CSSProperties}
+          >
+            <HeartIcon />
+            <span>
+              {run.save.offer
+                ? 'A boon is waiting'
+                : `Rematch - ${run.save.hearts} heart${run.save.hearts === 1 ? '' : 's'} left`}
+            </span>
+            <span>
+              {run.save.format === 'endless'
+                ? `Depth ${run.save.stage + 1}`
+                : `${run.save.stage} / ${runLength(run.save)}`}
+            </span>
+          </div>
+        )}
 
         {coaching && <ResultCoaching coaching={coaching} onTutorial={onTutorial} onHelp={onHelp} />}
 
@@ -279,23 +298,6 @@ export function ResultScreen({
             <span>Daily streak</span>
             <span>
               {summary.dailyStreak} day{summary.dailyStreak === 1 ? '' : 's'}
-            </span>
-          </div>
-        )}
-
-        {run && !run.ended && (
-          <div
-            className={modes.resultRow}
-            style={{ '--accent': 'hsl(340 90% 66%)' } as CSSProperties}
-          >
-            <HeartIcon />
-            <span>
-              {run.save.offer
-                ? 'A boon is waiting'
-                : `Rematch - ${run.save.hearts} heart${run.save.hearts === 1 ? '' : 's'} left`}
-            </span>
-            <span>
-              {run.save.stage} / {RUN_STAGES}
             </span>
           </div>
         )}

@@ -10,6 +10,7 @@ operating-system and browser reduced-motion settings. Native wrappers must not
 read or forward those preferences to change animations, effects or timing.
 Only explicit in-game settings control their supported effects. See the
 [root README](../README.md) and [project instructions](../AGENTS.md).
+Choice-panel slide/fade transitions follow this policy in packaged webviews too.
 
 The endless-content expansion requires its matching API build and migration 6.
 Publish web/native assets alongside the updated server; an older server rejects
@@ -337,6 +338,21 @@ Layout already works on a phone: it is the same responsive canvas the browser
 build uses, and `index.html` already sets `viewport-fit=cover` for the notch.
 What mobile has not had is a pass on touch ergonomics for the ability bar, which
 is worth doing before submitting to a store.
+
+**Settings → Fullscreen** is a device preference, defaulting to Off. Android's
+`MainActivity` hides both system bars with `WindowInsetsControllerCompat`, allows
+temporary edge-swipe access, and restores the choice on launch/focus return.
+The existing insets bridge continues to reserve display-cutout space when the
+bars are hidden. Keep `ScreenBridge`'s annotated methods in ProGuard rules.
+The iOS `set_mobile_fullscreen` command updates Tauri's view-controller status-bar
+and Home-indicator preferences. iOS controls when the Home indicator fades.
+Browser fullscreen requests run directly from On or play/replay/tutorial gestures;
+a page reload waits for the next gesture rather than requesting on load.
+
+Before release, check fullscreen On/Off, cold launch, rotation, app switching,
+edge swipes, cutouts, keyboard input and pause/settings return on physical phones.
+The [UI review](validation/endless-ui-review.md) records browser and compilation
+evidence and the native verification limits.
 
 ## Icons
 

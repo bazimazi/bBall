@@ -15,6 +15,7 @@ import {
   tierForLevel
 } from '../../core/tournament/bracket';
 import { Screen } from '../components/Screen';
+import { ChoiceGroup } from '../components/ChoiceGroup';
 import { ConfirmAction } from '../components/ConfirmAction';
 import styles from '../Screens.module.css';
 
@@ -41,6 +42,7 @@ function Bracket({ profile }: { profile: PlayerProfile }) {
           <div
             key={round.name}
             className={current ? `${styles.bracketRow} ${styles.bracketNow}` : styles.bracketRow}
+            aria-current={current ? 'step' : undefined}
           >
             <span className={styles.rowText}>
               <span className={styles.rowTitle}>{round.name}</span>
@@ -147,7 +149,7 @@ export function TournamentScreen({
   return (
     <Screen
       title="Tournament"
-      subtitle="Ten cups · longer formats · ongoing championship ladder"
+      subtitle="Choose a format and compete for a cup"
       onBack={onBack}
       footer={
         <button type="button" className={styles.primary} onClick={() => onStart(tier, format)}>
@@ -166,23 +168,16 @@ export function TournamentScreen({
         </div>
       )}
 
-      <p className={styles.sectionLabel}>Format</p>
-      <div className={styles.tabs}>
-        {CUP_FORMATS.map((f) => (
-          <button
-            type="button"
-            key={f}
-            className={f === format ? styles.tabActive : styles.tab}
-            onClick={() => setFormat(f)}
-          >
-            {f === 'classic'
-              ? 'Classic · 3 rounds'
-              : f === 'marathon'
-                ? 'Marathon · 7 rounds'
-                : 'Ladder · ongoing 6-round seasons'}
-          </button>
-        ))}
-      </div>
+      <ChoiceGroup<TournamentFormat>
+        label="Format"
+        value={format}
+        onChange={setFormat}
+        options={CUP_FORMATS.map((f) => ({
+          value: f,
+          name: f === 'classic' ? 'Classic' : f === 'marathon' ? 'Marathon' : 'Ladder',
+          hint: f === 'classic' ? '3 rounds' : f === 'marathon' ? '7 rounds' : '6-round seasons'
+        }))}
+      />
       <p className={styles.sectionLabel}>Choose a cup</p>
       <div className={styles.grid}>
         {TOURNAMENT_TIERS.map((item) => {
@@ -193,6 +188,7 @@ export function TournamentScreen({
               type="button"
               disabled={locked}
               className={item.id === tier ? `${styles.row} ${styles.selected}` : styles.row}
+              aria-pressed={item.id === tier}
               onClick={() => setTier(item.id)}
             >
               <span className={styles.rowText}>

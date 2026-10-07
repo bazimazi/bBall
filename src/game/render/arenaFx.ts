@@ -39,9 +39,14 @@ function drawCourse(ctx: CanvasRenderingContext2D, world: World): void {
     ctx.lineTo(s.bx, s.by);
     ctx.stroke();
     if (s.rail >= 0 && (arena.course.rails[s.rail] ?? -1) > 0) {
-      ctx.fillStyle = '#ffc47b';
-      ctx.font = '12px sans-serif';
-      ctx.fillText(String(arena.course.rails[s.rail]), (s.ax + s.bx) / 2, (s.ay + s.by) / 2 - 10);
+      drawCourseLabel(
+        ctx,
+        world,
+        String(arena.course.rails[s.rail]),
+        (s.ax + s.bx) / 2,
+        (s.ay + s.by) / 2 - 10,
+        '#ffc47b'
+      );
     }
   }
   for (const [i, g] of (arena.spec?.gates ?? []).entries()) {
@@ -56,12 +61,13 @@ function drawCourse(ctx: CanvasRenderingContext2D, world: World): void {
       o.gap * FIELD_H
     );
     ctx.setLineDash([]);
-    ctx.fillStyle = '#91d9ff';
-    ctx.font = '12px sans-serif';
-    ctx.fillText(
+    drawCourseLabel(
+      ctx,
+      world,
       `${o.gap >= 1 ? 'Open' : 'Release'} ${Math.max(0, o.seconds).toFixed(1)}s`,
       g.x * view.w + 10,
-      24
+      24,
+      '#91d9ff'
     );
   }
   for (const s of arena.spec?.switches ?? []) {
@@ -84,6 +90,29 @@ function drawCourse(ctx: CanvasRenderingContext2D, world: World): void {
     ctx.lineWidth = 1;
     ctx.strokeRect(z.x * view.w, z.y * FIELD_H, z.w * view.w, z.h * FIELD_H);
   }
+  ctx.restore();
+}
+
+/** Court geometry rotates on phones; its reading cues stay upright at a readable screen size. */
+function drawCourseLabel(
+  ctx: CanvasRenderingContext2D,
+  { view }: World,
+  text: string,
+  x: number,
+  y: number,
+  color: string
+): void {
+  const pixel = 1 / view.scale;
+  ctx.save();
+  ctx.translate(x, y);
+  if (view.rotated) ctx.rotate(Math.PI / 2);
+  ctx.font = `${12 * pixel}px sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(3,4,10,.85)';
+  ctx.fillRect(-3 * pixel, -9 * pixel, ctx.measureText(text).width + 6 * pixel, 18 * pixel);
+  ctx.fillStyle = color;
+  ctx.fillText(text, 0, 0);
   ctx.restore();
 }
 

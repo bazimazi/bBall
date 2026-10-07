@@ -1747,6 +1747,164 @@ try {
   );
 
   await check(
+    'mobile fullscreen applies from a gesture, survives exit, and contains refused requests',
+    async () => {
+      const [{ SettingsScreen }, { settingsStore }, fullscreen] = await Promise.all([
+        vite.ssrLoadModule('/src/ui/screens/SettingsScreen.tsx'),
+        vite.ssrLoadModule('/src/core/settings/store.ts'),
+        vite.ssrLoadModule('/src/core/platform/fullscreen.ts')
+      ]);
+      const previous = settingsStore.getSnapshot();
+      let active = null;
+      let finishEntry;
+      let fail = false;
+      const requests = [];
+      const patches = [
+        [win.document, 'fullscreenEnabled', { value: true }],
+        [win.document, 'fullscreenElement', { get: () => active }],
+        [
+          win.document.documentElement,
+          'requestFullscreen',
+          {
+            value: (options) => {
+              requests.push(options);
+              if (fail) return Promise.reject(new Error('Refused fullscreen'));
+              return new Promise((resolve) => {
+                finishEntry = () => {
+                  active = win.document.documentElement;
+                  win.document.dispatchEvent(new win.Event('fullscreenchange'));
+                  resolve();
+                };
+              });
+            }
+          }
+        ],
+        [
+          win.document,
+          'exitFullscreen',
+          {
+            value: async () => {
+              active = null;
+              win.document.dispatchEvent(new win.Event('fullscreenchange'));
+            }
+          }
+        ],
+        [win, 'ontouchstart', { value: null }]
+      ].map(([target, key, descriptor]) => ({
+        target,
+        key,
+        descriptor,
+        previous: Object.getOwnPropertyDescriptor(target, key)
+      }));
+      for (const patch of patches)
+        Object.defineProperty(patch.target, patch.key, { ...patch.descriptor, configurable: true });
+      try {
+        settingsStore.update({ fullscreen: true });
+        await act(() => fullscreen.restoreFullscreen());
+        assert.equal(requests.length, 0, 'a browser launch waits for a player gesture');
+        await mount(
+          h(SettingsScreen, {
+            onBack: noop,
+            onPreview: noop,
+            onMusicPreview: noop,
+            onStopPreview: noop
+          })
+        );
+        const on = query('[aria-label="Fullscreen"] button:first-child');
+        const off = query('[aria-label="Fullscreen"] button:last-child');
+        await click(on);
+        assert.deepEqual(requests, [{ navigationUI: 'hide' }]);
+        assert.equal(on.disabled, true, 'block duplicate toggles during entry');
+        await act(async () => finishEntry());
+        assert.equal(fullscreen.fullscreenStore.getSnapshot().active, true);
+        assert.equal(on.disabled, false);
+        assert.equal(JSON.parse(win.localStorage.getItem('bball.settings')).data.fullscreen, true);
+        await act(() => {
+          active = null;
+          win.document.dispatchEvent(new win.Event('fullscreenchange'));
+        });
+        assert.equal(settingsStore.getSnapshot().fullscreen, true);
+        assert.match(host.textContent, /start a match to enter fullscreen again/);
+        await act(() => fullscreen.enterPreferredFullscreen());
+        assert.equal(requests.length, 2, 'the next play gesture can re-enter');
+        await act(async () => finishEntry());
+        await click(off);
+        assert.equal(active, null);
+        assert.equal(settingsStore.getSnapshot().fullscreen, false);
+        fail = true;
+        await click(on);
+        assert.equal(fullscreen.fullscreenStore.getSnapshot().active, false);
+        assert.match(host.textContent, /Fullscreen couldn't open/);
+        assert.equal(on.disabled, false, 'a refused request remains retryable');
+        await click(off);
+        Object.defineProperty(win.document, 'fullscreenEnabled', {
+          value: false,
+          configurable: true
+        });
+        await act(() => fullscreen.initializeFullscreen());
+        assert.equal(on.disabled, true);
+        assert.match(host.textContent, /Fullscreen is unavailable/);
+      } finally {
+        await act(() => root.render(null));
+        settingsStore.update(previous);
+        for (const patch of patches) {
+          if (patch.previous) Object.defineProperty(patch.target, patch.key, patch.previous);
+          else Reflect.deleteProperty(patch.target, patch.key);
+        }
+        await fullscreen.initializeFullscreen();
+      }
+    }
+  );
+
+  await check(
+    'Android fullscreen restores its device preference and returns system bars on Off',
+    async () => {
+      const [{ SettingsScreen }, { settingsStore }, fullscreen] = await Promise.all([
+        vite.ssrLoadModule('/src/ui/screens/SettingsScreen.tsx'),
+        vite.ssrLoadModule('/src/core/settings/store.ts'),
+        vite.ssrLoadModule('/src/core/platform/fullscreen.ts')
+      ]);
+      const previous = settingsStore.getSnapshot();
+      let active = false;
+      const calls = [];
+      win.bBallScreen = {
+        isFullscreen: () => active,
+        setFullscreen: (enabled) => {
+          active = enabled;
+          calls.push(enabled);
+          win.dispatchEvent(new win.Event('bball:fullscreen'));
+        }
+      };
+      try {
+        settingsStore.update({ fullscreen: true });
+        await act(() => fullscreen.restoreFullscreen());
+        assert.deepEqual(calls, [true]);
+        await mount(
+          h(SettingsScreen, {
+            onBack: noop,
+            onPreview: noop,
+            onMusicPreview: noop,
+            onStopPreview: noop
+          })
+        );
+        assert.equal(fullscreen.fullscreenStore.getSnapshot().active, true);
+        await click(query('[aria-label="Fullscreen"] button:last-child'));
+        assert.deepEqual(calls, [true, false]);
+        assert.equal(active, false);
+        assert.equal(settingsStore.getSnapshot().fullscreen, false);
+        await act(() => fullscreen.restoreFullscreen());
+        assert.deepEqual(calls, [true, false, false]);
+        assert.equal(active, false, 'a later launch restores the Off preference too');
+      } finally {
+        await act(() => root.render(null));
+        settingsStore.update(previous);
+        Reflect.deleteProperty(win, 'bBallScreen');
+        await fullscreen.initializeFullscreen();
+      }
+    }
+  );
+
+  await check(
     'pending or failed Pause settings keep a return route and explain reload',
     async () => {
       let resolve;
@@ -2967,15 +3125,185 @@ try {
     vite.ssrLoadModule('/src/core/campaign/journey.ts'),
     vite.ssrLoadModule('/src/core/progression/levels.ts')
   ]);
-  const choose = async (label, value) => {
-    const control = [...host.querySelectorAll('label')]
-      .find((e) => e.textContent.startsWith(label))
-      ?.querySelector('select');
-    assert.ok(control, label);
-    await act(() => {
-      control.value = String(value);
-      control.dispatchEvent(new win.Event('change', { bubbles: true }));
+  const { GamePicker } = await vite.ssrLoadModule('/src/ui/components/GamePicker.tsx');
+  const finishPicker = async () => {
+    const sheet = query('[data-picker-sheet][data-closing="true"]');
+    await act(() => sheet.dispatchEvent(new win.Event('animationend', { bubbles: true })));
+    absent('[role="dialog"]');
+  };
+  await check(
+    'game choices skip locked options, commit once and restore trigger focus on selection or Escape',
+    async () => {
+      const changes = [];
+      function Choices() {
+        const [value, setValue] = useState('story');
+        return h(GamePicker, {
+          label: 'Journey rules',
+          value,
+          onChange: (next) => {
+            changes.push(next);
+            setValue(next);
+          },
+          options: [
+            { value: 'story', name: 'Story' },
+            { value: 'veteran', name: 'Veteran', disabled: true, hint: 'Locked' },
+            { value: 'ascendant', name: 'Ascendant' }
+          ]
+        });
+      }
+      await mount(h(Choices));
+      const trigger = query('[aria-label="Journey rules"]');
+      await click(trigger);
+      const list = query('[role="listbox"]');
+      focused(list);
+      assert.equal(host.hasAttribute('inert'), true);
+      await key(list, 'ArrowDown');
+      assert.equal(
+        win.document
+          .getElementById(list.getAttribute('aria-activedescendant'))
+          .getAttribute('data-value'),
+        'ascendant'
+      );
+      assert.equal(changes.length, 0);
+      await key(list, 'Enter');
+      assert.deepEqual(changes, ['ascendant']);
+      assert.equal(trigger.getAttribute('data-value'), 'ascendant');
+      assert.equal(host.hasAttribute('inert'), true, 'keep the background blocked during exit');
+      await key(list, 'Enter');
+      await click(query('[aria-label="Close choices"]'));
+      assert.deepEqual(changes, ['ascendant'], 'ignore repeated input during exit');
+      await finishPicker();
+      focused(trigger);
+      assert.equal(host.hasAttribute('inert'), false);
+      await click(trigger);
+      await key(query('[role="listbox"]'), 's');
+      await key(query('[role="listbox"]'), 'Escape');
+      assert.deepEqual(changes, ['ascendant']);
+      await finishPicker();
+      focused(trigger);
+    }
+  );
+  await check(
+    'long game choice lists filter, explain empty results and support keyboard selection without opening a keyboard on entry',
+    async () => {
+      const changes = [];
+      await mount(
+        h(GamePicker, {
+          label: 'Court',
+          value: 'court-0',
+          onChange: (value) => changes.push(value),
+          options: Array.from({ length: 30 }, (_, i) => ({
+            value: `court-${i}`,
+            name: `Court ${i}`
+          }))
+        })
+      );
+      await click(query('[aria-label="Court"]'));
+      focused(query('[role="listbox"]'));
+      const search = query('[aria-label="Search court"]');
+      const setSearch = Object.getOwnPropertyDescriptor(
+        win.HTMLInputElement.prototype,
+        'value'
+      ).set;
+      await act(() => {
+        setSearch.call(search, 'missing');
+        search.dispatchEvent(new win.Event('input', { bubbles: true }));
+      });
+      assert.equal(win.document.querySelectorAll('[role="option"]').length, 0);
+      assert.match(query('[role="status"]').textContent, /No choices match/);
+      await key(query('[role="listbox"]'), 'Enter');
+      assert.equal(changes.length, 0);
+      await act(() => {
+        setSearch.call(search, 'Court 29');
+        search.dispatchEvent(new win.Event('input', { bubbles: true }));
+      });
+      assert.equal(win.document.querySelectorAll('[role="option"]').length, 1);
+      await key(search, 'ArrowDown');
+      focused(query('[role="listbox"]'));
+      await key(query('[role="listbox"]'), 'Enter');
+      assert.deepEqual(changes, ['court-29']);
+      await finishPicker();
+    }
+  );
+  await check(
+    'choice panels dismiss through their backdrop and release background blocking when unmounted',
+    async () => {
+      const changes = [];
+      const props = {
+        label: 'Chapter',
+        value: 0,
+        onChange: (value) => changes.push(value),
+        options: [
+          { value: 0, name: 'Original Journey' },
+          { value: 1, name: 'Precision Circuit' }
+        ]
+      };
+      await mount(h(GamePicker, props));
+      const trigger = query('[aria-label="Chapter"]');
+      await click(trigger);
+      await click(query('[aria-label="Dismiss Chapter"]'));
+      await finishPicker();
+      assert.equal(changes.length, 0);
+      focused(trigger);
+      await click(trigger);
+      await act(() => win.dispatchEvent(new win.PopStateEvent('popstate')));
+      await finishPicker();
+      focused(trigger);
+      await click(trigger);
+      await act(() => root.render(null));
+      absent('[role="dialog"]');
+      assert.equal(host.hasAttribute('inert'), false);
+      await mount(h(GamePicker, { ...props, disabled: true }));
+      await click(query('[aria-label="Chapter"]'));
+      absent('[role="dialog"]');
+    }
+  );
+  await check('choice exit fallback restores focus and unmount cancels its timer', async () => {
+    await withUiClock(async (advance, pendingCount) => {
+      await mount(
+        h(GamePicker, {
+          label: 'Rules',
+          value: 'story',
+          options: [{ value: 'story', name: 'Story' }],
+          onChange: noop
+        })
+      );
+      const trigger = query('[aria-label="Rules"]');
+      await click(trigger);
+      await key(query('[role="listbox"]'), 'Escape');
+      assert.equal(pendingCount(), 1);
+      await advance(200);
+      query('[data-picker-sheet][data-closing="true"]');
+      assert.equal(host.hasAttribute('inert'), true);
+      await advance(80);
+      absent('[role="dialog"]');
+      focused(trigger);
+      assert.equal(host.hasAttribute('inert'), false);
+      await click(trigger);
+      await key(query('[role="listbox"]'), 'Escape');
+      assert.equal(pendingCount(), 1);
+      await act(() => root.render(null));
+      assert.equal(pendingCount(), 0);
+      absent('[role="dialog"]');
+      assert.equal(host.hasAttribute('inert'), false);
     });
+  });
+  const choose = async (label, value) => {
+    const field = [...host.querySelectorAll('[data-picker]')].find((e) =>
+      e.getAttribute('data-picker').startsWith(label)
+    );
+    const control = field?.querySelector('button');
+    assert.ok(control, label);
+    const details = field.closest('details');
+    if (details && !details.open) await click(details.querySelector('summary'));
+    await click(control);
+    const option = [...win.document.querySelectorAll('[role="option"]')].find(
+      (e) => e.getAttribute('data-value') === String(value)
+    );
+    assert.ok(option, `${label}: ${value}`);
+    assert.equal(option.disabled, false);
+    await click(option);
+    await finishPicker();
   };
   await check('Journey variants and Frontier launch their actual stage IDs', async () => {
     const profile = createProfile();
@@ -3011,11 +3339,30 @@ try {
       options: { personality: 'banker', arenaId: 'gatehouse-1', contract: 'mythic' }
     });
     await mount(h(ExpansionDifficulty, { ...props, practice: true }));
+    await choose('Court', 'gatehouse-1');
     await choose('Boss drill', 'gatekeeper');
     await choose('Isolated phase', 2);
-    await click([...host.querySelectorAll('button')].find((b) => b.textContent.includes('Rookie')));
+    assert.equal(host.querySelector('[aria-label="Court"]'), null);
+    assert.equal(
+      [...host.querySelectorAll('button')].some((b) => b.textContent.includes('Rookie')),
+      false
+    );
+    await click(button('Start boss drill'));
     assert.equal(picked.at(-1).options.bossId, 'gatekeeper');
     assert.equal(picked.at(-1).options.bossPhase, 2);
+    assert.equal(
+      picked.at(-1).options.arenaId,
+      undefined,
+      'An ordinary court must not override the phase court'
+    );
+    await choose('Boss drill', '');
+    assert.equal(
+      host.querySelector('[aria-label="Court"]').getAttribute('data-value'),
+      'gatehouse-1'
+    );
+    await click([...host.querySelectorAll('button')].find((b) => b.textContent.includes('Rookie')));
+    assert.equal(picked.at(-1).bot, 'rookie');
+    assert.equal(picked.at(-1).options.bossId, undefined);
   });
   await check('Gauntlet and cup format controls launch the selected long format', async () => {
     const profile = createProfile(),
@@ -3030,7 +3377,9 @@ try {
         onBack: noop
       })
     );
-    await choose('Run length', 'endless');
+    await click(
+      [...host.querySelectorAll('button')].find((b) => b.textContent.startsWith('Endless'))
+    );
     await click(button('Start a run'));
     assert.deepEqual(started.at(-1), [0, 'endless']);
     await mount(
@@ -3041,7 +3390,9 @@ try {
         onBack: noop
       })
     );
-    await click(button('Marathon · 7 rounds'));
+    await click(
+      [...host.querySelectorAll('button')].find((b) => b.textContent.startsWith('Marathon'))
+    );
     await click(button('Start Bronze Cup'));
     assert.deepEqual(started.at(-1), [0, 'marathon']);
   });
@@ -3114,15 +3465,49 @@ try {
     const profile = createProfile();
     profile.progress.contracts = 2;
     await mount(h(ChallengeScreen, { profile, onPick: noop, onBack: noop }));
-    await click(button('Five-trial contract playlist'));
+    await click(
+      [...host.querySelectorAll('summary')].find((s) =>
+        s.textContent.includes('Five-trial contract playlist')
+      )
+    );
     assert.match(host.textContent, /2 of 5 cleared/);
     const trialButtons = [...host.querySelectorAll('button')].filter((b) =>
       b.textContent.startsWith('Contract ')
     );
     assert.equal(trialButtons.filter((b) => b.disabled).length, 2);
   });
+  await check(
+    'match rules pointer activation releases focus; keyboard activation preserves it',
+    async () => {
+      const [{ MatchHud }, { idleSnapshot }] = await Promise.all([
+        vite.ssrLoadModule('/src/ui/MatchHud.tsx'),
+        vite.ssrLoadModule('/src/game/engine.ts')
+      ]);
+      let opened = 0;
+      await mount(
+        h(MatchHud, {
+          snapshot: { ...idleSnapshot(), canPause: true },
+          objective: 'Test match rules',
+          onGoals: () => opened++
+        })
+      );
+      const rules = query('button');
+      rules.focus();
+      await act(() =>
+        rules.dispatchEvent(new win.MouseEvent('click', { detail: 1, bubbles: true }))
+      );
+      assert.equal(opened, 1);
+      assert.ok(
+        win.document.activeElement !== rules,
+        'pointer focus must not consume the next Space serve'
+      );
+      await click(rules);
+      assert.equal(opened, 2);
+      focused(rules);
+    }
+  );
   console.log(
-    `${checks} UI interaction checks passed (DOM only; layout and assistive technology need manual QA).`
+    `${checks} UI interaction checks passed (DOM only; check:layout covers real browser geometry).`
   );
 } finally {
   await act(() => root.unmount());

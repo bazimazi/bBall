@@ -442,7 +442,7 @@
 }
 
 .tabLocked {
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 /* ----------------------------------------------------------------- stages */
@@ -487,6 +487,16 @@
     border-color 0.18s ease;
 }
 
+.stagesCompact .stage {
+  min-height: 74px;
+  padding: 9px 10px;
+  gap: 5px;
+}
+
+.stagesCompact .stageName {
+  font-size: 12.5px;
+}
+
 .stage:active {
   transform: scale(0.98);
 }
@@ -521,7 +531,7 @@
 }
 
 .stageLocked {
-  opacity: 0.42;
+  opacity: 0.65;
   cursor: default;
 }
 
@@ -692,19 +702,31 @@
 
 .act {
   display: grid;
-  grid-template-columns: 52px repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--nodes, 3), minmax(0, 1fr));
   gap: 6px;
   align-items: stretch;
 }
 
 .actLabel {
+  grid-column: 1 / -1;
   display: grid;
-  place-items: center;
+  justify-items: start;
   font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.routeChoices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.routeChoices > p {
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
 }
 
 .node {
@@ -885,36 +907,6 @@
 
 /* --------------------------------------------------------------- pressure */
 
-.pressure {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.pressureChip {
-  min-height: 44px;
-  border: 1px solid var(--edge);
-  border-radius: 12px;
-  background: rgba(16, 20, 34, 0.66);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 800;
-  cursor: pointer;
-  font-variant-numeric: tabular-nums;
-}
-
-.pressureChip:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.pressureOn {
-  border-color: #ff8a5c;
-  box-shadow: 0 0 0 1px #ff8a5c inset;
-  color: #ff8a5c;
-}
-
 .ranks {
   display: flex;
   flex-direction: column;
@@ -932,10 +924,6 @@
 .rankLine b {
   color: var(--ink);
   font-weight: 750;
-}
-
-.rankOff {
-  opacity: 0.4;
 }
 
 /* --------------------------------------------------------------- result */
@@ -964,8 +952,14 @@
   color: var(--accent);
 }
 
+.resultRow span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .resultRow span:last-child {
   margin-left: auto;
+  text-align: right;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }

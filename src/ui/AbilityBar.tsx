@@ -204,9 +204,9 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
 /**
  * The equipped active skills, during play.
  *
- * Bottom corner on the side the player picked, thumb-sized, and deliberately outside the court: the field
- * is centred and letterboxed on every screen, so this sits in space the ball
- * can never occupy. Nothing else is added to the gameplay HUD.
+ * Thumb-sized controls on the side the player picked, raised above the bottom
+ * paddle lane so the player can drag beneath them. Nothing else is added to
+ * the gameplay HUD.
  */
 export function AbilityBar({ abilities, show, side, onUse }: AbilityBarProps) {
   if (!show || abilities.length === 0) return null;

@@ -29,6 +29,10 @@ remain independent of system preferences. This policy takes precedence over the
 motion recommendations discussed below. See [AGENTS.md](../AGENTS.md) and the
 [root README](../README.md).
 
+Choice-panel entrance and exit animations follow this policy, including the
+phone bottom sheets. The [expansion UI review](validation/endless-ui-review.md)
+records their motion, backdrop and dismissal checks.
+
 The strongest opportunity is to make the existing game easier to understand and
 trust. It already has nine modes, differentiated opponents, hazard courts,
 technique through flicks and aimed serves, progression and extensive audiovisual

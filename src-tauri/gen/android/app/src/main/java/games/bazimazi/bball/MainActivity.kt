@@ -7,11 +7,14 @@ import android.webkit.WebView
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : TauriActivity() {
   /** Latest system-bar and cutout insets, in CSS pixels, as JSON. */
   @Volatile private var safeArea = "{\"t\":0,\"r\":0,\"b\":0,\"l\":0}"
+  @Volatile private var fullscreen = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     // The game is dark whatever the system theme is, so the bar icons must
@@ -21,6 +24,20 @@ class MainActivity : TauriActivity() {
       navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
     )
     super.onCreate(savedInstanceState)
+    fullscreen = getPreferences(MODE_PRIVATE).getBoolean("fullscreen", false)
+    applyFullscreen()
+  }
+
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    if (hasFocus && fullscreen) applyFullscreen()
+  }
+
+  private fun applyFullscreen() {
+    val controller = WindowCompat.getInsetsController(window, window.decorView)
+    controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    if (fullscreen) controller.hide(WindowInsetsCompat.Type.systemBars())
+    else controller.show(WindowInsetsCompat.Type.systemBars())
   }
 
   /**
@@ -33,6 +50,7 @@ class MainActivity : TauriActivity() {
    */
   override fun onWebViewCreate(webView: WebView) {
     webView.addJavascriptInterface(InsetsBridge(), "bBallInsets")
+    webView.addJavascriptInterface(ScreenBridge(webView), "bBallScreen")
     ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
       val bars = insets.getInsets(
         WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
@@ -56,5 +74,21 @@ class MainActivity : TauriActivity() {
   private inner class InsetsBridge {
     @JavascriptInterface
     fun get(): String = safeArea
+  }
+
+  /** Hide both bars; visible cutouts still reach the page through the insets bridge. */
+  private inner class ScreenBridge(private val webView: WebView) {
+    @JavascriptInterface
+    fun isFullscreen(): Boolean = fullscreen
+
+    @JavascriptInterface
+    fun setFullscreen(enabled: Boolean) {
+      runOnUiThread {
+        fullscreen = enabled
+        getPreferences(MODE_PRIVATE).edit().putBoolean("fullscreen", enabled).apply()
+        applyFullscreen()
+        webView.evaluateJavascript("window.dispatchEvent(new Event('bball:fullscreen'))", null)
+      }
+    }
   }
 }

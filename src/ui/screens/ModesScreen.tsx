@@ -11,6 +11,8 @@ import { levelOf } from '../../core/progression/levels';
 import type { PlayerProfile } from '../../core/profile/types';
 import { roundsFor, tierForLevel } from '../../core/tournament/bracket';
 import { Screen } from '../components/Screen';
+import { MenuDisclosure } from '../components/MenuDisclosure';
+import { GamePicker } from '../components/GamePicker';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
 
@@ -68,59 +70,74 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
   const record = profile.progress.endlessRecords[endlessRecordKey({ arenaId, waves })];
   return (
     <Screen title="More modes" subtitle="Quick games, cups and couch play" onBack={onBack}>
-      <div className={styles.card}>
-        <label>
-          Court for Endless and Versus{' '}
-          <select value={arenaId} onChange={(e) => setArenaId(e.target.value)}>
-            <option value="">Open court</option>
-            {ARENA_PRESETS.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Endless format{' '}
-          <select
+      <MenuDisclosure
+        title="Court & couch rules"
+        hint={`${ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'} · ${waves ? 'Waves' : 'Classic rally'} · ${series > 1 ? `Best of ${series}` : 'Single match'} Versus`}
+      >
+        <div className={styles.fieldGrid}>
+          <GamePicker
+            label="Court for Endless and Versus"
+            value={arenaId}
+            onChange={setArenaId}
+            options={[
+              { value: '', name: 'Open court', hint: 'The classic duel. No court hazards.' },
+              ...ARENA_PRESETS.map((c) => ({ value: c.id, name: c.name, hint: c.blurb }))
+            ]}
+          />
+          <GamePicker
+            label="Endless format"
             value={waves ? 'waves' : 'classic'}
-            onChange={(e) => setWaves(e.target.value === 'waves')}
-          >
-            <option value="classic">Classic rally</option>
-            <option value="waves">Waves · 12 returns per course</option>
-          </select>
-        </label>
+            onChange={(value) => setWaves(value === 'waves')}
+            options={[
+              { value: 'classic', name: 'Classic rally', hint: 'Keep one rally alive.' },
+              {
+                value: 'waves',
+                name: 'Waves',
+                hint: '12 returns per course. Courts change between waves.'
+              }
+            ]}
+          />
+        </div>
         <p className={styles.rowBlurb}>
           {waves
             ? `Best ${record?.waves ?? 0} waves · Court choice seeds the route. Courts change safely between waves.`
             : `Course best rally ${record?.rally ?? 0}`}
         </p>
-        <label>
-          Versus series{' '}
-          <select value={series} onChange={(e) => setSeries(Number(e.target.value) as 1 | 3 | 5)}>
-            <option value={1}>Single match</option>
-            <option value={3}>Best of 3</option>
-            <option value={5}>Best of 5</option>
-          </select>
-        </label>
-        <label>
-          Versus rule{' '}
-          <select value={duel} onChange={(e) => setDuel(e.target.value as typeof duel)}>
-            <option value="">Standard</option>
-            <option value="speed">Fast ball · both sides</option>
-            <option value="precision">Precision · both paddles 80%</option>
-          </select>
-        </label>
-        <label>
-          Versus court{' '}
-          <select
+        <div className={styles.fieldGrid}>
+          <GamePicker<1 | 3 | 5>
+            label="Versus series"
+            value={series}
+            onChange={setSeries}
+            options={[
+              { value: 1, name: 'Single match' },
+              { value: 3, name: 'Best of 3' },
+              { value: 5, name: 'Best of 5' }
+            ]}
+          />
+          <GamePicker<'' | 'speed' | 'precision'>
+            label="Versus rule"
+            value={duel}
+            onChange={setDuel}
+            options={[
+              { value: '', name: 'Standard', hint: 'Classic pace and paddle reach.' },
+              { value: 'speed', name: 'Fast ball', hint: 'More pace for both sides.' },
+              { value: 'precision', name: 'Precision', hint: 'Both paddles have 80% reach.' }
+            ]}
+          />
+          <GamePicker
+            label="Versus court"
             value={mirror ? 'mirror' : 'original'}
-            onChange={(e) => setMirror(e.target.value === 'mirror')}
-          >
-            <option value="original">Original layout</option>
-            <option value="mirror">Mirrored pairs · breakable rails</option>
-          </select>
-        </label>
+            onChange={(value) => setMirror(value === 'mirror')}
+            options={[
+              { value: 'original', name: 'Original layout' },
+              {
+                value: 'mirror',
+                name: 'Mirrored pairs',
+                hint: 'Symmetric courts with breakable rails.'
+              }
+            ]}
+          />
+        </div>
         <p className={styles.rowBlurb}>
           Review these rules together. Versus earns no XP or records.
         </p>
@@ -158,7 +175,7 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             </div>
           ))}
         </details>
-      </div>
+      </MenuDisclosure>
       <div className={`${styles.grid} ${modes.stagger}`}>
         {MODES.filter((mode) => !HOME_MODES.includes(mode.id)).map((mode) => (
           <button
@@ -178,7 +195,13 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
           >
             <span className={styles.rowText}>
               <span className={styles.rowTitle}>{mode.name}</span>
-              <span className={styles.rowBlurb}>{mode.blurb}</span>
+              <span className={styles.rowBlurb}>
+                {mode.id === 'endless'
+                  ? `${waves ? 'Waves' : 'Classic rally'} · ${ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'} · best ${waves ? (record?.waves ?? 0) : (record?.rally ?? 0)}`
+                  : mode.id === 'versus'
+                    ? `${series > 1 ? `Best of ${series}` : 'Single match'} · ${duel === 'precision' ? 'Precision' : duel === 'speed' ? 'Fast ball' : 'Standard'}${mirror ? ' · Mirrored' : ''}`
+                    : mode.blurb}
+              </span>
             </span>
             <span className={styles.rowMeta}>{metaFor(mode, profile)}</span>
           </button>

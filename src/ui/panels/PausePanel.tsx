@@ -3,7 +3,8 @@ import { PanelButton } from './PanelButton';
 import { ControlsReference } from '../components/ControlsReference';
 import { GoalList } from '../components/GoalList';
 import { SaveNotice } from '../components/SaveNotice';
-import type { GoalView } from '../../game/types';
+import type { AbilityView, GoalView } from '../../game/types';
+import { abilityById } from '../../core/talents/abilities';
 
 interface PausePanelProps {
   /** What is being played, e.g. "Gold Cup · Final". */
@@ -22,6 +23,7 @@ interface PausePanelProps {
   versus?: boolean;
   objective?: string | null;
   goals?: readonly GoalView[];
+  enemyAbilities?: readonly AbilityView[] | undefined;
 }
 
 export function PausePanel({
@@ -37,7 +39,8 @@ export function PausePanel({
   onQuit,
   versus = false,
   objective,
-  goals = []
+  goals = [],
+  enemyAbilities = []
 }: PausePanelProps) {
   return (
     <div className={styles.panel}>
@@ -68,6 +71,26 @@ export function PausePanel({
       )}
       <GoalList goals={goals} />
       {goals.length === 0 && objective && <p className={styles.tagline}>{objective}</p>}
+      {enemyAbilities.length > 0 && (
+        <details className={styles.controls}>
+          <summary>Opponent skills · {enemyAbilities.length}</summary>
+          <dl className={styles.opponentSkills}>
+            {enemyAbilities.map((skill) => (
+              <div key={skill.id}>
+                <dt>
+                  {skill.name} ·{' '}
+                  {skill.active
+                    ? 'Active'
+                    : skill.ready
+                      ? 'Ready'
+                      : `${skill.cooldownLeft}s recovery`}
+                </dt>
+                <dd>{abilityById(skill.id)?.blurb}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
       {onStep && (
         <>
           <p className={styles.tagline}>

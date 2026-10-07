@@ -18,6 +18,9 @@ import {
   type RunSave
 } from '../../core/run/run';
 import { Screen } from '../components/Screen';
+import { MenuDisclosure } from '../components/MenuDisclosure';
+import { ChoiceGroup } from '../components/ChoiceGroup';
+import { GamePicker } from '../components/GamePicker';
 import { ConfirmAction } from '../components/ConfirmAction';
 import { HeartIcon } from '../icons/ModeIcons';
 import {
@@ -139,15 +142,69 @@ function StartView({
           <div className={modes.detailHead}>
             <h3 className={modes.detailName}>Build a run. Find your limit.</h3>
             <p className={modes.detailBlurb}>
-              Sprint has nine fights. Expedition has 36. Endless keeps opening new acts. Win a match
-              and choose a boon - they last until the run ends. Lose one and a heart goes, and the
-              same opponent waits for a rematch. Starting commits the encounter. Restarting or
-              discarding an unfinished attempt costs one heart; closing the app keeps that
-              commitment.
+              Win fights. Draft boons. Keep your build until the run ends. Lose a fight, lose a
+              heart. Try the same opponent again.
             </p>
           </div>
         </div>
 
+        <ChoiceGroup<RunFormat>
+          label="Run length"
+          value={format}
+          onChange={setFormat}
+          options={RUN_FORMATS.map((f) => ({
+            value: f,
+            name: f === 'sprint' ? 'Sprint' : f === 'expedition' ? 'Expedition' : 'Endless',
+            hint: f === 'sprint' ? '9 fights' : f === 'expedition' ? '36 fights' : 'No final fight'
+          }))}
+        />
+
+        <GamePicker
+          label={`Pressure · ${heartsFor(pressure)} starting hearts`}
+          value={pressure}
+          onChange={setPressure}
+          options={Array.from({ length: Math.min(51, unlocked + 2) }, (_, level) => ({
+            value: level,
+            name: level === 0 ? '0 · Standard' : `${level} · ${PRESSURE[level - 1]!.name}`,
+            tag: String(level),
+            disabled: level > unlocked,
+            hint:
+              level > unlocked
+                ? `Clear Pressure ${unlocked} to unlock`
+                : `${heartsFor(level)} starting hearts`
+          }))}
+        />
+        {unlocked < 50 && (
+          <p className={styles.rowBlurb} style={{ margin: 0 }}>
+            Clear Pressure {unlocked} to unlock {unlocked + 1}.
+          </p>
+        )}
+        <MenuDisclosure
+          title="Run rules"
+          hint={
+            pressure > 0
+              ? `Pressure ${pressure} · cumulative rules`
+              : 'Resumable · rewards kept after each fight'
+          }
+        >
+          <p className={styles.rowBlurb}>
+            Closing the game saves your run. Starting a fight commits its court and route.
+            Restarting or discarding an unfinished fight costs one heart.
+          </p>
+          {pressure > 0 ? (
+            <div className={modes.ranks}>
+              {PRESSURE.filter(
+                (rank) => rank.level <= pressure && (rank.level <= 5 || rank.level === pressure)
+              ).map((rank) => (
+                <span key={rank.level} className={modes.rankLine}>
+                  <b>{rank.level}</b> {rank.name} · {rank.blurb}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className={styles.rowBlurb}>Standard pace, three hearts and three boon choices.</p>
+          )}
+        </MenuDisclosure>
         <button
           type="button"
           className={styles.row}
@@ -156,62 +213,10 @@ function StartView({
           <span className={styles.rowText}>
             <span className={styles.rowTitle}>Weekly expedition</span>
             <span className={styles.rowBlurb}>
-              36 shared encounters · same seed for the week · resumable
+              36 shared fights · Pressure 0 · saves between fights
             </span>
           </span>
         </button>
-        <label className={styles.sectionLabel}>
-          Run length
-          <select value={format} onChange={(e) => setFormat(e.target.value as RunFormat)}>
-            {RUN_FORMATS.map((f) => (
-              <option key={f} value={f}>
-                {f === 'sprint'
-                  ? 'Sprint · 9 encounters'
-                  : f === 'expedition'
-                    ? 'Expedition · 36 encounters'
-                    : 'Endless · no final encounter'}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <p className={styles.sectionLabel}>Pressure</p>
-        <div className={modes.pressure}>
-          {Array.from({ length: Math.min(51, unlocked + 2) }, (_, level) => (
-            <button
-              key={level}
-              type="button"
-              className={
-                level === pressure
-                  ? `${modes.pressureChip} ${modes.pressureOn}`
-                  : modes.pressureChip
-              }
-              disabled={level > unlocked}
-              onClick={() => setPressure(level)}
-            >
-              {level}
-            </button>
-          ))}
-        </div>
-        <div className={modes.ranks}>
-          {PRESSURE.filter(
-            (rank) => rank.level <= 5 || rank.level === pressure || rank.level === pressure + 1
-          ).map((rank) => (
-            <span
-              key={rank.level}
-              className={
-                rank.level <= pressure ? modes.rankLine : `${modes.rankLine} ${modes.rankOff}`
-              }
-            >
-              <b>{rank.level}</b> {rank.name} - {rank.blurb}
-            </span>
-          ))}
-          {unlocked < 50 && (
-            <span className={modes.rankLine}>
-              Clear a run at Pressure {unlocked} to open Pressure {unlocked + 1}.
-            </span>
-          )}
-        </div>
 
         {last && (
           <div className={styles.card}>
@@ -221,9 +226,7 @@ function StartView({
             <p className={styles.rowBlurb}>
               {last.won ? `Cleared at Pressure ${last.pressure}` : `Reached ${runPosition(last)}`}
               {Object.keys(last.boons).length > 0
-                ? ` · ${Object.keys(last.boons)
-                    .map((id) => boonById(id)?.name ?? id)
-                    .join(', ')}`
+                ? ` · ${Object.keys(last.boons).length} boons`
                 : ''}
             </p>
             {last.won && last.version === 2 && last.format !== 'endless' && (
@@ -320,8 +323,10 @@ function BoonList({ run }: { run: RunSave }) {
   const owned = Object.entries(run.boons).filter(([, rank]) => rank > 0);
   if (owned.length === 0) return null;
   return (
-    <>
-      <p className={styles.sectionLabel}>Your boons</p>
+    <MenuDisclosure
+      title="Your build"
+      hint={`${owned.length} boons · ${owned.filter(([id]) => boonById(id)?.family === 'relic').length}/3 relics`}
+    >
       <div className={modes.boonChips}>
         {owned.map(([id, rank]) => {
           const boon = boonById(id);
@@ -334,11 +339,58 @@ function BoonList({ run }: { run: RunSave }) {
           );
         })}
       </div>
-    </>
+    </MenuDisclosure>
   );
 }
 
 // -------------------------------------------------------------------- run
+
+function ActTrack({ run, act }: { run: RunSave; act: number }) {
+  return (
+    <div className={modes.act} style={{ '--nodes': actLength(run) } as CSSProperties}>
+      <span className={modes.actLabel}>Act {act + 1}</span>
+      {Array.from({ length: actLength(run) }, (_, slot) => {
+        const stage = act * actLength(run) + (run.actOffset ?? 0) + slot;
+        const encounter = encounterFor(run, stage);
+        const won = run.results.some((item) => item.stage === stage && item.won);
+        const classes = [modes.node];
+        if (won) classes.push(modes.nodeDone);
+        if (stage === run.stage) classes.push(modes.nodeNow);
+        if (encounter.boss) classes.push(modes.nodeBoss);
+        const known = stage <= run.stage;
+        const name = encounter.boss
+          ? known
+            ? (bossById(encounter.boss)?.spec.name ?? 'Boss')
+            : 'Boss'
+          : known
+            ? botProfile(encounter.bot).name
+            : '?';
+        const results = run.results.filter((item) => item.stage === stage);
+        const score = results[results.length - 1];
+        return (
+          <span
+            key={stage}
+            className={classes.join(' ')}
+            aria-current={stage === run.stage ? 'step' : undefined}
+            aria-label={`Encounter ${stage + 1} · ${name}${won ? ' · won' : stage === run.stage ? ' · next' : ''}`}
+            title={`Encounter ${stage + 1} · ${name}`}
+          >
+            <span className={modes.nodeName}>{stage + 1}</span>
+            <span>
+              {score
+                ? `${score.you}-${score.bot}`
+                : stage === run.stage
+                  ? 'Next'
+                  : encounter.boss
+                    ? 'Boss'
+                    : '·'}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 function RunView({
   run,
@@ -356,6 +408,10 @@ function RunView({
   const boss = next.boss ? bossById(next.boss) : undefined;
   const lastResult = run.results[run.results.length - 1];
   const rematch = lastResult && !lastResult.won && lastResult.stage === run.stage;
+  const currentAct = actIndex(run);
+  const futureActs = [currentAct + 1, currentAct + 2].filter(
+    (act) => act * actLength(run) + (run.actOffset ?? 0) < runLength(run)
+  );
 
   return (
     <Screen
@@ -364,11 +420,6 @@ function RunView({
       onBack={onBack}
       footer={
         <>
-          {run.version === 2 && run.format === 'endless' && run.stage > 0 && atBoundary(run) && (
-            <button type="button" className={styles.ghost} onClick={() => runAction('bank')}>
-              Bank this run
-            </button>
-          )}
           <button
             type="button"
             className={styles.primary}
@@ -381,16 +432,27 @@ function RunView({
             }}
           >
             {run.attempt
-              ? `Restart committed encounter · lose 1 heart${run.hearts === 1 ? ' (ends run)' : ''}`
+              ? `Restart · lose 1 heart${run.hearts === 1 ? ' (ends run)' : ''}`
               : rematch
                 ? 'Rematch'
                 : boss
                   ? `Face ${boss.spec.name}`
                   : 'Play next match'}
           </button>
-          <button type="button" className={styles.ghost} onClick={() => setConfirm(true)}>
-            End run
-          </button>
+          <div className={styles.runActions}>
+            {run.version === 2 &&
+              run.format === 'endless' &&
+              run.stage > 0 &&
+              !run.attempt &&
+              atBoundary(run) && (
+                <button type="button" className={styles.ghost} onClick={() => runAction('bank')}>
+                  Bank this run
+                </button>
+              )}
+            <button type="button" className={styles.ghost} onClick={() => setConfirm(true)}>
+              End run
+            </button>
+          </div>
         </>
       }
     >
@@ -398,45 +460,8 @@ function RunView({
         <Hearts run={run} />
       </div>
 
-      <div className={modes.acts}>
-        {Array.from(
-          { length: Math.min(3, runLength(run) / actLength(run)) },
-          (_, i) => actIndex(run) + i
-        )
-          .filter((a) => a * actLength(run) < runLength(run))
-          .map((act) => (
-            <div key={act} className={modes.act}>
-              <span className={modes.actLabel}>Act {act + 1}</span>
-              {Array.from({ length: actLength(run) }, (_, i) => i).map((slot) => {
-                const stage = act * actLength(run) + (run.actOffset ?? 0) + slot;
-                const encounter = encounterFor(run, stage);
-                const won = run.results.some((item) => item.stage === stage && item.won);
-                const classes = [modes.node];
-                if (won) classes.push(modes.nodeDone);
-                if (stage === run.stage) classes.push(modes.nodeNow);
-                if (encounter.boss) classes.push(modes.nodeBoss);
-                // Opponents further down the road stay a mystery until reached.
-                const known = stage <= run.stage;
-                const name = encounter.boss
-                  ? known
-                    ? (bossById(encounter.boss)?.spec.name ?? 'Boss')
-                    : 'Boss'
-                  : known
-                    ? botProfile(encounter.bot).name
-                    : '?';
-                const results = run.results.filter((item) => item.stage === stage);
-                const score = results[results.length - 1];
-                return (
-                  <span key={slot} className={classes.join(' ')}>
-                    <span className={modes.nodeName}>{name}</span>
-                    <span>
-                      {score ? `${score.you}-${score.bot}` : stage === run.stage ? 'Next' : ''}
-                    </span>
-                  </span>
-                );
-              })}
-            </div>
-          ))}
+      <div className={modes.acts} aria-label="Upcoming acts">
+        <ActTrack run={run} act={currentAct} />
       </div>
 
       <div className={modes.detail} style={accent(boss?.spec.hue ?? 340)}>
@@ -454,8 +479,26 @@ function RunView({
 
       {next.personality && (
         <p className={styles.rowBlurb}>
-          School · {next.personality}: {SCHOOL_SCOUT[next.personality]}
+          {next.personality[0]!.toUpperCase() + next.personality.slice(1)} school ·{' '}
+          {SCHOOL_SCOUT[next.personality]}
         </p>
+      )}
+      {run.version === 2 && !run.attempt && atBoundary(run) && (
+        <div className={modes.routeChoices}>
+          <p className={styles.sectionLabel}>Next route</p>
+          {(['safe', 'risk'] as const).map((route) => (
+            <button
+              type="button"
+              key={route}
+              className={run.route === route ? styles.choiceOn : styles.choice}
+              aria-pressed={run.route === route}
+              onClick={() => runAction(route)}
+            >
+              <span>{route === 'safe' ? 'Steady route' : 'Risk route'}</span>
+              <small>{encounterFor({ ...run, route }).courtName ?? 'Open court'}</small>
+            </button>
+          ))}
+        </div>
       )}
       <BoonList run={run} />
       {run.attempt && (
@@ -465,8 +508,10 @@ function RunView({
         </p>
       )}
       {run.version === 2 && !run.attempt && atBoundary(run) && (
-        <div className={styles.card}>
-          <p>Act services · {run.credits ?? 0} recovery credits</p>
+        <MenuDisclosure
+          title="Act services"
+          hint={`${run.credits ?? 0} credits · repair, upgrade or recycle`}
+        >
           <button
             type="button"
             className={styles.ghost}
@@ -503,20 +548,23 @@ function RunView({
                 </button>
               );
             })}
-          <p>Choose the next route. Both previews are fixed for this act.</p>
-          {(['safe', 'risk'] as const).map((route) => (
-            <button
-              type="button"
-              key={route}
-              className={styles.ghost}
-              aria-pressed={run.route === route}
-              onClick={() => runAction(route)}
-            >
-              {route === 'safe' ? 'Steady route' : 'Risk route'} ·{' '}
-              {encounterFor({ ...run, route }).courtName}
-            </button>
-          ))}
-        </div>
+        </MenuDisclosure>
+      )}
+      {futureActs.length > 0 && (
+        <MenuDisclosure
+          title="Road ahead"
+          hint={
+            futureActs.length === 1
+              ? `Act ${futureActs[0]! + 1}`
+              : `Acts ${futureActs[0]! + 1}–${futureActs[futureActs.length - 1]! + 1}`
+          }
+        >
+          <div className={modes.acts}>
+            {futureActs.map((act) => (
+              <ActTrack key={act} run={run} act={act} />
+            ))}
+          </div>
+        </MenuDisclosure>
       )}
       <ConfirmAction
         show={confirm}

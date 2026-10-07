@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { it, type TestContext } from 'node:test';
 import { heatHue } from '../../src/game/palette';
 import { GlowCache } from '../../src/game/render/glow';
+import { drawArena } from '../../src/game/render/arenaFx';
+import { createCourse } from '../../src/game/course';
+import type { GameAudio } from '../../src/game/audio';
+import { createWorld } from '../../src/game/world';
 import {
+  applyFieldTransform,
   createView,
   layoutView,
   screenToFieldX,
@@ -44,6 +49,84 @@ function sprites(t: TestContext) {
   });
   return { cache: new GlowCache(), creations: () => creations };
 }
+
+it('gate timers and rail durability remain upright and 12 CSS pixels in both orientations and effects modes', (t) => {
+  const window = { innerWidth: 390, innerHeight: 844, devicePixelRatio: 2 };
+  replaceGlobals(t, {
+    window,
+    document: { documentElement: {} },
+    getComputedStyle: () => ({ getPropertyValue: () => '0' })
+  });
+  const silent = new Proxy({}, { get: () => () => 0 }) as unknown as GameAudio;
+  for (const [width, height] of [
+    [390, 844],
+    [320, 568],
+    [844, 390]
+  ]) {
+    window.innerWidth = width!;
+    window.innerHeight = height!;
+    for (const motion of [0, 1]) {
+      const world = createWorld(silent, motion);
+      layoutView(world.view, { style: {} } as HTMLCanvasElement);
+      world.arena.spec = {
+        rails: [{ ax: 0.2, ay: 0.3, bx: 0.3, by: 0.5, hp: 3 }],
+        gates: [{ x: 0.5, center: 0.5, gap: 0.3, period: 7 }]
+      };
+      world.arena.course = createCourse(world.arena.spec);
+      const before = structuredClone(world.arena.course);
+      let state = { angle: 0, scale: 1, font: '10px sans-serif' };
+      const stack: (typeof state)[] = [];
+      const labels: { text: string; angle: number; pixels: number }[] = [];
+      const ctx = new Proxy(
+        {
+          save() {
+            stack.push({ ...state });
+          },
+          restore() {
+            state = stack.pop()!;
+          },
+          rotate(angle: number) {
+            state.angle += angle;
+          },
+          scale(x: number) {
+            state.scale *= x;
+          },
+          get font() {
+            return state.font;
+          },
+          set font(font: string) {
+            state.font = font;
+          },
+          measureText(text: string) {
+            return { width: (text.length * parseFloat(state.font)) / 2 };
+          },
+          fillText(text: string) {
+            labels.push({ text, angle: state.angle, pixels: parseFloat(state.font) * state.scale });
+          }
+        },
+        { get: (target, key) => Reflect.get(target, key) ?? (() => {}) }
+      ) as unknown as CanvasRenderingContext2D;
+      ctx.save();
+      applyFieldTransform(ctx, world.view);
+      drawArena(ctx, world, new GlowCache());
+      ctx.restore();
+      assert.deepEqual(
+        labels.map((label) => label.text),
+        ['3', 'Release 6.2s']
+      );
+      for (const label of labels) {
+        assert.ok(Math.abs(label.angle) < 1e-8, `${width}x${height}: ${label.text} is sideways`);
+        assert.ok(
+          Math.abs(label.pixels - 12) < 1e-8,
+          'Course cues must retain a readable screen size'
+        );
+      }
+      assert.equal(stack.length, 0);
+      assert.equal(state.angle, 0, 'Label drawing must restore the field transform');
+      assert.deepEqual(world.arena.course, before, 'Drawing cannot change course rules or timing');
+    }
+  }
+});
 
 it('quality caps backing pixels without changing court geometry or CSS input coordinates', (t) => {
   const window = { innerWidth: 1200, innerHeight: 800, devicePixelRatio: 3 };

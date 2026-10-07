@@ -10,6 +10,7 @@ import { AVATARS, type AvatarId, type PlayerProfile } from '../../core/profile/t
 import type { AccountState } from '../../core/account/store';
 import { Avatar } from '../components/Avatar';
 import { Screen } from '../components/Screen';
+import { MenuDisclosure } from '../components/MenuDisclosure';
 import { ConfirmAction } from '../components/ConfirmAction';
 import { SyncBadge } from '../components/SyncBadge';
 import { XpBar } from '../components/XpBar';
@@ -174,31 +175,6 @@ export function ProfileScreen({
       </div>
 
       <p className={styles.sectionLabel}>Record</p>
-      <div className={styles.card}>
-        <p className={styles.sectionLabel}>Mastery</p>
-        <p className={styles.note}>
-          Rank {Math.max(0, Math.floor((levelOf(profile.xp) - 50) / 5))} · Frontier{' '}
-          {profile.progress.journey['frontier-v2'] ?? 0} · {profile.progress.contracts ?? 0}{' '}
-          contracts · {profile.progress.dailyMaster.clears} Master Daily clears. Combat points cap
-          at level 50; mastery unlocks achievements, records and colours.
-        </p>
-      </div>
-      <details className={styles.card}>
-        <summary>Technique, school, court and build mastery</summary>
-        <p className={styles.rowBlurb}>
-          Win scored matches against Pro or harder opponents. Relevant actions earn marks; every 250
-          marks opens another numbered cycle. Combat power stays capped.
-        </p>
-        {MASTERY_TRACKS.map((t) => {
-          const marks = profile.progress.mastery[t.id] ?? 0;
-          return (
-            <p className={styles.rowBlurb} key={t.id}>
-              {t.name} · cycle {Math.floor(marks / MASTERY_CYCLE) + 1} · {marks % MASTERY_CYCLE}/
-              {MASTERY_CYCLE} marks
-            </p>
-          );
-        })}
-      </details>
       <div className={styles.stats}>
         <Stat value={played} label="Matches" />
         <Stat value={stats.wins} label="Wins" />
@@ -210,6 +186,40 @@ export function ProfileScreen({
         <Stat value={stats.challengesCleared} label="Challenges" />
         <Stat value={playTime(stats.playSeconds)} label="Played" />
       </div>
+
+      <MenuDisclosure
+        title="Mastery"
+        hint={`Rank ${Math.max(0, Math.floor((levelOf(profile.xp) - 50) / 5))} · technique, schools, courts & builds`}
+      >
+        <div className={styles.stats}>
+          <Stat value={profile.progress.journey['frontier-v2'] ?? 0} label="Frontier sectors" />
+          <Stat value={profile.progress.contracts ?? 0} label="Contracts" />
+          <Stat value={profile.progress.dailyMaster.clears} label="Master Daily clears" />
+        </div>
+        <p className={styles.rowBlurb}>
+          Win scored matches against Pro or harder. Each {MASTERY_CYCLE} marks opens a new cycle.
+          Combat points cap at level 50; mastery earns records, achievements and colours.
+        </p>
+        <div className={styles.masteryTracks}>
+          {MASTERY_TRACKS.map((track) => {
+            const marks = profile.progress.mastery[track.id] ?? 0;
+            return (
+              <div key={track.id} className={styles.masteryTrack}>
+                <span>{track.name}</span>
+                <small>
+                  Cycle {Math.floor(marks / MASTERY_CYCLE) + 1} · {marks % MASTERY_CYCLE}/
+                  {MASTERY_CYCLE}
+                </small>
+                <progress
+                  max={MASTERY_CYCLE}
+                  value={marks % MASTERY_CYCLE}
+                  aria-label={`${track.name} mastery`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </MenuDisclosure>
 
       <p className={styles.sectionLabel}>Build</p>
       <div className={styles.stats}>

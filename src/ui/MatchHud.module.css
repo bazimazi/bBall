@@ -3,10 +3,14 @@
   top: calc(var(--safe-t) + 14px);
   left: calc(var(--safe-l) + 16px);
   z-index: 2;
+  width: max-content;
   max-width: min(270px, calc(100vw - var(--safe-l) - var(--safe-r) - 132px));
   padding: 5px 8px;
   border-radius: 10px;
-  background: rgba(6, 8, 15, 0.9);
+  /* Keep the opponent's paddle visible through the live match information. */
+  background: rgba(6, 8, 15, 0.28);
+  opacity: 0.8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
   font-variant-numeric: tabular-nums;
 }
 
@@ -20,10 +24,14 @@
 }
 
 .score span {
-  white-space: nowrap;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
 }
 
 .score b {
+  flex-shrink: 0;
   padding-left: 3px;
   font-size: 19px;
   color: var(--ink);
@@ -42,8 +50,9 @@
 }
 
 .goals {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 6px;
   min-height: 44px;
   width: 100%;
@@ -58,8 +67,59 @@
   cursor: pointer;
 }
 
+.goals strong {
+  flex: 1;
+}
+
+.rules {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 210px;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--edge);
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.rules > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rules small {
+  margin-left: auto;
+  color: var(--ink);
+}
+
 .goals span {
   color: var(--muted);
+}
+
+.goalPips {
+  display: flex;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.goalPips [data-state='reached'],
+.goalPips [data-state='earned'] {
+  color: #ffd35c;
+}
+
+.goalPips [data-state='missed'] {
+  color: var(--bot);
 }
 
 .sr {
@@ -72,26 +132,93 @@
   white-space: nowrap;
 }
 
-@media (orientation: portrait) {
-  .info {
-    max-width: calc(50vw - var(--safe-l) - 66px);
-  }
-
-  .score {
-    display: grid;
-    gap: 0;
-  }
-}
-
 .enemy {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 8px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
   font-size: 10px;
   color: var(--muted);
 }
-.enemy [data-active='true'] {
-  color: #ffd176;
-  font-weight: 700;
+
+.enemyLabel {
+  font-size: 9px;
+  margin-right: 2px;
+}
+
+.enemySkill {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.enemySkill svg {
+  width: 16px;
+  height: 16px;
+}
+
+.enemySkill small {
+  position: absolute;
+  right: -3px;
+  bottom: -4px;
+  min-width: 11px;
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 9px;
+  line-height: 12px;
+}
+
+.enemySkill[data-ready='true'] {
+  border-color: hsla(var(--skill-hue), 85%, 65%, 0.5);
+  color: hsl(var(--skill-hue), 85%, 70%);
+}
+
+.enemySkill[data-active='true'] {
+  border-color: hsl(var(--skill-hue), 85%, 70%);
+  color: hsl(var(--skill-hue), 85%, 70%);
+  background: hsla(var(--skill-hue), 85%, 60%, 0.2);
+  box-shadow: 0 0 10px hsla(var(--skill-hue), 85%, 60%, 0.2);
+}
+
+@media (orientation: portrait) {
+  .info {
+    max-width: min(170px, calc(50vw - var(--safe-l) - 50px));
+  }
+
+  .enemyLabel {
+    display: none;
+  }
+
+  .score {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .botScore {
+    flex: 1;
+  }
+
+  .score .opponentName {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .enemy {
+    gap: 2px;
+  }
+
+  .enemySkill {
+    width: 22px;
+    height: 22px;
+  }
 }

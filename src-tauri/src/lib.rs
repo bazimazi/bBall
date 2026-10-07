@@ -29,6 +29,31 @@ fn exit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// Tauri's iOS window fills the screen already; its view controller owns the bars.
+#[tauri::command]
+fn set_mobile_fullscreen(_webview: tauri::WebviewWindow, enabled: bool) -> Result<(), String> {
+    #[cfg(target_os = "ios")]
+    {
+        _webview
+            .with_webview(move |platform| unsafe {
+                use objc2::{
+                    msg_send,
+                    runtime::{AnyObject, Bool},
+                };
+                let controller = platform.view_controller() as *mut AnyObject;
+                let hidden = Bool::new(enabled);
+                let _: () = msg_send![controller, setPrefersStatusBarHidden: hidden];
+                let _: () = msg_send![controller, setPrefersHomeIndicatorAutoHidden: hidden];
+            })
+            .map_err(|error| error.to_string())
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let _ = enabled;
+        Err("Mobile fullscreen is handled by the Android screen bridge".into())
+    }
+}
+
 /// Build and run the app.
 ///
 /// `mobile_entry_point` is what `tauri android dev` and `tauri ios dev` call;
@@ -55,7 +80,7 @@ pub fn run() {
     }
 
     builder
-        .invoke_handler(tauri::generate_handler![exit_app])
+        .invoke_handler(tauri::generate_handler![exit_app, set_mobile_fullscreen])
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())

@@ -25,6 +25,7 @@ import {
 import { activeSynergies, SYNERGIES } from '../../core/talents/synergy';
 import type { AbilityId, TalentDef, TalentId } from '../../core/talents/types';
 import { Screen } from '../components/Screen';
+import { MenuDisclosure } from '../components/MenuDisclosure';
 import { Dialog } from '../components/Dialog';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { TalentTree } from '../components/TalentTree';
@@ -129,8 +130,10 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         </button>
       }
     >
-      <details className={screens.card}>
-        <summary>Saved builds · {buildSlots(level)} slots</summary>
+      <MenuDisclosure
+        title="Saved builds"
+        hint={`${save.presets?.filter(Boolean).length ?? 0}/${buildSlots(level)} slots saved`}
+      >
         <p className={screens.rowBlurb}>
           Save your current talents and skills, then load them with a free respec. Six slots open at
           level 50; eight at level 100.
@@ -162,7 +165,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
             </button>
           </div>
         ))}
-      </details>
+      </MenuDisclosure>
       {/* --------------------------------------------------------- actives */}
       <p className={screens.sectionLabel}>Active skills</p>
       <div className={styles.slots}>
@@ -250,8 +253,8 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         ))}
       </div>
       <p className={screens.note}>
-        Swipe the branches · tap a talent to spend a point. Each branch ends in an <b>ultimate</b>,
-        behind {tierRequirement(ULTIMATE_TIER)} points in that branch.
+        Swipe the branches · tap a talent to spend a point. <b>Ultimates</b> unlock after{' '}
+        {tierRequirement(ULTIMATE_TIER)} points in a branch. Advanced court talents continue below.
       </p>
 
       {/* ------------------------------------------------------- synergies */}

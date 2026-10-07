@@ -428,6 +428,7 @@ export function App() {
           versus={snapshot.mode === 'versus'}
           objective={(coarse && snapshot.objectiveTouch) || snapshot.objective}
           goals={snapshot.goals}
+          enemyAbilities={snapshot.enemyAbilities}
         />
       </Overlay>
 

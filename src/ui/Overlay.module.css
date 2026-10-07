@@ -181,3 +181,21 @@
     font-size: 16px;
   }
 }
+.opponentSkills {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.opponentSkills dt {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.opponentSkills dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+}

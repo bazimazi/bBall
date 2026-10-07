@@ -12,6 +12,16 @@ original proposal and acceptance targets; proposed human outcomes are not measur
 results. Expansion stage definitions use curated templates and generators. The
 optional second scoring ball remains gated as described below.
 
+**UI follow-up, 7 October:** the [browser UI review](validation/endless-ui-review.md)
+documents the menu and gameplay presentation fixes made after the expansion,
+with screenshots and reproducible layout checks.
+
+**Paddle progression proposal, 7 October:** the
+[material and upgrade plan](paddle-material-progression-plan.md) proposes a Paddle
+Workshop with cores, contact surfaces, bounded tuning and technique contracts.
+Its first playable scope has nine core and surface combinations; it is a design
+proposal, not an implemented part of this expansion.
+
 Expand bBall around three connected systems: a much larger Journey, a Gauntlet
 that can continue indefinitely, and opponents that challenge developed builds
 through decisions, placement and skill timing. Every mode should benefit from

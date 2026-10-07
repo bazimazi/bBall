@@ -31,6 +31,7 @@ npm run dev        # http://localhost:5173
 | `npm run check:bundle`              | Check built menu boundaries and report initial JS/CSS bytes |
 | `npm run check:menus`               | Render all lazy menu pages and their pending state in Node  |
 | `npm run check:ui`                  | Check mounted menus, dialogs and skill controls in a DOM    |
+| `npm run check:layout`              | Check menus and live gameplay in Chromium at five sizes     |
 | `npm run check:experience`          | Check opt-in local capture, boundaries and cleanup          |
 | `npm run soak -- …`                 | Run seeded headless matches with stability alerts           |
 | `npm run summarize:experience -- …` | Summarize local playtest exports without duplicate trials   |
@@ -124,7 +125,7 @@ your paddle responsive. The choice is remembered on this device and applies
 to Practice warm-ups too. Practice awards no XP or saved match progression.
 
 **Match goals.** Journey and Daily show live star-goal counters. Select
-**Star goals** to pause and review every goal, its progress and whether it is
+**Goals** to pause and review every goal, its progress and whether it is
 still possible. Reaching a rally, flick or return target still requires a win
 to earn its star. Score changes have a separate screen-reader announcement;
 rally counters do not interrupt it.
@@ -160,6 +161,8 @@ or entering account restoration or Demo, closes the pending confirmation.
 
 The [expansion implementation report](docs/validation/endless-progression-report.md)
 records the content counts, verification evidence and remaining human playtest work.
+The [UI review](docs/validation/endless-ui-review.md) records the subsequent
+browser review, layout fixes and screenshots.
 
 ### Courts and bosses
 
@@ -561,6 +564,13 @@ Try Balanced or Low if rallies stutter on a high-resolution screen: the court
 looks softer, while menu text, controls and simulation timing stay the same.
 The choice is independent of Full/Calm effects and stays on this device.
 
+On mobile, **Settings → Fullscreen → On** hides system bars for more room to
+play. The choice stays on this device and defaults to Off. Android restores it
+when the app opens; an edge swipe temporarily reveals the system bars. The iOS
+app hides its status bar and requests that the Home indicator fade. Supporting
+browsers enter from the On button or the next match-start gesture, including
+after a reload or leaving fullscreen. Unsupported browsers explain the limit.
+
 Open **Pause → Settings** to adjust sound, effects, court quality or controls
 without leaving the match. The rally stays frozen. **Return to paused game**,
 Back or Escape returns to Pause; choose Resume when ready. Escape cancels a
@@ -593,6 +603,10 @@ Do not add `prefers-reduced-motion` CSS queries, JavaScript preference checks or
 listeners, or native reduced-motion overrides. Presentation follows the game's
 own behavior and explicit in-game controls. This policy also lives in
 [AGENTS.md](AGENTS.md) for future development.
+
+Choice panels slide/fade on entry and exit, with a light backdrop that keeps the
+page visible. Their transitions follow the same system-preference policy;
+focus returns to the opener after the exit finishes.
 
 The [player experience review](docs/player-experience-review.md) records the
 research, reproduced issues, implemented changes and remaining playtest work.
@@ -695,6 +709,16 @@ layout boxes and a controlled clock for skill feedback; skill checks cover point
 buttons, keyboard activation, unavailable controls and feedback cleanup. Native
 Tab behavior, CSS animations/layout and screen readers still need
 manual checks.
+`npm run check:layout` adds real Chromium geometry and interaction checks for
+menus, expanded settings, open game choice panels, Journey pages, long-run maps,
+results and the match HUD.
+It also launches the actual game, serves a rally, reviews opponent skills and
+starts a configured gate court. Install its browser with
+`npx playwright install chromium`, or set `CHROME_PATH` to an existing Chromium
+executable. Set `LAYOUT_SCREENSHOTS` to a directory to save the reviewed states.
+The checker serves its fixtures temporarily and uses an isolated browser save;
+it does not write to your game profile. Physical touch/pen input, screen-reader
+behavior and device performance still need manual checks.
 Daily checks also substitute clipboard outcomes, dates and timers to cover copy
 recovery, late responses, midnight/return refresh and launching the previewed day.
 Home checks cover its matching title/stars/streak, clock corrections, hidden-page

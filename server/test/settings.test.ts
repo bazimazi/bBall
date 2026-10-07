@@ -42,6 +42,7 @@ it('older device settings retain preferences and pick up the new pacing defaults
     replays: false,
     effects: 'full',
     canvasQuality: 'high',
+    fullscreen: false,
     autoServe: true,
     resumeCountdown: true,
     keyBindings: DEFAULT_SETTINGS.keyBindings,
@@ -83,4 +84,8 @@ it('older device settings retain preferences and pick up the new pacing defaults
   assert.equal(JSON.parse(values.get('bball.settings')!).data.canvasQuality, 'low');
   settingsStore.update({ canvasQuality: 'invalid' as typeof DEFAULT_SETTINGS.canvasQuality });
   assert.equal(settingsStore.getSnapshot().canvasQuality, 'high');
+  settingsStore.update({ fullscreen: true });
+  assert.equal(JSON.parse(values.get('bball.settings')!).data.fullscreen, true);
+  settingsStore.update({ fullscreen: 'yes' as unknown as boolean });
+  assert.equal(settingsStore.getSnapshot().fullscreen, false);
 });
