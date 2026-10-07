@@ -1,3 +1,4 @@
+import { waveRecipe } from '../core/modes/sessions';
 import { objectiveMet } from '../core/modes/rules';
 import { dayKey } from '../core/progression/xp';
 import type { MatchResult, MatchRules } from '../core/modes/types';
@@ -12,6 +13,10 @@ import {
 } from './constants';
 import { arenaServe, BANNER_TIME, checkBossPhase, setupArena } from './arena';
 import { clearAbilityFx } from './casts';
+import { combatant, opponentLoadout } from './combatant';
+import { masteryTags } from '../core/progression/mastery';
+import { masterCardLoadout } from '../core/talents/builds';
+import { seeded } from '../core/util/random';
 import { hsla } from './palette';
 import { withBoons } from '../core/talents/effects';
 import {
@@ -51,6 +56,7 @@ export function beginServe(world: World, dir: 1 | -1): void {
   match.status = 'serve';
   centreBall(world);
   resetRally(world);
+  resetRally(combatant(world, 'bot'));
   arenaServe(world);
   world.replay.reset();
   for (const brain of [botBrain, demoBrain]) {
@@ -145,7 +151,7 @@ export function launchBall(world: World): void {
   // never dead flat, never steep - either way.
   const angle = aimedServe(world)
     ? serveAimAngle(world)
-    : (0.16 + Math.random() * 0.34) * (Math.random() < 0.5 ? 1 : -1);
+    : (0.16 + world.random() * 0.34) * (world.random() < 0.5 ? 1 : -1);
   ball.vx = Math.cos(angle) * ball.speed * match.serveDir;
   ball.vy = Math.sin(angle) * ball.speed;
   ball.owner = match.serveDir > 0 ? 'you' : 'bot';
@@ -247,7 +253,10 @@ export function celebrate(world: World): void {
 function buildResult(world: World, won: boolean, abandoned: boolean): MatchResult {
   const { match, rules } = world;
   const core = {
+    mastery: masteryTags(rules, world.loadout.branch ?? null),
+    ...(rules.options?.waves ? { waves: match.waveDepth } : {}),
     mode: rules.mode,
+    ...(rules.options ? { options: { ...rules.options } } : {}),
     ranked: rules.ranked,
     botId: rules.bot.id,
     botRank: rules.bot.rank,
@@ -256,12 +265,14 @@ function buildResult(world: World, won: boolean, abandoned: boolean): MatchResul
     scoreBot: match.score.bot,
     bestRally: match.bestThisMatch,
     hits: match.hits,
+    court: { ...world.arena.course.events.you },
     seconds: Math.round(match.elapsed),
     livesLeft: match.lives,
     objective: rules.objective,
     challengeId: rules.challengeId,
     tournamentRound: rules.tournamentRound,
     tournamentTier: rules.tournamentTier,
+    ...(rules.tournamentFormat ? { tournamentFormat: rules.tournamentFormat } : {}),
     stageId: rules.stageId,
     dailyKey: rules.dailyKey,
     runStage: rules.runStage,
@@ -346,7 +357,7 @@ export function scorePoint(world: World, scorer: Side): void {
   const won = scorer === 'you';
 
   if (match.status === 'menu') {
-    beginServe(world, Math.random() < 0.5 ? 1 : -1);
+    beginServe(world, world.random() < 0.5 ? 1 : -1);
     match.status = 'menu';
     match.serveTimer = 0.5;
     return;
@@ -375,6 +386,8 @@ export function scorePoint(world: World, scorer: Side): void {
   pointFx(world, scorer, won);
   if (won) wonPoint(world);
   else resetDrive(world);
+  if (won) resetDrive(combatant(world, 'bot'));
+  else wonPoint(combatant(world, 'bot'));
 
   // Endless: the run is measured in lives, not points. A miss by the wall
   // simply restarts the rally.
@@ -404,6 +417,39 @@ export function scorePoint(world: World, scorer: Side): void {
 
   // The conceding side receives the next serve.
   beginServe(world, won ? -1 : 1);
+}
+
+/** Complete a wave only at a safe serve boundary, without consuming a life. */
+export function advanceWave(world: World): boolean {
+  const { match } = world;
+  if (!world.rules.options?.waves || match.status !== 'play' || match.hits - match.waveHits < 12)
+    return false;
+  noteRally(world);
+  match.waveDepth++;
+  match.waveHits = match.hits;
+  const events = world.arena.course.events;
+  const next = waveRecipe(world.rules.options, match.waveDepth);
+  world.rules = {
+    ...world.rules,
+    modifiers: {
+      ...world.rules.modifiers,
+      ...next.modifiers,
+      maxSpeedScale: 1.5,
+      speedPerHitScale: 1.35
+    },
+    label: `Endless · Wave ${match.waveDepth + 1}`
+  };
+  world.tuning = tuningFor(world.rules);
+  applyPaddleSizes(world);
+  setupArena(world);
+  world.arena.course.events = events;
+  match.label = world.rules.label;
+  beginServe(world, -1);
+  world.fx.bannerText = `Wave ${match.waveDepth + 1}`;
+  world.fx.bannerSub = `${next.courtName} · 12 returns`;
+  world.fx.bannerTimer = BANNER_TIME;
+  match.serveTimer += 1;
+  return true;
 }
 
 /** A life lost in a lives mode: its pip breaks apart rather than simply going dark. */
@@ -445,15 +491,20 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   world.tuning = tuningFor(rules);
   // The build this match is played with: none at all in a two-player match,
   // the run's boons folded in for a Gauntlet one, the player's own otherwise.
-  world.loadout = rules.versus
-    ? DEFAULT_LOADOUT
-    : rules.boons
-      ? withBoons(world.baseLoadout, rules.boons)
-      : world.baseLoadout;
+  world.loadout = rules.fixedBuild
+    ? masterCardLoadout()
+    : rules.versus
+      ? DEFAULT_LOADOUT
+      : rules.boons
+        ? withBoons(world.baseLoadout, rules.boons)
+        : world.baseLoadout;
   applyPaddleSizes(world);
   setBrainProfile(world.botBrain, rules.bot);
   // Shields, charges and cooldowns all start a match full and cold.
   resetRuntime(world);
+  world.botLoadout = opponentLoadout(rules.bot);
+  resetRuntime(combatant(world, 'bot'));
+  world.random = rules.seed ? seeded('match-v2', rules.seed) : () => Math.random();
 
   match.mode = rules.mode;
   match.label = rules.label;
@@ -467,6 +518,8 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   match.rally = 0;
   match.bestThisMatch = 0;
   match.hits = 0;
+  match.waveDepth = 0;
+  match.waveHits = 0;
   match.flicks = 0;
   match.elapsed = 0;
   match.resumeTimer = 0;
@@ -484,7 +537,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   world.particles.clear();
   clearAbilityFx(world);
   setupArena(world);
-  beginServe(world, Math.random() < 0.5 ? 1 : -1);
+  beginServe(world, world.random() < 0.5 ? 1 : -1);
   introBanner(world);
 }
 
@@ -545,6 +598,8 @@ export function returnToMenu(world: World): void {
   match.rally = 0;
   match.bestThisMatch = 0;
   match.hits = 0;
+  match.waveDepth = 0;
+  match.waveHits = 0;
   match.flicks = 0;
   match.elapsed = 0;
   match.resumeTimer = 0;

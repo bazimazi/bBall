@@ -20,6 +20,14 @@ import type { FastifyInstance } from 'fastify';
 
 import { ACHIEVEMENTS } from '../../../../src/core/achievements/catalog';
 import { BALANCE } from '../../../../src/core/balance/config';
+import { STAGES, TOTAL_STARS } from '../../../../src/core/campaign/journey';
+import { ARENA_PRESETS } from '../../../../src/core/modes/arenas';
+import { BOSSES } from '../../../../src/core/modes/bosses';
+import { CONTENT_VERSION, PERSONALITIES } from '../../../../src/core/modes/recipes';
+import { BOONS, RELICS } from '../../../../src/core/run/boons';
+import { RUN_FORMATS } from '../../../../src/core/run/formats';
+import { MAX_PRESSURE } from '../../../../src/core/run/run';
+import { CUP_FORMATS } from '../../../../src/core/tournament/bracket';
 import { BOT_LEVELS } from '../../../../src/core/bots/levels';
 import { COSMETICS } from '../../../../src/core/cosmetics/catalog';
 import { MODES } from '../../../../src/core/modes/catalog';
@@ -63,11 +71,24 @@ const achievementData = ACHIEVEMENTS.map((achievement) => ({
 }));
 
 const gamePayload = {
+  content: {
+    version: CONTENT_VERSION,
+    journeyStages: STAGES.length,
+    journeyStars: TOTAL_STARS,
+    frontierSectorSize: 20,
+    courts: ARENA_PRESETS.length,
+    bosses: BOSSES.length,
+    boons: BOONS.length,
+    relics: RELICS.length,
+    runFormats: RUN_FORMATS,
+    maxPressure: MAX_PRESSURE,
+    personalities: PERSONALITIES
+  },
   balance: BALANCE,
   bots: BOT_LEVELS,
   modes: MODES,
   challenges: CHALLENGES,
-  tournaments: { tiers: TOURNAMENT_TIERS, rounds: TOURNAMENT_ROUNDS },
+  tournaments: { tiers: TOURNAMENT_TIERS, rounds: TOURNAMENT_ROUNDS, formats: CUP_FORMATS },
   cosmetics: COSMETICS,
   achievements: achievementData
 };

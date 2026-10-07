@@ -5,6 +5,9 @@ import type { BotLevelId } from '../bots/types';
  * from the player's level so the first cup is winnable on day one and the
  * last one still means something at level 20.
  */
+export type TournamentFormat = 'classic' | 'marathon' | 'ladder';
+export const CUP_FORMATS: readonly TournamentFormat[] = ['classic', 'marathon', 'ladder'];
+
 export interface TournamentTier {
   readonly id: number;
   readonly name: string;
@@ -25,7 +28,7 @@ export const TOURNAMENT_ROUNDS: readonly TournamentRound[] = [
   { name: 'Final', winScore: 5 }
 ];
 
-export const TOURNAMENT_TIERS: readonly TournamentTier[] = [
+export const LEGACY_TIERS: readonly TournamentTier[] = [
   {
     id: 0,
     name: 'Bronze Cup',
@@ -49,6 +52,27 @@ export const TOURNAMENT_TIERS: readonly TournamentTier[] = [
   }
 ];
 
+export const TOURNAMENT_TIERS: readonly TournamentTier[] = [
+  ...LEGACY_TIERS,
+  ...['Platinum', 'Diamond', 'Master', 'Grandmaster', 'Mythic', 'Sovereign', 'Eternal'].map(
+    (name, i): TournamentTier => ({
+      id: i + 3,
+      name: `${name} Cup`,
+      minLevel: 18 + i * 5,
+      opponents: i < 2 ? ['elite', 'elite', 'legend'] : ['legend', 'legend', 'legend'],
+      trophyXp: 600 + i * 60
+    })
+  )
+];
+export function roundsFor(save: Pick<TournamentSave, 'format'>): readonly TournamentRound[] {
+  if (!save.format || save.format === 'classic') return TOURNAMENT_ROUNDS;
+  const length = save.format === 'marathon' ? 7 : 6;
+  return Array.from({ length }, (_, i) => ({
+    name: i === length - 1 ? 'Final' : `Round ${i + 1}`,
+    winScore: i === length - 1 ? 5 : 3 + (i % 2)
+  }));
+}
+
 export interface TournamentRoundResult {
   readonly you: number;
   readonly bot: number;
@@ -58,6 +82,8 @@ export interface TournamentRoundResult {
 /** The saved state of a cup run. Lives inside the player profile. */
 export interface TournamentSave {
   tier: number;
+  format?: TournamentFormat;
+  season?: number;
   /** Index of the round about to be played. */
   round: number;
   results: TournamentRoundResult[];
@@ -82,9 +108,14 @@ export function unlockedTiers(level: number): readonly TournamentTier[] {
   return TOURNAMENT_TIERS.filter((tier) => level >= tier.minLevel);
 }
 
-export function createTournament(tier: number, now = Date.now()): TournamentSave {
+export function createTournament(
+  tier: number,
+  now = Date.now(),
+  format?: TournamentFormat
+): TournamentSave {
   return {
     tier: tierById(tier).id,
+    ...(format ? { format, season: 0 } : {}),
     round: 0,
     results: [],
     startedAt: now,
@@ -116,11 +147,21 @@ export function advanceTournament(
 ): TournamentSave {
   const results = [...save.results.slice(0, save.round), result];
   const round = save.round + 1;
-  const champion = result.won && round >= TOURNAMENT_ROUNDS.length;
+  const length = roundsFor(save).length;
+  const champion = result.won && round >= length;
+  if (champion && save.format === 'ladder')
+    return {
+      ...save,
+      round: 0,
+      results: [],
+      season: (save.season ?? 0) + 1,
+      finished: false,
+      champion: true
+    };
   return {
     ...save,
     results,
-    round: Math.min(round, TOURNAMENT_ROUNDS.length),
+    round: Math.min(round, length),
     finished: !result.won || champion,
     champion
   };

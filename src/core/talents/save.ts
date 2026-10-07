@@ -47,6 +47,13 @@ export function createTalentSave(): TalentSave {
 
 export function cloneTalentSave(save: TalentSave): TalentSave {
   return {
+    ...(save.presets
+      ? {
+          presets: save.presets.map((p) =>
+            p ? { ...p, ranks: { ...p.ranks }, equipped: [...p.equipped] } : null
+          )
+        }
+      : {}),
     points: save.points,
     ranks: { ...save.ranks },
     equipped: [...save.equipped],
@@ -251,6 +258,7 @@ export function buyTalent(save: TalentSave, level: number, id: TalentId): Talent
 export function respec(save: TalentSave, level: number): TalentSave {
   const next = createTalentSave();
   next.stats = { ...save.stats, respecs: save.stats.respecs + 1 };
+  if (save.presets) next.presets = cloneTalentSave(save).presets!;
   return reconcile(next, level);
 }
 
@@ -365,5 +373,24 @@ export function talentSaveOf(value: unknown, level: number): TalentSave {
   }
 
   save.stats = statsOf(source.stats);
+  if (Array.isArray(source.presets))
+    save.presets = source.presets.slice(0, 8).map((value) => {
+      if (!value || typeof value !== 'object') return null;
+      const item = bag(value),
+        ranks: Partial<Record<TalentId, number>> = {};
+      for (const [id, rank] of Object.entries(bag(item.ranks))) {
+        if (isTalentId(id)) {
+          const n = Math.min(talentById(id)!.maxRank, count(rank));
+          if (n > 0) ranks[id] = n;
+        }
+      }
+      return {
+        name: typeof item.name === 'string' ? item.name.slice(0, 32) : 'Saved build',
+        ranks,
+        equipped: (Array.isArray(item.equipped) ? item.equipped : [])
+          .slice(0, BALANCE.talents.slots.max)
+          .map((id) => (isAbilityId(id) ? id : null))
+      };
+    });
   return reconcile(save, level);
 }

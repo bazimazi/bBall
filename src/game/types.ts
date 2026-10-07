@@ -44,6 +44,8 @@ export interface Paddle {
  * {@link Paddle} so the same paddle can be driven by a person or a bot.
  */
 export interface BotBrain {
+  shot?: number;
+  previousFoeY?: number;
   profile: BotProfile;
   /** Remaining reaction delay, in seconds. */
   wait: number;
@@ -121,6 +123,7 @@ export interface AbilitySlot {
  * simulation - the UI reads a flattened view of it and nothing else.
  */
 export interface TalentRuntime {
+  tactics: Partial<Record<AbilityId, number>>;
   /** Returns since the last conceded point. Feeds Combo Drive family. */
   drive: number;
   bestDrive: number;
@@ -220,6 +223,8 @@ export interface AbilityView {
 export type { TalentMatchStats };
 
 export interface MatchState {
+  waveDepth: number;
+  waveHits: number;
   status: GameStatus;
   /** Which status a resume returns to. */
   resumeTo: Extract<GameStatus, 'play' | 'serve'>;
@@ -422,6 +427,10 @@ export interface GoalView {
 
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
+  practiceLanding?: string | null;
+  enemyAbilities?: readonly AbilityView[];
+  rallyPressure?: number;
+  opponentName?: string;
   status: GameStatus;
   /** Explain an automatic pause while the court is being resized or rotated. */
   pauseReason: 'resize' | null;

@@ -13,6 +13,8 @@ interface PausePanelProps {
   score?: { you: number; bot: number } | null;
   /** Lives left, when it is played in lives instead. */
   lives?: { left: number; max: number } | null;
+  practiceLanding?: string | null | undefined;
+  onStep?: (() => void) | undefined;
   onResume: () => void;
   onSettings: () => void;
   onRestart: () => void;
@@ -27,6 +29,8 @@ export function PausePanel({
   resized = false,
   score,
   lives,
+  practiceLanding,
+  onStep,
   onResume,
   onSettings,
   onRestart,
@@ -64,6 +68,16 @@ export function PausePanel({
       )}
       <GoalList goals={goals} />
       {goals.length === 0 && objective && <p className={styles.tagline}>{objective}</p>}
+      {onStep && (
+        <>
+          <p className={styles.tagline}>
+            {practiceLanding ?? 'Step to inspect the serve or rally.'}
+          </p>
+          <PanelButton variant="ghost" onClick={onStep}>
+            Step 0.1 seconds
+          </PanelButton>
+        </>
+      )}
       <PanelButton onClick={onResume}>Resume</PanelButton>
       <PanelButton variant="ghost" onClick={onSettings}>
         Settings

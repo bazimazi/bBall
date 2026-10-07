@@ -1,3 +1,4 @@
+import type { TournamentFormat } from '../tournament/bracket';
 /**
  * Every endpoint the game calls, in one typed list.
  *
@@ -205,8 +206,11 @@ export const api = {
     });
   },
 
-  startTournament(tier: number): Promise<ProfileMutationResponse> {
-    return request('/v1/progression/tournament/start', { method: 'POST', body: { tier } });
+  startTournament(tier: number, format?: TournamentFormat): Promise<ProfileMutationResponse> {
+    return request('/v1/progression/tournament/start', {
+      method: 'POST',
+      body: { tier, ...(format ? { format } : {}) }
+    });
   },
 
   abandonTournament(): Promise<ProfileMutationResponse> {

@@ -14,7 +14,7 @@ export const MODES: readonly ModeInfo[] = [
   {
     id: 'campaign',
     name: 'Journey',
-    blurb: 'Five worlds, thirty stages, seven bosses.',
+    blurb: 'Thirty worlds, 630 stages, then Journey Beyond.',
     picksBot: false,
     ranked: true
   },
@@ -28,7 +28,7 @@ export const MODES: readonly ModeInfo[] = [
   {
     id: 'run',
     name: 'Gauntlet',
-    blurb: 'Nine matches, three hearts, a boon a win.',
+    blurb: 'Sprint, Expedition or Endless. Draft a build and choose your route.',
     picksBot: false,
     ranked: true
   },
@@ -49,14 +49,14 @@ export const MODES: readonly ModeInfo[] = [
   {
     id: 'challenge',
     name: 'Challenge',
-    blurb: 'Short matches with a twist.',
+    blurb: '120 trials and an ongoing contract series.',
     picksBot: false,
     ranked: true
   },
   {
     id: 'tournament',
     name: 'Tournament',
-    blurb: 'Three rounds, one trophy.',
+    blurb: 'Ten cups, marathon brackets and an ongoing ladder.',
     picksBot: false,
     ranked: true
   },

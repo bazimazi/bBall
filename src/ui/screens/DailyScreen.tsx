@@ -39,8 +39,11 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
   const copyFocused = useRef(false);
 
   const today = dayKey(now);
-  const spec = dailySpec(today);
-  const record = profile.progress.daily;
+  const [kind, setKind] = useState<'standard' | 'master'>('standard');
+  const [archive, setArchive] = useState('');
+  const key = kind === 'master' ? `m2-${today}` : today;
+  const spec = dailySpec(key);
+  const record = kind === 'master' ? profile.progress.dailyMaster : profile.progress.daily;
   const medals = record.day === today ? record.medals : 0;
   const attempts = record.day === today ? record.attempts : 0;
   const alive = streakAlive(record, today);
@@ -69,7 +72,7 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
       return;
     }
     setChanged(false);
-    onPlay(today);
+    onPlay(key);
   };
 
   return (
@@ -93,6 +96,41 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
         </>
       }
     >
+      <div className={styles.tabs}>
+        {(['standard', 'master'] as const).map((k) => (
+          <button
+            type="button"
+            key={k}
+            className={kind === k ? styles.tabActive : styles.tab}
+            onClick={() => setKind(k)}
+          >
+            {k === 'standard' ? 'Standard' : 'Master · Legend'}
+          </button>
+        ))}
+      </div>
+      <div className={styles.card}>
+        <label>
+          Daily archive · practice without streak or XP{' '}
+          <input
+            type="date"
+            aria-label="Archive date"
+            value={archive}
+            max={today}
+            min={dayKey(new Date(now.getTime() - 30 * 86400000))}
+            onChange={(e) => setArchive(e.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          className={styles.ghost}
+          disabled={
+            !archive || archive > today || archive < dayKey(new Date(now.getTime() - 30 * 86400000))
+          }
+          onClick={() => onPlay(`a2-${archive}`)}
+        >
+          Play archive
+        </button>
+      </div>
       <div className={modes.stagger} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p role="status" aria-atomic="true" className={styles.note}>
           {changed ? 'A new Daily challenge is ready. Review its goals, then play when ready.' : ''}

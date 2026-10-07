@@ -1,4 +1,5 @@
 import type { ArenaSpec } from './types';
+import { EXPANSION_COURTS } from './expansionCourts';
 
 /**
  * Named courts, shared by every mode that builds a court from a menu rather
@@ -144,7 +145,8 @@ export const ARENA_PRESETS: readonly ArenaPreset[] = [
       wind: { strength: 240, period: 7, shear: true },
       bricks: { rows: 5, sides: 'both' }
     }
-  }
+  },
+  ...EXPANSION_COURTS
 ];
 
 /** The courts the daily may roll on `day`. */

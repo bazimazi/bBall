@@ -1,4 +1,5 @@
 import { BALANCE } from '../balance/config';
+import { EXPANSION_TALENTS } from './expansion';
 import { BRANCHES, type Branch, type BranchId, type TalentDef, type TalentId } from './types';
 
 /**
@@ -648,7 +649,8 @@ export const TALENTS: readonly TalentDef[] = [
     ability: 'echo',
     rankText: () =>
       `Unlocks Echo. Instantly clears the cooldown of your other equipped skills, then recharges them ${E.echo.recharge}x faster for ${E.echo.seconds}s. ${E.echo.cooldown}s cooldown.`
-  }
+  },
+  ...EXPANSION_TALENTS
 ];
 
 const BY_ID = new Map<string, TalentDef>(TALENTS.map((talent) => [talent.id, talent]));

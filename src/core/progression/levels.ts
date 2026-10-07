@@ -13,13 +13,7 @@
  * rather than a power gap.
  */
 
-/**
- * A loop guard, not a design cap.
- *
- * Every threshold is computed on demand, so a nonsense XP value (or a demo
- * level typed with too many digits) must not be allowed to walk the curve
- * forever. No reachable amount of play comes near it.
- */
+/** The cached polynomial curve ends here; a constant-cost tail continues levels. */
 export const LEVEL_CEILING = 10_000;
 
 /** XP needed to go from `level` to `level + 1`. */
@@ -53,7 +47,12 @@ export interface LevelInfo {
 export function xpToReach(level: number): number {
   const wanted = Math.round(level);
   if (!Number.isFinite(wanted)) return 0;
-  return totalFor(Math.max(1, wanted));
+  return wanted > LEVEL_CEILING
+    ? Math.min(
+        Number.MAX_SAFE_INTEGER,
+        totalFor(LEVEL_CEILING) + (wanted - LEVEL_CEILING) * stepFor(LEVEL_CEILING)
+      )
+    : totalFor(Math.max(1, wanted));
 }
 
 export function levelFromXp(xp: number): LevelInfo {
@@ -62,6 +61,13 @@ export function levelFromXp(xp: number): LevelInfo {
   let level = 1;
   while (level < LEVEL_CEILING && total >= totalFor(level + 1)) level++;
 
+  if (level === LEVEL_CEILING) {
+    const floor = totalFor(LEVEL_CEILING),
+      span = stepFor(LEVEL_CEILING);
+    const beyond = Math.floor((total - floor) / span);
+    const into = total - floor - beyond * span;
+    return { level: LEVEL_CEILING + beyond, into, span, progress: into / span };
+  }
   const floor = totalFor(level);
   const span = totalFor(level + 1) - floor;
   const into = total - floor;

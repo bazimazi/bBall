@@ -82,3 +82,16 @@
     gap: 0;
   }
 }
+
+.enemy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.enemy [data-active='true'] {
+  color: #ffd176;
+  font-weight: 700;
+}

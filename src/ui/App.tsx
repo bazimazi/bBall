@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
-import { stageById, stageOpen, STAGES } from '../core/campaign/journey';
+import { seriesComplete } from '../core/modes/sessions';
+import { stageById, nextAfter } from '../core/campaign/journey';
 import type { MatchResult } from '../core/modes/types';
 import { setExitRequestHandler } from '../core/platform/back';
 import { exitApp, isNativeShell } from '../core/platform/shell';
@@ -55,6 +56,16 @@ interface ResultActions {
 function resultActions(result: MatchResult, flow: GameFlow): ResultActions {
   const menu = { secondaryLabel: 'Menu', onSecondary: () => flow.leaveResult('home') };
 
+  if (flow.series && (result.mode === 'quick' || result.mode === 'versus')) {
+    const done = seriesComplete(flow.series);
+    return {
+      ...menu,
+      primaryLabel: done
+        ? `New series · ${flow.series.you}–${flow.series.foe}`
+        : `Game ${flow.series.games + 1} · ${flow.series.you}–${flow.series.foe}`,
+      onPrimary: flow.replay
+    };
+  }
   if (result.mode === 'tournament') {
     const running = profileStore.getSnapshot().tournament !== null;
     return {
@@ -67,10 +78,7 @@ function resultActions(result: MatchResult, flow: GameFlow): ResultActions {
   if (result.mode === 'campaign') {
     const journey = profileStore.getSnapshot().progress.journey;
     const played = result.stageId ? stageById(result.stageId) : undefined;
-    // After a win, the stage straight after this one - which the win may just
-    // have opened - otherwise the same stage again.
-    const after = played ? STAGES[STAGES.indexOf(played) + 1] : undefined;
-    const next = result.won && after && stageOpen(journey, after) ? after : null;
+    const next = result.won && played ? nextAfter(journey, played) : null;
     return {
       secondaryLabel: 'Journey',
       onSecondary: () => flow.leaveResult('journey'),
@@ -327,7 +335,7 @@ export function App() {
             <TournamentScreen
               profile={profile}
               onPlay={() => flow.startCup()}
-              onStart={(tier) => flow.startCup(tier)}
+              onStart={(tier, format) => flow.startCup(tier, format)}
               onAbandon={flow.abandonCup}
               onBack={flow.back}
             />
@@ -404,6 +412,8 @@ export function App() {
       >
         <PausePanel
           label={snapshot.label}
+          practiceLanding={snapshot.practiceLanding}
+          onStep={snapshot.mode === 'practice' ? () => engine?.stepPractice() : undefined}
           resized={snapshot.pauseReason === 'resize'}
           score={
             !snapshot.tutorialStep && snapshot.winScore > 0

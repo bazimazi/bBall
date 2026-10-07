@@ -1,7 +1,9 @@
 import { abilitySlotsForLevel, BALANCE, paddleSpeedForLevel } from '../balance/config';
 import { applyBoonEffects, type BoonRanks } from '../run/boons';
 import { TALENTS } from './catalog';
+import { applyExpansionTalents } from './expansion';
 import { branchSpend, dominantBranch } from './save';
+import type { BranchId } from './types';
 import { activeSynergies, type SynergyDef } from './synergy';
 import type { AbilityId, TalentEffects, TalentId, TalentSave } from './types';
 
@@ -23,6 +25,7 @@ export { branchSpend, dominantBranch };
 const E = BALANCE.effects;
 
 export interface ResolvedLoadout {
+  readonly branch?: BranchId | null;
   readonly effects: TalentEffects;
   /** Equipped abilities, already filtered to ones the build actually owns. */
   readonly equipped: readonly (AbilityId | null)[];
@@ -322,6 +325,21 @@ function clampEffects(effects: TalentEffects): void {
   effects.guardReach = clamp(effects.guardReach, 0, 160);
   effects.shieldSaveSpeed = clamp(effects.shieldSaveSpeed, 0.6, 1);
   effects.shieldRecharge = Math.max(E.shield.minRecharge, effects.shieldRecharge);
+  effects.shieldCharges = clamp(effects.shieldCharges, 0, 3);
+  effects.secondChances = clamp(effects.secondChances, 0, 2);
+  effects.powerStrikeCooldown = Math.max(2, effects.powerStrikeCooldown);
+  effects.dashCooldown = Math.max(1.5, effects.dashCooldown);
+  effects.guardCooldown = Math.max(2, effects.guardCooldown);
+  effects.powerStrikeWindow = clamp(effects.powerStrikeWindow, 1, 8);
+  effects.comboLength = clamp(effects.comboLength, 0, 0.06);
+  effects.clutchLength = clamp(effects.clutchLength, 0, 0.3);
+  effects.afterglowLength = clamp(effects.afterglowLength, 0, 0.2);
+  effects.afterglowSeconds = clamp(effects.afterglowSeconds, 0, 8);
+  effects.driveKeep = clamp(effects.driveKeep, 0, 0.65);
+  effects.critGrowth = clamp(effects.critGrowth, 0, 0.5);
+  effects.critHeft = clamp(effects.critHeft, 0, 0.6);
+  effects.flowAngle = clamp(effects.flowAngle, 0, 0.03);
+  effects.flowHeft = clamp(effects.flowHeft, 0, 0.04);
 }
 
 /** Drop any equipped ability the build no longer owns, or has no slot for. */
@@ -336,6 +354,7 @@ function usableEquipped(save: TalentSave, slots: number): (AbilityId | null)[] {
 export function resolveLoadout(save: TalentSave, level: number): ResolvedLoadout {
   const effects = baseEffects();
   applyRanks(effects, save);
+  applyExpansionTalents(effects, save);
 
   const slots = abilitySlotsForLevel(level, effects.extraSlots);
   // Once level alone opens every slot, Versatility remains a useful investment.
@@ -356,6 +375,7 @@ export function resolveLoadout(save: TalentSave, level: number): ResolvedLoadout
   applyCaps(effects);
 
   return {
+    branch: dominantBranch(save),
     effects,
     equipped,
     synergies,

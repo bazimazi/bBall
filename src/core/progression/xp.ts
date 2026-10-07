@@ -1,6 +1,6 @@
 import { challengeById } from '../modes/challenges';
 import type { MatchResult } from '../modes/types';
-import { tierById } from '../tournament/bracket';
+import { tierById, roundsFor } from '../tournament/bracket';
 
 export interface XpLine {
   readonly label: string;
@@ -92,7 +92,9 @@ export function computeMatchXp(result: MatchResult, context: XpContext): XpAward
 
   if (result.mode === 'tournament') {
     if (result.won) add('Round won', 60);
-    const finalRound = (result.tournamentRound ?? 0) >= 2;
+    const finalRound =
+      (result.tournamentRound ?? 0) ===
+      roundsFor(result.tournamentFormat ? { format: result.tournamentFormat } : {}).length - 1;
     if (result.won && finalRound) {
       add('Champion', tierById(result.tournamentTier ?? 0).trophyXp);
     }

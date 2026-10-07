@@ -83,7 +83,8 @@ it('wins, abandoned matches, versus and cleared challenges do not get loss coach
       won: true,
       scoreBot: 0,
       bestRally: 30,
-      seconds: 30
+      seconds: 30,
+      court: { banks: 10, switches: 10, breaks: 10, gates: 10 }
     });
     assert.equal(complete.objectiveMet, true);
     assert.equal(coachingFor(complete), null);

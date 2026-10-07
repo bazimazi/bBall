@@ -1,3 +1,4 @@
+import type { ExpansionTalentId } from './expansion';
 /**
  * The talent system's vocabulary.
  *
@@ -19,7 +20,13 @@ export const ABILITIES = [
   'slipstream',
   'aegis',
   'zenith',
-  'echo'
+  'echo',
+  'redirect',
+  'anchor',
+  'breach',
+  'relay',
+  'reserve',
+  'rebound'
 ] as const;
 export type AbilityId = (typeof ABILITIES)[number];
 
@@ -71,6 +78,7 @@ export interface TalentDef {
 }
 
 export type TalentId =
+  | ExpansionTalentId
   // power
   | 'heavy-impact'
   | 'power-strike'
@@ -160,7 +168,13 @@ export const EMPTY_MATCH_STATS: TalentMatchStats = {
 };
 
 /** The saved build. Lives inside the player profile. */
+export interface TalentPreset {
+  name: string;
+  ranks: Partial<Record<TalentId, number>>;
+  equipped: (AbilityId | null)[];
+}
 export interface TalentSave {
+  presets?: (TalentPreset | null)[];
   /** Unspent points. Recomputed from level and spend on every load. */
   points: number;
   /** Talent id -> rank owned. Absent means rank 0. */

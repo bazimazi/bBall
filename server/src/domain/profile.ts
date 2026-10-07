@@ -26,7 +26,7 @@ import { cloneProgress } from '../../../src/core/profile/progress';
 import type { PlayerProfile } from '../../../src/core/profile/types';
 import { levelOf } from '../../../src/core/progression/levels';
 import { dayKey } from '../../../src/core/progression/xp';
-import { createTalentSave, reconcile } from '../../../src/core/talents/save';
+import { cloneTalentSave, createTalentSave, reconcile } from '../../../src/core/talents/save';
 import type { CloudProfileDto, ModeStatsDto } from '../../../shared/protocol';
 
 export type ModeStats = ModeStatsDto;
@@ -126,6 +126,7 @@ export function toCloudProfile(server: ServerProfile): CloudProfileDto {
     talentPoints: profile.talents.points,
 
     talents: {
+      ...(profile.talents.presets ? { presets: cloneTalentSave(profile.talents).presets! } : {}),
       ranks: { ...profile.talents.ranks },
       equipped: [...profile.talents.equipped],
       stats: { ...profile.talents.stats }

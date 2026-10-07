@@ -9,6 +9,7 @@ export type BotLevelId = 'rookie' | 'amateur' | 'pro' | 'elite' | 'legend' | 'wa
  * All values are 0..1 unless noted.
  */
 export interface BotProfile {
+  readonly personality?: 'anchor' | 'aggressor' | 'banker' | 'curver' | 'disruptor' | 'opportunist';
   readonly id: BotLevelId;
   readonly name: string;
   /** One line the UI can show under the name. */

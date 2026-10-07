@@ -189,6 +189,25 @@ interface Geom {
  * cannot be mistaken for a skill.
  */
 export function drawPlayerAura(ctx: CanvasRenderingContext2D, world: World): void {
+  const enemy = world.botTalents;
+  if (
+    world.match.status !== 'menu' &&
+    !world.rules.versus &&
+    (enemy.strikeArmed > 0 || enemy.overload > 0 || enemy.guardWindow > 0)
+  ) {
+    ctx.save();
+    ctx.strokeStyle = enemy.guardWindow > 0 ? '#78dcff' : '#ffd176';
+    ctx.lineWidth = 3;
+    ctx.setLineDash(enemy.guardWindow > 0 ? [4, 3] : []);
+    ctx.strokeRect(
+      world.bot.x - PADDLE_W / 2 - 4,
+      world.bot.y - world.bot.half - 5,
+      PADDLE_W + 8,
+      world.bot.half * 2 + 10
+    );
+    ctx.restore();
+  }
+
   const { talents: runtime, player } = world;
   if (world.match.status === 'menu') return;
 

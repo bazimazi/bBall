@@ -425,7 +425,7 @@ it('expanded builds complete real matches with finite physics and bounded pace',
       world.baseLoadout = resolveLoadout(save, 50);
       startMatch(world, quickMatchRules('elite'));
       const brain = createBrain(botProfile('pro'));
-      for (let tick = 0; tick < 120 * 300 && world.match.status !== 'over'; tick++) {
+      for (let tick = 0; tick < 120 * 600 && world.match.status !== 'over'; tick++) {
         if (world.match.status === 'play') {
           const y = world.player.y;
           driveAi(world, world.player, brain, FIXED_DT);

@@ -1,3 +1,6 @@
+import type { TournamentFormat } from '../tournament/bracket';
+import type { MasteryTags } from '../progression/mastery';
+import type { Personality } from './recipes';
 import type { BotLevelId, BotProfile } from '../bots/types';
 import type { BoonRanks } from '../run/boons';
 import type { StarGoal } from './stars';
@@ -38,6 +41,11 @@ export interface PortalSpec {
  * or a daily challenge describes its court rather than coding one.
  */
 export interface ArenaSpec {
+  /** Reflecting segments, measured in fractions of the field. */
+  readonly rails?: readonly RailSpec[];
+  readonly gates?: readonly GateSpec[];
+  readonly switches?: readonly SwitchSpec[];
+  readonly zones?: readonly ChargeZoneSpec[];
   readonly bumpers?: readonly BumperSpec[];
   /**
    * Wind across the court, in field units per second squared. It changes
@@ -74,8 +82,44 @@ export interface ArenaSpec {
   };
 }
 
+export interface RailSpec {
+  readonly ax: number;
+  readonly ay: number;
+  readonly bx: number;
+  readonly by: number;
+  /** Finite durability makes this a breakable deflector. */
+  readonly hp?: number;
+}
+
+export interface GateSpec {
+  readonly x: number;
+  readonly gap: number;
+  readonly center: number;
+  readonly period: number;
+  readonly amplitude?: number;
+  /** A phase barrier is open during half of its cycle. */
+  readonly phased?: boolean;
+}
+
+export interface SwitchSpec {
+  readonly x: number;
+  readonly y: number;
+  readonly r: number;
+  readonly gate: number;
+}
+
+export interface ChargeZoneSpec {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly scale: number;
+}
+
 /** One step up in a boss's fight, reached when the player's score hits `at`. */
 export interface BossPhase {
+  /** Court transition between points, announced by the phase banner. */
+  readonly arena?: ArenaSpec;
   readonly at: number;
   /** Shown as a banner when the phase starts. */
   readonly label: string;
@@ -147,7 +191,8 @@ export const NEUTRAL_MODIFIERS: MatchModifiers = {
   startScore: { you: 0, bot: 0 }
 };
 
-export type ObjectiveId = 'win' | 'rally' | 'shutout' | 'quick-win' | 'survive';
+export type CourtEvents = { banks: number; switches: number; breaks: number; gates: number };
+export type ObjectiveId = 'win' | 'rally' | 'shutout' | 'quick-win' | 'survive' | keyof CourtEvents;
 
 export interface MatchObjective {
   readonly id: ObjectiveId;
@@ -158,8 +203,26 @@ export interface MatchObjective {
   readonly value: number;
 }
 
+export interface MatchOptions {
+  /** Each game keeps its normal reward policy; no series bonus. */
+  series?: 1 | 3 | 5 | undefined;
+  waves?: boolean | undefined;
+  mirror?: boolean | undefined;
+  duel?: 'speed' | 'precision' | undefined;
+  readonly bossId?: string | undefined;
+  readonly bossPhase?: number | undefined;
+  readonly arenaId?: string | undefined;
+  readonly personality?: Personality | undefined;
+  readonly contract?: 'master' | 'mythic' | undefined;
+}
+
 /** A fully resolved match setup. The engine takes one of these and plays it. */
 export interface MatchRules {
+  readonly courtFamily?: string;
+  readonly arenaIntensity?: number;
+  readonly fixedBuild?: boolean;
+  readonly options?: MatchOptions | undefined;
+  readonly seed?: string;
   readonly mode: ModeId;
   readonly bot: BotProfile;
   /** Points needed to win. 0 means the match has no score-based end. */
@@ -174,6 +237,7 @@ export interface MatchRules {
   readonly objective: MatchObjective | null;
   readonly challengeId?: string | undefined;
   readonly tournamentRound?: number | undefined;
+  readonly tournamentFormat?: TournamentFormat;
   readonly tournamentTier?: number | undefined;
   /**
    * Two people, one screen: both paddles are human and neither has a build.
@@ -197,6 +261,11 @@ export interface MatchRules {
 
 /** What a finished match reports back. Pure data - no engine references. */
 export interface MatchResult {
+  readonly waves?: number | undefined;
+  /** Derived encounter/build identity; the server never trusts client tags. */
+  readonly mastery?: MasteryTags | undefined;
+  readonly options?: MatchOptions | undefined;
+  readonly court?: CourtEvents | undefined;
   readonly mode: ModeId;
   readonly ranked: boolean;
   readonly botId: BotLevelId;
@@ -213,6 +282,7 @@ export interface MatchResult {
   readonly objective: MatchObjective | null;
   readonly challengeId?: string | undefined;
   readonly tournamentRound?: number | undefined;
+  readonly tournamentFormat?: TournamentFormat;
   readonly tournamentTier?: number | undefined;
   readonly stageId?: string | undefined;
   readonly dailyKey?: string | undefined;

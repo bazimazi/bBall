@@ -4,6 +4,7 @@ import { hsla } from '../palette';
 import type { World } from '../world';
 import type { GlowCache } from './glow';
 import { roundRect } from './shapes';
+import { courseSegments, gateOpening } from '../course';
 
 /**
  * The court's hazards, drawn under the ball and over the floor.
@@ -18,11 +19,72 @@ import { roundRect } from './shapes';
 export function drawArena(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
   const spec = world.arena.spec;
   if (!spec) return;
+  drawCourse(ctx, world);
   if (spec.well) drawWell(ctx, world, glow);
   if (spec.wind) drawWind(ctx, world);
   if (world.arena.bricks.length > 0) drawBricks(ctx, world);
   if (world.arena.bumpers.length > 0) drawBumpers(ctx, world, glow);
   if (world.arena.portals.length > 0) drawPortals(ctx, world, glow);
+}
+
+function drawCourse(ctx: CanvasRenderingContext2D, world: World): void {
+  const { arena, view } = world;
+  ctx.save();
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  for (const s of courseSegments(arena.spec, view.w, arena.time, arena.course)) {
+    ctx.strokeStyle = s.rail < 0 ? '#91d9ff' : '#ffc47b';
+    ctx.beginPath();
+    ctx.moveTo(s.ax, s.ay);
+    ctx.lineTo(s.bx, s.by);
+    ctx.stroke();
+    if (s.rail >= 0 && (arena.course.rails[s.rail] ?? -1) > 0) {
+      ctx.fillStyle = '#ffc47b';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(String(arena.course.rails[s.rail]), (s.ax + s.bx) / 2, (s.ay + s.by) / 2 - 10);
+    }
+  }
+  for (const [i, g] of (arena.spec?.gates ?? []).entries()) {
+    const o = gateOpening(g, arena.time, arena.course.openUntil[i]);
+    ctx.strokeStyle = '#91d9ff';
+    ctx.setLineDash([4, 5]);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(
+      g.x * view.w - 4,
+      (o.gap >= 1 ? 0 : o.center - o.gap / 2) * FIELD_H,
+      8,
+      o.gap * FIELD_H
+    );
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#91d9ff';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(
+      `${o.gap >= 1 ? 'Open' : 'Release'} ${Math.max(0, o.seconds).toFixed(1)}s`,
+      g.x * view.w + 10,
+      24
+    );
+  }
+  for (const s of arena.spec?.switches ?? []) {
+    const x = s.x * view.w,
+      y = s.y * FIELD_H;
+    ctx.strokeStyle = '#a0ffca';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s.r);
+    ctx.lineTo(x + s.r, y);
+    ctx.lineTo(x, y + s.r);
+    ctx.lineTo(x - s.r, y);
+    ctx.closePath();
+    ctx.stroke();
+  }
+  for (const z of arena.spec?.zones ?? []) {
+    ctx.fillStyle = 'rgba(255,196,123,.12)';
+    ctx.fillRect(z.x * view.w, z.y * FIELD_H, z.w * view.w, z.h * FIELD_H);
+    ctx.strokeStyle = '#ffc47b';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(z.x * view.w, z.y * FIELD_H, z.w * view.w, z.h * FIELD_H);
+  }
+  ctx.restore();
 }
 
 /**

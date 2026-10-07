@@ -1,13 +1,8 @@
+import { forecast } from './trajectory';
+import { fireAbility } from './abilities';
+import { combatant } from './combatant';
 import type { BotProfile } from '../core/bots/types';
-import {
-  arenaCurves,
-  arenaNonLinear,
-  bend,
-  brickAt,
-  portalExit,
-  wallFor,
-  type PortalTrip
-} from './arena';
+import { arenaNonLinear, brickAt, wallFor } from './arena';
 import { BALL_R, FIELD_H } from './constants';
 import { movePaddle } from './physics';
 import type { BotBrain, Paddle, Vec2 } from './types';
@@ -18,7 +13,7 @@ import type { World } from './world';
  * Bot behaviour.
  *
  * Every bot plays by exactly the same rules as the player: one paddle, a
- * speed limit lower than the player's, and no knowledge the ball does not
+ * visible travel limit, and no knowledge the ball does not
  * give it. Difficulty is entirely a matter of *how it uses that information* -
  * how long it takes to look, how well it reads a bounce, how tidily it moves,
  * and how much of that falls apart when the ball is fast.
@@ -43,81 +38,8 @@ function pace(world: World): number {
 /** How much harder than "at the limit" an over-the-limit ball may get. */
 const OVER_PACE = 1.5;
 
-/** Seconds of flight a bent path is followed before the read gives up. */
-const SIM_SECONDS = 3;
-const SIM_DT = 1 / 90;
-/** Steps between two corners of a drawn bent path. */
-const SIM_SAMPLE = 5;
-const simV: Vec2 = { x: 0, y: 0 };
-const simTrip: PortalTrip = { x: 0, y: 0, pair: 0, from: 0 };
-/** Simulated steps a portal stays shut after a trip - the ball's own lock, in steps. */
-const SIM_PORTAL_LOCK = 11;
-
-/**
- * Follow a ball the court is bending - wind, a gravity well - or carrying
- * through a portal, step by step until it crosses `targetX`. Returns the
- * crossing height; when `out` is given, the path is written into it as a
- * polyline and its length returned through `count`. A portal trip breaks
- * the polyline with a NaN point, so a drawn path jumps rather than streaking
- * across the court.
- */
-function simulate(world: World, targetX: number, out?: Vec2[], count?: { n: number }): number {
-  const { ball } = world;
-  let x = ball.x;
-  let y = ball.y;
-  simV.x = ball.vx;
-  simV.y = ball.vy;
-  const speed = ball.speed;
-  const top = BALL_R;
-  const bottom = FIELD_H - BALL_R;
-  const side = Math.sign(targetX - x);
-  let n = 0;
-  const put = (px: number, py: number) => {
-    if (!out) return;
-    const point = out[n] ?? (out[n] = { x: 0, y: 0 });
-    point.x = px;
-    point.y = py;
-    n++;
-  };
-  put(x, y);
-  const curves = arenaCurves(world);
-  const portals = world.arena.portals.length > 0;
-  let lock = world.arena.portalLock > 0 ? SIM_PORTAL_LOCK : 0;
-  const steps = Math.ceil(SIM_SECONDS / SIM_DT);
-  for (let i = 0; i < steps; i++) {
-    if (curves) bend(world, x, y, simV, speed, SIM_DT);
-    let nx = x + simV.x * SIM_DT;
-    let ny = y + simV.y * SIM_DT;
-    if (ny < top) {
-      ny = top + (top - ny);
-      simV.y = Math.abs(simV.y);
-    } else if (ny > bottom) {
-      ny = bottom - (ny - bottom);
-      simV.y = -Math.abs(simV.y);
-    }
-    if (Math.sign(targetX - nx) !== side) {
-      const t = (targetX - x) / (nx - x || 1);
-      const cross = clamp(y + (ny - y) * t, top, bottom);
-      put(targetX, cross);
-      if (count) count.n = n;
-      return cross;
-    }
-    if (lock > 0) lock--;
-    else if (portals && portalExit(world, nx, ny, simV.x, simV.y, simTrip)) {
-      put(nx, ny);
-      put(Number.NaN, Number.NaN);
-      nx = simTrip.x;
-      ny = simTrip.y;
-      put(nx, ny);
-      lock = SIM_PORTAL_LOCK;
-    }
-    x = nx;
-    y = ny;
-    if (i % SIM_SAMPLE === 0) put(x, y);
-  }
-  if (count) count.n = n;
-  return y;
-}
+/** Forecasts use the shared physical geometry and copied hazard state. */
+const simulate = forecast;
 
 const simCount = { n: 0 };
 
@@ -209,7 +131,7 @@ function naiveY(world: World, targetX: number): number {
  */
 function stress(world: World, profile: BotProfile): number {
   if (profile.assist > 0) return 0;
-  const long = clamp((world.match.rally - 6) / 16, 0, 3);
+  const long = clamp((world.match.rally - 10) / 24, 0, profile.rank >= 4 ? 0.35 : 1.2);
   return long * (1 - profile.pressure * 0.7);
 }
 
@@ -233,10 +155,10 @@ function aimError(world: World, brain: BotBrain, fast: number, correcting: boole
     (1 + tired) *
     (brain.misread ? 1.7 : 1) *
     // A heavy return is harder to read than its speed alone would make it.
-    (1 + world.ball.heft) *
+    (1 + Math.min(0.8, world.ball.heft)) *
     // A second look tidies the read up, but a tired bot tidies it up less.
-    (correcting ? Math.min(1, 0.45 + tired * 0.18) : 1);
-  return (Math.random() + Math.random() - 1) * spread;
+    (correcting ? Math.min(1, 0.65 + tired * 0.18) : 1);
+  return (world.random() + world.random() - 1) * spread;
 }
 
 /** Start the clock on a fresh approach. Fast balls are noticed later. */
@@ -246,7 +168,7 @@ function armReaction(world: World, brain: BotBrain, fast: number): void {
     p.reaction *
     (1 + (1 - p.pressure) * fast * 0.9) *
     (1 + stress(world, p) * 0.25) *
-    (0.85 + Math.random() * 0.3);
+    (0.85 + world.random() * 0.3);
   brain.aimed = false;
   brain.reads = 0;
   brain.misread = false;
@@ -268,7 +190,7 @@ function decide(
   correcting: boolean
 ): void {
   const p = brain.profile;
-  if (!correcting) brain.misread = Math.random() > p.consistency;
+  if (!correcting) brain.misread = world.random() > p.consistency;
 
   const exact = predictY(world, paddle.x);
   const naive = naiveY(world, paddle.x);
@@ -279,7 +201,10 @@ function decide(
   // into whichever half the opponent has left open.
   const foe = paddle.side === 'bot' ? world.player : world.bot;
   const away = foe.y < FIELD_H / 2 ? 1 : -1;
-  const place = away * (0.25 + p.placement * 0.6);
+  const place =
+    p.rank >= 3 && p.assist === 0
+      ? chooseShot(world, paddle, brain, cross)
+      : away * (0.25 + p.placement * 0.6);
 
   paddle.target = clamp(
     cross - place * paddle.half + aimError(world, brain, fast, correcting),
@@ -288,6 +213,99 @@ function decide(
   );
   brain.aimed = true;
   brain.reads++;
+  brain.wait = p.reaction * 0.7;
+  if (paddle.side === 'bot' && world.match.status === 'play' && p.assist === 0)
+    chooseSkill(world, brain, cross);
+}
+
+function chooseShot(world: World, paddle: Paddle, brain: BotBrain, cross: number): number {
+  const foe = paddle.side === 'bot' ? world.player : world.bot;
+  const p = brain.profile;
+  const personality = p.personality ?? 'opportunist';
+  const direction = paddle.side === 'bot' ? -1 : 1;
+  let best = 0,
+    score = -Infinity;
+  for (const offset of [-0.86, -0.5, 0, 0.5, 0.86]) {
+    const angle = offset * 1.05;
+    const vx = direction * Math.cos(angle) * world.ball.speed,
+      vy = Math.sin(angle) * world.ball.speed;
+    const projected: World = {
+      ...world,
+      ball: {
+        ...world.ball,
+        x: paddle.x + direction * (BALL_R + 8),
+        y: cross,
+        vx,
+        vy,
+        owner: paddle.side
+      },
+      talents: {
+        ...world.talents,
+        swerveDir:
+          paddle.side === 'you' && world.loadout.effects.swerve > 0 ? (vy >= 0 ? 1 : -1) : 0
+      },
+      botTalents: {
+        ...world.botTalents,
+        swerveDir:
+          paddle.side === 'bot' && world.botLoadout.effects.swerve > 0 ? (vy >= 0 ? 1 : -1) : 0
+      }
+    };
+    const landing = predictY(projected, foe.x);
+    const time = Math.abs(foe.x - paddle.x) / Math.max(1, Math.abs(vx));
+    const observed = brain.previousFoeY ?? foe.y;
+    const anticipated = clamp(foe.y + (foe.y - observed) * 0.4, foe.half, FIELD_H - foe.half);
+    let value = Math.abs(landing - anticipated) / Math.max(0.2, time) + (world.random() - 0.5) * 60;
+    // A sequence of opposite placements stretches recovery; anchoring favors safer contacts.
+    if (p.rank >= 4 && Math.sign(offset) !== Math.sign(brain.shot ?? 0)) value += 45;
+    if (personality === 'anchor') value -= Math.abs(offset) * 65;
+    if (personality === 'aggressor') value += Math.abs(offset) * 55;
+    if (personality === 'banker')
+      value +=
+        Math.abs(Math.sin(angle) * world.view.w + cross - FIELD_H / 2) > FIELD_H / 2 ? 100 : -50;
+    if (personality === 'curver') value += Math.abs(offset) < 0.6 ? 80 : -30;
+    if (personality === 'disruptor' && Math.sign(offset) === Math.sign(foe.vy)) value += 70;
+    if (value > score) {
+      score = value;
+      best = offset;
+    }
+  }
+  brain.previousFoeY = foe.y;
+  brain.shot = best;
+  return best * p.placement;
+}
+
+function chooseSkill(world: World, brain: BotBrain, cross: number): void {
+  const actor = combatant(world, 'bot');
+  const time = Math.abs(world.bot.x - world.ball.x) / Math.max(1, Math.abs(world.ball.vx));
+  const gap = Math.abs(cross - world.bot.y) - world.bot.half;
+  for (const [slot, entry] of actor.talents.slots.entries()) {
+    if (!entry.id || entry.cooldown > 0 || entry.lockout > 0) continue;
+    const defend =
+      entry.id === 'dash' &&
+      gap > brain.profile.speed * Math.max(0, time - brain.profile.reaction) &&
+      time < 0.4 &&
+      gap < actor.loadout.effects.dashDistance;
+    const guard =
+      entry.id === 'perfect-guard' &&
+      time < actor.loadout.effects.guardWindow &&
+      gap < actor.loadout.effects.guardReach;
+    const charge =
+      entry.id === 'power-strike' && time < 0.65 && time > 0.12 && actor.talents.strikeHits === 0;
+    const burst = entry.id === 'overload' && time < 0.7 && world.match.rally > 4;
+    const tactic =
+      (entry.id === 'redirect' && time < 0.7 && time > 0.12) ||
+      (entry.id === 'anchor' && !!world.arena.spec?.rails?.length && time < 0.7) ||
+      (entry.id === 'relay' && !!world.arena.spec?.switches?.length && time < 0.7) ||
+      (entry.id === 'rebound' && time < 0.5 && gap < world.bot.half) ||
+      (entry.id === 'reserve' &&
+        world.match.rally > 0 &&
+        time > 0.4 &&
+        (actor.talents.tactics.reserve ?? 0) <= 0);
+    if (defend || guard || charge || burst || tactic) {
+      fireAbility(actor, slot);
+      break;
+    }
+  }
 }
 
 /** Where to wait while the ball is at the other end. */

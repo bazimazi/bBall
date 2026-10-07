@@ -83,7 +83,7 @@ export interface ArenaCosmetic extends Cosmetic {
   readonly grid: number;
 }
 
-export const ACCENTS: readonly AccentCosmetic[] = [
+const LEGACY_ACCENTS: readonly AccentCosmetic[] = [
   {
     id: 'accent-teal',
     kind: 'accent',
@@ -158,7 +158,7 @@ export const ACCENTS: readonly AccentCosmetic[] = [
   }
 ];
 
-export const BALLS: readonly BallCosmetic[] = [
+const BASE_BALLS: readonly BallCosmetic[] = [
   {
     id: 'ball-classic',
     kind: 'ball',
@@ -238,7 +238,7 @@ export const BALLS: readonly BallCosmetic[] = [
   }
 ];
 
-export const PADDLES: readonly PaddleCosmetic[] = [
+const BASE_PADDLES: readonly PaddleCosmetic[] = [
   {
     id: 'paddle-capsule',
     kind: 'paddle',
@@ -291,7 +291,7 @@ export const PADDLES: readonly PaddleCosmetic[] = [
   }
 ];
 
-export const TRAILS: readonly TrailCosmetic[] = [
+const BASE_TRAILS: readonly TrailCosmetic[] = [
   {
     id: 'trail-comet',
     kind: 'trail',
@@ -344,7 +344,7 @@ export const TRAILS: readonly TrailCosmetic[] = [
   }
 ];
 
-export const ARENAS: readonly ArenaCosmetic[] = [
+const BASE_ARENAS: readonly ArenaCosmetic[] = [
   {
     id: 'arena-midnight',
     kind: 'arena',
@@ -485,6 +485,109 @@ export const ARENAS: readonly ArenaCosmetic[] = [
     unlock: { type: 'level', level: 30 },
     swatch: ['#2a0f3a', '#ff5fa2']
   }
+];
+
+export const ACCENTS: readonly AccentCosmetic[] = [
+  ...LEGACY_ACCENTS,
+  ...Array.from({ length: 24 }, (_, i): AccentCosmetic => {
+    const hue = (35 + i * 47) % 360,
+      css = `hsl(${hue} 90% 66%)`;
+    const milestones = [
+      'journey-w10',
+      'journey-w15',
+      'journey-w20',
+      'journey-w25',
+      'journey-w30',
+      'boss-expansion-all',
+      'journey-expansion-stars',
+      'frontier-1',
+      'frontier-10',
+      'frontier-100',
+      'pressure-10',
+      'pressure-30',
+      'pressure-50'
+    ];
+    return {
+      id: `accent-mastery-${i + 1}`,
+      kind: 'accent',
+      name: i < 13 ? `Circuit ${i + 1}` : `Mastery ${50 + (i - 13) * 50}`,
+      hue,
+      css,
+      swatch: [css, `hsl(${(hue + 30) % 360} 85% 48%)`],
+      unlock:
+        i < 13
+          ? { type: 'achievement', id: milestones[i]! }
+          : { type: 'level', level: 50 + (i - 13) * 50 }
+    };
+  })
+];
+
+const BUILD_NAMES = ['Power', 'Control', 'Defense', 'Momentum', 'Utility'] as const;
+const BUILD_IDS = ['power', 'control', 'defense', 'momentum', 'utility'] as const;
+const SCHOOL_IDS = ['anchor', 'aggressor', 'banker', 'curver', 'disruptor'] as const;
+export const BALLS: readonly BallCosmetic[] = [
+  ...BASE_BALLS,
+  ...BUILD_NAMES.map((name, i): BallCosmetic => ({
+    ...BASE_BALLS[i + 1]!,
+    id: `ball-mastery-${BUILD_IDS[i]}`,
+    name: `${name} core`,
+    glow: 1.15 + i * 0.05,
+    ring: 0.2 + i * 0.08,
+    unlock: { type: 'achievement', id: `track-build-${BUILD_IDS[i]}` }
+  }))
+];
+export const PADDLES: readonly PaddleCosmetic[] = [
+  ...BASE_PADDLES,
+  ...BUILD_NAMES.map((name, i): PaddleCosmetic => ({
+    ...BASE_PADDLES[i]!,
+    id: `paddle-mastery-${BUILD_IDS[i]}`,
+    name: `${name} finish`,
+    round: 0.2 + i * 0.15,
+    glow: 1.2 + i * 0.06,
+    unlock: { type: 'achievement', id: `track-build-${BUILD_IDS[i]}` }
+  }))
+];
+export const TRAILS: readonly TrailCosmetic[] = [
+  ...BASE_TRAILS,
+  ...SCHOOL_IDS.map((id, i): TrailCosmetic => ({
+    ...BASE_TRAILS[i]!,
+    id: `trail-mastery-${id}`,
+    name: `${id[0]!.toUpperCase() + id.slice(1)} trace`,
+    alpha: 1.1 + i * 0.03,
+    width: 0.8 + i * 0.1,
+    unlock: { type: 'achievement', id: `track-school-${id}` }
+  }))
+];
+const COURT_IDS = [
+  'bankworks',
+  'gatehouse',
+  'switchyard',
+  'charge-circuit',
+  'phase-crossing',
+  'deflector-ruins',
+  'crosswind-lock',
+  'siege-relay',
+  'storm-circuit',
+  'rail-slalom',
+  'rift-bank',
+  'pulse-forge'
+];
+export const ARENAS: readonly ArenaCosmetic[] = [
+  ...BASE_ARENAS,
+  ...COURT_IDS.map((id, i): ArenaCosmetic => {
+    const hue = (35 + i * 29) % 360;
+    return {
+      ...BASE_ARENAS[i % BASE_ARENAS.length]!,
+      id: `arena-mastery-${id}`,
+      name: `${id.replaceAll('-', ' ')} vault`,
+      bgHue: hue,
+      courtTop: `hsl(${hue} 40% 9%)`,
+      courtBottom: `hsl(${hue} 40% 5%)`,
+      grid: 0.035 + (i % 4) * 0.01,
+      swatch: [`hsl(${hue} 40% 9%)`, `hsl(${hue} 80% 65%)`],
+      unlock: { type: 'achievement', id: `track-court-${id}` }
+    };
+  })
 ];
 
 export const COSMETICS: readonly Cosmetic[] = [

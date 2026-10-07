@@ -28,10 +28,11 @@ import type { AvatarId, ChallengeRecord, PlayerProfile } from '../../../src/core
 import { AVATARS } from '../../../src/core/profile/types';
 import { levelOf } from '../../../src/core/progression/levels';
 import { isAbilityId } from '../../../src/core/talents/abilities';
-import { createTalentSave, reconcile } from '../../../src/core/talents/save';
+import { createTalentSave, reconcile, talentSaveOf } from '../../../src/core/talents/save';
 import type { AbilityId, TalentId, TalentSave } from '../../../src/core/talents/types';
 import { isTalentId } from '../../../src/core/talents/catalog';
 import type { TournamentSave } from '../../../src/core/tournament/bracket';
+import { CUP_FORMATS, type TournamentFormat } from '../../../src/core/tournament/bracket';
 import type { Db } from '../db/index';
 import { emptyModeStats, type ModeStats, type ServerProfile } from '../domain/profile';
 import { newId } from '../lib/ids';
@@ -88,6 +89,8 @@ interface TalentStatsRow {
 }
 
 interface TournamentRow {
+  format: string | null;
+  season: number;
   id: string;
   user_id: string;
   tier: number;
@@ -115,6 +118,9 @@ function parseTournament(row: TournamentRow | undefined): TournamentSave | null 
   }
   return {
     tier: row.tier,
+    ...(CUP_FORMATS.includes(row.format as TournamentFormat)
+      ? { format: row.format as TournamentFormat, season: row.season }
+      : {}),
     round: row.round,
     results,
     startedAt: row.started_at,
@@ -164,6 +170,19 @@ export function loadProfile(db: Db, userId: string): ServerProfile | null {
   }
 
   const talents: TalentSave = createTalentSave();
+  const presetRow = db
+    .prepare('SELECT data_json FROM talent_presets WHERE user_id = ?')
+    .get(userId) as { data_json: string } | undefined;
+  if (presetRow)
+    try {
+      const presets = talentSaveOf(
+        { presets: JSON.parse(presetRow.data_json) },
+        levelOf(row.xp)
+      ).presets;
+      if (presets) talents.presets = presets;
+    } catch {
+      /* Repair invalid preset JSON to no presets. */
+    }
   for (const rank of db
     .prepare('SELECT talent_id, rank FROM talent_ranks WHERE user_id = ?')
     .all(userId) as { talent_id: string; rank: number }[]) {
@@ -239,7 +258,7 @@ export function loadProfile(db: Db, userId: string): ServerProfile | null {
   const lastRow = db
     .prepare(
       "SELECT * FROM tournaments WHERE user_id = ? AND status <> 'active' " +
-        'ORDER BY started_at DESC LIMIT 1'
+        'ORDER BY started_at DESC, season DESC, updated_at DESC LIMIT 1'
     )
     .get(userId) as TournamentRow | undefined;
 
@@ -455,6 +474,11 @@ export function saveProfile(
 function writeChildren(db: Db, server: ServerProfile, now = Date.now()): void {
   const userId = server.userId;
   const { profile } = server;
+  if (profile.talents.presets)
+    db.prepare(
+      'INSERT INTO talent_presets (user_id,data_json) VALUES (?,?) ON CONFLICT (user_id) DO UPDATE SET data_json=excluded.data_json'
+    ).run(userId, JSON.stringify(profile.talents.presets));
+  else db.prepare('DELETE FROM talent_presets WHERE user_id=?').run(userId);
 
   db.prepare(
     `INSERT INTO profile_progress (user_id, data_json, updated_at) VALUES (?, ?, ?)
@@ -563,8 +587,8 @@ function writeTournaments(db: Db, userId: string, profile: PlayerProfile, now: n
   // unique index that allows one active cup per player always holds.
   db.prepare(
     `UPDATE tournaments SET status = 'finished', finished_at = COALESCE(finished_at, ?), updated_at = ?
-     WHERE user_id = ? AND status = 'active' AND started_at <> ?`
-  ).run(now, now, userId, active?.startedAt ?? -1);
+     WHERE user_id = ? AND status = 'active' AND (started_at <> ? OR season <> ? OR COALESCE(format,'') <> ?)`
+  ).run(now, now, userId, active?.startedAt ?? -1, active?.season ?? 0, active?.format ?? '');
 
   if (active) upsertTournament(db, userId, active, 'active', now);
   if (profile.lastTournament) {
@@ -580,13 +604,15 @@ function upsertTournament(
   now: number
 ): string {
   const existing = db
-    .prepare('SELECT id FROM tournaments WHERE user_id = ? AND started_at = ?')
-    .get(userId, save.startedAt) as { id: string } | undefined;
+    .prepare(
+      "SELECT id FROM tournaments WHERE user_id = ? AND started_at = ? AND season = ? AND COALESCE(format,'') = ?"
+    )
+    .get(userId, save.startedAt, save.season ?? 0, save.format ?? '') as { id: string } | undefined;
 
   const results = JSON.stringify(save.results);
   if (existing) {
     db.prepare(
-      `UPDATE tournaments SET tier = ?, round = ?, results_json = ?, status = ?, champion = ?,
+      `UPDATE tournaments SET tier = ?, round = ?, results_json = ?, status = ?, champion = ?, format = ?, season = ?,
          updated_at = ?, finished_at = CASE WHEN ? = 'finished' THEN COALESCE(finished_at, ?) ELSE NULL END
        WHERE id = ?`
     ).run(
@@ -595,6 +621,8 @@ function upsertTournament(
       results,
       status,
       save.champion ? 1 : 0,
+      save.format ?? null,
+      save.season ?? 0,
       now,
       status,
       now,
@@ -606,8 +634,8 @@ function upsertTournament(
   const id = newId();
   db.prepare(
     `INSERT INTO tournaments
-       (id, user_id, tier, round, results_json, status, champion, started_at, updated_at, finished_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, user_id, tier, round, results_json, status, champion, started_at, updated_at, finished_at,format,season)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     userId,
@@ -618,7 +646,9 @@ function upsertTournament(
     save.champion ? 1 : 0,
     save.startedAt,
     now,
-    status === 'finished' ? now : null
+    status === 'finished' ? now : null,
+    save.format ?? null,
+    save.season ?? 0
   );
   return id;
 }

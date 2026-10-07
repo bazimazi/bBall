@@ -187,6 +187,33 @@ Both companies publish sign-in button guidelines covering mark, wording and
 spacing. `ui/components/ProviderButton.tsx` follows their shape; a production
 release should check the current guidelines rather than trust that comment.
 
+## Endless expansion rules
+
+Client and server share the 630-stage Journey catalog, procedural Frontier and
+contract identities, 60 courts, 25 bosses, expanded talents, mastery and
+format-aware rewards. `/config` advertises content version 2 and counts. Deploy
+the client and API together and apply migration 6 before accepting new clients.
+
+New Gauntlet saves distinguish Sprint, Expedition and Endless, Pressure 0–50,
+route, service credits, draft roll and the committed encounter. `run.action`
+validates commit/restart, route, repair, reroll, upgrade, recycling, banking and
+continuation against current state; it is idempotent through the sync log.
+Services cannot mutate a committed attempt. An unfinished-attempt restart costs
+a heart and pays no XP. Run depth supports safe integers and retains 40 detailed
+results; Frontier and contract completion use compact cursors.
+
+`talent.build` saves or loads a preset through actual purchase gates, ownership,
+slot limits and point budget. Master Daily resolves the same fixed build on both
+sides of the API. Standard/Master records are separate, and archived cards remain
+unranked. Survival waves validate depth against actual reported returns and store
+bounded records by course or wave format. Quick series keep ordinary per-game
+awards; Versus and its device presets remain unranked.
+
+Validation checks plausibility, unlocks and transitions; it does not replay every
+input or prove court contacts. Recipe versioning preserves identity and choices,
+not all historical simulation constants. See the
+[implementation and validation report](../docs/validation/endless-progression-report.md).
+
 ## Anti-cheat
 
 The client is untrusted and always will be. Nothing here tries to make it
@@ -315,7 +342,7 @@ Everything is under `/v1`. Full request and response types are in
 | GET      | `/health`, `/health/live`                | Readiness and liveness                              |
 
 A Gauntlet run is started, drafted and abandoned through `/sync/push` only,
-as the `run.start`, `run.pick` and `run.abandon` operations - they are
+as `run.start`, `run.pick`, `run.abandon` and versioned `run.action` operations - they are
 always made from a menu the game may have drawn offline.
 
 The grain is chosen around what the game does. Recording a match is one call
@@ -342,6 +369,12 @@ live in `profile_progress` as one JSON document per player (migration 5).
 They are always read and written whole and never queried by field, and the
 shared validator repairs the document on every load, so a new mode adds a
 field rather than a migration.
+
+Migration 6, `endless_content`, adds a separate `talent_presets` document and
+nullable cup format plus a season counter. Existing tournament rows retain their
+legacy identity. Marathon finals award a championship only after seven rounds;
+ladder victories archive the finished six-round season and persist the next
+defense separately. Migration checksums for earlier versions are unchanged.
 
 The schema is normalised rather than a JSON blob: talent ranks, achievements,
 unlocks, challenge records, per-mode statistics, cup runs, matches and the

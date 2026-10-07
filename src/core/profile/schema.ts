@@ -1,3 +1,4 @@
+import type { TournamentFormat } from '../tournament/bracket';
 import { isAchievementId } from '../achievements/catalog';
 import { isBotLevelId, DEFAULT_BOT } from '../bots/levels';
 import {
@@ -12,7 +13,12 @@ import { levelOf } from '../progression/levels';
 import { dayKey } from '../progression/xp';
 import type { StoreSpec } from '../storage/localStore';
 import { talentSaveOf } from '../talents/save';
-import { TOURNAMENT_ROUNDS, TOURNAMENT_TIERS, type TournamentSave } from '../tournament/bracket';
+import {
+  TOURNAMENT_TIERS,
+  CUP_FORMATS,
+  roundsFor,
+  type TournamentSave
+} from '../tournament/bracket';
 import { cleanName, createProfile, createStats } from './defaults';
 import { progressOf } from './progress';
 import { AVATARS, type AvatarId, type ChallengeRecord, type PlayerProfile } from './types';
@@ -61,11 +67,16 @@ function tournamentOf(value: unknown): TournamentSave | null {
   if (!value || typeof value !== 'object') return null;
   const source = bag(value);
   const results = Array.isArray(source.results) ? source.results : [];
+  const format = CUP_FORMATS.includes(source.format as TournamentFormat)
+    ? (source.format as TournamentFormat)
+    : undefined;
+  const length = roundsFor(format ? { format } : {}).length;
   const tier = num(source.tier, 0, 0, TOURNAMENT_TIERS.length - 1);
   return {
     tier,
-    round: num(source.round, 0, 0, TOURNAMENT_ROUNDS.length),
-    results: results.slice(0, TOURNAMENT_ROUNDS.length).map((entry) => {
+    ...(format ? { format, season: num(source.season, 0) } : {}),
+    round: num(source.round, 0, 0, length),
+    results: results.slice(0, length).map((entry) => {
       const item = bag(entry);
       return {
         you: num(item.you, 0, 0, 99),
@@ -140,7 +151,7 @@ function statsOf(value: unknown): PlayerProfile['stats'] {
     challengesCleared: num(source.challengesCleared, base.challengesCleared),
     cupsPlayed: num(source.cupsPlayed, base.cupsPlayed),
     cupsWon: num(source.cupsWon, base.cupsWon),
-    bestCupRound: num(source.bestCupRound, base.bestCupRound, 0, TOURNAMENT_ROUNDS.length),
+    bestCupRound: num(source.bestCupRound, base.bestCupRound, 0, 7),
     bestCupTier: num(source.bestCupTier, base.bestCupTier, -1, TOURNAMENT_TIERS.length - 1),
     winsByBot
   };

@@ -31,6 +31,7 @@ import { ACHIEVEMENTS } from '../../../src/core/achievements/catalog';
 import {
   STAGES,
   stageOpen,
+  stageById,
   totalStars,
   type JourneyProgress
 } from '../../../src/core/campaign/journey';
@@ -41,7 +42,7 @@ import type { PlayerProfile } from '../../../src/core/profile/types';
 import { validateProfile } from '../../../src/core/profile/schema';
 import { levelOf } from '../../../src/core/progression/levels';
 import { reconcile } from '../../../src/core/talents/save';
-import { TOURNAMENT_ROUNDS } from '../../../src/core/tournament/bracket';
+
 import { progressWeight } from './profile';
 
 /** Ceilings used when trimming a claimed save back to something possible. */
@@ -150,7 +151,43 @@ function sanitizeProgress(
     journey[stage.id] = mask;
     played += 1;
   }
+  const sectors = clamp(
+    progress.journey['frontier-v2'] ?? 0,
+    Math.floor(Math.max(0, wins - played) / 20)
+  );
+  if (sectors > 0 && journey['w5-6']) journey['frontier-v2'] = sectors;
+  for (const [id, mask] of Object.entries(progress.journey)) {
+    if (id.startsWith('veteran-') || id.startsWith('ascendant-')) {
+      const stage = stageById(id);
+      if (stage && played < matches && stageOpen(journey, stage)) {
+        journey[id] = mask;
+        played++;
+      }
+    }
+  }
+  // At most the in-progress sector is kept beside the compact completion marker.
+  const frontier = sectors + 1;
+  for (let i = 1; i <= 20 && played < matches; i++) {
+    const id = `f2-${frontier}-${i}`,
+      stage = stageById(id),
+      mask = progress.journey[id] ?? 0;
+    if (stage && mask && stageOpen(journey, stage)) {
+      journey[id] = mask;
+      played++;
+    }
+  }
   progress.journey = journey;
+  for (const record of Object.values(progress.endlessRecords)) {
+    record.rally = clamp(record.rally, hits * 2 + 1);
+    record.waves = clamp(record.waves, Math.floor(hits / 12));
+  }
+  progress.contracts = clamp(progress.contracts ?? 0, wins);
+  for (const id of Object.keys(progress.mastery))
+    progress.mastery[id] = clamp(progress.mastery[id]!, wins * 8);
+  const master = progress.dailyMaster;
+  master.clears = clamp(master.clears, matches);
+  master.bestStreak = clamp(master.bestStreak, master.clears);
+  master.streak = clamp(master.streak, master.bestStreak);
 
   const daily = progress.daily;
   daily.clears = clamp(daily.clears, matches);
@@ -160,7 +197,7 @@ function sanitizeProgress(
 
   const records = progress.runRecords;
   records.runs = clamp(records.runs, matches);
-  records.clears = clamp(records.clears, Math.floor(wins / 9));
+  records.clears = clamp(records.clears, Math.floor(wins / 6));
   if (records.clears === 0) records.bestPressure = -1;
   progress.run = null;
 
@@ -217,7 +254,7 @@ export function sanitizeClaim(payload: unknown): SanitizedClaim | null {
   stats.challengesCleared = clamp(stats.challengesCleared, CHALLENGES.length);
   stats.cupsPlayed = clamp(stats.cupsPlayed, maxMatches);
   stats.cupsWon = clamp(stats.cupsWon, stats.cupsPlayed);
-  stats.bestCupRound = clamp(stats.bestCupRound, TOURNAMENT_ROUNDS.length);
+  stats.bestCupRound = clamp(stats.bestCupRound, 7);
 
   let botWins = 0;
   for (const [id, wins] of Object.entries(stats.winsByBot)) {
@@ -354,7 +391,10 @@ export function mergeProfiles(cloud: PlayerProfile, local: PlayerProfile): Playe
 function mergeProgress(cloud: ProgressState, local: ProgressState): ProgressState {
   const merged = cloneProgress(cloud);
   for (const [id, mask] of Object.entries(local.journey)) {
-    merged.journey[id] = (merged.journey[id] ?? 0) | mask;
+    merged.journey[id] =
+      id === 'frontier-v2'
+        ? Math.max(merged.journey[id] ?? 0, mask)
+        : (merged.journey[id] ?? 0) | mask;
   }
   // The streak belongs to whichever save cleared a daily most recently.
   const later = local.daily.lastClear > cloud.daily.lastClear ? local.daily : cloud.daily;
@@ -363,6 +403,28 @@ function mergeProgress(cloud: ProgressState, local: ProgressState): ProgressStat
     clears: Math.max(cloud.daily.clears, local.daily.clears),
     bestStreak: Math.max(cloud.daily.bestStreak, local.daily.bestStreak)
   };
+  const master =
+    local.dailyMaster.lastClear > cloud.dailyMaster.lastClear
+      ? local.dailyMaster
+      : cloud.dailyMaster;
+  merged.dailyMaster = {
+    ...master,
+    clears: Math.max(cloud.dailyMaster.clears, local.dailyMaster.clears),
+    bestStreak: Math.max(cloud.dailyMaster.bestStreak, local.dailyMaster.bestStreak)
+  };
+  for (const [key, record] of Object.entries(local.endlessRecords ?? {})) {
+    const old = merged.endlessRecords[key] ?? { rally: 0, waves: 0 };
+    merged.endlessRecords[key] = {
+      rally: Math.max(old.rally, record.rally),
+      waves: Math.max(old.waves, record.waves)
+    };
+  }
+  merged.contracts = Math.max(cloud.contracts, local.contracts);
+  for (const [id, n] of Object.entries(local.mastery ?? {}))
+    merged.mastery[id] = Math.max(merged.mastery[id] ?? 0, n);
+  for (const id of Object.keys(merged.journey))
+    if (id.startsWith('f2-') && Number(id.split('-')[1]) <= (merged.journey['frontier-v2'] ?? 0))
+      delete merged.journey[id];
   merged.quests = cloud.quests ?? local.quests;
   merged.questSweeps = Math.max(cloud.questSweeps, local.questSweeps);
   merged.lastRun = cloud.lastRun ?? local.lastRun;

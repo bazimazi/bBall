@@ -16,7 +16,8 @@ export function goalViews(world: World): readonly GoalView[] {
     bestRally: Math.max(match.bestThisMatch, match.rally),
     flicks: match.flicks,
     seconds: Math.round(match.elapsed),
-    hits: match.hits
+    hits: match.hits,
+    court: world.arena.course.events.you
   };
   return [
     {
@@ -30,6 +31,13 @@ export function goalViews(world: World): readonly GoalView[] {
       let reached = false;
       let missed = false;
       switch (goal.id) {
+        case 'banks':
+        case 'switches':
+        case 'breaks':
+        case 'gates':
+          progress = `${evidence.court[goal.id]}/${goal.value}`;
+          reached = evidence.court[goal.id] >= goal.value;
+          break;
         case 'rally':
           progress = `Rally ${evidence.bestRally}/${goal.value}`;
           reached = evidence.bestRally >= goal.value;

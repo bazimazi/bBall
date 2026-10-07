@@ -1,3 +1,9 @@
+import { ARENA_PRESETS, arenaPreset } from '../../../src/core/modes/arenas';
+import { masteryTags } from '../../../src/core/progression/mastery';
+import { dominantBranch } from '../../../src/core/talents/save';
+import { masterCardLoadout } from '../../../src/core/talents/builds';
+import { PERSONALITIES } from '../../../src/core/modes/recipes';
+import { dailyIdentity } from '../../../src/core/daily/daily';
 /**
  * Anti-cheat: turning a client's account of a match into a result the server
  * is willing to act on.
@@ -48,7 +54,7 @@ import { canCrit, canSave, resolveLoadout, withBoons } from '../../../src/core/t
 import { abilityById } from '../../../src/core/talents/abilities';
 import { ownedAbilities } from '../../../src/core/talents/save';
 import { BALANCE } from '../../../src/core/balance/config';
-import { TOURNAMENT_ROUNDS } from '../../../src/core/tournament/bracket';
+import { roundsFor } from '../../../src/core/tournament/bracket';
 import type { MatchSubmissionDto } from '../../../shared/protocol';
 
 /** Physical floors, with generous headroom over what the simulation allows. */
@@ -81,6 +87,9 @@ export const LIMITS = {
 } as const;
 
 export type RejectionCode =
+  | 'invalid-match-options'
+  | 'locked-contract'
+  | 'invalid-court-events'
   | 'unknown-mode'
   | 'unknown-bot'
   | 'bot-mode-mismatch'
@@ -148,6 +157,28 @@ function resolveRules(
   if (!isBotLevelId(submission.botId))
     return reject('unknown-bot', 'That opponent does not exist.');
 
+  if (
+    submission.options &&
+    ((submission.options.arenaId && !arenaPreset(submission.options.arenaId)) ||
+      (submission.options.personality && !PERSONALITIES.includes(submission.options.personality)) ||
+      (submission.options.contract &&
+        (submission.mode !== 'quick' || submission.botId !== 'legend')) ||
+      !['quick', 'practice', 'endless', 'versus'].includes(submission.mode))
+  ) {
+    return reject('invalid-match-options', 'Those options are not available for this encounter.');
+  }
+  if (submission.mode !== 'versus' && (submission.options?.mirror || submission.options?.duel))
+    return reject('invalid-match-options', 'Couch modifiers are only available in Versus.');
+  if (
+    submission.mode !== 'practice' &&
+    (submission.options?.bossId || submission.options?.bossPhase !== undefined)
+  )
+    return reject('invalid-match-options', 'Boss phase drills are only available in Practice.');
+  if (
+    (submission.options?.waves && submission.mode !== 'endless') ||
+    (submission.options?.series && !['quick', 'versus'].includes(submission.mode))
+  )
+    return reject('invalid-match-options', 'Those formats are only available in their own mode.');
   switch (submission.mode) {
     case 'quick':
     case 'practice': {
@@ -157,19 +188,25 @@ function resolveRules(
         return reject('bot-mode-mismatch', 'That opponent cannot be picked for this mode.');
       }
       return submission.mode === 'quick'
-        ? quickMatchRules(submission.botId)
-        : practiceRules(submission.botId);
+        ? quickMatchRules(submission.botId, submission.options)
+        : practiceRules(submission.botId, 'normal', submission.options);
     }
 
     case 'endless': {
       if (submission.botId !== 'wall') {
         return reject('bot-mode-mismatch', 'Endless is only played against the wall.');
       }
-      return endlessRules();
+      return endlessRules(submission.options);
     }
 
     case 'challenge': {
       const challenge = submission.challengeId ? challengeById(submission.challengeId) : undefined;
+      if (
+        challenge &&
+        challenge.id.startsWith('contract-') &&
+        Number(challenge.id.slice(9)) > (profile.progress.contracts ?? 0) + 1
+      )
+        return reject('locked-contract', 'Complete the preceding contract first.');
       if (!challenge) return reject('unknown-challenge', 'That challenge does not exist.');
       if (challenge.bot !== submission.botId) {
         return reject('bot-mode-mismatch', 'That challenge is not played against that opponent.');
@@ -190,7 +227,7 @@ function resolveRules(
       if (submission.tournamentTier !== undefined && submission.tournamentTier !== save.tier) {
         return reject('tournament-mismatch', 'That is not the cup you are playing.');
       }
-      if (save.round >= TOURNAMENT_ROUNDS.length) {
+      if (save.round >= roundsFor(save).length) {
         return reject('tournament-mismatch', 'That cup is already over.');
       }
       return rules;
@@ -213,11 +250,15 @@ function resolveRules(
 
     case 'daily': {
       const key = submission.dailyKey;
-      if (!key || !isDayKey(key)) return reject('unknown-daily', 'That daily does not exist.');
+      if (!key || !isDayKey(dailyIdentity(key).day))
+        return reject('unknown-daily', 'That daily does not exist.');
       // A day either side of the server's own covers every time zone; a
       // challenge from last week does not get a second life.
-      const gap = daysBetween(dayKey(new Date(now)), key);
-      if (!Number.isFinite(gap) || Math.abs(gap) > 1) {
+      const gap = daysBetween(dayKey(new Date(now)), dailyIdentity(key).day);
+      if (
+        !Number.isFinite(gap) ||
+        (dailyIdentity(key).kind === 'archive' ? gap > 0 || gap < -30 : Math.abs(gap) > 1)
+      ) {
         return reject('daily-expired', 'That daily challenge has closed.');
       }
       const rules = dailyRules(key);
@@ -231,6 +272,10 @@ function resolveRules(
       const run = profile.progress.run;
       if (!isRunActive(run)) return reject('no-active-run', 'You have no run in progress.');
       if (run.offer) return reject('run-mismatch', 'A boon is waiting to be picked first.');
+      if (run.version === 2 && run.attempt?.stage !== run.stage)
+        return reject('run-mismatch', 'Commit the encounter before playing.');
+      if (run.version === 2 && submission.runStage !== run.stage)
+        return reject('run-mismatch', 'The committed encounter depth is required.');
       if (submission.runStage !== undefined && submission.runStage !== run.stage) {
         return reject('run-mismatch', 'That match of the run has already been played.');
       }
@@ -287,6 +332,11 @@ function checkScores(submission: MatchSubmissionDto, rules: MatchRules): Rejecti
 
 function checkRallyAndTime(submission: MatchSubmissionDto, rules: MatchRules): Rejection | null {
   const { hits, bestRally, seconds } = submission;
+  if (
+    submission.waves !== undefined &&
+    (!rules.options?.waves || submission.waves > Math.floor(hits / 12))
+  )
+    return reject('impossible-rally', 'Wave depth exceeds the returns played.');
 
   if (hits > LIMITS.maxHits || bestRally > LIMITS.maxHits) {
     return reject('impossible-rally', 'That rally count is not possible.');
@@ -349,7 +399,11 @@ function checkTalentUse(
   // A Gauntlet match is played with the run's boons folded in - a Guard Wall
   // save is honest on a build that owns no Shield.
   const base = resolveLoadout(profile.talents, level);
-  const loadout = rules.boons ? withBoons(base, rules.boons) : base;
+  const loadout = rules.fixedBuild
+    ? masterCardLoadout()
+    : rules.boons
+      ? withBoons(base, rules.boons)
+      : base;
   const equipped = loadout.equipped.filter((id): id is NonNullable<typeof id> => id !== null);
   const owned = new Set(ownedAbilities(profile.talents));
 
@@ -482,8 +536,31 @@ export function validateMatch(
     }
   }
 
+  const court = submission.court ?? { banks: 0, switches: 0, breaks: 0, gates: 0 };
+  const arenas = [
+    ...(rules.options?.waves ? ARENA_PRESETS.map((a) => a.arena) : []),
+    rules.modifiers.arena,
+    ...(rules.boss?.phases.map((p) => p.arena) ?? [])
+  ];
+  if (
+    (!arenas.some((a) => a?.rails?.length) && court.banks > 0) ||
+    (!arenas.some((a) => a?.switches?.length) && court.switches > 0) ||
+    (!arenas.some((a) => a?.gates?.length) && court.gates > 0) ||
+    (!arenas.some((a) => a?.rails?.some((r) => r.hp) || a?.bricks) && court.breaks > 0) ||
+    Object.values(court).some((n) => n > submission.seconds * 100 + 100)
+  ) {
+    return reject('invalid-court-events', 'Those court contacts cannot occur in this encounter.');
+  }
   const core = {
+    mastery: masteryTags(
+      rules,
+      rules.fixedBuild
+        ? (masterCardLoadout().branch ?? null)
+        : dominantBranch(context.profile.talents)
+    ),
     mode: rules.mode,
+    ...(submission.waves !== undefined ? { waves: submission.waves } : {}),
+    ...(rules.options ? { options: { ...rules.options } } : {}),
     // Never the client's word: practice is unranked because the mode says so.
     ranked: rules.ranked,
     botId: rules.bot.id,
@@ -499,11 +576,13 @@ export function validateMatch(
     challengeId: rules.challengeId,
     tournamentRound: rules.tournamentRound,
     tournamentTier: rules.tournamentTier,
+    ...(rules.tournamentFormat ? { tournamentFormat: rules.tournamentFormat } : {}),
     stageId: rules.stageId,
     dailyKey: rules.dailyKey,
     runStage: rules.runStage,
     bossId: rules.boss?.id,
     flicks: submission.flicks ?? 0,
+    court: { ...court },
     // The player's own day keeps their quests on their calendar; a day
     // further out than time zones explain is ignored for the server's own.
     day:

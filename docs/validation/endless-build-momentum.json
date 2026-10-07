@@ -1,0 +1,83 @@
+{
+  "format": "bball-soak-1",
+  "evidence": "bot stability; not human balance or rendering performance",
+  "options": {
+    "build": "momentum",
+    "policy": "late",
+    "level": 50,
+    "matches": 20,
+    "playerBot": "pro",
+    "width": 750,
+    "seed": "bball-build-release",
+    "group": "quick",
+    "output": ".endless-momentum-release.json"
+  },
+  "cases": [
+    {
+      "name": "quick vs rookie",
+      "completed": 20,
+      "wins": 20,
+      "rallies": 178,
+      "points": 128,
+      "longest": 12,
+      "seconds": 618,
+      "stalls": 0,
+      "broken": 0,
+      "replays": 0,
+      "timedOut": 0
+    },
+    {
+      "name": "quick vs amateur",
+      "completed": 20,
+      "wins": 19,
+      "rallies": 328,
+      "points": 142,
+      "longest": 17,
+      "seconds": 884,
+      "stalls": 0,
+      "broken": 0,
+      "replays": 0,
+      "timedOut": 0
+    },
+    {
+      "name": "quick vs pro",
+      "completed": 20,
+      "wins": 20,
+      "rallies": 1299,
+      "points": 145,
+      "longest": 45,
+      "seconds": 2146,
+      "stalls": 0,
+      "broken": 0,
+      "replays": 0,
+      "timedOut": 0
+    },
+    {
+      "name": "quick vs elite",
+      "completed": 20,
+      "wins": 5,
+      "rallies": 2148,
+      "points": 144,
+      "longest": 83,
+      "seconds": 2998,
+      "stalls": 0,
+      "broken": 0,
+      "replays": 0,
+      "timedOut": 0
+    },
+    {
+      "name": "quick vs legend",
+      "completed": 20,
+      "wins": 3,
+      "rallies": 1786,
+      "points": 124,
+      "longest": 98,
+      "seconds": 2373,
+      "stalls": 0,
+      "broken": 0,
+      "replays": 0,
+      "timedOut": 0
+    }
+  ],
+  "alerts": 0
+}

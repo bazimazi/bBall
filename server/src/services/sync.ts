@@ -61,6 +61,8 @@ import {
   recordMatch,
   respecTalents,
   startRun,
+  applyRunAction,
+  applyTalentBuild,
   startTournament,
   updateProfile
 } from './progression';
@@ -255,6 +257,9 @@ function applyOne(context: ServiceContext, userId: string, op: SyncOp): SyncOpRe
 
   try {
     switch (op.kind) {
+      case 'talent.build':
+        applyTalentBuild(context, userId, op.payload.slot, op.payload.action, op.payload.name);
+        break;
       case 'match': {
         const outcome = recordMatch(context, userId, op.payload);
         return {
@@ -286,16 +291,26 @@ function applyOne(context: ServiceContext, userId: string, op: SyncOp): SyncOpRe
         updateProfile(context, userId, { preferences: op.payload });
         break;
       case 'tournament.start':
-        startTournament(context, userId, op.payload.tier);
+        startTournament(context, userId, op.payload.tier, undefined, op.payload.format);
         break;
       case 'tournament.abandon':
         abandonTournament(context, userId);
         break;
       case 'run.start':
-        startRun(context, userId, op.payload.seed, op.payload.pressure);
+        startRun(
+          context,
+          userId,
+          op.payload.seed,
+          op.payload.pressure,
+          undefined,
+          op.payload.format
+        );
         break;
       case 'run.pick':
         pickRunBoon(context, userId, op.payload.boonId);
+        break;
+      case 'run.action':
+        applyRunAction(context, userId, op.payload.action);
         break;
       case 'run.abandon':
         abandonRun(context, userId);

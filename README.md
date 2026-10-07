@@ -146,57 +146,68 @@ or entering account restoration or Demo, closes the pending confirmation.
 
 ### Modes
 
-| Mode            | What it is                                                             |
-| --------------- | ---------------------------------------------------------------------- |
-| **Journey**     | Five worlds of six stages, three stars each, seven bosses              |
-| **Daily**       | One court a day, the same for everyone, with a forgiving streak        |
-| **Gauntlet**    | A roguelite run: nine matches, three hearts, a boon for every win      |
-| **Quick Match** | The classic duel, first to five, against any of five bots              |
-| **Endless**     | Three lives, one growing rally, a wall that barely misses              |
-| **Challenge**   | Eight short matches with a twist: small paddle, portals, 0-2 down…     |
-| **Tournament**  | Three rounds against progressively stronger bots, for a trophy         |
-| **Versus**      | Two players on one screen - a half each, or separate keyboard controls |
-| **Practice**    | Any bot, Normal or Relaxed ball pace, nothing recorded, no XP          |
+| Mode            | What it offers                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| **Journey**     | 30 worlds, 630 Story stages, Veteran/Ascendant variants and continuing Frontier sectors      |
+| **Daily**       | Separate Standard and fixed-build Master cards, a 30-day practice archive                    |
+| **Gauntlet**    | 9-match Sprint, 36-match Expedition, Endless acts, 50 Pressure ranks and a weekly seed       |
+| **Quick Match** | Five opponent tiers, six schools, 60 courts, Master/Mythic contracts, best-of-three/five     |
+| **Endless**     | Classic Wall rally or survival waves; separate court and wave records                        |
+| **Challenge**   | 120 catalog trials, continuing contracts and five-trial playlists                            |
+| **Tournament**  | 10 tiers, 3-round Classic, 7-round Marathon and continuing 6-round championship seasons      |
+| **Versus**      | Local two-player series, shared modifiers, mirrored court pairs and four device presets      |
+| **Practice**    | Court/school selection, isolated boss phases, Normal/Relaxed pace and paused stepping; no XP |
+
+The [expansion implementation report](docs/validation/endless-progression-report.md)
+records the content counts, verification evidence and remaining human playtest work.
 
 ### Courts and bosses
 
-Some matches are played on a court that is itself a rule: **bumpers** standing
-or orbiting in the middle, a **wind** that blows across the court and turns
-every few seconds (the chevrons on the touchlines flash the other way just
-before it does), a **gravity well** that bends every pass towards the centre,
-**brick walls** in front of a goal that break one brick per hit, and
-**portals** - linked pairs of mouths that swallow the ball and put it out of
-the other at the same speed and heading. Two things keep every court fair. A
-force bends the ball but never changes its speed, so the difficulty contract
-below still holds; and nothing may turn the ball short of vertical, so no
-court can stall a rally. A portal never carries the ball back along the court,
-so no pair can loop it forever. The bots read a bending ball the way they read
-a bounce, and a portal the way they read a wall - the good ones well, the weak
-ones barely. A court added to the daily rotation joins it from a day that has
-not started yet, and a Gauntlet run only ever rolls the courts that existed
-the day it began, so an update never changes a challenge someone is playing.
+The 60 layouts combine bumpers, wind, gravity wells, brick walls and portals
+with reflecting rails, breakable deflectors, moving/phase gates, ball-operated
+switches and marked pace zones. Twelve expansion court templates supply 46
+layouts. Generated encounters vary their geometry, timing, opponent school and
+compatible hazards under density and speed limits.
 
-A **boss** is a bot brain with a court of its own, a trait, and phases: every
-boss changes when you are winning, with a banner that says so. Colossus has a
-paddle half again as long; Orbiter spins bumpers round the centre; Tempest
-throws the wind about; Bastion hides behind an armoured wall; Singularity is a
-gravity well; Trickster's returns bend after you have read them; Apex is all
-of it. Each phase can sharpen the brain, change the paddle or strengthen the
-court - never slow yours down.
+Wind and wells bend the ball while preserving pace. Marked pace zones explicitly
+change it within the match cap. Gates display their gap, release beat and timer;
+switches open their linked gate temporarily. Rail endpoints use swept contacts,
+and gates allow an occupied opening to clear before closing. Essential court
+cues and opponent charge/guard indicators remain visible in Full and Calm.
+
+There are 25 bosses with announced phases. Expansion bosses change courts
+between points. A phase can raise opponent strength, reach, curve or hazard
+intensity, and cannot downgrade an opponent already playing at a higher tier.
+Bot forecasts use copied court/runtime state and a bounded three-second horizon;
+reading a shot never damages real structures or spends a skill.
+
+Legacy IDs and dated Standard Daily/legacy run pools remain supported. New runs
+and procedural identities use content version 2. Versioning pins recipes and
+choices; it is not a guarantee that every old balance constant remains frozen.
 
 ### Journey
 
-Thirty stages in five worlds, each built around one idea and closed by a boss:
-the flick, bumpers, a court that bends the ball, walls you have to break, and
-all of it at once. Every stage has three stars - the win, and two goals picked
-to make you use that world's idea (win by two, keep a clean sheet, hold a long
-rally, land flicks, be quick). A stage opens when the one before it is
-cleared; a world opens when the last one's boss is down and about sixty per
-cent of the stars on offer are banked - never all of them, so one stubborn star
-never walls you in. New stars pay XP once, and each world's boss unlocks a
-cosmetic.
+The original 30 stages and their stars remain. Twenty-five expansion worlds add
+24 stages each: 12 core encounters, eight optional branches, three mastery trials
+and a boss. Core prerequisites lead to the boss; optional branches do not block
+progress. Story has 1,890 stars, with separately recorded Veteran and Ascendant
+variants. The expansion uses curated court templates and generated stage
+definitions, rather than 600 individually scripted puzzles.
+
+After the original fifth-world boss, **Journey Beyond** opens 20-node Frontier
+sectors with a boss every fifth encounter. Later sectors introduce Legend
+opponents and rotating, bounded constraints. Completed sectors compact into a
+cursor; detailed records stay bounded and replaying compacted clears cannot
+award their first-clear stars again. New generated-star rewards are bounded and
+do not multiply by sector number.
 
 ### Daily
+
+Standard keeps its existing calendar rules and entry route. **Master** is a
+separate Legend card with a fixed level-50 Control build and its own medals and
+streak. **Archive** replays the previous 30 days without XP, streak extension or
+live first-clear rewards. Gauntlet also offers a Monday-UTC weekly Expedition
+seed; it uses ordinary run rewards and has no separate leaderboard.
 
 The date rolls a court, a twist and an opponent, the same for everyone that
 day. Play it as often as you like; the first clear pays a bonus and moves your
@@ -223,18 +234,24 @@ and pay the moment they are done, with a bonus for all three.
 
 ### Gauntlet
 
-Three acts of two matches and a boss, rolled from one seed: the opponents, the
-courts and the bosses are different every run. Win a match and draft one of
-three **boons** - a longer paddle, a heavier ball, a curveball, a shield, a
-shorter opponent - that last until the run ends. Take two of the right ones
-deep enough and a **duo boon** turns up in the next draft: Comet, Citadel,
-Executioner. Lose a match and a heart goes, and the same opponent waits for a
-rematch. Boons are folded into your build through the same caps as talents, so
-a run can feel wild but never leave the ranges the game is tested against.
+Choose **Sprint** (nine encounters), **Expedition** (36), or **Endless** (six
+encounters per continuing act). Existing nine-match saves finish through their
+legacy encounter path. Win to draft among 72 boons, including 24 duos, plus 24
+relics with tradeoffs and three relic sockets. Effects share the talent caps;
+saturated drafts offer useful recovery rather than empty choices.
 
-Clearing a run opens **Pressure**: five cumulative ranks - a faster ball, fewer
-hearts, a hazard court every match, smaller drafts, a point down every match -
-each unlocked by clearing the one below it.
+Acts offer safe/risk routes, bank-and-leave decisions and a capped credit wallet.
+Credits can repair a heart, reroll a draft, upgrade an owned boon or recycle a
+relic. Finished finite runs can continue into Endless with the same build.
+Pressure progresses through 50 ranks with stronger opponent floors, narrower
+reach and rotating rule combinations. Deep encounters rotate within physical
+caps instead of raising ball speed indefinitely.
+
+Every new-format match commits its encounter before play. Pausing holds the live
+rally. Closing the app preserves the run and its choices; restarting an unfinished
+committed encounter costs one heart and grants no match reward. Mid-rally state
+is not persisted. Completed encounter history retains its latest 40 results;
+depth and banked records continue without growing the save indefinitely.
 
 ### Demo mode
 
@@ -256,11 +273,22 @@ levels and matches cannot become imported progress.
 
 ### Bots
 
-Five levels, from Rookie to Legend. Difficulty is behaviour, not cheating:
-every bot moves slower than you can, sees only what the ball shows it, and
-differs in reaction time, how well it reads a wall bounce, how tidily it moves,
-how much it places its returns, and how quickly it comes apart when the ball is
-fast or the rally is long. A return placed wide enough always scores.
+Rookie through Legend now have distinct reaction, error and travel limits.
+Stronger bots evaluate candidate placements and copied hazard paths, use
+observed paddle movement and alternate shot directions. They never read the
+player's hidden movement target. Higher tiers can move faster than an undeveloped
+player paddle; their movement remains physical and bounded.
+
+Six schools change their tactics: Anchor, Aggressor, Banker, Curver, Disruptor
+and Opportunist. Amateur carries a basic strike, Pro adds a dash, Elite a guard,
+and Legend an ultimate or school-specific skill. Their skills use shared
+activation, cooldown, recast and return rules; the HUD shows readiness and
+recovery. Ranked scored matches also narrow both paddles during exceptionally
+long rallies, starting after 24 returns and capped at 40%.
+
+Master and Mythic Quick contracts declare a Legend opponent, longer games and
+reduced player reach before launch. Practice, Versus and survival Endless do
+not apply ranked rally pressure.
 
 ### Progression
 
@@ -269,38 +297,43 @@ Levels and achievements unlock cosmetics - colours, ball and paddle styles,
 trails and arenas - which change nothing about how the game plays (see
 [Look and sound](#look-and-sound)). Levels also
 pay **one talent point each** up to level 50, which very much do. Practice pays
-nothing, quitting pays nothing, and the award is halved after 25 ranked matches
-in a day, so there is nothing worth farming.
+nothing, quitting pays nothing, and repeatable match XP is halved after 25 ranked
+matches in a day. First-time stars, daily clears and quest extras retain their
+separate award rules; generated rewards remain bounded.
 
 Levelling itself has no cap - the curve just keeps going - but what a level
 buys does: talent points stop at level 50 and paddle speed reaches its ceiling
-at level 53. Past that a level is a record of how much you have played, never
-an advantage over someone who has played less.
+at level 53. Beyond level 10,000, a constant-cost XP tail continues levels
+without an expanding threshold table. Twenty-seven technique, school, court and
+build mastery tracks repeat in 250-mark cycles. Their achievements and cosmetic
+rewards add goals without granting more permanent combat points.
 
 Three things are kept strictly apart, and the whole balance model rests on it:
 
 > Difficulty makes the ball harder to handle. Progression makes your paddle
 > more capable. Talents decide how you handle that difficulty.
 
-A stronger opponent means a faster ball - never a slower paddle for you, and
-never a secret nerf to something you earned. Your paddle speed comes from your
-level and your build, and from nothing else. Every number behind all three
-lives in `src/core/balance/config.ts`; nothing outside that file hard-codes a
-speed, a cooldown or a cap.
+Opponent tiers raise reaction, placement and skill pressure as well as ball pace.
+Contracts and encounters declare reach, start-score and court restrictions.
+Player movement still comes from level, build and explicit match rules; difficulty
+does not secretly adapt to wins or equipment. Shared balance, bot and recipe
+definitions supply the bounded values used by the client and server.
 
 ### Talents
 
-One point per level to level 50 - 49 in total - against 35 talents that cost 93
-points to fill. A build is a set of choices, not a checklist, and with points
-this scarce every one of them has to change a rally.
+One point per level to level 50: 49 points against 64 talents. Free respec and
+four saved build slots let you try different choices; slots grow to six at
+level 50 and eight at level 100. Account build presets sync through the same
+validated purchase gates and budget as ordinary talent purchases.
 
-That is a measured claim, not a hope. Paddle speed turned out to decide almost
-nothing: the paddle is already faster than the court is tall, and a talent that
-only added speed measured as no better than no talent at all. What does decide a
-point is **reach** (a longer paddle, a dash), **the read** (knowing where the
-ball will arrive), **placement** (angle, corners, a late break, a ball that is
-hard to read) and **saves**. Every talent buys one of those. None pays XP, and
-none is a flat speed bonus.
+The expansion adds 18 passives and six active skills: Redirect commits a wide
+next contact; Anchor primes a bank; Breach damages structures with a weaker
+return; Relay refunds recovery through a switch; Reserve stores a delayed
+charge; Rebound rewards a recovery return. These compete for existing equipped
+slots and retain cooldown and recast limits.
+
+Reach, reading the ball, placement and saves are the main build choices. No
+talent grants XP or a permanent movement-speed bonus.
 
 Five branches:
 
@@ -353,8 +386,8 @@ rather than how a number reads:
 - **Versatility** buys a skill slot outright, and **Tempo** winds every cooldown
   back each time you return the ball.
 
-Eight talents unlock **active skills** - Power Strike, Dash and Perfect Guard,
-plus the five ultimates - of which you equip two, three from level 15, four
+Fourteen talents unlock **active skills** - Power Strike, Dash and Perfect Guard,
+the six expansion skills and five ultimates - of which you equip two, three from level 15, four
 from level 30 and five from level 50 (one more with Versatility). Each has a
 cooldown, a ring on its button, and a distinct reaction on the court.
 The button's brief cast and Echo-clear rings follow actual match events; ordinary
@@ -563,10 +596,12 @@ own behavior and explicit in-game controls. This policy also lives in
 
 The [player experience review](docs/player-experience-review.md) records the
 research, reproduced issues, implemented changes and remaining playtest work.
+The [endless expansion report](docs/validation/endless-progression-report.md)
+adds content, difficulty and persistence evidence for this release.
 
 ## How it is built
 
-### New hazard courts
+### Shared hazard rules
 
 The Challenge menu includes six courts built around timing and changing shot
 lanes: **Switchback** (sliding posts), **Jetstream** (opposing wind lanes),

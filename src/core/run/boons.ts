@@ -1,3 +1,5 @@
+import { EXPANSION_BOONS, EXPANSION_DUOS, RELICS } from './expansionBoons';
+export { RELICS } from './expansionBoons';
 import { BALANCE } from '../balance/config';
 import type { MatchModifiers } from '../modes/types';
 import type { TalentEffects } from '../talents/types';
@@ -16,7 +18,7 @@ import type { TalentEffects } from '../talents/types';
  * into an idea - the reason to take the second rank of something.
  */
 
-export type BoonFamily = 'power' | 'control' | 'defense' | 'tempo' | 'duo';
+export type BoonFamily = 'power' | 'control' | 'defense' | 'tempo' | 'duo' | 'relic';
 
 export interface BoonDef {
   readonly id: string;
@@ -36,7 +38,7 @@ export interface BoonDef {
 
 const E = BALANCE.effects;
 
-export const BOONS: readonly BoonDef[] = [
+export const LEGACY_BOONS: readonly BoonDef[] = [
   {
     id: 'reach',
     name: 'Long Paddle',
@@ -204,7 +206,16 @@ export const BOONS: readonly BoonDef[] = [
   }
 ];
 
-const BY_ID = new Map(BOONS.map((boon) => [boon.id, boon]));
+export const BOONS: readonly BoonDef[] = [...LEGACY_BOONS, ...EXPANSION_BOONS, ...EXPANSION_DUOS];
+export const RECOVERY_CREDIT: BoonDef = {
+  id: 'repair-credit',
+  name: 'Recovery credit',
+  blurb: 'Bank a credit; spend three at an act boundary to repair a heart',
+  family: 'defense',
+  maxRank: 1,
+  instant: true
+};
+const BY_ID = new Map([...BOONS, ...RELICS, RECOVERY_CREDIT].map((boon) => [boon.id, boon]));
 
 export function boonById(id: string): BoonDef | undefined {
   return BY_ID.get(id);
@@ -238,6 +249,12 @@ export function applyBoonModifiers(modifiers: MatchModifiers, boons: BoonRanks):
 /** Could this boon be offered to a run holding `boons`? */
 export function boonAvailable(boon: BoonDef, boons: BoonRanks): boolean {
   if ((boons[boon.id] ?? 0) >= boon.maxRank && !boon.instant) return false;
+  if (
+    boon.family === 'relic' &&
+    Object.keys(boons).filter((id) => boonById(id)?.family === 'relic' && (boons[id] ?? 0) > 0)
+      .length >= 3
+  )
+    return false;
   if (boon.requires) {
     return boon.requires.every(([id, rank]) => (boons[id] ?? 0) >= rank);
   }

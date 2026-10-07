@@ -1,3 +1,5 @@
+import { combatant, opponentLoadout } from './combatant';
+import { resetRuntime } from './talents';
 import { botProfile } from '../core/bots/levels';
 import type { ArenaSpec, BossPhase, BumperSpec, PortalSpec } from '../core/modes/types';
 import { BALL_R, FIELD_H } from './constants';
@@ -5,14 +7,9 @@ import { setPaddleBase } from './paddle';
 import { hsla } from './palette';
 import type { Side, Vec2 } from './types';
 import { clamp } from './utils/math';
-import {
-  addShake,
-  normaliseBallSpeed,
-  panAt,
-  pushTrail,
-  setBrainProfile,
-  type World
-} from './world';
+import { createCourse, collideCourse, type CourseState } from './course';
+import { bounceBumper } from './hazardContacts';
+import { addShake, panAt, pushTrail, setBrainProfile, type World } from './world';
 
 /**
  * The court as a rule: bumpers, wind, a gravity well and brick walls, plus
@@ -69,6 +66,7 @@ export interface PortalState {
 }
 
 export interface ArenaState {
+  course: CourseState;
   spec: ArenaSpec | null;
   /** Multiplier on every hazard; a boss's phases raise it. */
   intensity: number;
@@ -91,7 +89,7 @@ export interface ArenaState {
 /** Steepest a hazard may turn the ball: short of vertical, so it never stalls. */
 const MAX_ARENA_ANGLE = 1.12;
 /** Pace a bumper adds, as a return does. */
-const BUMPER_PACE = 1.035;
+
 /** Where the brick walls stand, as a fraction of the court's length. */
 const WALL_AT = 0.26;
 const BRICK_W = 16;
@@ -109,6 +107,7 @@ const PORTAL_HUES = [186, 32, 300] as const;
 
 export function createArena(): ArenaState {
   return {
+    course: createCourse(),
     spec: null,
     intensity: 1,
     time: 0,
@@ -136,7 +135,19 @@ export function arenaCurves(world: World): boolean {
  * at each wall is no longer the whole story.
  */
 export function arenaNonLinear(world: World): boolean {
-  return arenaCurves(world) || world.arena.portals.length > 0;
+  return (
+    arenaCurves(world) ||
+    world.arena.portals.length > 0 ||
+    world.arena.bumpers.length > 0 ||
+    world.arena.bricks.some((b) => b.alive) ||
+    !!world.arena.spec?.rails?.length ||
+    !!world.arena.spec?.gates?.length ||
+    !!world.arena.spec?.zones?.length ||
+    world.talents.swerveDir !== 0 ||
+    world.botTalents.swerveDir !== 0 ||
+    world.arena.bossSwerveDir !== 0 ||
+    (world.ball.owner === 'you' ? world.loadout : world.botLoadout).effects.bankShot > 0
+  );
 }
 
 /** Build the court for the match about to start. */
@@ -144,12 +155,13 @@ export function setupArena(world: World): void {
   const arena = world.arena;
   const spec = world.rules.modifiers.arena ?? null;
   arena.spec = spec;
-  arena.intensity = 1;
+  arena.course = createCourse(spec);
+  arena.intensity = world.rules.arenaIntensity ?? 1;
   arena.time = 0;
   arena.phase = 0;
   arena.bossSwerve = world.rules.boss?.swerve ?? 0;
   arena.bossSwerveDir = 0;
-  arena.windDir = Math.random() < 0.5 ? 1 : -1;
+  arena.windDir = world.random() < 0.5 ? 1 : -1;
   arena.windTimer = spec?.wind?.period ?? 0;
   arena.bumpers = (spec?.bumpers ?? []).map((bumper) => ({
     x: 0,
@@ -224,7 +236,7 @@ export function rescaleArena(world: World): void {
   placePortals(world);
 }
 
-function placeBumpers(world: World): void {
+export function placeBumpers(world: World): void {
   const { arena, view } = world;
   for (const bumper of arena.bumpers) {
     const { spec } = bumper;
@@ -390,6 +402,7 @@ function rethink(world: World): void {
 export function collideArena(world: World): void {
   const { arena } = world;
   if (!arena.spec) return;
+  collideCourse(world);
   for (const bumper of arena.bumpers) collideBumper(world, bumper);
   if (arena.bricks.length > 0) collideBricks(world);
   if (arena.portals.length > 0 && arena.portalLock <= 0) collidePortals(world);
@@ -501,28 +514,9 @@ function collidePortals(world: World): void {
 
 function collideBumper(world: World, bumper: BumperState): void {
   const { ball } = world;
-  const dx = ball.x - bumper.x;
-  const dy = ball.y - bumper.y;
-  const min = bumper.r + BALL_R;
-  const d2 = dx * dx + dy * dy;
-  if (d2 >= min * min) return;
-  const d = Math.sqrt(d2);
-  if (d < 0.001) return;
-  const nx = dx / d;
-  const ny = dy / d;
-  const dot = ball.vx * nx + ball.vy * ny;
-  // Only a ball travelling into the bumper bounces. One already on its way
-  // out - a serve from a centre post, or a bounce resolved last step - is
-  // left alone, or it would be struck again on every step until it escaped.
-  if (dot >= 0) return;
-  ball.vx -= 2 * dot * nx;
-  ball.vy -= 2 * dot * ny;
-  ball.x = bumper.x + nx * (min + 0.5);
-  ball.y = clamp(bumper.y + ny * (min + 0.5), BALL_R, FIELD_H - BALL_R);
-  ball.speed = Math.min(world.tuning.maxSpeed, ball.speed * BUMPER_PACE);
-  if (Math.abs(ball.vx) < 1) ball.vx = nx >= 0 ? 1 : -1;
-  normaliseBallSpeed(ball);
-  keepPlayable(world);
+  const contact = bounceBumper(ball, bumper, world.tuning.maxSpeed);
+  if (!contact) return;
+  const { nx, ny } = contact;
   ball.squash = 0.9;
   ball.squashAngle = Math.atan2(ny, nx);
 
@@ -578,13 +572,15 @@ function collideBricks(world: World): void {
     }
     keepPlayable(world);
 
-    brick.hp--;
+    const actor = ball.owner === 'you' ? world : { talents: world.botTalents };
+    brick.hp -= (actor.talents.tactics.breach ?? 0) > 0 ? 2 : 1;
     brick.flash = 1;
     const hue = world.theme[brick.side === 'you' ? 'youHue' : 'botHue'];
     const cx = brick.x + brick.w / 2;
     const cy = brick.y + brick.h / 2;
     if (brick.hp <= 0) {
       brick.alive = false;
+      arena.course.events[ball.owner].breaks++;
       world.particles.emit(
         cx,
         cy,
@@ -649,8 +645,33 @@ export function checkBossPhase(world: World): void {
     }
   }
   if (!next) return;
+  if (next.arena) {
+    const events = arena.course.events;
+    world.rules = { ...world.rules, modifiers: { ...world.rules.modifiers, arena: next.arena } };
+    setupArena(world);
+    arena.course.events = events;
+  }
   arena.phase = index;
-  if (next.bot) setBrainProfile(world.botBrain, botProfile(next.bot));
+  if (next.bot && botProfile(next.bot).rank > world.botBrain.profile.rank) {
+    const previous = world.botTalents;
+    const profile = {
+      ...botProfile(next.bot),
+      ...(world.botBrain.profile.personality
+        ? { personality: world.botBrain.profile.personality }
+        : {})
+    };
+    setBrainProfile(world.botBrain, profile);
+    world.botLoadout = opponentLoadout(profile);
+    const oldSlots = previous.slots.map((s) => ({ ...s }));
+    const stats = { ...previous.stats };
+    resetRuntime(combatant(world, 'bot'));
+    world.botTalents.stats = stats;
+    for (const slot of world.botTalents.slots) {
+      const old = oldSlots.find((s) => s.id && s.id === slot.id);
+      if (old) Object.assign(slot, old);
+      else slot.lockout = 2;
+    }
+  }
   if (next.botPaddleScale !== undefined) setPaddleBase(world.bot, next.botPaddleScale);
   if (next.intensity !== undefined) arena.intensity = next.intensity;
   if (next.swerve !== undefined) arena.bossSwerve = next.swerve;

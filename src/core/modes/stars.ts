@@ -10,7 +10,17 @@ import type { MatchResult } from './types';
  * finished match alone, so the client, the server and the result card all
  * agree without any of them trusting the others.
  */
-export type StarGoalId = 'margin' | 'shutout' | 'rally' | 'flicks' | 'fast' | 'returns';
+export type StarGoalId =
+  | 'margin'
+  | 'shutout'
+  | 'rally'
+  | 'flicks'
+  | 'fast'
+  | 'returns'
+  | 'banks'
+  | 'switches'
+  | 'breaks'
+  | 'gates';
 
 export interface StarGoal {
   readonly id: StarGoalId;
@@ -36,12 +46,20 @@ export function starGoalLabel(goal: StarGoal): string {
       return `Win inside ${goal.value} seconds`;
     case 'returns':
       return `Make ${goal.value} returns`;
+    case 'banks':
+      return `Land ${goal.value} rail banks`;
+    case 'switches':
+      return `Trigger ${goal.value} switches`;
+    case 'breaks':
+      return `Break ${goal.value} structures`;
+    case 'gates':
+      return `Cross ${goal.value} gate openings`;
   }
 }
 
 type Evidence = Pick<
   MatchResult,
-  'won' | 'scoreYou' | 'scoreBot' | 'bestRally' | 'flicks' | 'seconds' | 'hits'
+  'won' | 'scoreYou' | 'scoreBot' | 'bestRally' | 'flicks' | 'seconds' | 'hits' | 'court'
 >;
 
 /** Did the match meet this goal? Goals only count in a match that was won. */
@@ -60,6 +78,11 @@ export function starGoalMet(goal: StarGoal, result: Evidence): boolean {
       return result.seconds <= goal.value;
     case 'returns':
       return result.hits >= goal.value;
+    case 'banks':
+    case 'switches':
+    case 'breaks':
+    case 'gates':
+      return (result.court?.[goal.id] ?? 0) >= goal.value;
   }
 }
 

@@ -1,4 +1,6 @@
 import { isStageId, type JourneyProgress } from '../campaign/journey';
+import { ARENA_PRESETS } from '../modes/arenas';
+import { masteryOf } from '../progression/mastery';
 import { createDailyRecord, isDayKey, MAX_FREEZES, type DailyRecord } from '../daily/daily';
 import { isBossId } from '../modes/bosses';
 import { questById, type QuestState } from '../quests/quests';
@@ -11,6 +13,7 @@ import {
   type RunRecords,
   type RunSave
 } from '../run/run';
+import { MAX_RUN_DEPTH, RUN_HISTORY, RUN_FORMATS, type RunFormat } from '../run/formats';
 
 /**
  * Everything the newer modes keep: Journey stars, the daily streak, today's
@@ -21,9 +24,12 @@ import {
  * document, so a new mode adds a field here rather than a table there.
  */
 export interface ProgressState {
+  endlessRecords: Record<string, { rally: number; waves: number }>;
+  mastery: Record<string, number>;
   /** Stage id -> star mask. */
   journey: JourneyProgress;
   daily: DailyRecord;
+  dailyMaster: DailyRecord;
   quests: QuestState | null;
   /** Days on which all three quests were finished. */
   questSweeps: number;
@@ -35,26 +41,36 @@ export interface ProgressState {
   bosses: Record<string, number>;
   /** Flicks landed, all time. */
   flicks: number;
+  contracts: number;
 }
 
 export function createProgress(): ProgressState {
   return {
+    endlessRecords: {},
+    mastery: {},
     journey: {},
     daily: createDailyRecord(),
+    dailyMaster: createDailyRecord(),
     quests: null,
     questSweeps: 0,
     run: null,
     lastRun: null,
     runRecords: createRunRecords(),
     bosses: {},
+    contracts: 0,
     flicks: 0
   };
 }
 
 export function cloneProgress(progress: ProgressState): ProgressState {
   return {
+    endlessRecords: Object.fromEntries(
+      Object.entries(progress.endlessRecords ?? {}).map(([k, v]) => [k, { ...v }])
+    ),
+    mastery: { ...(progress.mastery ?? {}) },
     journey: { ...progress.journey },
     daily: { ...progress.daily },
+    dailyMaster: { ...(progress.dailyMaster ?? createDailyRecord()) },
     quests: progress.quests
       ? {
           ...progress.quests,
@@ -68,6 +84,7 @@ export function cloneProgress(progress: ProgressState): ProgressState {
     lastRun: progress.lastRun ? cloneRun(progress.lastRun) : null,
     runRecords: { ...progress.runRecords },
     bosses: { ...progress.bosses },
+    contracts: progress.contracts ?? 0,
     flicks: progress.flicks
   };
 }
@@ -102,6 +119,10 @@ function text(value: unknown, fallback: string, max = 64): string {
 function journeyOf(value: unknown): JourneyProgress {
   const result: JourneyProgress = {};
   for (const [id, mask] of Object.entries(bag(value))) {
+    if (id === 'frontier-v2') {
+      result[id] = num(mask, 0, 0, 999999999);
+      continue;
+    }
     if (isStageId(id)) result[id] = num(mask, 0, 0, 7);
   }
   return result;
@@ -153,21 +174,56 @@ function runOf(value: unknown): RunSave | null {
     const boon = boonById(id);
     if (boon && !boon.instant) boons[id] = num(rank, 0, 0, boon.maxRank);
   }
+  let relics = 0;
+  for (const id of Object.keys(boons))
+    if (boonById(id)?.family === 'relic' && boons[id]! > 0 && ++relics > 3) delete boons[id];
   const offer = Array.isArray(source.offer)
     ? source.offer.filter((id): id is string => isBoonId(id)).slice(0, 3)
     : null;
   const results = Array.isArray(source.results) ? source.results : [];
   return {
     seed,
+    ...(source.version === 2
+      ? {
+          draftRoll: num(source.draftRoll, 0),
+          ...(bag(source.attempt).stage === source.stage
+            ? { attempt: { stage: num(source.stage, 0, 0, MAX_RUN_DEPTH) } }
+            : {})
+        }
+      : {}),
+    ...(source.version === 2 && RUN_FORMATS.includes(source.format as RunFormat)
+      ? {
+          version: 2,
+          format: source.format as RunFormat,
+          actOffset: num(source.actOffset, 0, 0, 5),
+          credits: num(source.credits, 0, 0, 9),
+          route: source.route === 'risk' ? ('risk' as const) : ('safe' as const),
+          bankedActs: num(source.bankedActs, 0)
+        }
+      : {}),
     pressure: num(source.pressure, 0, 0, MAX_PRESSURE),
-    stage: num(source.stage, 0, 0, RUN_STAGES),
+    stage: num(
+      source.stage,
+      0,
+      0,
+      source.version === 2 && RUN_FORMATS.includes(source.format as RunFormat)
+        ? MAX_RUN_DEPTH
+        : RUN_STAGES
+    ),
     hearts: num(source.hearts, 0, 0, MAX_HEARTS),
     boons,
     offer: offer && offer.length > 0 ? offer : null,
-    results: results.slice(0, 40).map((entry) => {
+    results: results.slice(-RUN_HISTORY).map((entry) => {
       const item = bag(entry);
       return {
-        stage: num(item.stage, 0, 0, RUN_STAGES),
+        stage: num(
+          item.stage,
+          0,
+          0,
+          source.version === 2 && RUN_FORMATS.includes(source.format as RunFormat)
+            ? MAX_RUN_DEPTH
+            : RUN_STAGES
+        ),
         won: item.won === true,
         you: num(item.you, 0, 0, 99),
         bot: num(item.bot, 0, 0, 99)
@@ -184,7 +240,7 @@ function recordsOf(value: unknown): RunRecords {
   return {
     runs: num(source.runs, 0),
     clears: num(source.clears, 0),
-    bestStage: num(source.bestStage, 0, 0, RUN_STAGES),
+    bestStage: num(source.bestStage, 0, 0, MAX_RUN_DEPTH),
     bestPressure: num(source.bestPressure, -1, -1, MAX_PRESSURE)
   };
 }
@@ -208,14 +264,28 @@ export function progressOf(value: unknown): ProgressState {
     run = null;
   }
   return {
+    endlessRecords: Object.fromEntries(
+      ['open', 'waves', ...ARENA_PRESETS.map((a) => a.id)]
+        .filter((k) => bag(source.endlessRecords)[k] !== undefined)
+        .map((k) => [
+          k,
+          {
+            rally: num(bag(bag(source.endlessRecords)[k]).rally, 0),
+            waves: num(bag(bag(source.endlessRecords)[k]).waves, 0)
+          }
+        ])
+    ),
+    mastery: masteryOf(source.mastery),
     journey: journeyOf(source.journey),
     daily: dailyOf(source.daily),
+    dailyMaster: dailyOf(source.dailyMaster),
     quests: questsOf(source.quests),
     questSweeps: num(source.questSweeps, 0),
     run,
     lastRun,
     runRecords: recordsOf(source.runRecords),
     bosses: bossesOf(source.bosses),
+    contracts: num(source.contracts, 0, 0, 999999999),
     flicks: num(source.flicks, 0)
   };
 }

@@ -1,3 +1,5 @@
+import type { TournamentFormat } from '../tournament/bracket';
+import { talentBuildOn } from '../talents/builds';
 import type { CloudProfileDto } from '../../../shared/protocol';
 import type { BotLevelId } from '../bots/types';
 import type { Equipped } from '../cosmetics/catalog';
@@ -16,7 +18,8 @@ import {
 } from '../talents/save';
 import type { AbilityId, BranchId, TalentId } from '../talents/types';
 import { createTournament, type TournamentSave } from '../tournament/bracket';
-import { abandonRunOn, pickBoonOn, startRunOn } from '../run/ops';
+import { abandonRunOn, pickBoonOn, startRunOn, runActionOn, type RunAction } from '../run/ops';
+import type { RunFormat } from '../run/formats';
 import { cleanName, createProfile } from './defaults';
 import { clampDemoLevel, createDemoProfile } from './demo';
 import { PROFILE_SPEC } from './schema';
@@ -373,8 +376,8 @@ class ProfileStore {
 
   // ---------------------------------------------------------- tournament
 
-  startTournament(tier: number): TournamentSave {
-    const save = createTournament(tier);
+  startTournament(tier: number, format?: TournamentFormat): TournamentSave {
+    const save = createTournament(tier, Date.now(), format);
     this.patch((draft) => {
       draft.tournament = save;
       draft.stats.cupsPlayed += 1;
@@ -396,8 +399,8 @@ class ProfileStore {
   // ------------------------------------------------------------ gauntlet
 
   /** Start a Gauntlet run. Returns false when one is already under way. */
-  startRun(seed: string, pressure: number): boolean {
-    const next = startRunOn(this.profile, seed, pressure);
+  startRun(seed: string, pressure: number, format?: RunFormat): boolean {
+    const next = startRunOn(this.profile, seed, pressure, Date.now(), format);
     if (!next) return false;
     this.commit(next);
     return true;
@@ -405,6 +408,20 @@ class ProfileStore {
 
   pickBoon(id: string): boolean {
     const next = pickBoonOn(this.profile, id);
+    if (!next) return false;
+    this.commit(next);
+    return true;
+  }
+
+  runAction(action: RunAction): boolean {
+    const next = runActionOn(this.profile, action);
+    if (!next) return false;
+    this.commit(next);
+    return true;
+  }
+
+  talentBuild(slot: number, action: 'save' | 'load', name?: string): boolean {
+    const next = talentBuildOn(this.profile, slot, action, name);
     if (!next) return false;
     this.commit(next);
     return true;

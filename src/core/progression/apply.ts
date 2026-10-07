@@ -1,16 +1,19 @@
+import { endlessRecordKey } from '../modes/sessions';
 import { ACHIEVEMENTS, type Achievement } from '../achievements/catalog';
+import { trainMastery } from './mastery';
 import { stageById, starXp } from '../campaign/journey';
-import { applyDaily, dailySpec } from '../daily/daily';
+import { applyDaily, dailySpec, dailyIdentity } from '../daily/daily';
 import { starCount, starsEarned } from '../modes/stars';
 import { cloneProgress } from '../profile/progress';
 import { applyQuests, QUEST_BONUS_XP, QUEST_XP, type QuestDef } from '../quests/quests';
 import { advanceRun, type RunAdvance } from '../run/run';
+import { atBoundary } from '../run/formats';
 import { COSMETICS, isUnlocked, type Cosmetic } from '../cosmetics/catalog';
 import type { MatchResult } from '../modes/types';
 import { createStats } from '../profile/defaults';
 import type { PlayerProfile } from '../profile/types';
 import { cloneTalentSave, reconcile } from '../talents/save';
-import { advanceTournament, TOURNAMENT_ROUNDS, type TournamentSave } from '../tournament/bracket';
+import { advanceTournament, roundsFor, type TournamentSave } from '../tournament/bracket';
 import { levelFromXp, levelOf } from './levels';
 import { computeMatchXp, dayKey, EMPTY_AWARD, type XpAward, type XpLine } from './xp';
 
@@ -140,6 +143,12 @@ function applyStats(profile: PlayerProfile, result: MatchResult): boolean {
   }
 
   if (result.mode === 'endless') {
+    const key = endlessRecordKey(result.options);
+    const before = profile.progress.endlessRecords[key] ?? { rally: 0, waves: 0 };
+    profile.progress.endlessRecords[key] = {
+      rally: Math.max(before.rally, result.bestRally),
+      waves: Math.max(before.waves, result.waves ?? 0)
+    };
     stats.endlessRuns += 1;
     if (result.bestRally > stats.endlessBest) stats.endlessBest = result.bestRally;
     return newBestRally;
@@ -172,7 +181,18 @@ function applyChallenge(profile: PlayerProfile, result: MatchResult): boolean {
     bestRally: 0,
     clearedAt: 0
   };
-  const firstClear = result.objectiveMet && !record.cleared;
+  const contract = /^contract-(\d+)$/.exec(id);
+  const already = !!contract && Number(contract[1]) <= (profile.progress.contracts ?? 0);
+  const firstClear = result.objectiveMet && !record.cleared && !already;
+  if (
+    contract &&
+    result.objectiveMet &&
+    Number(contract[1]) === (profile.progress.contracts ?? 0) + 1
+  ) {
+    profile.progress.contracts = Number(contract[1]);
+    for (const key of Object.keys(profile.challenges))
+      if (key.startsWith('contract-')) delete profile.challenges[key];
+  }
 
   profile.challenges[id] = {
     attempts: record.attempts + 1,
@@ -193,11 +213,25 @@ function applyTournament(profile: PlayerProfile, result: MatchResult): Tournamen
     won: result.won
   });
   const roundIndex = result.tournamentRound ?? profile.tournament.round;
-  const reached = result.won ? Math.min(TOURNAMENT_ROUNDS.length, roundIndex + 2) : roundIndex + 1;
+  const reached = result.won
+    ? Math.min(roundsFor(profile.tournament).length, roundIndex + 2)
+    : roundIndex + 1;
   profile.stats.bestCupRound = Math.max(profile.stats.bestCupRound, reached);
 
   if (next.champion) {
     profile.stats.cupsWon += 1;
+    if (next.format === 'ladder') profile.stats.cupsPlayed++;
+    if (next.format === 'ladder')
+      profile.lastTournament = {
+        ...profile.tournament,
+        round: roundsFor(profile.tournament).length,
+        results: [
+          ...profile.tournament.results,
+          { you: result.scoreYou, bot: result.scoreBot, won: result.won }
+        ],
+        finished: true,
+        champion: true
+      };
     profile.stats.bestCupTier = Math.max(profile.stats.bestCupTier, next.tier);
   }
 
@@ -269,6 +303,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   }
 
   const newBestRally = applyStats(profile, result);
+  trainMastery(profile.progress.mastery, result);
   const challengeCleared = applyChallenge(profile, result);
   const tournament = applyTournament(profile, result);
   applyTalentStats(profile, result);
@@ -367,19 +402,40 @@ function applyModes(profile: PlayerProfile, result: MatchResult): ModesOutcome {
     const stage = stageById(result.stageId);
     if (stage) {
       stars = starsEarned(stage.goals, result);
-      const before = progress.journey[stage.id] ?? 0;
+      const frontierId = /^f2-(\d+)-/.exec(stage.id);
+      const before =
+        frontierId && Number(frontierId[1]) <= (progress.journey['frontier-v2'] ?? 0)
+          ? 7
+          : (progress.journey[stage.id] ?? 0);
       const after = before | stars;
       newStars = starCount(after) - starCount(before);
       if (after !== before) progress.journey[stage.id] = after;
-      add(newStars > 1 ? `${newStars} new stars` : 'New star', newStars * starXp(stage.world));
+      add(
+        newStars > 1 ? `${newStars} new stars` : 'New star',
+        newStars * starXp(Math.min(30, stage.world))
+      );
+      const frontier = /^f2-(\d+)-20$/.exec(stage.id);
+      if (frontier && result.won) {
+        const sector = Number(frontier[1]);
+        progress.journey['frontier-v2'] = Math.max(progress.journey['frontier-v2'] ?? 0, sector);
+        for (const id of Object.keys(progress.journey))
+          if (id.startsWith('f2-') && Number(id.split('-')[1]) <= sector)
+            delete progress.journey[id];
+      }
     }
   }
 
   if (result.mode === 'daily' && result.dailyKey) {
     const spec = dailySpec(result.dailyKey);
     stars = starsEarned(spec.goals, result);
-    const outcome = applyDaily(progress.daily, result.dailyKey, stars);
-    progress.daily = outcome.record;
+    const identity = dailyIdentity(result.dailyKey);
+    const outcome = applyDaily(
+      identity.kind === 'master' ? progress.dailyMaster : progress.daily,
+      identity.day,
+      stars
+    );
+    if (identity.kind === 'master') progress.dailyMaster = outcome.record;
+    else progress.daily = outcome.record;
     dailyCleared = outcome.firstClear;
     if (outcome.firstClear) {
       add('Daily clear', DAILY_CLEAR_XP);
@@ -412,6 +468,18 @@ function applyModes(profile: PlayerProfile, result: MatchResult): ModesOutcome {
         progress.run = null;
       } else {
         progress.run = run.save;
+        if (
+          result.won &&
+          run.save.version === 2 &&
+          run.save.format === 'endless' &&
+          atBoundary(run.save)
+        ) {
+          progress.runRecords.bestStage = Math.max(progress.runRecords.bestStage, run.save.stage);
+          progress.runRecords.bestPressure = Math.max(progress.runRecords.bestPressure, pressure);
+          progress.runRecords.clears++;
+          run.save.bankedActs = (run.save.bankedActs ?? 0) + 1;
+          add('Act completed', RUN_BOSS_XP);
+        }
       }
     }
   }

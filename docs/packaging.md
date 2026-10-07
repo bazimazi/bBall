@@ -11,6 +11,21 @@ read or forward those preferences to change animations, effects or timing.
 Only explicit in-game settings control their supported effects. See the
 [root README](../README.md) and [project instructions](../AGENTS.md).
 
+The endless-content expansion requires its matching API build and migration 6.
+Publish web/native assets alongside the updated server; an older server rejects
+new formats and operations. Existing IDs, saves and legacy run paths remain
+supported. The [expansion report](validation/endless-progression-report.md) records
+shared-rule and real database tests.
+
+Physical QA should include Journey chapter/variant navigation, 50 Pressure
+choices, six-act Expedition paging, deep Endless runs, build presets, Master
+Daily, wave transitions and mirrored couch courts on short landscape screens.
+Verify charge/guard, switch/gate and phase cues in Full and Calm, pointer/key
+skill use, pause stepping, and restart after process termination. Gauntlet
+preserves committed choices rather than a mid-rally snapshot; restarting an
+unfinished encounter consumes one heart. Asset/DOM checks do not verify native
+installers, visible layout, performance or perceived challenge.
+
 The explicit Court image quality setting uses the same High/Balanced/Low
 backing-density caps in web and native builds (2.5/1.5/1). It is stored on the
 device and independent of Full/Calm effects. Native wrappers should preserve

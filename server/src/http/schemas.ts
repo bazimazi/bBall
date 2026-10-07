@@ -190,16 +190,47 @@ export const matchSubmissionSchema = z
     abandoned: z.boolean(),
     challengeId: z.string().min(1).max(64).optional(),
     tournamentRound: z.number().int().min(0).max(8).optional(),
-    tournamentTier: z.number().int().min(0).max(8).optional(),
+    tournamentTier: z.number().int().min(0).max(9).optional(),
     stageId: z.string().min(1).max(16).optional(),
     dailyKey: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .regex(/^(?:(?:m2|a2)-)?\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    runStage: z.number().int().min(0).max(16).optional(),
+    runStage: z
+      .number()
+      .int()
+      .min(0)
+      .max(Number.MAX_SAFE_INTEGER - 100)
+      .optional(),
     day: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    waves: count(100000).optional(),
+    options: z
+      .object({
+        series: z.union([z.literal(1), z.literal(3), z.literal(5)]).optional(),
+        waves: z.boolean().optional(),
+        mirror: z.boolean().optional(),
+        duel: z.enum(['speed', 'precision']).optional(),
+        arenaId: z.string().min(1).max(64).optional(),
+        personality: z
+          .enum(['anchor', 'aggressor', 'banker', 'curver', 'disruptor', 'opportunist'])
+          .optional(),
+        contract: z.enum(['master', 'mythic']).optional(),
+        bossId: z.string().min(1).max(32).optional(),
+        bossPhase: z.number().int().min(0).max(8).optional()
+      })
+      .strict()
+      .optional(),
+    court: z
+      .object({
+        banks: z.number().int().min(0).max(100000),
+        switches: z.number().int().min(0).max(100000),
+        breaks: z.number().int().min(0).max(100000),
+        gates: z.number().int().min(0).max(100000)
+      })
+      .strict()
       .optional(),
     flicks: count(100_000).optional(),
     talent: talentMatchStatsSchema,
@@ -237,7 +268,8 @@ export const equipCosmeticSchema = z
 
 export const startTournamentSchema = z
   .object({
-    tier: z.number().int().min(0).max(8),
+    tier: z.number().int().min(0).max(9),
+    format: z.enum(['classic', 'marathon', 'ladder']).optional(),
     baseVersion: z.number().int().min(0).optional()
   })
   .strict();
@@ -304,7 +336,12 @@ export const syncOpSchema = z.discriminatedUnion('kind', [
     .object({
       kind: z.literal('tournament.start'),
       opId,
-      payload: z.object({ tier: z.number().int().min(0).max(8) }).strict()
+      payload: z
+        .object({
+          tier: z.number().int().min(0).max(9),
+          format: z.enum(['classic', 'marathon', 'ladder']).optional()
+        })
+        .strict()
     })
     .strict(),
   z
@@ -325,7 +362,8 @@ export const syncOpSchema = z.discriminatedUnion('kind', [
             .min(1)
             .max(40)
             .regex(/^[A-Za-z0-9-]+$/),
-          pressure: z.number().int().min(0).max(5)
+          pressure: z.number().int().min(0).max(50),
+          format: z.enum(['sprint', 'expedition', 'endless']).optional()
         })
         .strict()
     })
@@ -342,6 +380,36 @@ export const syncOpSchema = z.discriminatedUnion('kind', [
       kind: z.literal('run.abandon'),
       opId,
       payload: z.object({}).strict()
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('run.action'),
+      opId,
+      payload: z
+        .object({
+          action: z.union([
+            z.enum(['continue', 'bank', 'safe', 'risk', 'repair', 'commit', 'restart', 'reroll']),
+            z.custom<`recycle:${string}` | `upgrade:${string}`>(
+              (value) =>
+                typeof value === 'string' && /^(recycle|upgrade):[a-z0-9-]{1,32}$/.test(value)
+            )
+          ])
+        })
+        .strict()
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('talent.build'),
+      opId,
+      payload: z
+        .object({
+          slot: z.number().int().min(0).max(7),
+          action: z.enum(['save', 'load']),
+          name: z.string().max(32).optional()
+        })
+        .strict()
     })
     .strict()
 ]);

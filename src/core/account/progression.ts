@@ -1,3 +1,6 @@
+import type { RunAction } from '../run/ops';
+import type { RunFormat } from '../run/formats';
+import type { TournamentFormat } from '../tournament/bracket';
 /**
  * The one door every progression change goes through.
  *
@@ -73,7 +76,10 @@ export function toSubmission(result: MatchResult, clientMatchId: string): MatchS
     ...(result.stageId ? { stageId: result.stageId } : {}),
     ...(result.dailyKey ? { dailyKey: result.dailyKey } : {}),
     ...(result.runStage !== undefined ? { runStage: result.runStage } : {}),
+    ...(result.options ? { options: { ...result.options } } : {}),
+    ...(result.waves !== undefined ? { waves: result.waves } : {}),
     flicks: result.flicks,
+    ...(result.court ? { court: { ...result.court } } : {}),
     ...(result.day ? { day: result.day } : {}),
     talent: { ...result.talent },
     playedAt: Date.now()
@@ -126,6 +132,16 @@ export function respecTalents(branch?: BranchId): void {
   });
 }
 
+export function talentBuild(slot: number, action: 'save' | 'load', name?: string): boolean {
+  if (!profileStore.talentBuild(slot, action, name)) return false;
+  queue({
+    kind: 'talent.build',
+    opId: newOpId('build'),
+    payload: { slot, action, ...(name !== undefined ? { name } : {}) }
+  });
+  return true;
+}
+
 export function equipAbility(slot: number, id: AbilityId | null): boolean {
   const ok = profileStore.equipAbility(slot, id);
   if (!ok) return false;
@@ -161,17 +177,31 @@ export function setLastPracticeBot(bot: BotLevelId): void {
   queue({ kind: 'preferences.update', opId: newOpId('pref'), payload: { lastPracticeBot: bot } });
 }
 
-export function startTournament(tier: number) {
-  const save = profileStore.startTournament(tier);
-  queue({ kind: 'tournament.start', opId: newOpId('cup'), payload: { tier } });
+export function startTournament(tier: number, format?: TournamentFormat) {
+  const save = profileStore.startTournament(tier, format);
+  queue({
+    kind: 'tournament.start',
+    opId: newOpId('cup'),
+    payload: { tier, ...(format ? { format } : {}) }
+  });
   return save;
 }
 
 /** Begin a Gauntlet run. Returns false when one is already under way. */
-export function startRun(pressure: number): boolean {
-  const seed = newRunSeed();
-  if (!profileStore.startRun(seed, pressure)) return false;
-  queue({ kind: 'run.start', opId: newOpId('run'), payload: { seed, pressure } });
+export function startRun(pressure: number, format?: RunFormat, fixedSeed?: string): boolean {
+  const seed = fixedSeed ?? newRunSeed();
+  if (!profileStore.startRun(seed, pressure, format)) return false;
+  queue({
+    kind: 'run.start',
+    opId: newOpId('run'),
+    payload: { seed, pressure, ...(format ? { format } : {}) }
+  });
+  return true;
+}
+
+export function runAction(action: RunAction): boolean {
+  if (!profileStore.runAction(action)) return false;
+  queue({ kind: 'run.action', opId: newOpId('run'), payload: { action } });
   return true;
 }
 

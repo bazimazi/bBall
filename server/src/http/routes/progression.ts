@@ -129,7 +129,8 @@ export function registerProgressionRoutes(app: FastifyInstance, context: Service
       context,
       principalOf(request).userId,
       input.tier,
-      input.baseVersion
+      input.baseVersion,
+      input.format
     );
     const payload: ProfileMutationResponse = { profile: toCloudProfile(profile) };
     return reply.code(201).send(payload);

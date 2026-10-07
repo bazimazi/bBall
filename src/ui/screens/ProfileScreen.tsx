@@ -1,3 +1,5 @@
+import { levelOf } from '../../core/progression/levels';
+import { MASTERY_TRACKS, MASTERY_CYCLE } from '../../core/progression/mastery';
 import { useState } from 'react';
 
 import { ACHIEVEMENTS } from '../../core/achievements/catalog';
@@ -172,6 +174,31 @@ export function ProfileScreen({
       </div>
 
       <p className={styles.sectionLabel}>Record</p>
+      <div className={styles.card}>
+        <p className={styles.sectionLabel}>Mastery</p>
+        <p className={styles.note}>
+          Rank {Math.max(0, Math.floor((levelOf(profile.xp) - 50) / 5))} · Frontier{' '}
+          {profile.progress.journey['frontier-v2'] ?? 0} · {profile.progress.contracts ?? 0}{' '}
+          contracts · {profile.progress.dailyMaster.clears} Master Daily clears. Combat points cap
+          at level 50; mastery unlocks achievements, records and colours.
+        </p>
+      </div>
+      <details className={styles.card}>
+        <summary>Technique, school, court and build mastery</summary>
+        <p className={styles.rowBlurb}>
+          Win scored matches against Pro or harder opponents. Relevant actions earn marks; every 250
+          marks opens another numbered cycle. Combat power stays capped.
+        </p>
+        {MASTERY_TRACKS.map((t) => {
+          const marks = profile.progress.mastery[t.id] ?? 0;
+          return (
+            <p className={styles.rowBlurb} key={t.id}>
+              {t.name} · cycle {Math.floor(marks / MASTERY_CYCLE) + 1} · {marks % MASTERY_CYCLE}/
+              {MASTERY_CYCLE} marks
+            </p>
+          );
+        })}
+      </details>
       <div className={styles.stats}>
         <Stat value={played} label="Matches" />
         <Stat value={stats.wins} label="Wins" />

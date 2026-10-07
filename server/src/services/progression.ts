@@ -1,3 +1,4 @@
+import type { TournamentFormat } from '../../../src/core/tournament/bracket';
 /**
  * Server-authoritative progression.
  *
@@ -24,7 +25,15 @@ import { levelOf } from '../../../src/core/progression/levels';
 import { cleanName } from '../../../src/core/profile/defaults';
 import type { AvatarId, PlayerProfile } from '../../../src/core/profile/types';
 import { AVATARS } from '../../../src/core/profile/types';
-import { abandonRunOn, pickBoonOn, startRunOn } from '../../../src/core/run/ops';
+import {
+  abandonRunOn,
+  pickBoonOn,
+  startRunOn,
+  runActionOn,
+  type RunAction
+} from '../../../src/core/run/ops';
+import { talentBuildOn } from '../../../src/core/talents/builds';
+import type { RunFormat } from '../../../src/core/run/formats';
 import { isRunActive, pressureUnlocked } from '../../../src/core/run/run';
 import {
   buyTalent,
@@ -464,7 +473,8 @@ export function startTournament(
   context: ServiceContext,
   userId: string,
   tier: number,
-  baseVersion?: number
+  baseVersion?: number,
+  format?: TournamentFormat
 ): ServerProfile {
   return mutate(context, userId, baseVersion, (profile) => {
     if (profile.tournament) throw conflict('You already have a cup in progress.');
@@ -477,7 +487,7 @@ export function startTournament(
       throw rejected('That cup is not unlocked yet.', { internal: `level=${level} tier=${tier}` });
     }
 
-    const save: TournamentSave = createTournament(tier, context.now());
+    const save: TournamentSave = createTournament(tier, context.now(), format);
     return {
       ...profile,
       tournament: save,
@@ -509,7 +519,8 @@ export function startRun(
   userId: string,
   seed: string,
   pressure: number,
-  baseVersion?: number
+  baseVersion?: number,
+  format?: RunFormat
 ): ServerProfile {
   const server = mutate(context, userId, baseVersion, (profile) => {
     if (isRunActive(profile.progress.run)) throw conflict('You already have a run in progress.');
@@ -517,7 +528,7 @@ export function startRun(
     if (pressure > pressureUnlocked(profile.progress.runRecords)) {
       throw rejected('That Pressure is not unlocked yet.', { internal: `pressure=${pressure}` });
     }
-    const next = startRunOn(profile, seed, pressure, context.now());
+    const next = startRunOn(profile, seed, pressure, context.now(), format);
     if (!next) throw rejected('That run cannot be started.');
     return next;
   });
@@ -553,6 +564,32 @@ export function abandonRun(
   baseVersion?: number
 ): ServerProfile {
   return mutate(context, userId, baseVersion, (profile) => abandonRunOn(profile) ?? profile);
+}
+
+export function applyRunAction(
+  context: ServiceContext,
+  userId: string,
+  action: RunAction
+): ServerProfile {
+  return mutate(context, userId, undefined, (profile) => {
+    const next = runActionOn(profile, action);
+    if (!next) throw rejected('That run action is unavailable.');
+    return next;
+  });
+}
+
+export function applyTalentBuild(
+  context: ServiceContext,
+  userId: string,
+  slot: number,
+  action: 'save' | 'load',
+  name?: string
+): ServerProfile {
+  return mutate(context, userId, undefined, (profile) => {
+    const next = talentBuildOn(profile, slot, action, name);
+    if (!next) throw rejected('That saved build is unavailable at your current level.');
+    return next;
+  });
 }
 
 // ---------------------------------------------------- rewards and sweeps

@@ -1,8 +1,10 @@
+import type { Personality } from '../modes/recipes';
 import type { BotLevelId } from '../bots/types';
 import { bossById } from '../modes/bosses';
 import { arenaPreset } from '../modes/arenas';
 import { starCount, type StarGoal } from '../modes/stars';
 import type { MatchModifiers } from '../modes/types';
+import { EXPANSION_WORLDS, frontierStage } from './expansion';
 
 /**
  * The Journey: five worlds of six stages, each world built around one idea
@@ -21,6 +23,8 @@ import type { MatchModifiers } from '../modes/types';
  */
 
 export interface Stage {
+  readonly courtFamily?: string;
+  readonly personality?: Personality;
   /** `w1-3` style: world and stage, 1-based. */
   readonly id: string;
   readonly world: number;
@@ -35,6 +39,7 @@ export interface Stage {
   readonly goals: readonly [StarGoal, StarGoal];
   /** A boss stage fights this boss; its brain, court and win score. */
   readonly boss?: string;
+  readonly prerequisites?: readonly string[];
 }
 
 export interface JourneyWorld {
@@ -97,7 +102,7 @@ function bossStage(
   };
 }
 
-export const JOURNEY: readonly JourneyWorld[] = [
+export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
   {
     id: 1,
     name: 'First Light',
@@ -475,14 +480,52 @@ export const JOURNEY: readonly JourneyWorld[] = [
   }
 ];
 
+export const JOURNEY: readonly JourneyWorld[] = [...LEGACY_JOURNEY, ...EXPANSION_WORLDS];
+export const LEGACY_STAGES = LEGACY_JOURNEY.flatMap((world) => world.stages);
 export const STAGES: readonly Stage[] = JOURNEY.flatMap((world) => world.stages);
 const BY_ID = new Map(STAGES.map((item) => [item.id, item]));
 
 export function stageById(id: string): Stage | undefined {
-  return BY_ID.get(id);
+  const variant = /^(veteran|ascendant)-(w\d+-\d+)$/.exec(id);
+  if (variant) {
+    const base = BY_ID.get(variant[2]!);
+    if (!base) return undefined;
+    const harder = variant[1] === 'ascendant';
+    return {
+      ...base,
+      id,
+      name: `${harder ? 'Ascendant' : 'Veteran'} · ${base.name}`,
+      bot:
+        harder || base.bot === 'legend'
+          ? 'legend'
+          : base.bot === 'rookie' || base.bot === 'amateur'
+            ? 'pro'
+            : 'elite',
+      modifiers: {
+        ...base.modifiers,
+        serveSpeedScale: (base.modifiers.serveSpeedScale ?? 1) * (harder ? 1.12 : 1.05),
+        playerPaddleScale: (base.modifiers.playerPaddleScale ?? 1) * (harder ? 0.85 : 0.95)
+      }
+    };
+  }
+  const fixed = BY_ID.get(id);
+  if (fixed) return fixed;
+  const match = /^f2-([1-9]\d{0,8})-([1-9]|1\d|20)$/.exec(id);
+  return match ? frontierStage(Number(match[1]), Number(match[2]) - 1) : undefined;
 }
 
 export function worldById(id: number): JourneyWorld | undefined {
+  if (Number.isInteger(id) && id > 30 && id <= 1_000_000_029) {
+    const sector = id - 30;
+    return {
+      id,
+      name: `Frontier ${sector}`,
+      theme: 'Journey Beyond',
+      hue: (sector * 31) % 360,
+      starsToOpen: 0,
+      stages: Array.from({ length: 20 }, (_, i) => frontierStage(sector, i))
+    };
+  }
   return JOURNEY.find((world) => world.id === id);
 }
 
@@ -494,7 +537,7 @@ export type JourneyProgress = Record<string, number>;
 
 export function totalStars(progress: JourneyProgress): number {
   let total = 0;
-  for (const mask of Object.values(progress)) total += starCount(mask);
+  for (const item of STAGES) total += starCount(progress[item.id] ?? 0);
   return total;
 }
 
@@ -505,6 +548,8 @@ export function starsInWorld(progress: JourneyProgress, world: JourneyWorld): nu
 }
 
 export function isCleared(progress: JourneyProgress, id: string): boolean {
+  const match = /^f2-(\d+)-(\d+)$/.exec(id);
+  if (match && Number(match[1]) <= (progress['frontier-v2'] ?? 0)) return true;
   return ((progress[id] ?? 0) & 1) === 1;
 }
 
@@ -516,6 +561,11 @@ export function worldCleared(progress: JourneyProgress, world: JourneyWorld): bo
 
 export function worldOpen(progress: JourneyProgress, world: JourneyWorld): boolean {
   if (world.id === 1) return true;
+  if (world.id > 30)
+    return (
+      isCleared(progress, 'w5-6') &&
+      (world.id === 31 || isCleared(progress, `f2-${world.id - 31}-20`))
+    );
   const previous = worldById(world.id - 1);
   if (previous && !worldCleared(progress, previous)) return false;
   return totalStars(progress) >= world.starsToOpen;
@@ -523,8 +573,11 @@ export function worldOpen(progress: JourneyProgress, world: JourneyWorld): boole
 
 /** May this stage be played? Its world must be open and the stage before it cleared. */
 export function stageOpen(progress: JourneyProgress, item: Stage): boolean {
+  if (/^(veteran|ascendant)-/.test(item.id))
+    return isCleared(progress, item.id.replace(/^(veteran|ascendant)-/, ''));
   const world = worldById(item.world);
   if (!world || !worldOpen(progress, world)) return false;
+  if (item.prerequisites) return item.prerequisites.every((id) => isCleared(progress, id));
   if (item.index === 0) return true;
   const before = world.stages[item.index - 1];
   return !!before && isCleared(progress, before.id);
@@ -535,9 +588,33 @@ export function nextStage(progress: JourneyProgress): Stage | null {
   for (const item of STAGES) {
     if (stageOpen(progress, item) && !isCleared(progress, item.id)) return item;
   }
+  if (isCleared(progress, 'w5-6')) return nextFrontierStage(progress);
   return null;
 }
 
+export function nextFrontierStage(progress: JourneyProgress): Stage {
+  let sector = (progress['frontier-v2'] ?? 0) + 1;
+  while (isCleared(progress, `f2-${sector}-20`)) sector++;
+  for (let i = 0; i < 20; i++) {
+    const stage = frontierStage(sector, i);
+    if (!isCleared(progress, stage.id)) return stage;
+  }
+  return frontierStage(sector + 1, 0);
+}
+
 export function isStageId(value: unknown): value is string {
-  return typeof value === 'string' && BY_ID.has(value);
+  return typeof value === 'string' && !!stageById(value);
+}
+
+/** Result-card continuation for catalog stages, mastery variants and Frontier. */
+export function nextAfter(progress: JourneyProgress, played: Stage): Stage | null {
+  if (played.id.startsWith('f2-')) return nextFrontierStage(progress);
+  const prefix = /^(veteran|ascendant)-/.exec(played.id)?.[0] ?? '';
+  const baseId = played.id.slice(prefix.length);
+  const index = STAGES.findIndex((s) => s.id === baseId);
+  for (const base of STAGES.slice(index + 1)) {
+    const next = prefix ? stageById(`${prefix}${base.id}`) : base;
+    if (next && stageOpen(progress, next) && !isCleared(progress, next.id)) return next;
+  }
+  return isCleared(progress, 'w5-6') ? nextFrontierStage(progress) : null;
 }

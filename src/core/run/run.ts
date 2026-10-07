@@ -1,12 +1,24 @@
+import type { Personality } from '../modes/recipes';
 import type { BotLevelId } from '../bots/types';
 import { presetsOn } from '../modes/arenas';
 import { bossById } from '../modes/bosses';
 import type { ArenaSpec, MatchModifiers } from '../modes/types';
 import { pickOne, seeded } from '../util/random';
-import { boonAvailable, boonById, BOONS, type BoonDef, type BoonRanks } from './boons';
+import {
+  boonAvailable,
+  boonById,
+  BOONS,
+  LEGACY_BOONS,
+  RELICS,
+  type BoonDef,
+  type BoonRanks
+} from './boons';
+import { recipe } from '../modes/recipes';
+import { EXPANSION_BOSS_IDS } from '../campaign/expansion';
+import { actLength, actIndex, runLength, RUN_HISTORY, type RunFormat } from './formats';
 
 /**
- * The Gauntlet: a roguelite run of nine matches in three acts, each act two
+ * The legacy Gauntlet: nine matches in three acts, each act two
  * opponents and a boss.
  *
  * Win a match and draft one boon of three; lose one and a heart goes, and
@@ -22,7 +34,7 @@ import { boonAvailable, boonById, BOONS, type BoonDef, type BoonRanks } from './
 export const RUN_STAGES = 9;
 export const RUN_HEARTS = 3;
 export const MAX_HEARTS = 5;
-export const MAX_PRESSURE = 5;
+export const MAX_PRESSURE = 50;
 
 export interface PressureRank {
   readonly level: number;
@@ -36,7 +48,12 @@ export const PRESSURE: readonly PressureRank[] = [
   { level: 2, name: 'Thin Ice', blurb: 'Two hearts instead of three' },
   { level: 3, name: 'Hard Courts', blurb: 'Every match is played on a hazard court' },
   { level: 4, name: 'Slim Pickings', blurb: 'Drafts offer two boons, not three' },
-  { level: 5, name: 'Overdrive', blurb: 'Faster still, and every match starts a point down' }
+  { level: 5, name: 'Overdrive', blurb: 'Faster still, and every match starts a point down' },
+  ...Array.from({ length: 45 }, (_, i) => ({
+    level: i + 6,
+    name: `${['Hazard mastery', 'Elite tactics', 'Legend schools', 'Court mastery', 'Mythic'][Math.min(4, Math.floor((i + 6) / 10))]!} ${i + 6}`,
+    blurb: `${Math.round((i + 1) * 0.375)}% less reach; increasingly strong opponent schools, capped pace and longer rallies`
+  }))
 ];
 
 export interface RunMatchRecord {
@@ -48,9 +65,19 @@ export interface RunMatchRecord {
 
 /** A run in progress, kept in the profile so it survives closing the app. */
 export interface RunSave {
+  /** A started encounter remains committed across app closure. */
+  attempt?: { stage: number } | undefined;
+  draftRoll?: number;
+  /** Missing format/version means a pre-expansion nine-match save. */
+  format?: RunFormat;
+  actOffset?: number;
+  version?: number;
+  credits?: number;
+  route?: 'safe' | 'risk';
+  bankedActs?: number;
   seed: string;
   pressure: number;
-  /** Index of the next encounter, 0..RUN_STAGES. */
+  /** Index of the next encounter; format determines its finite or continuing range. */
   stage: number;
   hearts: number;
   boons: BoonRanks;
@@ -84,9 +111,15 @@ export function heartsFor(pressure: number): number {
   return pressure >= 2 ? RUN_HEARTS - 1 : RUN_HEARTS;
 }
 
-export function createRun(seed: string, pressure: number, now = Date.now()): RunSave {
+export function createRun(
+  seed: string,
+  pressure: number,
+  now = Date.now(),
+  format?: RunFormat
+): RunSave {
   const level = Math.max(0, Math.min(MAX_PRESSURE, Math.round(pressure)));
   return {
+    ...(format ? { format, version: 2, credits: 0, route: 'safe' as const, bankedActs: 0 } : {}),
     seed,
     pressure: level,
     stage: 0,
@@ -103,6 +136,8 @@ export function createRun(seed: string, pressure: number, now = Date.now()): Run
 // ------------------------------------------------------------- encounters
 
 export interface Encounter {
+  readonly courtFamily?: string;
+  readonly personality?: Personality;
   readonly stage: number;
   /** 0-based act. */
   readonly act: number;
@@ -136,6 +171,33 @@ export function isBossStage(stage: number): boolean {
 
 /** What waits at `stage` of this run. Pure: the same seed always says the same. */
 export function encounterFor(save: RunSave, stage = save.stage): Encounter {
+  if (save.version === 2) {
+    const act = actIndex(save, stage);
+    const band = Math.min(
+      4,
+      Math.floor(save.pressure / 10) + Math.floor(act / 3) + (save.route === 'risk' ? 1 : 0)
+    );
+    const r = recipe(save.seed, stage + (save.route === 'risk' ? 7 : 0), band);
+    const bossStage = (stage - (save.actOffset ?? 0)) % actLength(save) === actLength(save) - 1;
+    const boss = bossStage
+      ? EXPANSION_BOSS_IDS[(act + save.pressure) % EXPANSION_BOSS_IDS.length]!
+      : null;
+    const definition = boss ? bossById(boss) : undefined;
+    const order = ['rookie', 'amateur', 'pro', 'elite', 'legend'];
+    const bot =
+      definition && order.indexOf(definition.bot) > order.indexOf(r.bot) ? definition.bot : r.bot;
+    return {
+      stage,
+      act,
+      boss,
+      ...(!boss ? { courtFamily: r.courtFamily } : {}),
+      personality: r.personality,
+      bot,
+      winScore: boss ? Math.max(5, r.winScore) : r.winScore,
+      modifiers: definition?.modifiers ?? r.modifiers,
+      courtName: definition?.spec.name ?? r.courtName
+    };
+  }
   const act = actOf(stage);
   const random = seeded('run', save.seed, stage);
   if (isBossStage(stage)) {
@@ -180,6 +242,12 @@ export function applyPressure(modifiers: MatchModifiers, pressure: number): void
     modifiers.serveSpeedScale *= 1.06;
     modifiers.startScore = { you: modifiers.startScore.you, bot: modifiers.startScore.bot + 1 };
   }
+  const extra = Math.max(0, Math.min(45, pressure - 5));
+  modifiers.playerPaddleScale *= 1 - extra * 0.00375;
+  modifiers.botPaddleScale *= 1 + extra * 0.002;
+  const band = Math.min(4, Math.floor(pressure / 10));
+  modifiers.maxSpeedScale *= 1 + band * 0.03;
+  modifiers.speedPerHitScale *= 1 + band * 0.06 + extra * 0.003;
 }
 
 // ------------------------------------------------------------------ draft
@@ -194,8 +262,13 @@ export function offerSize(pressure: number): number {
  * it is the reward for the build the player has been making.
  */
 export function draftFor(save: RunSave, stage: number): string[] {
-  const random = seeded('draft', save.seed, stage);
-  const available = BOONS.filter((boon) => boonAvailable(boon, save.boons));
+  const random =
+    (save.draftRoll ?? 0) > 0
+      ? seeded('draft', save.seed, stage, save.draftRoll!)
+      : seeded('draft', save.seed, stage);
+  const available = (save.version === 2 ? [...BOONS, ...RELICS] : LEGACY_BOONS).filter((boon) =>
+    boonAvailable(boon, save.boons)
+  );
   const duos = available.filter((boon) => boon.family === 'duo');
   const rest = available.filter((boon) => boon.family !== 'duo' && !boon.instant);
   const size = offerSize(save.pressure);
@@ -209,6 +282,7 @@ export function draftFor(save: RunSave, stage: number): string[] {
     const index = Math.floor(random() * pool.length) % pool.length;
     picks.push(pool.splice(index, 1)[0]!);
   }
+  if (picks.length === 0) picks.push(boonById('repair-credit')!);
   return picks.slice(0, size).map((boon) => boon.id);
 }
 
@@ -231,18 +305,22 @@ export function advanceRun(source: RunSave, won: boolean, you: number, bot: numb
   const save: RunSave = {
     ...source,
     boons: { ...source.boons },
-    results: [...source.results, { stage: source.stage, won, you, bot }],
-    offer: null
+    results: [...source.results, { stage: source.stage, won, you, bot }].slice(-RUN_HISTORY),
+    offer: null,
+    attempt: undefined,
+    draftRoll: 0
   };
   if (won) {
     const stage = source.stage + 1;
     save.stage = stage;
-    if (stage >= RUN_STAGES) {
+    if (stage >= runLength(source)) {
       save.finished = true;
       save.won = true;
       return { save, ended: true, cleared: true, heartLost: false };
     }
-    save.offer = draftFor(source, source.stage);
+    if (source.version === 2)
+      save.credits = Math.min(9, (source.credits ?? 0) + (source.route === 'risk' ? 2 : 1));
+    save.offer = draftFor(save, source.stage);
     return { save, ended: false, cleared: false, heartLost: false };
   }
   save.hearts = Math.max(0, source.hearts - 1);
@@ -264,6 +342,7 @@ export function pickBoon(source: RunSave, id: string): RunSave | null {
   const save: RunSave = { ...source, boons: { ...source.boons }, offer: null };
   if (boon.instant) {
     if (boon.id === 'heart') save.hearts = Math.min(MAX_HEARTS, save.hearts + 1);
+    if (boon.id === 'repair-credit') save.credits = Math.min(9, (save.credits ?? 0) + 1);
   } else {
     save.boons[id] = Math.min(boon.maxRank, (save.boons[id] ?? 0) + 1);
   }

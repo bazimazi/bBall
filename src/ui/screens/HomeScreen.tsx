@@ -5,7 +5,8 @@ import { dailySpec, streakAlive } from '../../core/daily/daily';
 import type { ModeId } from '../../core/modes/types';
 import { dayKey } from '../../core/progression/xp';
 import type { PlayerProfile } from '../../core/profile/types';
-import { isRunActive, RUN_STAGES } from '../../core/run/run';
+import { isRunActive } from '../../core/run/run';
+import { runPosition } from '../../core/run/formats';
 import { tierById } from '../../core/tournament/bracket';
 import type { AccountState } from '../../core/account/store';
 import { ProfileChip } from '../components/ProfileChip';
@@ -140,12 +141,12 @@ function GauntletTile({ profile, onPick }: { profile: PlayerProfile; onPick: () 
       <span className={modes.featureName}>Gauntlet</span>
       <span className={modes.featureSub}>
         {live
-          ? `Match ${run.stage + 1} of ${RUN_STAGES}`
+          ? runPosition(run)
           : records.clears > 0
             ? `Cleared ${records.clears}×`
             : records.runs > 0
-              ? `Best ${records.bestStage} of ${RUN_STAGES}`
-              : 'Nine matches, three hearts'}
+              ? `Best depth ${records.bestStage}`
+              : 'Sprint, Expedition or Endless'}
       </span>
       {live && run.offer && (
         <span className={`${modes.featureTag} ${modes.pulse}`}>Boon waiting</span>

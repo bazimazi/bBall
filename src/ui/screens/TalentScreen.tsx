@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 import { BALANCE, nextSlotLevel } from '../../core/balance/config';
+import { buildSlots } from '../../core/talents/builds';
 import * as progression from '../../core/account/progression';
 import type { PlayerProfile } from '../../core/profile/types';
 import { levelOf } from '../../core/progression/levels';
@@ -128,6 +129,40 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         </button>
       }
     >
+      <details className={screens.card}>
+        <summary>Saved builds · {buildSlots(level)} slots</summary>
+        <p className={screens.rowBlurb}>
+          Save your current talents and skills, then load them with a free respec. Six slots open at
+          level 50; eight at level 100.
+        </p>
+        {Array.from({ length: buildSlots(level) }, (_, i) => (
+          <div key={i} className={screens.preset}>
+            <span>{save.presets?.[i]?.name ?? `Build ${i + 1} · empty`}</span>
+            <button
+              type="button"
+              className={screens.ghost}
+              aria-label={`Save current talents to build ${i + 1}`}
+              onClick={() => progression.talentBuild(i, 'save', `Build ${i + 1}`)}
+            >
+              Save current
+            </button>
+            <button
+              type="button"
+              className={screens.ghost}
+              aria-label={`Load build ${i + 1}`}
+              disabled={!save.presets?.[i]}
+              onClick={() => {
+                progression.talentBuild(i, 'load');
+                setOpen(null);
+                setSlot(null);
+                setConfirmRespec(false);
+              }}
+            >
+              Load
+            </button>
+          </div>
+        ))}
+      </details>
       {/* --------------------------------------------------------- actives */}
       <p className={screens.sectionLabel}>Active skills</p>
       <div className={styles.slots}>

@@ -1,10 +1,14 @@
+import { SCHOOL_SCOUT } from '../../core/modes/recipes';
+import { tournamentRules } from '../../core/modes/rules';
 import { useState } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
 import { levelOf } from '../../core/progression/levels';
 import type { PlayerProfile } from '../../core/profile/types';
 import {
-  TOURNAMENT_ROUNDS,
+  roundsFor,
+  CUP_FORMATS,
+  type TournamentFormat,
   TOURNAMENT_TIERS,
   opponentFor,
   tierById,
@@ -17,7 +21,7 @@ import styles from '../Screens.module.css';
 interface TournamentScreenProps {
   profile: PlayerProfile;
   onPlay: () => void;
-  onStart: (tier: number) => void;
+  onStart: (tier: number, format?: TournamentFormat) => void;
   onAbandon: () => void;
   onBack: () => void;
 }
@@ -29,7 +33,7 @@ function Bracket({ profile }: { profile: PlayerProfile }) {
 
   return (
     <div className={styles.bracket}>
-      {TOURNAMENT_ROUNDS.map((round, index) => {
+      {roundsFor(save).map((round, index) => {
         const played = save.results[index];
         const current = index === save.round;
         const opponent = botProfile(opponentFor(save, index));
@@ -67,11 +71,13 @@ function ActiveCup({
   const active = profile.tournament;
   if (!active) return null;
   const cup = tierById(active.tier);
-  const round = TOURNAMENT_ROUNDS[active.round] ?? TOURNAMENT_ROUNDS[0]!;
+  const rules = tournamentRules(active);
+  const school = rules.bot.personality ?? 'opportunist';
+  const round = roundsFor(active)[active.round] ?? roundsFor(active)[0]!;
   return (
     <Screen
       title={cup.name}
-      subtitle={`Round ${active.round + 1} of ${TOURNAMENT_ROUNDS.length}`}
+      subtitle={`Round ${active.round + 1} of ${roundsFor(active).length}`}
       onBack={onBack}
       footer={
         <>
@@ -88,11 +94,21 @@ function ActiveCup({
         </>
       }
     >
+      <div className={styles.card}>
+        <p className={styles.sectionLabel}>
+          Next opponent · {rules.bot.name} · {school}
+          {active.format === 'ladder' ? ` · Season ${(active.season ?? 0) + 1}` : ''}
+        </p>
+        <p className={styles.rowBlurb}>{SCHOOL_SCOUT[school]}</p>
+        <p className={styles.rowBlurb}>
+          {rules.courtFamily ?? 'Open court'} · first to {rules.winScore}
+        </p>
+      </div>
       <Bracket profile={profile} />
       <ConfirmAction
         show={confirm}
         title="Give up this cup?"
-        description={`This ends your ${cup.name} at round ${active.round + 1} of ${TOURNAMENT_ROUNDS.length}. It will not count as a cup won. Your earned XP and unlocks stay. You can keep the cup and return later.`}
+        description={`This ends your ${cup.name} at round ${active.round + 1} of ${roundsFor(active).length}. It will not count as a cup won. Your earned XP and unlocks stay. You can keep the cup and return later.`}
         cancelLabel="Keep cup"
         confirmLabel="Give up cup"
         onCancel={() => setConfirm(false)}
@@ -113,6 +129,7 @@ export function TournamentScreen({
   onBack
 }: TournamentScreenProps) {
   const level = levelOf(profile.xp);
+  const [format, setFormat] = useState<TournamentFormat>('classic');
   const [tier, setTier] = useState(() => tierForLevel(level).id);
   const active = profile.tournament;
   const last = profile.lastTournament;
@@ -130,10 +147,10 @@ export function TournamentScreen({
   return (
     <Screen
       title="Tournament"
-      subtitle="Three rounds, one trophy"
+      subtitle="Ten cups · longer formats · ongoing championship ladder"
       onBack={onBack}
       footer={
-        <button type="button" className={styles.primary} onClick={() => onStart(tier)}>
+        <button type="button" className={styles.primary} onClick={() => onStart(tier, format)}>
           Start {tierById(tier).name}
         </button>
       }
@@ -144,11 +161,28 @@ export function TournamentScreen({
           <p className={styles.note} style={{ textAlign: 'left', marginTop: 6 }}>
             {last.champion
               ? `Champion of the ${tierById(last.tier).name}`
-              : `Knocked out in the ${(TOURNAMENT_ROUNDS[Math.max(0, last.round - 1)] ?? TOURNAMENT_ROUNDS[0]!).name.toLowerCase()}`}
+              : `Knocked out in the ${(roundsFor(last)[Math.max(0, last.round - 1)] ?? roundsFor(last)[0]!).name.toLowerCase()}`}
           </p>
         </div>
       )}
 
+      <p className={styles.sectionLabel}>Format</p>
+      <div className={styles.tabs}>
+        {CUP_FORMATS.map((f) => (
+          <button
+            type="button"
+            key={f}
+            className={f === format ? styles.tabActive : styles.tab}
+            onClick={() => setFormat(f)}
+          >
+            {f === 'classic'
+              ? 'Classic · 3 rounds'
+              : f === 'marathon'
+                ? 'Marathon · 7 rounds'
+                : 'Ladder · ongoing 6-round seasons'}
+          </button>
+        ))}
+      </div>
       <p className={styles.sectionLabel}>Choose a cup</p>
       <div className={styles.grid}>
         {TOURNAMENT_TIERS.map((item) => {

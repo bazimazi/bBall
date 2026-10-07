@@ -1,3 +1,4 @@
+import { recipe } from '../modes/recipes';
 import type { BotLevelId } from '../bots/types';
 import { presetsOn } from '../modes/arenas';
 import { starCount, type StarGoal } from '../modes/stars';
@@ -18,6 +19,7 @@ import { pickOne, seeded } from '../util/random';
  */
 
 export interface DailySpec {
+  readonly courtFamily?: string;
   /** The `YYYY-MM-DD` day this challenge belongs to. */
   readonly key: string;
   readonly title: string;
@@ -59,7 +61,38 @@ const GOALS: readonly StarGoal[] = [
 export const FREEZE_EVERY = 7;
 export const MAX_FREEZES = 2;
 
+export function dailyIdentity(key: string): {
+  day: string;
+  kind: 'standard' | 'master' | 'archive';
+} {
+  if (key.startsWith('m2-')) return { day: key.slice(3), kind: 'master' };
+  if (key.startsWith('a2-')) return { day: key.slice(3), kind: 'archive' };
+  return { day: key, kind: 'standard' };
+}
+export function weeklySeed(day: string): string {
+  const date = new Date(`${day}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  return `weekly-v2-${date.toISOString().slice(0, 10)}`;
+}
 export function dailySpec(key: string): DailySpec {
+  const identity = dailyIdentity(key);
+  if (identity.kind === 'archive') return { ...dailySpec(identity.day), key };
+  if (identity.kind === 'master') {
+    const r = recipe(`daily-master-v2-${identity.day}`, 0, 4);
+    return {
+      key,
+      courtFamily: r.courtFamily,
+      title: `Master · ${r.courtName}`,
+      blurb: `${r.blurb}. Fixed level-50 Control build, Legend, shorter paddle, first to five`,
+      bot: 'legend',
+      winScore: 5,
+      modifiers: { ...r.modifiers, playerPaddleScale: 0.88 },
+      goals: [
+        { id: 'margin', value: 2 },
+        { id: 'flicks', value: 5 }
+      ]
+    };
+  }
   const random = seeded('daily', key);
   const preset = pickOne(random, presetsOn(key));
   const twist = pickOne(random, TWISTS);
@@ -121,7 +154,9 @@ export function daysBetween(a: string, b: string): number {
   const parse = (value: string) => {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
     if (!match) return Number.NaN;
-    return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const stamp = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const date = new Date(stamp);
+    return date.toISOString().slice(0, 10) === value ? stamp : Number.NaN;
   };
   return Math.round((parse(b) - parse(a)) / 86_400_000);
 }

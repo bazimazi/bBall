@@ -2952,6 +2952,175 @@ try {
     }
   );
 
+  const [
+    { JourneyScreen: ExpansionJourney },
+    { DifficultyScreen: ExpansionDifficulty },
+    { GauntletScreen: ExpansionGauntlet },
+    { TournamentScreen: ExpansionCup },
+    expansionJourney,
+    { xpToReach: expansionXp }
+  ] = await Promise.all([
+    vite.ssrLoadModule('/src/ui/screens/JourneyScreen.tsx'),
+    vite.ssrLoadModule('/src/ui/screens/DifficultyScreen.tsx'),
+    vite.ssrLoadModule('/src/ui/screens/GauntletScreen.tsx'),
+    vite.ssrLoadModule('/src/ui/screens/TournamentScreen.tsx'),
+    vite.ssrLoadModule('/src/core/campaign/journey.ts'),
+    vite.ssrLoadModule('/src/core/progression/levels.ts')
+  ]);
+  const choose = async (label, value) => {
+    const control = [...host.querySelectorAll('label')]
+      .find((e) => e.textContent.startsWith(label))
+      ?.querySelector('select');
+    assert.ok(control, label);
+    await act(() => {
+      control.value = String(value);
+      control.dispatchEvent(new win.Event('change', { bubbles: true }));
+    });
+  };
+  await check('Journey variants and Frontier launch their actual stage IDs', async () => {
+    const profile = createProfile();
+    profile.progress.journey = Object.fromEntries(
+      expansionJourney.LEGACY_STAGES.map((s) => [s.id, 7])
+    );
+    const played = [];
+    await mount(h(ExpansionJourney, { profile, onPlay: (id) => played.push(id), onBack: noop }));
+    await choose('Chapter', 0);
+    await choose('Journey rules', 'veteran');
+    await click(button('Play 1-1'));
+    assert.equal(played.at(-1), 'veteran-w1-1');
+    await click(button('Journey Beyond · next frontier sector'));
+    await click(button('Play 31-1'));
+    assert.equal(played.at(-1), 'f2-1-1');
+    assert.ok(host.querySelectorAll('[role="tab"]').length === 1);
+  });
+  await check('Quick contracts and isolated boss drills pass the configured options', async () => {
+    const profile = createProfile(),
+      picked = [];
+    const props = {
+      profile,
+      onPick: (bot, options) => picked.push({ bot, options }),
+      onBack: noop
+    };
+    await mount(h(ExpansionDifficulty, { ...props, practice: false }));
+    await choose('Contract', 'mythic');
+    await choose('Court', 'gatehouse-1');
+    await choose('Opponent school', 'banker');
+    await click([...host.querySelectorAll('button')].find((b) => b.textContent.includes('Legend')));
+    assert.deepEqual(picked.at(-1), {
+      bot: 'legend',
+      options: { personality: 'banker', arenaId: 'gatehouse-1', contract: 'mythic' }
+    });
+    await mount(h(ExpansionDifficulty, { ...props, practice: true }));
+    await choose('Boss drill', 'gatekeeper');
+    await choose('Isolated phase', 2);
+    await click([...host.querySelectorAll('button')].find((b) => b.textContent.includes('Rookie')));
+    assert.equal(picked.at(-1).options.bossId, 'gatekeeper');
+    assert.equal(picked.at(-1).options.bossPhase, 2);
+  });
+  await check('Gauntlet and cup format controls launch the selected long format', async () => {
+    const profile = createProfile(),
+      started = [];
+    await mount(
+      h(ExpansionGauntlet, {
+        profile,
+        onStart: (p, f) => started.push([p, f]),
+        onPlay: noop,
+        onPick: noop,
+        onAbandon: noop,
+        onBack: noop
+      })
+    );
+    await choose('Run length', 'endless');
+    await click(button('Start a run'));
+    assert.deepEqual(started.at(-1), [0, 'endless']);
+    await mount(
+      h(ExpansionCup, {
+        profile,
+        onStart: (tier, f) => started.push([tier, f]),
+        onAbandon: noop,
+        onBack: noop
+      })
+    );
+    await click(button('Marathon · 7 rounds'));
+    await click(button('Start Bronze Cup'));
+    assert.deepEqual(started.at(-1), [0, 'marathon']);
+  });
+  await check(
+    'Master Daily launches its separate dated card and exposes the fixed build',
+    async () => {
+      const profile = createProfile(),
+        played = [];
+      await mount(h(DailyScreen, { profile, onPlay: (key) => played.push(key), onBack: noop }));
+      await click(button('Master · Legend'));
+      assert.match(host.textContent, /Fixed level-50 Control build/);
+      await click(button("Play today's challenge"));
+      assert.equal(played.at(-1), `m2-${dayKey()}`);
+    }
+  );
+  await check(
+    'saved build slots grow with mastery and empty loads remain unavailable',
+    async () => {
+      const profile = createProfile();
+      profile.xp = expansionXp(100);
+      await mount(h(TalentScreen, { profile, onBack: noop }));
+      assert.equal(
+        host.querySelectorAll('[aria-label^="Save current talents to build"]').length,
+        8
+      );
+      assert.equal(host.querySelector('[aria-label="Load build 1"]').disabled, true);
+    }
+  );
+
+  await check(
+    'wave and couch controls preserve series, symmetry, modifiers and local presets',
+    async () => {
+      const { ModesScreen } = await vite.ssrLoadModule('/src/ui/screens/ModesScreen.tsx');
+      const picked = [];
+      await mount(
+        h(ModesScreen, {
+          profile: createProfile(),
+          onPick: (mode, options) => picked.push({ mode, options }),
+          onBack: noop
+        })
+      );
+      await choose('Court for Endless', 'switchyard-1');
+      await choose('Endless format', 'waves');
+      await choose('Versus series', 5);
+      await choose('Versus rule', 'precision');
+      await choose('Versus court', 'mirror');
+      await click(button('Save couch 1'));
+      await choose('Versus series', 1);
+      await click(button('Load couch 1'));
+      await click(
+        [...host.querySelectorAll('button')].find(
+          (b) => b.textContent.includes('Versus') && !b.textContent.includes('Save')
+        )
+      );
+      assert.deepEqual(picked.at(-1), {
+        mode: 'versus',
+        options: { arenaId: 'switchyard-1', series: 5, duel: 'precision', mirror: true }
+      });
+      await click(
+        [...host.querySelectorAll('button')].find((b) => b.textContent.startsWith('Endless'))
+      );
+      assert.deepEqual(picked.at(-1), {
+        mode: 'endless',
+        options: { arenaId: 'switchyard-1', waves: true }
+      });
+    }
+  );
+  await check('five-trial playlists expose saved progress and lock future contracts', async () => {
+    const { ChallengeScreen } = await vite.ssrLoadModule('/src/ui/screens/ChallengeScreen.tsx');
+    const profile = createProfile();
+    profile.progress.contracts = 2;
+    await mount(h(ChallengeScreen, { profile, onPick: noop, onBack: noop }));
+    await click(button('Five-trial contract playlist'));
+    assert.match(host.textContent, /2 of 5 cleared/);
+    const trialButtons = [...host.querySelectorAll('button')].filter((b) =>
+      b.textContent.startsWith('Contract ')
+    );
+    assert.equal(trialButtons.filter((b) => b.disabled).length, 2);
+  });
   console.log(
     `${checks} UI interaction checks passed (DOM only; layout and assistive technology need manual QA).`
   );

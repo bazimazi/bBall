@@ -34,7 +34,7 @@ function dashAim(world: World): { dir: 1 | -1; stop: number | null } {
     return { dir: steered > 0 ? 1 : -1, stop: player.target };
   }
 
-  if (ball.vx < 0) {
+  if (world.player.side === 'you' ? ball.vx < 0 : ball.vx > 0) {
     const crossing = predictY(world, player.x);
     const gap = crossing - player.y;
     if (Math.abs(gap) > 1) return { dir: gap > 0 ? 1 : -1, stop: crossing };
@@ -61,7 +61,7 @@ function fireDash(world: World, hue: number): void {
   if (loadout.effects.blinkSeconds > 0) talents.blink = loadout.effects.blinkSeconds;
   // The first afterimage has to be taken at the *old* position: by the next
   // step the paddle is already at the far end of the streak.
-  world.ghosts.mark(from, player.half);
+  if (player.side === 'you') world.ghosts.mark(from, player.half);
 
   // A ripple at each end of the jump - one where the paddle left, one where
   // it arrived. Between them the renderer draws the corridor itself, which
@@ -79,7 +79,7 @@ function fireDash(world: World, hue: number): void {
       speed: 260,
       life: 0.35,
       size: 3,
-      color: hsla(sideHue(world.theme, 'you'), 100, 72, 0.85)
+      color: hsla(sideHue(world.theme, player.side), 100, 72, 0.85)
     },
     world.motion
   );
@@ -151,6 +151,22 @@ function fire(world: World, def: AbilityDef): void {
   const { id, hue, name } = def;
 
   switch (id) {
+    case 'redirect':
+    case 'anchor':
+    case 'breach':
+    case 'relay':
+    case 'reserve':
+    case 'rebound':
+      talents.tactics[id] = { redirect: 4, anchor: 5, breach: 5, relay: 6, reserve: 8, rebound: 3 }[
+        id
+      ];
+      world.casts.spawn(
+        'power-strike',
+        { x: world.player.x, y: world.player.y, hue, life: 0.5, size: 58 },
+        world.motion
+      );
+      world.audio.charge();
+      break;
     case 'power-strike':
       firePowerStrike(world, hue);
       break;
@@ -350,6 +366,16 @@ export function liveEffect(world: World, id: AbilityId): LiveEffect {
   const { effects } = world.loadout;
 
   switch (id) {
+    case 'redirect':
+    case 'anchor':
+    case 'breach':
+    case 'relay':
+    case 'reserve':
+    case 'rebound':
+      return timed(
+        runtime.tactics[id] ?? 0,
+        { redirect: 4, anchor: 5, breach: 5, relay: 6, reserve: 8, rebound: 3 }[id]
+      );
     case 'power-strike':
       return {
         ...timed(runtime.strikeArmed, effects.powerStrikeWindow),

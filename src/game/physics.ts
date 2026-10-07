@@ -18,6 +18,7 @@ import {
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
 import { shrinkPaddle } from './paddle';
+import { combatant } from './combatant';
 import { REPLAY_HIT_BOT, REPLAY_HIT_YOU, REPLAY_WALL } from './replay';
 import {
   addKick,
@@ -91,18 +92,19 @@ function onPaddleHit(
   const { ball, match, fx, tuning } = world;
   const raw = clamp((contactY - paddleY) / paddle.half, -1, 1);
 
-  // The player's returns go through their build; the bot's never do. Attract
-  // mode plays the plain game, so the demo behind the menus is always the
-  // game as it ships rather than as the player has shaped it.
-  const talented = paddle.side === 'you' && match.status !== 'menu' && !world.rules.versus;
-  const mods = talented ? playerReturn(world, raw) : plainReturn(world, raw);
+  // Both sides resolve their own build. Attract and couch play use plain returns.
+  const talented = match.status !== 'menu' && !world.rules.versus;
+  const actor = combatant(world, paddle.side);
+  const foe = combatant(world, paddle.side === 'you' ? 'bot' : 'you');
+  const mods = talented ? playerReturn(actor, raw) : plainReturn(world, raw);
   const off = mods.off;
 
   const before = ball.speed;
   // Track only the bonus still present above the unboosted rally pace.
   // A return's ceiling can already remove that bonus before surge bleeds.
   const plain = clamp(
-    Math.max(BALANCE.ball.hardMin, before - world.talents.surge) * tuning.speedPerHit,
+    Math.max(BALANCE.ball.hardMin, before - actor.talents.surge - foe.talents.surge) *
+      tuning.speedPerHit,
     BALANCE.ball.hardMin,
     Math.min(BALANCE.ball.hardMax, tuning.maxSpeed)
   );
@@ -112,21 +114,20 @@ function onPaddleHit(
   const human = isHuman(world, paddle.side);
   const pan = panAt(world, paddle.x, contactY);
   const flick =
-    human &&
+    match.status !== 'menu' &&
     Math.abs(raw) >= FLICK_EDGE &&
     Math.abs(paddle.vy) >= FLICK_SPEED &&
     Math.sign(paddle.vy) === Math.sign(raw);
   if (flick) ball.speed = Math.min(ceiling, ball.speed * FLICK_PACE);
 
   if (talented) {
-    // Book the pace this build added over a plain return, so the opponent
-    // can hand most of it back on the way through.
-    world.talents.surge = Math.max(0, ball.speed - plain);
-  } else if (paddle.side === 'bot' && match.status !== 'menu' && world.talents.surge > 0) {
-    world.talents.surge = Math.max(0, ball.speed - plain);
-    const given = world.talents.surge * BALANCE.ball.surgeBleed;
+    // Each side hands back the opponent's surviving bonus under the same
+    // rule. A ceiling may have already removed it; never bleed plain pace.
+    const incoming = Math.min(Math.max(0, ball.speed - plain), foe.talents.surge * mods.growth);
+    const given = incoming * BALANCE.ball.surgeBleed;
     ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed - given);
-    world.talents.surge -= given;
+    foe.talents.surge = incoming - given;
+    actor.talents.surge = Math.max(0, ball.speed - plain - foe.talents.surge);
   }
 
   // Angle comes from where the ball struck, nudged by the paddle's own motion.
@@ -137,10 +138,11 @@ function onPaddleHit(
   ball.vx = Math.cos(angle) * ball.speed * dir;
   ball.vy = Math.sin(angle) * ball.speed;
   ball.owner = paddle.side;
-  ball.heft = (talented ? mods.heft : 0) + (flick && paddle.side === 'you' ? FLICK_HEFT : 0);
-  // Swerve bends the ball the way it just left - and only the player's.
-  world.talents.swerveDir =
-    talented && world.loadout.effects.swerve > 0 ? (ball.vy >= 0 ? 1 : -1) : 0;
+  ball.heft = (talented ? mods.heft : 0) + (flick ? FLICK_HEFT : 0);
+  world.talents.swerveDir = 0;
+  world.botTalents.swerveDir = 0;
+  actor.talents.swerveDir =
+    talented && actor.loadout.effects.swerve > 0 ? (ball.vy >= 0 ? 1 : -1) : 0;
   if (paddle.side === 'bot' && match.status !== 'menu') bossReturned(world);
   else playerReturned(world);
 
@@ -150,6 +152,12 @@ function onPaddleHit(
   ball.squash = 1;
   ball.squashAngle = 0; // compressed along the long axis
   match.rally++;
+  if (match.rally === 25 && world.rules.ranked && world.rules.winScore > 0) {
+    fx.bannerText = 'Rally pressure';
+    fx.bannerSub = 'Both paddles narrow from return 25 · resets next serve';
+    fx.bannerHue = 35;
+    fx.bannerTimer = 1.9;
+  }
   if (match.status !== 'menu') {
     fx.rallyPop = 1;
     world.replay.mark(paddle.side === 'you' ? REPLAY_HIT_YOU : REPLAY_HIT_BOT);
@@ -344,9 +352,10 @@ function advanceBall(world: World, dt: number): void {
       onWallBounce(world);
     } else if (paddleTime <= time) {
       const centre = paddle.y - paddle.vy * remaining;
+      const actor = combatant(world, paddle.side);
       const parry =
-        paddle.side === 'you' && world.talents.guardWindow > 0 && world.match.status !== 'menu'
-          ? world.loadout.effects.guardReach
+        actor.talents.guardWindow > 0 && world.match.status !== 'menu'
+          ? actor.loadout.effects.guardReach
           : 0;
       const reach = paddle.half + BALL_R * 0.55 + parry;
       if (ball.y > centre - reach && ball.y < centre + reach) {
@@ -387,14 +396,17 @@ function onWallBounce(world: World): void {
   if (match.status !== 'menu') {
     world.replay.mark(REPLAY_WALL);
     world.audio.wall(p, panAt(world, ball.x, ball.y));
-    bankBall(world);
+    bankBall(combatant(world, ball.owner));
   }
 }
 
 export function stepBall(world: World, dt: number): void {
   const { ball, view } = world;
   const live = world.match.status !== 'menu';
-  if (live) swerveBall(world, dt);
+  if (live) {
+    swerveBall(world, dt);
+    swerveBall(combatant(world, 'bot'), dt);
+  }
   // Clutch runs the ball's clock slow in the player's half. Its speed is
   // untouched, so the pace it carries back out is exactly the pace it had.
   const travel = live ? dt * ballTimeScale(world) : dt;

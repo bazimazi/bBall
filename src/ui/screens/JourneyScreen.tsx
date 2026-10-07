@@ -4,6 +4,7 @@ import { botProfile } from '../../core/bots/levels';
 import {
   JOURNEY,
   nextStage,
+  nextFrontierStage,
   stageById,
   stageOpen,
   starsInWorld,
@@ -57,10 +58,15 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
   const upcoming = nextStage(journey);
   const [worldId, setWorldId] = useState(upcoming?.world ?? 1);
   const [stageId, setStageId] = useState<string | null>(upcoming?.id ?? null);
+  const [variant, setVariant] = useState<'story' | 'veteran' | 'ascendant'>('story');
 
   const world = worldById(worldId) ?? JOURNEY[0]!;
   const open = worldOpen(journey, world);
-  const selected = stageId ? stageById(stageId) : undefined;
+  const selected = stageId
+    ? stageById(
+        variant === 'story' || stageId.startsWith('f2-') ? stageId : `${variant}-${stageId}`
+      )
+    : undefined;
   const shown = selected && selected.world === world.id ? selected : undefined;
 
   const pickWorld = (id: number) => {
@@ -77,7 +83,11 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
   return (
     <Screen
       title="Journey"
-      subtitle={`${stars} of ${TOTAL_STARS} stars`}
+      subtitle={
+        worldId > 30
+          ? `Journey Beyond · sector ${worldId - 30}`
+          : `${stars} of ${TOTAL_STARS} Story stars`
+      }
       onBack={onBack}
       footer={
         <button
@@ -94,8 +104,62 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
         </button>
       }
     >
+      <label className={styles.sectionLabel}>
+        Journey rules
+        <select value={variant} onChange={(e) => setVariant(e.target.value as typeof variant)}>
+          <option value="story">Story</option>
+          <option value="veteran">Veteran · clear the original stage first</option>
+          <option value="ascendant">Ascendant · Legend opponents and a shorter paddle</option>
+        </select>
+      </label>
+      {(journey['w5-6'] ?? 0) & 1 ? (
+        <button
+          type="button"
+          className={styles.ghost}
+          onClick={() => {
+            const next = nextFrontierStage(journey);
+            setWorldId(next.world);
+            setStageId(next.id);
+          }}
+        >
+          Journey Beyond · next frontier sector
+        </button>
+      ) : null}
+      <label className={styles.sectionLabel}>
+        Chapter{' '}
+        <select
+          value={worldId > 30 ? 6 : Math.floor((worldId - 1) / 5)}
+          onChange={(e) => {
+            const chapter = Number(e.target.value);
+            if (chapter === 6) {
+              const next = nextFrontierStage(journey);
+              setWorldId(next.world);
+              setStageId(next.id);
+            } else pickWorld(chapter * 5 + 1);
+          }}
+        >
+          {[
+            'Original Journey',
+            'Precision Circuit',
+            'Reactive Courts',
+            'Rival Schools',
+            'Fractured Worlds',
+            'Apex Dominion'
+          ].map((name, i) => (
+            <option key={name} value={i}>
+              {name} · worlds {i * 5 + 1}–{i * 5 + 5}
+            </option>
+          ))}
+          <option value={6} disabled={!((journey['w5-6'] ?? 0) & 1)}>
+            Journey Beyond
+          </option>
+        </select>
+      </label>
       <div className={modes.tabs} role="tablist">
-        {JOURNEY.map((item) => {
+        {(worldId > 30
+          ? [world]
+          : JOURNEY.slice(Math.floor((worldId - 1) / 5) * 5, Math.floor((worldId - 1) / 5) * 5 + 5)
+        ).map((item) => {
           const unlocked = worldOpen(journey, item);
           const classes = [modes.tab];
           if (item.id === world.id) classes.push(modes.tabOn);
@@ -134,18 +198,24 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
       )}
 
       <div className={modes.stages} key={world.id}>
-        {world.stages.map((item) => (
-          <StageTile
-            key={item.id}
-            stage={item}
-            hue={item.boss ? (bossById(item.boss)?.spec.hue ?? world.hue) : world.hue}
-            mask={journey[item.id] ?? 0}
-            open={stageOpen(journey, item)}
-            next={upcoming?.id === item.id}
-            selected={shown?.id === item.id}
-            onSelect={() => setStageId(item.id)}
-          />
-        ))}
+        {world.stages.map((base) => {
+          const item =
+            variant === 'story' || base.id.startsWith('f2-')
+              ? base
+              : stageById(`${variant}-${base.id}`)!;
+          return (
+            <StageTile
+              key={item.id}
+              stage={item}
+              hue={item.boss ? (bossById(item.boss)?.spec.hue ?? world.hue) : world.hue}
+              mask={journey[item.id] ?? 0}
+              open={stageOpen(journey, item)}
+              next={upcoming?.id === item.id}
+              selected={shown?.id === item.id}
+              onSelect={() => setStageId(base.id)}
+            />
+          );
+        })}
       </div>
 
       {shown && (

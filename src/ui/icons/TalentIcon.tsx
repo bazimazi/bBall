@@ -321,12 +321,45 @@ function Glyph({ id }: TalentIconProps) {
           <path d="M5 4.5 6 6.5M19 4.5 18 6.5" />
         </>
       );
+    case 'redirect':
+      return <path d="M3 18 12 6l9 12M12 6v9m-4-4 4 4 4-4" />;
+    case 'anchor':
+      return (
+        <>
+          <path d="M4 16 20 8M12 5v14M5 14c1 7 13 7 14 0" />
+          <circle cx="12" cy="4" r="2" />
+        </>
+      );
+    case 'breach':
+      return <path d="M3 4h8v6H3zm10 10h8v6h-8zM4 20 20 4m-4 0h4v4" />;
+    case 'relay':
+      return (
+        <>
+          <path d="M3 12h18M12 3v18" />
+          <circle cx="12" cy="12" r="5" />
+        </>
+      );
+    case 'reserve':
+      return (
+        <>
+          <path d="M6 3h12M6 21h12M7 3c0 6 10 12 10 18M17 3C17 9 7 15 7 21" />
+        </>
+      );
+    case 'rebound':
+      return <path d="M5 18 18 5M11 5h7v7M5 9V5h4M5 5l5 5" />;
     case 'echo':
       return (
         <>
           <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
           <circle cx="12" cy="12" r="6" />
           <circle cx="12" cy="12" r="9.5" />
+        </>
+      );
+    default:
+      return (
+        <>
+          <path d="M4 18 12 4l8 14Z" />
+          <circle cx="12" cy="13" r="3" />
         </>
       );
   }

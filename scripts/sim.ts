@@ -1,3 +1,8 @@
+import { mirroredCourt } from '../src/core/modes/couch';
+import { benchmarkBuild, benchmarkSkills } from './sim-builds';
+import { createRun } from '../src/core/run/run';
+import { runRules } from '../src/core/modes/rules';
+import { frontierStage, EXPANSION_WORLDS } from '../src/core/campaign/expansion';
 /**
  * A headless soak of the real engine: a bot plays the player's paddle
  * against every Journey stage, boss, challenge, court and daily, and the
@@ -22,7 +27,8 @@ import {
   campaignRules,
   challengeRules,
   dailyRules,
-  quickMatchRules
+  quickMatchRules,
+  endlessRules
 } from '../src/core/modes/rules';
 import type { MatchRules } from '../src/core/modes/types';
 import { driveAi } from '../src/game/ai';
@@ -32,6 +38,7 @@ import { publishResult, startMatch } from '../src/game/match';
 import { step } from '../src/game/simulation';
 import { createBrain, createWorld, placePaddles } from '../src/game/world';
 import { simulationOptions, withSoakRandom } from './sim-options';
+import { seeded } from '../src/core/util/random';
 
 // The engine only ever calls methods on its audio; a stand-in that accepts
 // any call and answers 0 is all a headless run needs.
@@ -74,7 +81,9 @@ function play(name: string, rules: MatchRules): Tally {
       placePaddles(world);
       world.grid.resize(world.view.w);
       const brain = createBrain(botProfile(playerBot));
+      if (options.build) world.baseLoadout = benchmarkBuild(options.build, options.level ?? 50);
       startMatch(world, rules);
+      world.random = seeded('soak-combat', options.seed, name, m);
       let pointTime = 0;
       let lastPoints = 0;
       let failed = false;
@@ -83,6 +92,7 @@ function play(name: string, rules: MatchRules): Tally {
           const y = world.player.y;
           driveAi(world, world.player, brain, FIXED_DT);
           world.player.y = y;
+          if (options.build) benchmarkSkills(world, options.policy ?? 'balanced');
         }
         step(world, FIXED_DT);
         const { ball, match } = world;
@@ -93,7 +103,10 @@ function play(name: string, rules: MatchRules): Tally {
           failed = true;
           break;
         }
-        const points = match.score.you + match.score.bot;
+        const points =
+          match.maxLives > 0
+            ? match.waveDepth + match.maxLives - match.lives
+            : match.score.you + match.score.bot;
         if (points !== lastPoints) {
           lastPoints = points;
           pointTime = 0;
@@ -161,13 +174,13 @@ function report(name: string, rules: MatchRules): void {
 console.log(
   `player brain: ${playerBot}, ${matches} matches per case, width ${options.width}, seed ${options.seed}\n`
 );
-if (options.group !== 'journey') {
+if (options.group === 'all' || options.group === 'quick') {
   for (const bot of ['rookie', 'amateur', 'pro', 'elite', 'legend'] as const) {
     report(`quick vs ${bot}`, quickMatchRules(bot));
   }
 }
 console.log('');
-if (options.group !== 'quick') {
+if (options.group === 'all' || options.group === 'journey') {
   for (const stage of STAGES) report(`${stage.id} ${stage.name}`, campaignRules(stage));
 }
 if (options.group === 'all') {
@@ -175,18 +188,45 @@ if (options.group === 'all') {
   for (const challenge of CHALLENGES)
     report(`challenge ${challenge.name}`, challengeRules(challenge));
   console.log('');
-  for (const preset of ARENA_PRESETS) {
-    const base = quickMatchRules('pro');
-    report(`court ${preset.name}`, {
-      ...base,
-      modifiers: { ...base.modifiers, arena: preset.arena }
-    });
-  }
-  console.log('');
   for (let d = 0; d < 6; d++) {
     const key = `2026-10-${String(d + 1).padStart(2, '0')}`;
     report(`daily ${key} ${dailySpec(key).title}`, dailyRules(key));
   }
+}
+if (options.group === 'all' || options.group === 'courts' || options.group === 'expansion') {
+  for (const preset of options.group === 'expansion' ? ARENA_PRESETS.slice(14) : ARENA_PRESETS) {
+    const base = quickMatchRules('pro');
+    report(`court ${preset.id}`, {
+      ...base,
+      modifiers: { ...base.modifiers, arena: preset.arena }
+    });
+  }
+}
+if (options.group === 'couch') {
+  for (const preset of ARENA_PRESETS) {
+    const base = quickMatchRules('pro');
+    report(`mirrored ${preset.id}`, {
+      ...base,
+      modifiers: { ...base.modifiers, arena: mirroredCourt(preset.arena) }
+    });
+  }
+}
+if (options.group === 'waves') {
+  for (const arenaId of ['bankworks-1', 'gatehouse-1', 'storm-circuit-1', 'rift-bank-1'])
+    report(`waves ${arenaId}`, endlessRules({ waves: true, arenaId }));
+}
+if (options.group === 'expansion') {
+  for (const sector of [1, 100, 10000])
+    for (const index of [0, 4, 19])
+      report(`frontier ${sector}-${index}`, campaignRules(frontierStage(sector, index)));
+  for (const pressure of [0, 25, 50])
+    for (const stage of [0, 5, 35, 999])
+      report(
+        `run P${pressure} depth ${stage}`,
+        runRules({ ...createRun(`soak-run-${pressure}`, pressure, 1, 'endless'), stage })
+      );
+  for (const chapter of EXPANSION_WORLDS)
+    report(`boss ${chapter.id}`, campaignRules(chapter.stages[23]!));
 }
 const alerts = cases.reduce(
   (count, tally) => count + tally.stalls + tally.broken + tally.replays + tally.timedOut,

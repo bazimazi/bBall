@@ -1,3 +1,5 @@
+import { stepPractice, practiceLanding } from './practice';
+import { combatant } from './combatant';
 import { DEFAULT_THEME, type ResolvedTheme } from '../core/cosmetics/theme';
 import type { DiagnosticMatchEvent, FrameSample } from '../dev/frameCapture';
 import type { MatchRules } from '../core/modes/types';
@@ -38,7 +40,7 @@ import { Renderer } from './render/renderer';
 import { rescaleArena } from './arena';
 import { wobble } from './effects';
 import { step } from './simulation';
-import { playerKeySpeed, resetRuntime } from './talents';
+import { playerKeySpeed, resetRuntime, rallyPressure } from './talents';
 import { advanceTutorial, startTutorial } from './tutorial';
 import type { AbilityView, GameSnapshot, GoalView, Paddle, Side } from './types';
 import { clamp } from './utils/math';
@@ -137,6 +139,8 @@ export class GameEngine {
   private snapshot: GameSnapshot;
   /** Cached ability view, rebuilt only when what the HUD shows changes. */
   private abilities: readonly AbilityView[] = NO_ABILITIES;
+  private enemyAbilities: readonly AbilityView[] = NO_ABILITIES;
+  private enemyAbilityKey = '';
   private abilityKey = '';
   private goals: readonly GoalView[] = NO_GOALS;
   private goalKey = '';
@@ -147,6 +151,7 @@ export class GameEngine {
   private running = false;
   /** Menus can cover a paused court without handing their keys to the match. */
   private gameplayInputEnabled = true;
+  private landingEstimate: string | null = null;
   private pauseReason: GameSnapshot['pauseReason'] = null;
   /** Short buzzes on hits and points, where the device can make them. */
   private haptics = true;
@@ -303,6 +308,7 @@ export class GameEngine {
   pause = (reason: GameSnapshot['pauseReason'] = null): void => {
     if (!pauseMatch(this.world)) return;
     this.pauseReason = reason;
+    this.landingEstimate = practiceLanding(this.world);
     this.clearInput();
     this.accumulator = 0;
     this.audio.ui();
@@ -315,6 +321,12 @@ export class GameEngine {
     this.audio.ui();
     this.lastTime = performance.now();
     this.accumulator = 0;
+    this.publish();
+  };
+
+  stepPractice = (): void => {
+    if (!stepPractice(this.world)) return;
+    this.landingEstimate = practiceLanding(this.world);
     this.publish();
   };
 
@@ -433,9 +445,10 @@ export class GameEngine {
    * array reference - and therefore the render - changes a couple of dozen
    * times per cooldown.
    */
-  private abilityView(): readonly AbilityView[] {
+  private abilityView(enemy = false): readonly AbilityView[] {
+    const actor = enemy ? combatant(this.world, 'bot') : this.world;
     let key = '';
-    for (const [index, slot] of this.world.talents.slots.entries()) {
+    for (const [index, slot] of actor.talents.slots.entries()) {
       if (!slot.id) continue;
       const { ready, progress, cooldownLeft } = abilityCooldown(slot);
       // The whole second is in the key too: the HUD prints it, so a ring that
@@ -444,16 +457,25 @@ export class GameEngine {
     }
     // Every live effect, at a tenth of a second - the resolution the HUD's
     // own countdowns are shown at, and no finer.
-    const runtime = this.world.talents;
+    const runtime = actor.talents;
     const tenth = (value: number) => Math.ceil(value * 10);
     key += `|${tenth(runtime.strikeArmed)},${tenth(runtime.guardWindow)},${tenth(runtime.dashFx)}`;
     key += `,${runtime.overload},${tenth(runtime.slipstream)}`;
     key += `,${tenth(runtime.aegis)},${runtime.aegisSaves}`;
     key += `,${tenth(runtime.zenith)},${runtime.zenithRefunds},${tenth(runtime.echo)}`;
 
+    key += JSON.stringify(Object.values(runtime.tactics).map(tenth));
+    if (enemy) {
+      if (key !== this.enemyAbilityKey) {
+        this.enemyAbilityKey = key;
+        const views = abilityViews(actor);
+        this.enemyAbilities = views.length ? views : NO_ABILITIES;
+      }
+      return this.enemyAbilities;
+    }
     if (key !== this.abilityKey) {
       this.abilityKey = key;
-      const views = abilityViews(this.world);
+      const views = abilityViews(actor);
       this.abilities = views.length > 0 ? views : NO_ABILITIES;
     }
     return this.abilities;
@@ -466,6 +488,8 @@ export class GameEngine {
 
     return {
       status,
+      practiceLanding:
+        status === 'paused' && rules.mode === 'practice' ? this.landingEstimate : null,
       pauseReason: status === 'paused' ? this.pauseReason : null,
       resumeIn: status === 'resuming' ? Math.ceil(match.resumeTimer / RESUME_BEAT) : 0,
       mode: match.mode,
@@ -473,6 +497,7 @@ export class GameEngine {
       scoreYou: match.score.you,
       scoreBot: match.score.bot,
       winScore: match.winScore,
+      rallyPressure: Math.round(rallyPressure(this.world) * 100),
       bestThisMatch: status === 'menu' ? 0 : Math.max(match.bestThisMatch, match.rally),
       lives: match.lives,
       maxLives: match.maxLives,
@@ -481,15 +506,21 @@ export class GameEngine {
       canPause:
         this.world.tutorial?.step !== 'complete' &&
         (status === 'play' || status === 'serve' || status === 'resuming'),
-      objective: rules.versus
-        ? `P1: ${keyList(this.bindings, 'up')} / ${keyList(this.bindings, 'down')} · P2: ${keyList(this.bindings, 'p2Up')} / ${keyList(this.bindings, 'p2Down')}`
-        : (rules.objective?.label ?? null),
+      objective: rules.options?.waves
+        ? `Wave ${match.waveDepth + 1} · ${match.hits - match.waveHits}/12 returns · ${match.lives} lives`
+        : rules.versus
+          ? `P1: ${keyList(this.bindings, 'up')} / ${keyList(this.bindings, 'down')} · P2: ${keyList(this.bindings, 'p2Up')} / ${keyList(this.bindings, 'p2Down')}`
+          : (rules.objective?.label ?? null),
       objectiveTouch: rules.objective?.touchLabel ?? null,
       goals: this.goalView(),
       tutorialStep: this.world.tutorial?.step ?? null,
       tutorialCleared: this.world.tutorial?.cleared ?? false,
       tutorialFeedback: this.world.tutorial?.feedback ?? null,
       abilities: this.abilityView(),
+      enemyAbilities: rules.versus || status === 'menu' ? NO_ABILITIES : this.abilityView(true),
+      opponentName: rules.versus
+        ? 'P2'
+        : `${rules.bot.name} · ${rules.bot.personality ?? 'opportunist'}`,
       // The chrome sits above the canvas, so it is the one part of the page a
       // capstone cannot reach from the renderer. These four scalars are what
       // it flares on; `ultimateCastId` changes exactly once per cast.
@@ -515,6 +546,7 @@ export class GameEngine {
       Math.max(match.bestThisMatch, match.rally),
       match.hits,
       match.flicks,
+      this.world.arena.course.events.you,
       clock
     ]);
     if (key !== this.goalKey) {
@@ -557,6 +589,7 @@ export class GameEngine {
     placePaddles(this.world);
     this.world.grid.resize(this.world.view.w);
     rescaleArena(this.world);
+    this.landingEstimate = practiceLanding(this.world);
     this.renderer.invalidate();
   };
 

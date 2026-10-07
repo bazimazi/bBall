@@ -236,6 +236,7 @@ export function ResultScreen({
         <div className={styles.stats}>
           <Stat value={result.bestRally} label="Best rally" />
           <Stat value={result.hits} label="Returns" />
+          {result.waves !== undefined && <Stat value={result.waves} label="Waves cleared" />}
           {result.flicks > 0 ? (
             <Stat value={result.flicks} label="Flicks" />
           ) : (

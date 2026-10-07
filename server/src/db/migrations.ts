@@ -417,10 +417,20 @@ CREATE TABLE profile_progress (
 ) WITHOUT ROWID;
 `;
 
+const endlessContent = `
+CREATE TABLE talent_presets (
+  user_id TEXT PRIMARY KEY REFERENCES profiles (user_id) ON DELETE CASCADE,
+  data_json TEXT NOT NULL DEFAULT '[]'
+) WITHOUT ROWID;
+ALTER TABLE tournaments ADD COLUMN format TEXT CHECK (format IN ('classic', 'marathon', 'ladder'));
+ALTER TABLE tournaments ADD COLUMN season INTEGER NOT NULL DEFAULT 0 CHECK (season >= 0);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'init', up: init },
   { version: 2, name: 'sync_state', up: syncState },
   { version: 3, name: 'oauth', up: oauth },
   { version: 4, name: 'oauth_client', up: oauthClient },
-  { version: 5, name: 'progress', up: progress }
+  { version: 5, name: 'progress', up: progress },
+  { version: 6, name: 'endless_content', up: endlessContent }
 ];

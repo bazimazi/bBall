@@ -7,7 +7,10 @@ export interface SimulationOptions {
   playerBot: BotLevelId;
   width: number;
   seed: string;
-  group: 'all' | 'journey' | 'quick';
+  group: 'all' | 'journey' | 'quick' | 'courts' | 'expansion' | 'waves' | 'couch';
+  build?: 'power' | 'control' | 'defense' | 'momentum' | 'utility';
+  policy?: 'balanced' | 'rush' | 'edge' | 'late';
+  level?: number;
   output: string | null;
 }
 
@@ -21,7 +24,10 @@ export function simulationOptions(args: readonly string[]): SimulationOptions {
       continue;
     }
     const [name, ...inline] = argument.slice(2).split('=');
-    if (!['width', 'seed', 'group', 'output'].includes(name!) || flags.has(name!))
+    if (
+      !['width', 'seed', 'group', 'output', 'build', 'policy', 'level'].includes(name!) ||
+      flags.has(name!)
+    )
       throw new Error(`Unknown or repeated option: --${name}`);
     const value = inline.length ? inline.join('=') : args[++i];
     if (!value || value.startsWith('--')) throw new Error(`Missing value for --${name}`);
@@ -40,9 +46,21 @@ export function simulationOptions(args: readonly string[]): SimulationOptions {
   if (!Number.isFinite(width) || width < 750 || width > 1290)
     throw new Error('Field width must be from 750 to 1290.');
   if (!seed.trim() || seed.length > 100) throw new Error('Seed must contain 1–100 characters.');
-  if (!['all', 'journey', 'quick'].includes(group))
-    throw new Error('Group must be all, journey or quick.');
+  if (!['all', 'journey', 'quick', 'courts', 'expansion', 'waves', 'couch'].includes(group))
+    throw new Error('Group must be all, journey, quick, courts, expansion, waves or couch.');
+  const build = flags.get('build'),
+    policy = flags.get('policy'),
+    level = flags.get('level');
+  if (build && !['power', 'control', 'defense', 'momentum', 'utility'].includes(build))
+    throw new Error('Unknown build branch.');
+  if (policy && !['balanced', 'rush', 'edge', 'late'].includes(policy))
+    throw new Error('Unknown activation policy.');
+  if (level && (!Number.isInteger(Number(level)) || Number(level) < 1 || Number(level) > 50))
+    throw new Error('Build level must be from 1 to 50.');
   return {
+    ...(build ? { build: build as NonNullable<SimulationOptions['build']> } : {}),
+    ...(policy ? { policy: policy as NonNullable<SimulationOptions['policy']> } : {}),
+    ...(level ? { level: Number(level) } : {}),
     matches,
     playerBot: playerBot as BotLevelId,
     width,

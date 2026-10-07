@@ -1,6 +1,6 @@
 # bBall player experience review
 
-Reviewed on 3 October 2026; continued on 4–6 October 2026. This review covers the current React and canvas game,
+Reviewed on 3 October 2026; continued on 4–6 October 2026. This historical review covers the React and canvas game before the endless expansion,
 its shared physics and mode rules, input handling, first-run flow, menus,
 feedback, settings and regression coverage.
 
@@ -11,6 +11,15 @@ existing native/assistive-technology checks remain validation work; no player
 or physical-device evidence was available to justify changing difficulty or
 quality defaults. The [validation guide](player-experience-validation.md)
 provides the exact collection, comparison and decision workflow.
+
+**Endless expansion, 7 October:** at the user's request, the game now has a much
+larger Journey, continuing Frontier/Gauntlet progression, stronger opponents and
+shared hazard/skill mechanics. The
+[implementation report](validation/endless-progression-report.md) gives current
+counts, automated evidence and remaining human/device validation. The difficulty
+changes follow the user's reported experience and request; the older review's
+small proxy sample is not evidence of human balance. The prioritisation and
+content descriptions below document the earlier round.
 
 **Project policy, updated at the user's request:** completely ignore operating-system
 and browser reduced-motion settings on web, desktop and mobile. Do not reintroduce

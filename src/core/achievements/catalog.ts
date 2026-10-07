@@ -1,5 +1,7 @@
-import { JOURNEY, totalStars, TOTAL_STARS, worldCleared } from '../campaign/journey';
-import { BOSSES } from '../modes/bosses';
+import { starCount } from '../modes/stars';
+import { MASTERY_TRACKS } from '../progression/mastery';
+import { JOURNEY, LEGACY_STAGES, totalStars, worldCleared } from '../campaign/journey';
+import { LEGACY_BOSSES, BOSSES } from '../modes/bosses';
 import { CHALLENGES } from '../modes/challenges';
 import type { MatchResult } from '../modes/types';
 import type { PlayerProfile } from '../profile/types';
@@ -228,11 +230,19 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'journey-stars-all',
     name: 'Constellation',
-    description: 'Earn every Journey star',
+    description: 'Earn every star in the original five worlds',
     group: 'journey',
     xp: 500,
-    check: ({ profile }) => totalStars(profile.progress.journey) >= TOTAL_STARS,
-    progress: ({ profile }) => ratio(totalStars(profile.progress.journey), TOTAL_STARS)
+    check: ({ profile }) =>
+      LEGACY_STAGES.every((stage) => profile.progress.journey[stage.id] === 7),
+    progress: ({ profile }) =>
+      ratio(
+        LEGACY_STAGES.reduce(
+          (sum, stage) => sum + starCount(profile.progress.journey[stage.id] ?? 0),
+          0
+        ),
+        90
+      )
   },
   {
     id: 'boss-4',
@@ -249,8 +259,12 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     description: 'Beat every boss',
     group: 'journey',
     xp: 350,
-    check: ({ profile }) => bossesBeaten(profile) >= BOSSES.length,
-    progress: ({ profile }) => ratio(bossesBeaten(profile), BOSSES.length)
+    check: ({ profile }) => LEGACY_BOSSES.every((b) => !!profile.progress.bosses[b.spec.id]),
+    progress: ({ profile }) =>
+      ratio(
+        LEGACY_BOSSES.filter((b) => !!profile.progress.bosses[b.spec.id]).length,
+        LEGACY_BOSSES.length
+      )
   },
   {
     id: 'flick-100',
@@ -347,7 +361,64 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     xp: 0,
     check: ({ level }) => level >= 20,
     progress: ({ level }) => ratio(level, 20)
-  }
+  },
+  ...JOURNEY.slice(5).map((w) => worldAchievement(w.id, `journey-w${w.id}`, w.name, 200)),
+  {
+    id: 'journey-expansion-stars',
+    name: 'The Atlas',
+    description: 'Earn all 1,890 Story Journey stars',
+    group: 'journey',
+    xp: 1000,
+    check: ({ profile }) => totalStars(profile.progress.journey) >= 1890,
+    progress: ({ profile }) => ratio(totalStars(profile.progress.journey), 1890)
+  },
+  {
+    id: 'boss-expansion-all',
+    name: 'Council Breaker',
+    description: 'Defeat all 25 bosses',
+    group: 'journey',
+    xp: 800,
+    check: ({ profile }) => BOSSES.every((b) => !!profile.progress.bosses[b.spec.id]),
+    progress: ({ profile }) => ratio(bossesBeaten(profile), 25)
+  },
+  ...[1, 10, 100, 1000].map((n) => ({
+    id: `frontier-${n}`,
+    name: `Frontier ${n}`,
+    description: `Complete ${n} Frontier sectors`,
+    group: 'journey' as const,
+    xp: 250,
+    check: ({ profile }: AchievementContext) => (profile.progress.journey['frontier-v2'] ?? 0) >= n,
+    progress: ({ profile }: AchievementContext) =>
+      ratio(profile.progress.journey['frontier-v2'] ?? 0, n)
+  })),
+  ...[50, 100, 250, 500, 1000].map((n) => ({
+    id: `mastery-${n}`,
+    name: `Mastery ${n}`,
+    description: `Reach level ${n} with bounded combat power`,
+    group: 'level' as const,
+    xp: 0,
+    check: ({ level }: AchievementContext) => level >= n,
+    progress: ({ level }: AchievementContext) => ratio(level, n)
+  })),
+  ...[10, 30, 50].map((n) => ({
+    id: `pressure-${n}`,
+    name: `Pressure ${n}`,
+    description: `Clear an act or run at Pressure ${n}`,
+    group: 'gauntlet' as const,
+    xp: 500,
+    check: ({ profile }: AchievementContext) => profile.progress.runRecords.bestPressure >= n,
+    progress: ({ profile }: AchievementContext) =>
+      ratio(Math.max(0, profile.progress.runRecords.bestPressure), n)
+  })),
+  ...MASTERY_TRACKS.map((t) => ({
+    id: `track-${t.id}`,
+    name: `${t.name} adept`,
+    description: `Earn 100 ${t.name.toLowerCase()} marks against Pro or harder opponents`,
+    group: 'play' as const,
+    xp: 200,
+    check: ({ profile }: AchievementContext) => (profile.progress.mastery[t.id] ?? 0) >= 100,
+    progress: ({ profile }: AchievementContext) => ratio(profile.progress.mastery[t.id] ?? 0, 100)
+  }))
 ];
 
 const BY_ID = new Map(ACHIEVEMENTS.map((item) => [item.id, item]));

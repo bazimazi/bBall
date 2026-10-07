@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { advanceSeries, seriesComplete, type MatchSeries } from '../../core/modes/sessions';
+import type { TournamentFormat } from '../../core/tournament/bracket';
+import type { MatchOptions } from '../../core/modes/types';
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from 'react';
 
 import type { BotLevelId } from '../../core/bots/types';
 import { stageById } from '../../core/campaign/journey';
@@ -15,6 +25,7 @@ import {
 } from '../../core/modes/rules';
 import { dayKey } from '../../core/progression/xp';
 import { isRunActive } from '../../core/run/run';
+import type { RunFormat } from '../../core/run/formats';
 import type { MatchResult, MatchRules, ModeId } from '../../core/modes/types';
 import * as progression from '../../core/account/progression';
 import { profileStore, type ProgressSummary } from '../../core/profile/store';
@@ -58,18 +69,19 @@ export interface GameFlow {
   canGoBack: boolean;
   /** The finished match being shown on the result screen. */
   result: MatchResult | null;
+  series: MatchSeries | null;
   summary: ProgressSummary | null;
-  pickMode: (mode: ModeId) => void;
-  startQuick: (bot: BotLevelId) => void;
-  startPractice: (bot: BotLevelId) => void;
+  pickMode: (mode: ModeId, options?: MatchOptions) => void;
+  startQuick: (bot: BotLevelId, options?: MatchOptions) => void;
+  startPractice: (bot: BotLevelId, options?: MatchOptions) => void;
   startTutorial: () => void;
   startChallenge: (id: string) => void;
-  startCup: (tier?: number) => void;
+  startCup: (tier?: number, format?: TournamentFormat) => void;
   abandonCup: () => void;
   startStage: (id: string) => void;
   startDaily: (day?: string) => void;
   /** Begin a Gauntlet run at `pressure`, straight into its first match. */
-  startRun: (pressure: number) => void;
+  startRun: (pressure: number, format?: RunFormat) => void;
   /** Play the run's next match. */
   playRun: () => void;
   pickBoon: (id: string) => void;
@@ -120,19 +132,25 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     () => setStack((current) => (current.length > 1 ? current.slice(0, -1) : current)),
     []
   );
+  const [series, setSeries] = useState<MatchSeries | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [summary, setSummary] = useState<ProgressSummary | null>(null);
   const handled = useRef(0);
 
-  // A finished match arrives exactly once, tagged with an id.
+  const processFinished = useEffectEvent((finished: MatchResult) => {
+    setResult(finished);
+    if (finished.options?.series && finished.options.series > 1)
+      setSeries((current) => (current ? advanceSeries(current, finished.won) : null));
+    setSummary(progression.recordMatch(finished));
+    replace('result');
+  });
+  // Synchronize the external engine's completed attempt exactly once.
   useEffect(() => {
     const finished = snapshot.result;
     if (!finished || snapshot.resultId === handled.current) return;
     handled.current = snapshot.resultId;
-    setResult(finished);
-    setSummary(progression.recordMatch(finished));
-    replace('result');
-  }, [snapshot.result, snapshot.resultId, replace]);
+    processFinished(finished);
+  }, [snapshot.result, snapshot.resultId]);
 
   const play = useCallback(
     (rules: MatchRules) => {
@@ -143,17 +161,22 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   );
 
   const startQuick = useCallback(
-    (bot: BotLevelId) => {
+    (bot: BotLevelId, options?: MatchOptions) => {
+      setSeries(
+        options?.series && options.series > 1
+          ? { length: options.series as 3 | 5, games: 0, you: 0, foe: 0 }
+          : null
+      );
       progression.setLastBot(bot);
-      play(quickMatchRules(bot));
+      play(quickMatchRules(bot, options));
     },
     [play]
   );
 
   const startPractice = useCallback(
-    (bot: BotLevelId) => {
+    (bot: BotLevelId, options?: MatchOptions) => {
       progression.setLastPracticeBot(bot);
-      play(practiceRules(bot, settingsStore.getSnapshot().practicePace));
+      play(practiceRules(bot, settingsStore.getSnapshot().practicePace, options));
     },
     [play]
   );
@@ -172,11 +195,11 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   );
 
   const startCup = useCallback(
-    (tier?: number) => {
+    (tier?: number, format?: TournamentFormat) => {
       const profile = profileStore.getSnapshot();
       const save =
         profile.tournament ??
-        progression.startTournament(tier ?? tierForLevel(levelOf(profile.xp)).id);
+        progression.startTournament(tier ?? tierForLevel(levelOf(profile.xp)).id, format);
       play(tournamentRules(save));
     },
     [play]
@@ -201,12 +224,13 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     // A draft must be picked before the next match: the server holds the run
     // to the same rule, so the client never offers the way round it.
     if (!isRunActive(run) || run.offer) return;
+    if (!engine || (run.version === 2 && !progression.runAction('commit'))) return;
     play(runRules(run));
-  }, [play]);
+  }, [play, engine]);
 
   const startRun = useCallback(
-    (pressure: number) => {
-      if (progression.startRun(pressure)) playRun();
+    (pressure: number, format?: RunFormat) => {
+      if (progression.startRun(pressure, format)) playRun();
     },
     [playRun]
   );
@@ -241,7 +265,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   }, [engine]);
 
   const pickMode = useCallback(
-    (mode: ModeId) => {
+    (mode: ModeId, options?: MatchOptions) => {
       switch (mode) {
         case 'quick':
           setScreen('quick');
@@ -256,7 +280,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
           setScreen('tournament');
           break;
         case 'endless':
-          play(endlessRules());
+          play(endlessRules(options));
           break;
         case 'campaign':
           setScreen('journey');
@@ -268,7 +292,12 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
           setScreen('gauntlet');
           break;
         case 'versus':
-          play(versusRules());
+          setSeries(
+            options?.series && options.series > 1
+              ? { length: options.series as 3 | 5, games: 0, you: 0, foe: 0 }
+              : null
+          );
+          play(versusRules(undefined, options));
           break;
       }
     },
@@ -277,13 +306,34 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const quitToMenu = useCallback(() => {
     engine?.quitToMenu();
+    setSeries(null);
     setStack(['home']);
   }, [engine]);
 
   const replay = useCallback(() => {
+    if (snapshot.mode === 'run') {
+      const run = profileStore.getSnapshot().progress.run;
+      if (run?.version === 2) {
+        if (run.attempt && !progression.runAction('restart')) return;
+        const current = profileStore.getSnapshot().progress.run;
+        if (!isRunActive(current)) {
+          engine?.quitToMenu();
+          setStack(['home', 'gauntlet']);
+          return;
+        }
+        playRun();
+        return;
+      }
+      if (!isRunActive(run)) {
+        engine?.quitToMenu();
+        setStack(['home', 'gauntlet']);
+        return;
+      }
+    }
+    if (series && seriesComplete(series)) setSeries({ ...series, games: 0, you: 0, foe: 0 });
     engine?.replay();
     replace('playing');
-  }, [engine, replace]);
+  }, [engine, replace, snapshot.mode, playRun, series]);
 
   /**
    * Leave the result card for a menu, tidying the finished match away.
@@ -295,6 +345,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   const leaveResult = useCallback(
     (next: ScreenId) => {
       engine?.quitToMenu();
+      setSeries(null);
       setStack(next === 'home' ? ['home'] : ['home', next]);
     },
     [engine]
@@ -307,6 +358,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     back,
     canGoBack: stack.length > 1,
     result,
+    series,
     summary,
     pickMode,
     startQuick,

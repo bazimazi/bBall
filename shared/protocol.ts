@@ -1,3 +1,6 @@
+import type { TournamentFormat } from '../src/core/tournament/bracket';
+import type { RunAction } from '../src/core/run/ops';
+import type { MatchOptions } from '../src/core/modes/types';
 /**
  * The wire contract between the bBall client and the bBall server.
  *
@@ -16,7 +19,13 @@ import type { Equipped } from '../src/core/cosmetics/catalog';
 import type { ModeId } from '../src/core/modes/types';
 import type { ProgressState } from '../src/core/profile/progress';
 import type { AvatarId, ChallengeRecord, LifetimeStats } from '../src/core/profile/types';
-import type { AbilityId, BranchId, TalentId, TalentStats } from '../src/core/talents/types';
+import type {
+  AbilityId,
+  BranchId,
+  TalentId,
+  TalentStats,
+  TalentPreset
+} from '../src/core/talents/types';
 import type { TournamentSave } from '../src/core/tournament/bracket';
 
 export const API_PREFIX = '/v1';
@@ -239,6 +248,7 @@ export interface ModeStatsDto {
 }
 
 export interface TalentBuildDto {
+  readonly presets?: (TalentPreset | null)[];
   readonly ranks: Partial<Record<TalentId, number>>;
   readonly equipped: readonly (AbilityId | null)[];
   readonly stats: TalentStats;
@@ -326,6 +336,9 @@ export interface UpdateProfileRequest {
  * evidence, and implausible evidence is rejected outright.
  */
 export interface MatchSubmissionDto {
+  waves?: number | undefined;
+  options?: MatchOptions | undefined;
+  court?: { banks: number; switches: number; breaks: number; gates: number } | undefined;
   /** Client-generated, stable across retries. Replays are ignored. */
   readonly clientMatchId: string;
   readonly mode: ModeId;
@@ -487,6 +500,15 @@ export interface ClaimResponse {
 }
 
 export type SyncOp =
+  | {
+      readonly kind: 'talent.build';
+      readonly opId: string;
+      readonly payload: {
+        readonly slot: number;
+        readonly action: 'save' | 'load';
+        readonly name?: string | undefined;
+      };
+    }
   | { readonly kind: 'match'; readonly opId: string; readonly payload: MatchSubmissionDto }
   | {
       readonly kind: 'talent.purchase';
@@ -527,7 +549,7 @@ export type SyncOp =
   | {
       readonly kind: 'tournament.start';
       readonly opId: string;
-      readonly payload: { readonly tier: number };
+      readonly payload: { readonly tier: number; readonly format?: TournamentFormat | undefined };
     }
   | {
       readonly kind: 'tournament.abandon';
@@ -537,7 +559,11 @@ export type SyncOp =
   | {
       readonly kind: 'run.start';
       readonly opId: string;
-      readonly payload: { readonly seed: string; readonly pressure: number };
+      readonly payload: {
+        readonly seed: string;
+        readonly pressure: number;
+        readonly format?: 'sprint' | 'expedition' | 'endless' | undefined;
+      };
     }
   | {
       readonly kind: 'run.pick';
@@ -548,6 +574,11 @@ export type SyncOp =
       readonly kind: 'run.abandon';
       readonly opId: string;
       readonly payload: Record<string, never>;
+    }
+  | {
+      readonly kind: 'run.action';
+      readonly opId: string;
+      readonly payload: { readonly action: RunAction };
     };
 
 export type SyncOpKind = SyncOp['kind'];
@@ -596,6 +627,7 @@ export const MAX_SYNC_OPS = 50;
 // --------------------------------------------------------------- config
 
 export interface GameConfigResponse {
+  readonly content?: unknown;
   /** Changes whenever any catalogue or balance number changes. */
   readonly configVersion: string;
   readonly protocolVersion: number;

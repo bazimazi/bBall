@@ -1,4 +1,5 @@
 import { ABILITIES, type AbilityId, type TalentEffects, type TalentId } from './types';
+import { EXPANSION_ABILITIES } from './expansion';
 
 /**
  * The active abilities, as data.
@@ -129,7 +130,8 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     cooldown: (effects) => effects.echoCooldown,
     summary: (effects) =>
       `Clears other cooldowns, then ${effects.echoRecharge}x recharge for ${seconds(effects.echoSeconds)}`
-  }
+  },
+  ...EXPANSION_ABILITIES
 ];
 
 const BY_ID = new Map<string, AbilityDef>(ABILITY_DEFS.map((ability) => [ability.id, ability]));

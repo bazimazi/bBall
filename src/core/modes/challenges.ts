@@ -1,3 +1,5 @@
+import { EXPANSION_COURTS } from './expansionCourts';
+import { recipe } from './recipes';
 import type { BotLevelId } from '../bots/types';
 import type { MatchModifiers, MatchObjective } from './types';
 import { arenaPreset } from './arenas';
@@ -7,6 +9,7 @@ import { arenaPreset } from './arenas';
  * configuration, no sub-menus: tap it and play.
  */
 export interface Challenge {
+  readonly courtFamily?: string;
   readonly id: string;
   readonly name: string;
   /** One line describing the twist. */
@@ -18,7 +21,7 @@ export interface Challenge {
   readonly xp: number;
 }
 
-export const CHALLENGES: readonly Challenge[] = [
+export const LEGACY_CHALLENGES: readonly Challenge[] = [
   {
     id: 'switchback',
     name: 'Switchback',
@@ -168,8 +171,75 @@ export const CHALLENGES: readonly Challenge[] = [
   }
 ];
 
+function routeObjective(
+  arena: NonNullable<MatchModifiers['arena']>,
+  difficulty: number
+): MatchObjective {
+  if (arena.switches?.length)
+    return {
+      id: 'switches',
+      label: `Win and trigger ${1 + difficulty} switches`,
+      value: 1 + difficulty
+    };
+  if (arena.rails?.some((r) => r.hp) || arena.bricks) {
+    const capacity =
+      (arena.rails?.filter((r) => r.hp).length ?? 0) +
+      (arena.bricks ? arena.bricks.rows * (arena.bricks.sides === 'both' ? 2 : 1) : 0);
+    const value = Math.min(capacity, 1 + difficulty);
+    return { id: 'breaks', label: `Win and break ${value} structures`, value };
+  }
+  if (arena.rails?.length)
+    return {
+      id: 'banks',
+      label: `Win and land ${2 + difficulty} rail banks`,
+      value: 2 + difficulty
+    };
+  if (arena.gates?.length)
+    return {
+      id: 'gates',
+      label: `Win and cross ${2 + difficulty} openings`,
+      value: 2 + difficulty
+    };
+  return { id: 'win', label: 'Win the match', value: 0 };
+}
+export const CHALLENGES: readonly Challenge[] = [
+  ...LEGACY_CHALLENGES,
+  ...Array.from({ length: 106 }, (_, i): Challenge => {
+    const court = EXPANSION_COURTS[i % 46]!,
+      band = Math.floor(i / 27);
+    const r = recipe('challenge-v2', i, band + 1);
+    return {
+      id: `c2-${i + 1}`,
+      name: `${court.name} · Trial ${Math.floor(i / 46) + 1}`,
+      blurb: `${court.blurb}. ${band >= 2 ? 'Mastery: shorter reach and tougher opposition.' : 'Complete the marked court objective.'}`,
+      bot: r.bot,
+      winScore: band >= 2 ? 5 : 3,
+      modifiers: { ...r.modifiers, arena: court.arena, playerPaddleScale: 1 - band * 0.04 },
+      objective: routeObjective(court.arena, band),
+      xp: 180 + band * 40
+    };
+  })
+];
+export function contractChallenge(index: number): Challenge {
+  const r = recipe('contracts-v2', index, Math.min(4, 1 + Math.floor(index / 12)));
+  return {
+    id: `contract-${index}`,
+    courtFamily: r.courtFamily,
+    name: `Contract ${index} · ${r.courtName}`,
+    blurb: r.blurb,
+    bot: r.bot,
+    winScore: Math.max(5, r.winScore),
+    modifiers: r.modifiers,
+    objective: routeObjective(r.modifiers.arena!, Math.min(3, Math.floor(index / 12))),
+    xp: 220
+  };
+}
+
 const BY_ID = new Map(CHALLENGES.map((item) => [item.id, item]));
 
 export function challengeById(id: string): Challenge | undefined {
-  return BY_ID.get(id);
+  const found = BY_ID.get(id);
+  if (found) return found;
+  const match = /^contract-([1-9][0-9]{0,8})$/.exec(id);
+  return match ? contractChallenge(Number(match[1])) : undefined;
 }

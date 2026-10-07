@@ -54,6 +54,43 @@ export function HowToPlayScreen({ onTutorial, onPractice, onBack }: HowToPlayScr
           effects remove camera movement and screen flashes.
         </p>
       </div>
+      <div className={styles.card}>
+        <h3 className={styles.sectionLabel}>Read the changing court</h3>
+        <p>
+          Rails bank the ball; durability marks show which ones can break. Read a gate's opening and
+          release beat before aiming through it. Hit its diamond switch to open a route. Marked pace
+          zones change the ball's speed.
+        </p>
+        <p>
+          These essential cues remain visible in Full and Calm. Practice lets you isolate a boss
+          phase; Pause offers a landing estimate and a 0.1-second step.
+        </p>
+      </div>
+      <div className={styles.card}>
+        <h3 className={styles.sectionLabel}>Watch the opponent's recovery</h3>
+        <p>
+          Harder opponents place shots and use skills. Their skill bar shows ready, active and
+          recovering abilities. Keep a dash or guard for an exposed return, and vary your own
+          placement.
+        </p>
+        <p>
+          Long ranked rallies eventually narrow both paddles. The next serve restores their reach.
+          Master/Mythic Quick contracts declare their extra restrictions before you play.
+        </p>
+      </div>
+      <div className={styles.card}>
+        <h3 className={styles.sectionLabel}>Keep exploring</h3>
+        <p>
+          Journey Beyond opens continuing sectors after the original fifth-world boss. Gauntlet
+          offers short, long and Endless runs, with routes and services between encounters. Choose a
+          new build, opponent school or court to pursue its mastery record.
+        </p>
+        <p>
+          Gauntlet saves completed progress and committed choices. Restarting an unfinished
+          encounter after leaving the app costs one heart; Pause holds the current rally while the
+          game stays open.
+        </p>
+      </div>
       <p className={styles.note}>
         The optional lesson has three short steps and safe retries. Replay or skip it any time.
         Skills arrive later through Talents. This guide is always available from Home.

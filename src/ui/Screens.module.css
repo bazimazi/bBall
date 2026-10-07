@@ -168,6 +168,74 @@
   padding: 14px 16px;
 }
 
+.screen label:has(> select),
+.screen label:has(> input[type='date']) {
+  display: grid;
+  gap: 8px;
+  margin-block: 8px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.screen select,
+.screen input[type='date'] {
+  min-height: 44px;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: #111827;
+  color: var(--ink);
+  font: inherit;
+}
+
+.screen summary {
+  cursor: pointer;
+  padding-block: 10px;
+  line-height: 1.5;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 10px;
+}
+
+.tab,
+.tabActive {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabActive {
+  border-color: var(--you);
+  box-shadow: 0 0 0 1px var(--you) inset;
+}
+
+.preset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 12px;
+}
+
+.preset > span {
+  flex-basis: 100%;
+}
+
+.preset > button {
+  flex: 1;
+}
+
 .grid {
   display: grid;
   gap: 10px;

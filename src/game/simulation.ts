@@ -2,11 +2,12 @@ import { updateArena } from './arena';
 import { updateAbilityFx } from './casts';
 import { FIELD_H } from './constants';
 import { driveAi } from './ai';
-import { celebrate, launchBall } from './match';
+import { advanceWave, celebrate, launchBall } from './match';
 import { hsla } from './palette';
 import { movePaddle, stepBall } from './physics';
 import { playerPaddleSpeed, updateRuntime } from './talents';
 import { stepTutorial } from './tutorial';
+import { combatant } from './combatant';
 import type { Orb } from './effects';
 import { clamp, decay, lerp } from './utils/math';
 import { ballHue, hueOf, panAt, type World } from './world';
@@ -196,6 +197,7 @@ export function step(world: World, dt: number): void {
     case 'serve': {
       match.elapsed += dt;
       updateRuntime(world, dt);
+      if (!world.rules.versus) updateRuntime(combatant(world, 'bot'), dt);
       player.target = clamp(player.target, player.half, FIELD_H - player.half);
       movePaddle(player, dt, playerPaddleSpeed(world));
       if (world.rules.versus) {
@@ -214,11 +216,13 @@ export function step(world: World, dt: number): void {
     case 'play': {
       match.elapsed += dt;
       updateRuntime(world, dt);
+      if (!world.rules.versus) updateRuntime(combatant(world, 'bot'), dt);
       movePaddle(player, dt, playerPaddleSpeed(world));
       // Two players: the far paddle is a person too, at the same speed.
       if (world.rules.versus) movePaddle(bot, dt, playerPaddleSpeed(world));
       else driveAi(world, bot, world.botBrain, dt);
       stepBall(world, dt);
+      advanceWave(world);
       // The point may have just ended the match; only a live one is taped.
       if (match.status === 'play') {
         world.replay.record(world);

@@ -11,7 +11,7 @@ interface MatchHudProps {
 export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
   const versus = snapshot.mode === 'versus';
   const you = versus ? 'P1' : 'You';
-  const bot = versus ? 'P2' : 'Bot';
+  const bot = versus ? 'P2' : (snapshot.opponentName ?? 'Bot');
   const lives = snapshot.maxLives > 0;
   const announcement = lives
     ? `${snapshot.lives} of ${snapshot.maxLives} lives left`
@@ -43,6 +43,25 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
       <p className={styles.target}>
         {lives ? `Best rally ${snapshot.bestThisMatch}` : `First to ${snapshot.winScore}`}
       </p>
+      {!!snapshot.rallyPressure && (
+        <p className={styles.objective}>
+          Rally pressure · both paddles {snapshot.rallyPressure}% shorter
+        </p>
+      )}
+      {!versus && !!snapshot.enemyAbilities?.length && (
+        <div className={styles.enemy} aria-label="Opponent skills">
+          {snapshot.enemyAbilities.map((skill) => (
+            <span
+              key={skill.id}
+              title={`${skill.name}: ${skill.active ? 'active' : skill.ready ? 'ready' : `${skill.cooldownLeft}s recovery`}`}
+              data-active={skill.active}
+            >
+              {skill.name}{' '}
+              {skill.active ? 'active' : skill.ready ? 'ready' : `${skill.cooldownLeft}s`}
+            </span>
+          ))}
+        </div>
+      )}
       {snapshot.goals.length > 0 ? (
         <button
           className={styles.goals}

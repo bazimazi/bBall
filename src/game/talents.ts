@@ -1,3 +1,4 @@
+import type { AbilityId } from '../core/talents/types';
 import { BALANCE } from '../core/balance/config';
 import { abilityById } from '../core/talents/abilities';
 import { resolveLoadout, type ResolvedLoadout } from '../core/talents/effects';
@@ -42,6 +43,7 @@ function emptySlots(): AbilitySlot[] {
 
 export function createRuntime(): TalentRuntime {
   return {
+    tactics: {},
     drive: 0,
     bestDrive: 0,
     rallyReturns: 0,
@@ -87,6 +89,7 @@ export function createRuntime(): TalentRuntime {
 export function resetRuntime(world: World): void {
   const runtime = world.talents;
   const { effects, equipped } = world.loadout;
+  runtime.tactics = {};
 
   runtime.drive = 0;
   runtime.bestDrive = 0;
@@ -178,7 +181,10 @@ export function wonPoint(world: World): void {
 function inClutch(world: World): boolean {
   const { match } = world;
   if (match.maxLives > 0) return match.lives <= 1;
-  return match.winScore > 0 && match.score.bot >= match.winScore - 1;
+  return (
+    match.winScore > 0 &&
+    match.score[world.player.side === 'you' ? 'bot' : 'you'] >= match.winScore - 1
+  );
 }
 
 /**
@@ -240,7 +246,13 @@ export function playerLength(world: World): number {
   if (effects.clutchLength > 0 && inClutch(world)) length += effects.clutchLength;
   if (runtime.slipstream > 0) length += effects.slipstreamGrow;
   if (runtime.zenith > 0) length += effects.zenithGrow;
-  return length;
+  return (1 + length) * (1 - rallyPressure(world)) - 1;
+}
+
+/** A declared long-rally rule, symmetric and reset on every serve. */
+export function rallyPressure(world: World): number {
+  if (!world.rules.ranked || world.rules.winScore <= 0 || world.match.status === 'menu') return 0;
+  return Math.min(0.4, Math.max(0, world.match.rally - 24) * 0.02);
 }
 
 /** The everyday part of the paddle's length that comes and goes: a drive, a skill's afterglow. */
@@ -267,6 +279,8 @@ function boostLength(world: World): number {
 export function updateRuntime(world: World, dt: number): void {
   const runtime = world.talents;
   const { effects } = world.loadout;
+  for (const id of Object.keys(runtime.tactics) as AbilityId[])
+    runtime.tactics[id] = Math.max(0, (runtime.tactics[id] ?? 0) - dt);
 
   runtime.strikeArmed = Math.max(0, runtime.strikeArmed - dt);
   if (runtime.strikeArmed <= 0) runtime.strikeHits = 0;
@@ -307,7 +321,7 @@ export function updateRuntime(world: World, dt: number): void {
 }
 
 /** Tempo: a return winds every cooldown back a notch - an ultimate by half as much. */
-function applyTempo(world: World, bonus = 0): void {
+export function applyTempo(world: World, bonus = 0): void {
   const { effects } = world.loadout;
   const tempo = effects.tempo + bonus + (world.talents.afterglow > 0 ? effects.afterglowTempo : 0);
   if (tempo <= 0) return;
@@ -444,11 +458,21 @@ export function playerReturn(world: World, offset: number): ReturnMods {
     (primed && effects.hotHandCrit) ||
     (blinked && effects.blinkCrit) ||
     (charged && effects.chargedCrits) ||
-    (effects.critChance > 0 && Math.random() < effects.critChance);
+    (effects.critChance > 0 && world.random() < effects.critChance);
   if (crit) runtime.stats.crits++;
 
   // Passive sources, capped together.
   let growth = tuning.speedPerHit;
+  // Reserve rewards waiting three seconds before spending its one return.
+  if ((runtime.tactics.reserve ?? 0) > 0 && (runtime.tactics.reserve ?? 0) <= 5) {
+    growth += 0.12;
+    runtime.tactics.reserve = 0;
+  }
+  if ((runtime.tactics.breach ?? 0) > 0) growth -= 0.05;
+  if ((runtime.tactics.rebound ?? 0) > 0) {
+    applyTempo(world, 1);
+    runtime.tactics.rebound = 0;
+  }
   if (inClutch(world)) growth += effects.clutchGrowth;
   growth = Math.min(growth, BALANCE.talents.maxHitGrowth);
 
@@ -467,6 +491,10 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   // Where the ball goes matters more than how fast it gets there: every
   // heavy return is also a wide one, and the heavier it is the wider.
   let off = rawOff;
+  if ((runtime.tactics.redirect ?? 0) > 0) {
+    off = corner(world, off, 0.72, 0);
+    runtime.tactics.redirect = 0;
+  }
   if (overloaded) off = corner(world, off, E.overload.minAngle, E.overload.angle);
   else if (crit) off = corner(world, off, E.criticalStrike.minAngle, E.criticalStrike.angle);
   else if (charged) off = corner(world, off, E.powerStrike.minAngle, E.powerStrike.stretch);
@@ -508,8 +536,12 @@ function aim(world: World, angle: number): void {
 export function swerveBall(world: World, dt: number): void {
   const { ball, talents: runtime } = world;
   const accel = world.loadout.effects.swerve;
-  if (accel <= 0 || runtime.swerveDir === 0 || ball.vx <= 0) return;
-  if (ball.x < world.view.w * E.swerve.from) return;
+  if (accel <= 0 || runtime.swerveDir === 0 || ball.owner !== world.player.side) return;
+  const outgoing =
+    world.player.side === 'you'
+      ? ball.vx > 0 && ball.x >= world.view.w * E.swerve.from
+      : ball.vx < 0 && ball.x <= world.view.w * (1 - E.swerve.from);
+  if (!outgoing) return;
 
   const vy = ball.vy + runtime.swerveDir * accel * dt;
   const angle = clamp(Math.atan2(vy, Math.abs(ball.vx)), -MAX_BEND_ANGLE, MAX_BEND_ANGLE);
@@ -524,7 +556,7 @@ export function swerveBall(world: World, dt: number): void {
  */
 export function bankBall(world: World): void {
   const { ball } = world;
-  if (ball.owner !== 'you' || ball.vx <= 0) return;
+  if (ball.owner !== world.player.side) return;
 
   const bank = world.loadout.effects.bankShot;
   if (bank <= 0) return;

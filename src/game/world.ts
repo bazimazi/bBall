@@ -78,6 +78,10 @@ export interface World {
   baseLoadout: ResolvedLoadout;
   /** What that build is doing right now. Lives for one match. */
   talents: TalentRuntime;
+  botLoadout: ResolvedLoadout;
+  botTalents: TalentRuntime;
+  /** Gameplay decisions use their own stream; particles never consume it. */
+  random: () => number;
   /** Colours from the player's equipped cosmetics. */
   theme: ResolvedTheme;
   /** The opponent's head. */
@@ -153,10 +157,14 @@ export function setBrainProfile(brain: BotBrain, profile: BotBrain['profile']): 
   brain.aimed = false;
   brain.reads = 0;
   brain.misread = false;
+  brain.shot = 0;
+  delete brain.previousFoeY;
 }
 
 function createMatch(rules: MatchRules): MatchState {
   return {
+    waveDepth: 0,
+    waveHits: 0,
     status: 'menu',
     resumeTo: 'play',
     resumeTimer: 0,
@@ -286,6 +294,9 @@ export function createWorld(audio: GameAudio, motion: number): World {
     loadout: DEFAULT_LOADOUT,
     baseLoadout: DEFAULT_LOADOUT,
     talents: createRuntime(),
+    botLoadout: DEFAULT_LOADOUT,
+    botTalents: createRuntime(),
+    random: () => Math.random(),
     theme: DEFAULT_THEME,
     botBrain: createBrain(rules.bot),
     demoBrain: createBrain(botProfile('amateur')),

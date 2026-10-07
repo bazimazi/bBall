@@ -1,3 +1,4 @@
+import { COURT_HEIGHT } from '../core/modes/geometry';
 /**
  * Geometry and timing for the simulation.
  *
@@ -12,7 +13,7 @@
  */
 
 /** Field units across the short axis. Constant on every screen. */
-export const FIELD_H = 600;
+export const FIELD_H = COURT_HEIGHT;
 /** The field never gets squarer than this... */
 export const MIN_ASPECT = 1.25;
 /** ...nor longer, so wide screens stay fair. */
