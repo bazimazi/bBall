@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import { useId, type ReactNode } from 'react';
 import { useScreenFocus } from '../hooks/useScreenFocus';
 import { SaveNotice } from './SaveNotice';
@@ -65,24 +66,24 @@ export function Screen({
     >
       <header className={styles.header}>
         {onBack && (
-          <button type="button" className={styles.back} onClick={onBack} aria-label="Back">
+          <button type="button" className={styles.back} onClick={onBack} aria-label={t('Back')}>
             <BackIcon />
           </button>
         )}
         <span className={styles.headText}>
           <h2 ref={heading} id={titleId} className={styles.title} tabIndex={-1} data-screen-heading>
-            {title}
+            {t(title)}
           </h2>
-          {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+          {subtitle && <p className={styles.subtitle}>{t(subtitle)}</p>}
         </span>
       </header>
 
       <div className={styles.body}>
         <SaveNotice />
-        {children}
+        {t(children)}
       </div>
 
-      {footer && <footer className={styles.footer}>{footer}</footer>}
+      {footer && <footer className={styles.footer}>{t(footer)}</footer>}
     </section>
   );
 }

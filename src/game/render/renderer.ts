@@ -1,8 +1,9 @@
+import { t as translateText, locale } from '../../core/i18n';
 import type { ResolvedTheme } from '../../core/cosmetics/theme';
 import { tracePath } from '../ai';
 import { BALL_R, FIELD_H, PADDLE_W, PIP_GAP, PIP_INSET, SERVE_DELAY } from '../constants';
 import { isMatchPoint } from '../match';
-import { BACKDROP, CANVAS_FONT, heatHue, hsla } from '../palette';
+import { BACKDROP, CANVAS_FONT, PERSIAN_CANVAS_FONT, heatHue, hsla } from '../palette';
 import type { Paddle, Side, Vec2 } from '../types';
 import { clamp } from '../utils/math';
 import { applyFieldTransform, toScreenX, toScreenY } from '../view';
@@ -64,6 +65,7 @@ export class Renderer {
   private pressure: Partial<Record<Side, CanvasGradient>> = {};
 
   private readonly ctx: CanvasRenderingContext2D;
+  private font = CANVAS_FONT;
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
@@ -83,6 +85,9 @@ export class Renderer {
 
   render(world: World): void {
     const { ctx } = this;
+    const persian = locale() === 'fa-IR';
+    ctx.direction = persian ? 'rtl' : 'ltr';
+    this.font = persian ? PERSIAN_CANVAS_FONT : CANVAS_FONT;
     const { view, fx } = world;
 
     // A theme swap arrives through the engine, but catch it here too so a
@@ -133,7 +138,7 @@ export class Renderer {
     ctx.restore();
 
     this.drawVignette(world);
-    drawReplayFrame(ctx, world, CANVAS_FONT, this.coarse);
+    drawReplayFrame(ctx, world, this.font, this.coarse);
     this.drawConfetti(world);
 
     // Over everything, and outside the punch: the wave has to cross the real
@@ -836,7 +841,7 @@ export class Renderer {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.scale(1 + pop * 0.13, 1 + pop * 0.13);
-      ctx.font = `800 ${(170 * s).toFixed(1)}px ${CANVAS_FONT}`;
+      ctx.font = `800 ${(170 * s).toFixed(1)}px ${this.font}`;
       ctx.fillStyle = hsla(
         heatHue(198, fx.heat, theme.hotHue),
         72,
@@ -846,7 +851,7 @@ export class Renderer {
       // Centre the visible digits, rather than the font's line box: its
       // ascender/descender space made the count sit above the centre spot.
       ctx.textBaseline = 'alphabetic';
-      const count = String(match.rally);
+      const count = translateText(String(match.rally));
       const bounds = ctx.measureText(count);
       ctx.fillText(
         count,
@@ -863,24 +868,24 @@ export class Renderer {
       ctx.globalAlpha = Math.min(1, fx.comboTimer * 2.2);
       ctx.translate(cx, cy - 116 * s);
       ctx.scale(pop, pop);
-      ctx.font = `800 ${(25 * s).toFixed(1)}px ${CANVAS_FONT}`;
+      ctx.font = `800 ${(25 * s).toFixed(1)}px ${this.font}`;
       ctx.fillStyle = 'hsl(38,100%,64%)';
-      ctx.fillText(fx.comboLabel, 0, 0);
+      ctx.fillText(translateText(fx.comboLabel), 0, 0);
       ctx.restore();
     }
 
-    drawUltimateBanner(ctx, world, cx, cy, s, CANVAS_FONT);
+    drawUltimateBanner(ctx, world, cx, cy, s, this.font);
     this.drawBanner(world, cx, cy, s);
-    drawVersusCard(ctx, world, cx, cy, s, CANVAS_FONT);
+    drawVersusCard(ctx, world, cx, cy, s, this.font);
     this.drawPopups(world);
 
     if (match.status === 'serve' && isMatchPoint(world)) {
       ctx.save();
       ctx.globalAlpha = 0.5 + 0.3 * Math.sin(fx.time * 6);
-      ctx.font = `750 ${(20 * s).toFixed(1)}px ${CANVAS_FONT}`;
+      ctx.font = `750 ${(20 * s).toFixed(1)}px ${this.font}`;
       const mine = match.score.you === match.winScore - 1;
       ctx.fillStyle = hsla(mine ? theme.youHue : theme.botHue, 90, 67, 1);
-      ctx.fillText('MATCH POINT', cx, cy - 116 * s);
+      ctx.fillText(translateText('MATCH POINT'), cx, cy - 116 * s);
       ctx.restore();
     }
   }
@@ -901,13 +906,13 @@ export class Renderer {
       ctx.translate(x, y);
       ctx.scale(grow, grow);
       ctx.globalAlpha = fade;
-      ctx.font = `850 ${(popup.size * view.scale).toFixed(1)}px ${CANVAS_FONT}`;
+      ctx.font = `850 ${(popup.size * view.scale).toFixed(1)}px ${this.font}`;
       ctx.lineWidth = 4 * view.scale;
       ctx.lineJoin = 'round';
       ctx.strokeStyle = 'rgba(6,8,15,0.75)';
-      ctx.strokeText(popup.text, 0, 0);
+      ctx.strokeText(translateText(popup.text), 0, 0);
       ctx.fillStyle = hsla(popup.hue, 100, 78, 1);
-      ctx.fillText(popup.text, 0, 0);
+      ctx.fillText(translateText(popup.text), 0, 0);
       ctx.restore();
     }
   }
@@ -936,13 +941,13 @@ export class Renderer {
     ctx.fillStyle = hsla(fx.bannerHue, 100, 66, 0.9);
     ctx.fillRect(-width / 2, -46 * s, width, 2 * s);
     ctx.fillRect(-width / 2, 44 * s, width, 2 * s);
-    ctx.font = `850 ${(40 * s).toFixed(1)}px ${CANVAS_FONT}`;
+    ctx.font = `850 ${(40 * s).toFixed(1)}px ${this.font}`;
     ctx.fillStyle = hsla(fx.bannerHue, 100, 80, 1);
-    ctx.fillText(fx.bannerText.toUpperCase(), 0, -8 * s);
+    ctx.fillText(translateText(fx.bannerText.toUpperCase()), 0, -8 * s, width - 24 * s);
     if (fx.bannerSub) {
-      ctx.font = `650 ${(15 * s).toFixed(1)}px ${CANVAS_FONT}`;
+      ctx.font = `650 ${(15 * s).toFixed(1)}px ${this.font}`;
       ctx.fillStyle = 'rgba(238,242,255,0.72)';
-      ctx.fillText(fx.bannerSub, 0, 26 * s);
+      ctx.fillText(translateText(fx.bannerSub), 0, 26 * s, width - 24 * s);
     }
     ctx.restore();
   }

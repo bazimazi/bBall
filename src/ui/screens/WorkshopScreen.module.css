@@ -328,7 +328,7 @@
 .contractHeading > span {
   color: #a5b4cb;
   font-size: 10px;
-  text-align: right;
+  text-align: end;
 }
 .range,
 .progression,
@@ -354,7 +354,7 @@
   background: #4ff0d608;
   color: var(--you);
   font: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .drills button > svg {
@@ -363,7 +363,7 @@
   flex-shrink: 0;
 }
 .drills button > span:last-child {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 .drills b {
   color: #e6edfb;
@@ -697,8 +697,10 @@
 }
 .motionTabs::before {
   content: '';
+  box-sizing: border-box;
   position: absolute;
-  inset: 0 auto 0 0;
+  inset-block: 0;
+  inset-inline-start: 0;
   width: calc((100% - (var(--tab-count) - 1) * var(--tab-gap)) / var(--tab-count));
   border: 1px solid color-mix(in srgb, var(--tab-colour, var(--you)) 65%, transparent);
   border-radius: 9px;
@@ -713,6 +715,10 @@
     border-color 180ms ease,
     box-shadow 180ms ease;
   pointer-events: none;
+}
+:global(html[dir='rtl']) .motionTabs::before {
+  /* Grid order starts on the right; later tabs lie to its left. */
+  transform: translateX(calc(var(--tab-index) * -1 * (100% + var(--tab-gap))));
 }
 .motionTabs > button {
   position: relative;
@@ -807,8 +813,8 @@
 
 @media (min-width: 900px), (min-width: 700px) and (max-height: 720px) {
   .screen.screen {
-    padding-left: max(calc(var(--safe-l) + 14px), calc(50vw - 450px));
-    padding-right: max(calc(var(--safe-r) + 14px), calc(50vw - 450px));
+    padding-inline-start: max(calc(var(--safe-l) + 14px), calc(50vw - 450px));
+    padding-inline-end: max(calc(var(--safe-r) + 14px), calc(50vw - 450px));
   }
   .view {
     display: grid;
@@ -1031,7 +1037,7 @@
     height: 98px;
   }
   .identity {
-    text-align: left;
+    text-align: start;
   }
   .identity h3 {
     font-size: 16px;

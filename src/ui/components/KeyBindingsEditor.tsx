@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useState, type KeyboardEvent } from 'react';
 import {
   DEFAULT_BINDINGS,
@@ -48,15 +49,16 @@ export function KeyBindingsEditor() {
 
   return (
     <details className={styles.editor}>
-      <summary>Keyboard controls</summary>
+      <summary>{t('Keyboard controls')}</summary>
       <p>
-        Choose a key button, then press its replacement. Escape cancels; Tab moves to the next
-        control.
+        {t(
+          'Choose a key button, then press its replacement. Escape cancels; Tab moves to the next control.'
+        )}
       </p>
       <div className={styles.rows}>
         {KEY_ACTIONS.map((action) => (
           <div className={styles.row} key={action}>
-            <span>{actionLabel(action)}</span>
+            <span>{t(actionLabel(action))}</span>
             <div className={styles.keys}>
               {[0, 1].map((slot) => {
                 const key = keyBindings[action][slot];
@@ -66,7 +68,13 @@ export function KeyBindingsEditor() {
                     type="button"
                     key={slot}
                     aria-pressed={active}
-                    aria-label={`${actionLabel(action)}, ${slot === 0 ? 'primary' : 'alternate'} key: ${key ? keyName(key) : 'not assigned'}`}
+                    aria-label={t(
+                      msg('{0}, {1} key: {2}', [
+                        t(actionLabel(action)),
+                        t(slot === 0 ? 'primary' : 'alternate'),
+                        key ? keyName(key) : 'not assigned'
+                      ])
+                    )}
                     onClick={() => {
                       setEditing(active ? null : { action, slot });
                       setMessage('');
@@ -76,14 +84,14 @@ export function KeyBindingsEditor() {
                       if (active) setEditing(null);
                     }}
                   >
-                    {active ? 'Press a key…' : key ? keyName(key) : 'Add key'}
+                    {t(active ? 'Press a key…' : key ? keyName(key) : 'Add key')}
                   </button>
                 );
               })}
               {keyBindings[action].length > 1 && (
                 <button
                   type="button"
-                  aria-label={`Remove alternate key for ${actionLabel(action)}`}
+                  aria-label={t(msg('Remove alternate key for {0}', [t(actionLabel(action))]))}
                   onClick={() => {
                     settingsStore.update({
                       keyBindings: { ...keyBindings, [action]: keyBindings[action].slice(0, 1) }
@@ -92,7 +100,7 @@ export function KeyBindingsEditor() {
                     setMessage(`${actionLabel(action)} alternate key removed.`);
                   }}
                 >
-                  ×
+                  {t('×')}
                 </button>
               )}
             </div>
@@ -100,10 +108,12 @@ export function KeyBindingsEditor() {
         ))}
       </div>
       <p role="status" aria-live="polite" aria-atomic="true">
-        {message ||
-          (editing
-            ? `Press a key for ${actionLabel(editing.action)}.`
-            : 'Escape remains a pause key. Player 2 movement keys also work in solo play.')}
+        {t(
+          message ||
+            (editing
+              ? msg('Press a key for {0}.', [t(actionLabel(editing.action))])
+              : 'Escape remains a pause key. Player 2 movement keys also work in solo play.')
+        )}
       </p>
       <button
         type="button"
@@ -113,7 +123,7 @@ export function KeyBindingsEditor() {
           setMessage('Default keyboard controls restored.');
         }}
       >
-        Restore default keys
+        {t('Restore default keys')}
       </button>
     </details>
   );

@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import { useId, useState, type ReactNode } from 'react';
 import styles from '../Screens.module.css';
 
@@ -22,12 +23,12 @@ export function MenuDisclosure({
         aria-controls={bodyId}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className={styles.disclosureTitle}>{title}</span>
-        {hint && <span className={styles.disclosureHint}>{hint}</span>}
+        <span className={styles.disclosureTitle}>{t(title)}</span>
+        {hint && <span className={styles.disclosureHint}>{t(hint)}</span>}
       </button>
       <div id={bodyId} className={styles.disclosurePanel} aria-hidden={!open} inert={!open}>
         <div className={styles.disclosureContent}>
-          <div className={styles.disclosureBody}>{children}</div>
+          <div className={styles.disclosureBody}>{t(children)}</div>
         </div>
       </div>
     </div>

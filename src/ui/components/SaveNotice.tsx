@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { localSaveStatus } from '../../core/storage/localStore';
 import { useLocalSave } from '../hooks/useLocalSave';
@@ -23,16 +24,22 @@ export function SaveNotice() {
       <p ref={feedback} role="status" tabIndex={-1}>
         {state === 'restore' ? (
           <>
-            <strong>Existing saved data is protected.</strong> Some data could not be read when
-            bBall opened. Reopen bBall to load it; changes made to that data in this session will be
-            lost. <strong>Try saving again</strong> can save other pending changes.
+            <strong>{t('Existing saved data is protected.')}</strong>{' '}
+            {t(
+              ' Some data could not be read when bBall opened. Reopen bBall to load it; changes made to that data in this session will be lost. '
+            )}
+            <strong>{t('Try saving again')}</strong>
+            {t(' can save other pending changes.')}
           </>
         ) : unsaved ? (
           <>
-            <strong>Recent changes could not be saved on this device.</strong> Keep bBall open:
-            closing or reloading may lose unsaved changes. Storage may be full or blocked.{' '}
-            {attempted && 'Saving is still unavailable. '}
-            Try saving again when storage is available.
+            <strong>{t('Recent changes could not be saved on this device.')}</strong>{' '}
+            {t(
+              ' Keep bBall open: closing or reloading may lose unsaved changes. Storage may be full or blocked.'
+            )}
+            {t(' ')}
+            {t(attempted && 'Saving is still unavailable. ')}
+            {t('Try saving again when storage is available.')}
           </>
         ) : (
           'Changes saved on this device.'
@@ -47,7 +54,7 @@ export function SaveNotice() {
             setAttempted(true);
           }}
         >
-          Try saving again
+          {t('Try saving again')}
         </button>
       )}
     </div>

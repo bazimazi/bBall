@@ -34,6 +34,7 @@ it('older device settings retain preferences and pick up the new pacing defaults
   });
   const { settingsStore, DEFAULT_SETTINGS } = await import('../../src/core/settings/store');
   assert.deepEqual(settingsStore.getSnapshot(), {
+    language: 'en',
     musicVolume: 0.2,
     sfxVolume: 0.7,
     shake: 'off',

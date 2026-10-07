@@ -2,6 +2,11 @@
 
 Identity, authoritative progression and cloud saves for bBall.
 
+The client supports English and Persian. Language is a device setting; shared
+catalogs, IDs, progression payloads and authoritative rules stay unchanged.
+The client translates displayed catalog text and account errors. No database
+migration or server locale setting is needed for this feature.
+
 **Client reduced-motion policy:** the project completely ignores operating-system
 and browser reduced-motion settings on every platform. Do not introduce preference
 checks or animation overrides in shared code, client integration or test expectations.
@@ -587,6 +592,7 @@ model; they are not authoritative input replays. The client continues to ignore
 all system/browser reduced-motion preferences, including material contact cues
 and Workshop navigation. Sliding selections, directional panels and detail-popup
 transitions run in both Full and Calm without changing API or progression rules.
+Selection highlights follow the selected tab in both LTR and RTL layouts.
 See the [Workshop report](../docs/validation/paddle-workshop-report.md).
 
 ## Extension points

@@ -3863,6 +3863,91 @@ try {
       assert.deepEqual(localPracticeRecords('workshop-ui'), []);
     }
   );
+  await check(
+    'language changes preserve Settings focus, device preferences and onboarding drafts',
+    async () => {
+      const [{ SettingsScreen }, { settingsStore }, { installLanguage }] = await Promise.all([
+        vite.ssrLoadModule('/src/ui/screens/SettingsScreen.tsx'),
+        vite.ssrLoadModule('/src/core/settings/store.ts'),
+        vite.ssrLoadModule('/src/core/i18n/index.ts')
+      ]);
+      const previous = settingsStore.getSnapshot();
+      const stop = installLanguage();
+      try {
+        await act(() => settingsStore.update({ language: 'en' }));
+        await mount(
+          h(SettingsScreen, {
+            onBack: noop,
+            onPreview: noop,
+            onMusicPreview: noop,
+            onStopPreview: noop
+          })
+        );
+        const persian = button('فارسی');
+        await click(persian);
+        focused(persian);
+        assert.equal(win.document.documentElement.lang, 'fa');
+        assert.equal(win.document.documentElement.dir, 'rtl');
+        assert.equal(query('[data-screen-heading]').textContent, 'تنظیمات');
+        assert.deepEqual({ ...settingsStore.getSnapshot(), language: previous.language }, previous);
+        await click(button('English'));
+        assert.equal(query('[data-screen-heading]').textContent, 'Settings');
+        await mount(h(OnboardingScreen, { profile: createProfile(), onDone: noop }));
+        const field = query('#player-name');
+        await act(() => {
+          Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(
+            field,
+            'Full 123'
+          );
+          field.dispatchEvent(new win.Event('input', { bubbles: true }));
+        });
+        await click(button('فارسی'));
+        assert.equal(query('#player-name').value, 'Full 123');
+        assert.equal(query('#player-name').getAttribute('placeholder'), 'بازیکن');
+        assert.ok(button('شروع بازی'));
+      } finally {
+        await act(() => settingsStore.update(previous));
+        stop();
+      }
+    }
+  );
+  await check(
+    'Persian choice searches return localized labels while committing original ids',
+    async () => {
+      const { settingsStore } = await vite.ssrLoadModule('/src/core/settings/store.ts');
+      const previous = settingsStore.getSnapshot();
+      const changes = [];
+      try {
+        await act(() => settingsStore.update({ language: 'fa' }));
+        await mount(
+          h(GamePicker, {
+            label: 'Court',
+            value: 'bankworks-0',
+            onChange: (value) => changes.push(value),
+            options: Array.from({ length: 20 }, (_, index) => ({
+              value: `bankworks-${index}`,
+              name: `Bankworks ${index}`
+            }))
+          })
+        );
+        await click(query('[aria-label="زمین"]'));
+        const search = query('input[type="search"]');
+        await act(() => {
+          Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(
+            search,
+            'کارگاه کمانه ۱۲'
+          );
+          search.dispatchEvent(new win.Event('input', { bubbles: true }));
+        });
+        assert.equal(win.document.querySelectorAll('[role="option"]').length, 1);
+        await click(query('[role="option"]'));
+        assert.deepEqual(changes, ['bankworks-12']);
+        await finishPicker();
+      } finally {
+        await act(() => settingsStore.update(previous));
+      }
+    }
+  );
   console.log(
     `${checks} UI interaction checks passed (DOM only; check:layout covers real browser geometry).`
   );

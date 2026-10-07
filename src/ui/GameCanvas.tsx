@@ -1,3 +1,4 @@
+import { t } from '../core/i18n/index';
 import type { Ref } from 'react';
 
 import styles from './GameCanvas.module.css';
@@ -10,10 +11,11 @@ interface GameCanvasProps {
 export function GameCanvas({ ref }: GameCanvasProps) {
   return (
     <canvas
+      dir="ltr"
       ref={ref}
       className={styles.canvas}
       role="img"
-      aria-label="bBall playfield"
+      aria-label={t('bBall playfield')}
       tabIndex={-1}
     />
   );

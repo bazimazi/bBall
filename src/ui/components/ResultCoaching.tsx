@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import type { MatchCoaching } from '../../core/modes/coaching';
 import styles from '../Screens.module.css';
 import coachStyles from './ResultCoaching.module.css';
@@ -13,12 +14,12 @@ export function ResultCoaching({ coaching, onTutorial, onHelp }: ResultCoachingP
   const lesson = coaching.help === 'lesson';
   return (
     <section className={`${styles.card} ${coachStyles.card}`} aria-labelledby="next-attempt-title">
-      <p className={coachStyles.caption}>Next attempt</p>
-      <h3 id="next-attempt-title">{coaching.title}</h3>
-      <p className={coachStyles.evidence}>{coaching.evidence}</p>
-      <p>{coaching.tip}</p>
+      <p className={coachStyles.caption}>{t('Next attempt')}</p>
+      <h3 id="next-attempt-title">{t(coaching.title)}</h3>
+      <p className={coachStyles.evidence}>{t(coaching.evidence)}</p>
+      <p>{t(coaching.tip)}</p>
       <button type="button" className={styles.ghost} onClick={lesson ? onTutorial : onHelp}>
-        {lesson ? 'Try the first-rally lesson' : 'Review technique'}
+        {t(lesson ? 'Try the first-rally lesson' : 'Review technique')}
       </button>
     </section>
   );

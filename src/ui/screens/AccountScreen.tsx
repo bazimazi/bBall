@@ -1,8 +1,10 @@
+import { t } from '../../core/i18n/index';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { accountStore } from '../../core/account/store';
 import { localPracticeRecords } from '../../core/account/localPractice';
 import { ApiError } from '../../core/net/client';
+import { apiErrorText } from '../../core/i18n/errors';
 import { profileStore } from '../../core/profile/store';
 import { levelFromXp } from '../../core/progression/levels';
 import { ProviderButton } from '../components/ProviderButton';
@@ -30,8 +32,7 @@ type Mode = 'signin' | 'register' | 'forgot' | 'reset';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
-    const detail = error.details?.[0]?.message;
-    return detail ? `${error.message} ${detail}` : error.message;
+    return apiErrorText(error);
   }
   if (error instanceof Error && error.name === 'NetworkError') {
     return 'No connection. You can keep playing - this will sync later.';
@@ -169,13 +170,15 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
     const user = account.user;
     const practice = user ? localPracticeRecords(user.id) : [];
     return (
-      <Screen title="Account" onBack={onBack}>
+      <Screen title={t('Account')} onBack={onBack}>
         <div className={styles.form}>
           <div className={screens.card}>
             <div className={styles.identity}>
-              <span className={styles.email}>{user?.email ?? account.email}</span>
+              <span className={styles.email}>
+                <bdi dir="ltr">{user?.email ?? account.email}</bdi>
+              </span>
               <span className={styles.meta}>
-                {user?.emailVerified ? 'Email confirmed' : 'Email not confirmed yet'}
+                {t(user?.emailVerified ? 'Email confirmed' : 'Email not confirmed yet')}
               </span>
               {/* What this account can sign in with. Worth showing plainly:
                   it is the answer to "why does my password not work". */}
@@ -183,7 +186,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
                 <span className={styles.linked}>
                   {user.providers.map((provider) => (
                     <span key={provider} className={styles.linkedChip}>
-                      {provider === 'password' ? 'Password' : titleCase(provider)}
+                      {t(provider === 'password' ? 'Password' : titleCase(provider))}
                     </span>
                   ))}
                 </span>
@@ -195,28 +198,42 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
 
           {account.conflict && (
             <p className={styles.info}>
-              {account.conflict} Unaccepted matches are kept on this device as practice records
-              without rewards.
+              {t(account.conflict)}{' '}
+              {t(
+                ' Unaccepted matches are kept on this device as practice records without rewards.'
+              )}
             </p>
           )}
-          {(info ?? account.notice) && <p className={styles.info}>{info ?? account.notice}</p>}
-          {error && <p className={styles.error}>{error}</p>}
+          {(info ?? account.notice) && <p className={styles.info}>{t(info ?? account.notice)}</p>}
+          {error && <p className={styles.error}>{t(error)}</p>}
 
           {practice.length > 0 && (
             <details className={screens.card}>
-              <summary>Device practice history · {practice.length}</summary>
+              <summary>
+                {t('Device practice history · ')}
+                {t(practice.length)}
+              </summary>
               <p>
-                These matches could not be accepted by the account. Their scores remain here without
-                rewards.
+                {t(
+                  'These matches could not be accepted by the account. Their scores remain here without rewards.'
+                )}
               </p>
               {practice
                 .slice()
                 .reverse()
                 .map((record) => (
                   <p key={record.id}>
-                    {record.mode} · {record.scoreYou} : {record.scoreBot} ·{' '}
-                    {Math.round(record.seconds)}s<br />
-                    <small>{record.reason}</small>
+                    {t(record.mode)}
+                    {t(' · ')}
+                    {t(record.scoreYou)}
+                    {t(' : ')}
+                    {t(record.scoreBot)}
+                    {t(' ·')}
+                    {t(' ')}
+                    {t(Math.round(record.seconds))}
+                    {t('s')}
+                    <br />
+                    <small>{t(record.reason)}</small>
                   </p>
                 ))}
             </details>
@@ -229,8 +246,8 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
             disabled={working}
             onClick={() => void run(() => accountStore.flush(true))}
           >
-            Sync now
-            {account.pending > 0 && <span className={screens.badge}>{account.pending}</span>}
+            {t('Sync now')}
+            {account.pending > 0 && <span className={screens.badge}>{t(account.pending)}</span>}
           </button>
 
           {guest.has && (
@@ -245,7 +262,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
                 })
               }
             >
-              Bring guest progress over
+              {t('Bring guest progress over')}
             </button>
           )}
 
@@ -261,7 +278,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
                 })
               }
             >
-              Resend confirmation email
+              {t('Resend confirmation email')}
             </button>
           )}
 
@@ -271,7 +288,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
             disabled={working}
             onClick={() => void run(() => accountStore.signOut())}
           >
-            Sign out
+            {t('Sign out')}
           </button>
 
           <DeleteAccount
@@ -282,8 +299,9 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
           />
 
           <p className={screens.note}>
-            Signing out puts your guest save back exactly as it was. Your account keeps its own
-            progress on the server.
+            {t(
+              'Signing out puts your guest save back exactly as it was. Your account keeps its own progress on the server.'
+            )}
           </p>
         </div>
       </Screen>
@@ -298,7 +316,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
 
   return (
     <Screen
-      title={title}
+      title={t(title)}
       {...(mode === 'signin' || mode === 'register'
         ? { subtitle: 'Optional. The game plays either way.' }
         : {})}
@@ -307,7 +325,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
       {account.status === 'restoring' && mode !== 'reset' && (
         <div className={styles.form}>
           <SyncBadge account={account} />
-          {account.notice && <p className={styles.info}>{account.notice}</p>}
+          {account.notice && <p className={styles.info}>{t(account.notice)}</p>}
           <button
             type="button"
             className={screens.ghost}
@@ -322,7 +340,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
               if (!working && account.sync !== 'syncing') void run(() => accountStore.flush(true));
             }}
           >
-            Try restoring account
+            {t('Try restoring account')}
           </button>
         </div>
       )}
@@ -336,7 +354,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
               className={mode === 'signin' ? `${styles.tab} ${styles.tabOn}` : styles.tab}
               onClick={() => setMode('signin')}
             >
-              Sign in
+              {t('Sign in')}
             </button>
             <button
               type="button"
@@ -345,7 +363,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
               className={mode === 'register' ? `${styles.tab} ${styles.tabOn}` : styles.tab}
               onClick={() => setMode('register')}
             >
-              Create account
+              {t('Create account')}
             </button>
           </div>
         )}
@@ -363,11 +381,12 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
               onChange={(event) => setCarryOver(event.target.checked)}
             />
             <span className={styles.checkText}>
-              Bring my progress with me
-              <span className={styles.checkHint}>{guest.summary}</span>
+              {t('Bring my progress with me')}
+              <span className={styles.checkHint}>{t(guest.summary)}</span>
               <span className={styles.checkHint}>
-                An existing Workshop keeps its account Marks and crafted parts. Supported guest
-                technique and cosmetic progress carry over.
+                {t(
+                  'An existing Workshop keeps its account Marks and crafted parts. Supported guest technique and cosmetic progress carry over.'
+                )}
               </span>
             </span>
           </label>
@@ -397,19 +416,20 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
                 />
               ))}
             </div>
-            <p className={styles.divider}>or</p>
+            <p className={styles.divider}>{t('or')}</p>
           </>
         )}
 
         {mode !== 'reset' && (
           <div className={screens.field}>
             <label className={screens.label} htmlFor="account-email">
-              Email
+              {t('Email')}
             </label>
             <input
               id="account-email"
               className={screens.input}
               type="email"
+              dir="ltr"
               value={email}
               autoComplete="email"
               autoCapitalize="none"
@@ -423,7 +443,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
         {mode !== 'forgot' && (
           <div className={screens.field}>
             <label className={screens.label} htmlFor="account-password">
-              {mode === 'signin' ? 'Password' : 'New password'}
+              {t(mode === 'signin' ? 'Password' : 'New password')}
             </label>
             <input
               id="account-password"
@@ -437,7 +457,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
             />
             {mode !== 'signin' && (
               <span className={styles.checkHint}>
-                At least 10 characters. Length is what counts.
+                {t('At least 10 characters. Length is what counts.')}
               </span>
             )}
           </div>
@@ -446,12 +466,13 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
         {mode === 'register' && (
           <div className={screens.field}>
             <label className={screens.label} htmlFor="account-name">
-              Display name (optional)
+              {t('Display name (optional)')}
             </label>
             <input
               id="account-name"
               className={screens.input}
               value={displayName}
+              dir="auto"
               maxLength={14}
               autoComplete="nickname"
               onChange={(event) => setDisplayName(event.target.value)}
@@ -459,39 +480,42 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
           </div>
         )}
 
-        {notice && <p className={styles.info}>{notice}</p>}
-        {error && <p className={styles.error}>{error}</p>}
+        {notice && <p className={styles.info}>{t(notice)}</p>}
+        {error && <p className={styles.error}>{t(error)}</p>}
 
         <button type="submit" className={screens.primary} disabled={working}>
-          {working
-            ? 'Working...'
-            : mode === 'signin'
-              ? 'Sign in'
-              : mode === 'register'
-                ? 'Create account'
-                : mode === 'forgot'
-                  ? 'Send reset link'
-                  : 'Set password'}
+          {t(
+            working
+              ? 'Working...'
+              : mode === 'signin'
+                ? 'Sign in'
+                : mode === 'register'
+                  ? 'Create account'
+                  : mode === 'forgot'
+                    ? 'Send reset link'
+                    : 'Set password'
+          )}
         </button>
 
         {mode === 'signin' && (
           <button type="button" className={styles.link} onClick={() => setMode('forgot')}>
-            Forgotten your password?
+            {t('Forgotten your password?')}
           </button>
         )}
         {(mode === 'forgot' || mode === 'reset') && (
           <button type="button" className={styles.link} onClick={() => setMode('signin')}>
-            Back to sign in
+            {t('Back to sign in')}
           </button>
         )}
 
         <button type="button" className={screens.ghost} onClick={onBack}>
-          Keep playing as a guest
+          {t('Keep playing as a guest')}
         </button>
 
         <p className={screens.note}>
-          An account keeps your level, build and records across devices. Without one, everything
-          stays on this device and the game plays exactly the same.
+          {t(
+            'An account keeps your level, build and records across devices. Without one, everything stays on this device and the game plays exactly the same.'
+          )}
         </p>
       </form>
     </Screen>
@@ -531,22 +555,23 @@ function DeleteAccount({
         className={`${screens.ghost} ${screens.danger}`}
         onClick={() => setOpen(true)}
       >
-        Delete account
+        {t('Delete account')}
       </button>
     );
   }
 
   return (
     <div className={screens.card}>
-      <p className={screens.sectionLabel}>Delete account</p>
+      <p className={screens.sectionLabel}>{t('Delete account')}</p>
       <p className={styles.checkHint}>
-        This removes your account, your cloud progress and your match history. It cannot be undone.
-        Your guest save on this device is not touched.
+        {t(
+          'This removes your account, your cloud progress and your match history. It cannot be undone. Your guest save on this device is not touched.'
+        )}
       </p>
       {needsPassword && (
         <div className={screens.field} style={{ marginTop: 10 }}>
           <label className={screens.label} htmlFor="delete-password">
-            Confirm your password
+            {t('Confirm your password')}
           </label>
           <input
             id="delete-password"
@@ -560,7 +585,7 @@ function DeleteAccount({
       )}
       <div className={screens.buttonRow} style={{ marginTop: 10 }}>
         <button type="button" className={screens.ghost} onClick={() => setOpen(false)}>
-          Cancel
+          {t('Cancel')}
         </button>
         <button
           type="button"
@@ -573,7 +598,7 @@ function DeleteAccount({
             })
           }
         >
-          Delete for good
+          {t('Delete for good')}
         </button>
       </div>
     </div>

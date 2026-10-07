@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useEffect, useEffectEvent, useId, useState, type CSSProperties } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
@@ -76,8 +77,8 @@ function duration(seconds: number): string {
 function Stat({ value, label }: { value: string | number; label: string }) {
   return (
     <div className={styles.stat}>
-      <div className={styles.statValue}>{value}</div>
-      <div className={styles.statLabel}>{label}</div>
+      <div className={styles.statValue}>{t(value)}</div>
+      <div className={styles.statLabel}>{t(label)}</div>
     </div>
   );
 }
@@ -98,7 +99,7 @@ function CountUp({ value, delay = 250 }: { value: number; delay?: number }) {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [value, delay]);
-  return <>{shown}</>;
+  return <>{t(shown)}</>;
 }
 
 /**
@@ -136,7 +137,7 @@ function StarReveal({
     <div
       className={modes.bigStars}
       role="img"
-      aria-label={`${(mask & 1) + ((mask >> 1) & 1) + ((mask >> 2) & 1)} of 3 stars`}
+      aria-label={t(msg('{0} of 3 stars', [t((mask & 1) + ((mask >> 1) & 1) + ((mask >> 2) & 1))]))}
     >
       {[0, 1, 2].map((i) => (
         <span
@@ -189,7 +190,7 @@ export function ResultScreen({
       <div className={`${styles.body} ${modes.stagger}`}>
         <SaveNotice />
         <div className={styles.resultHead}>
-          <p className={styles.subtitle}>{label}</p>
+          <p className={styles.subtitle}>{t(label)}</p>
           <h2
             ref={heading}
             id={titleId}
@@ -197,20 +198,20 @@ export function ResultScreen({
             tabIndex={-1}
             data-screen-heading
           >
-            {title(result, summary)}
+            {t(title(result, summary))}
           </h2>
           {endless ? (
             <p className={styles.scoreLine}>
-              <span className={styles.scoreYou}>{result.bestRally}</span>
+              <span className={styles.scoreYou}>{t(result.bestRally)}</span>
             </p>
           ) : (
             <p className={styles.scoreLine}>
-              <span className={styles.scoreYou}>{result.scoreYou}</span>
-              <i>:</i>
-              <span className={styles.scoreBot}>{result.scoreBot}</span>
+              <span className={styles.scoreYou}>{t(result.scoreYou)}</span>
+              <i>{t(':')}</i>
+              <span className={styles.scoreBot}>{t(result.scoreBot)}</span>
             </p>
           )}
-          <p className={styles.subtitle}>{opponent(result)}</p>
+          <p className={styles.subtitle}>{t(opponent(result))}</p>
         </div>
 
         {goals && summary && (
@@ -229,7 +230,7 @@ export function ResultScreen({
                   }
                 >
                   <StarIcon />
-                  {goal.label}
+                  {t(goal.label)}
                 </span>
               ))}
             </div>
@@ -237,13 +238,13 @@ export function ResultScreen({
         )}
 
         <div className={`${styles.stats} ${result.waves !== undefined ? styles.statsFour : ''}`}>
-          <Stat value={result.bestRally} label="Best rally" />
-          <Stat value={result.hits} label="Returns" />
-          {result.waves !== undefined && <Stat value={result.waves} label="Waves cleared" />}
+          <Stat value={result.bestRally} label={t('Best rally')} />
+          <Stat value={result.hits} label={t('Returns')} />
+          {result.waves !== undefined && <Stat value={result.waves} label={t('Waves cleared')} />}
           {result.flicks > 0 ? (
-            <Stat value={result.flicks} label="Flicks" />
+            <Stat value={result.flicks} label={t('Flicks')} />
           ) : (
-            <Stat value={duration(result.seconds)} label="Time" />
+            <Stat value={duration(result.seconds)} label={t('Time')} />
           )}
         </div>
 
@@ -254,14 +255,21 @@ export function ResultScreen({
           >
             <HeartIcon />
             <span>
-              {run.save.offer
-                ? 'A boon is waiting'
-                : `Rematch - ${run.save.hearts} heart${run.save.hearts === 1 ? '' : 's'} left`}
+              {t(
+                run.save.offer
+                  ? 'A boon is waiting'
+                  : msg('Rematch - {0} heart{1} left', [
+                      t(run.save.hearts),
+                      t(run.save.hearts === 1 ? '' : 's')
+                    ])
+              )}
             </span>
             <span>
-              {run.save.format === 'endless'
-                ? `Depth ${run.save.stage + 1}`
-                : `${run.save.stage} / ${runLength(run.save)}`}
+              {t(
+                run.save.format === 'endless'
+                  ? msg('Depth {0}', [t(run.save.stage + 1)])
+                  : msg('{0} / {1}', [t(run.save.stage), t(runLength(run.save))])
+              )}
             </span>
           </div>
         )}
@@ -273,8 +281,8 @@ export function ResultScreen({
             className={styles.unlockRow}
             style={result.objectiveMet ? undefined : { opacity: 0.6 }}
           >
-            <span>{result.objectiveMet ? '✓' : '·'}</span>
-            <span>{result.objective.label}</span>
+            <span>{t(result.objectiveMet ? '✓' : '·')}</span>
+            <span>{t(result.objective.label)}</span>
           </div>
         )}
 
@@ -288,7 +296,10 @@ export function ResultScreen({
             }
           >
             <CrownIcon />
-            <span>{bossById(result.bossId)?.spec.name} defeated</span>
+            <span>
+              {t(bossById(result.bossId)?.spec.name)}
+              {t(' defeated')}
+            </span>
           </div>
         )}
 
@@ -298,9 +309,11 @@ export function ResultScreen({
             style={{ '--accent': 'hsl(28 95% 64%)' } as CSSProperties}
           >
             <FlameIcon />
-            <span>Daily streak</span>
+            <span>{t('Daily streak')}</span>
             <span>
-              {summary.dailyStreak} day{summary.dailyStreak === 1 ? '' : 's'}
+              {t(summary.dailyStreak)}
+              {t(' day')}
+              {t(summary.dailyStreak === 1 ? '' : 's')}
             </span>
           </div>
         )}
@@ -308,61 +321,94 @@ export function ResultScreen({
         {summary?.questsDone.map((quest) => (
           <div key={quest.id} className={modes.resultRow}>
             <CheckIcon />
-            <span>{quest.label}</span>
-            <span>+{QUEST_XP[quest.tier]}</span>
+            <span>{t(quest.label)}</span>
+            <span>
+              {t('+')}
+              {t(QUEST_XP[quest.tier])}
+            </span>
           </div>
         ))}
         {summary?.questBonus && (
           <div className={modes.resultRow}>
             <CheckIcon />
-            <span>All three of today's quests</span>
-            <span>+{QUEST_BONUS_XP}</span>
+            <span>{t("All three of today's quests")}</span>
+            <span>
+              {t('+')}
+              {t(QUEST_BONUS_XP)}
+            </span>
           </div>
         )}
 
         {levelled && (
           <div className={styles.levelUp}>
-            <span>Level {summary?.levelAfter}</span>
+            <span>
+              {t('Level ')}
+              {t(summary?.levelAfter)}
+            </span>
             <span className={styles.subtitle}>
-              {summary && summary.levelsGained > 1 ? `+${summary.levelsGained} levels` : 'Level up'}
+              {t(
+                summary && summary.levelsGained > 1
+                  ? msg('+{0} levels', [t(summary.levelsGained)])
+                  : 'Level up'
+              )}
             </span>
           </div>
         )}
 
         {points > 0 && (
           <button type="button" className={styles.unlockRow} onClick={onTalents}>
-            <span>◆</span>
+            <span>{t('◆')}</span>
             <span>
-              {gained > 0
-                ? `+${gained} talent point${gained > 1 ? 's' : ''}`
-                : 'Talent points waiting'}
+              {t(
+                gained > 0
+                  ? msg('+{0} talent point{1}', [t(gained), t(gained > 1 ? 's' : '')])
+                  : 'Talent points waiting'
+              )}
             </span>
-            <span style={{ marginLeft: 'auto' }}>Spend {points} ›</span>
+            <span style={{ marginLeft: 'auto' }}>
+              {t('Spend ')}
+              {t(points)}
+              {t(' ›')}
+            </span>
           </button>
         )}
 
         {(summary?.workshop?.marks ?? 0) > 0 && (
           <div className={styles.card}>
             <p>
-              Workshop Marks <b>+{summary!.workshop.marks}</b> ·{' '}
-              {summary!.profile.progress.workshop.marks} available
+              {t('Workshop Marks ')}
+              <b>
+                {t('+')}
+                {t(summary!.workshop.marks)}
+              </b>
+              {t(' ·')}
+              {t(' ')}
+              {t(summary!.profile.progress.workshop.marks)}
+              {t(' available')}
             </p>
             {summary!.workshop.contracts.map((name) => (
-              <p key={name}>{name} complete</p>
+              <p key={name}>
+                {name}
+                {t(' complete')}
+              </p>
             ))}
-            <p>{nextWorkshopRecipe(summary!.profile.progress.workshop)}</p>
+            <p>{t(nextWorkshopRecipe(summary!.profile.progress.workshop))}</p>
             {WORKSHOP_CONTRACTS.filter(
               (c) => (summary!.profile.progress.workshop.contracts[c.id] ?? 0) < c.target
             )
               .slice(0, 2)
               .map((c) => (
                 <p key={c.id}>
-                  {c.name} · {summary!.profile.progress.workshop.contracts[c.id] ?? 0}/{c.target}
+                  {t(c.name)}
+                  {t(' · ')}
+                  {t(summary!.profile.progress.workshop.contracts[c.id] ?? 0)}
+                  {t('/')}
+                  {t(c.target)}
                 </p>
               ))}
             {onWorkshop && (
               <button type="button" className={styles.ghost} onClick={onWorkshop}>
-                Paddle Workshop
+                {t('Paddle Workshop')}
               </button>
             )}
           </div>
@@ -372,39 +418,52 @@ export function ResultScreen({
             <div className={styles.xpLines}>
               {award.lines.map((line) => (
                 <p key={line.label} className={styles.xpLine}>
-                  <span>{line.label}</span>
-                  <span>+{line.xp}</span>
+                  <span>{t(line.label)}</span>
+                  <span>
+                    {t('+')}
+                    {t(line.xp)}
+                  </span>
                 </p>
               ))}
               {award.multiplier !== 1 && (
                 <p className={styles.xpLine}>
-                  <span>Difficulty</span>
-                  <span>×{award.multiplier}</span>
+                  <span>{t('Difficulty')}</span>
+                  <span>
+                    {t('×')}
+                    {t(award.multiplier)}
+                  </span>
                 </p>
               )}
               {award.talentMultiplier > 1 && (
                 <p className={styles.xpLine}>
-                  <span>Talents</span>
-                  <span>×{award.talentMultiplier.toFixed(2)}</span>
+                  <span>{t('Talents')}</span>
+                  <span>
+                    {t('×')}
+                    {t(award.talentMultiplier.toFixed(2))}
+                  </span>
                 </p>
               )}
               {award.damped && (
                 <p className={styles.xpLine}>
-                  <span>Daily cap</span>
-                  <span>×0.5</span>
+                  <span>{t('Daily cap')}</span>
+                  <span>{t('×0.5')}</span>
                 </p>
               )}
               {award.extras.map((line) => (
                 <p key={`extra-${line.label}`} className={styles.xpLine}>
-                  <span>{line.label}</span>
-                  <span>+{line.xp}</span>
+                  <span>{t(line.label)}</span>
+                  <span>
+                    {t('+')}
+                    {t(line.xp)}
+                  </span>
                 </p>
               ))}
             </div>
             <p className={styles.xpTotal}>
-              <span>XP earned</span>
+              <span>{t('XP earned')}</span>
               <span>
-                +<CountUp value={award.total} />
+                {t('+')}
+                <CountUp value={award.total} />
               </span>
             </p>
             <div style={{ marginTop: 12 }}>
@@ -413,23 +472,29 @@ export function ResultScreen({
           </div>
         ) : (
           <p className={styles.note}>
-            {result.mode === 'versus'
-              ? 'Two-player matches are just for fun'
-              : result.ranked
-                ? 'No XP from this one'
-                : 'Practice · nothing recorded'}
+            {t(
+              result.mode === 'versus'
+                ? 'Two-player matches are just for fun'
+                : result.ranked
+                  ? 'No XP from this one'
+                  : 'Practice · nothing recorded'
+            )}
           </p>
         )}
 
         {summary && summary.achievements.length > 0 && (
           <>
-            <p className={styles.sectionLabel}>Achievements</p>
+            <p className={styles.sectionLabel}>{t('Achievements')}</p>
             {summary.achievements.map((achievement) => (
               <div key={achievement.id} className={styles.unlockRow}>
-                <span>★</span>
-                <span>{achievement.name}</span>
+                <span>{t('★')}</span>
+                <span>{t(achievement.name)}</span>
                 {achievement.xp > 0 && (
-                  <span style={{ marginLeft: 'auto' }}>+{achievement.xp} XP</span>
+                  <span style={{ marginLeft: 'auto' }}>
+                    {t('+')}
+                    {t(achievement.xp)}
+                    {t(' XP')}
+                  </span>
                 )}
               </div>
             ))}
@@ -438,7 +503,7 @@ export function ResultScreen({
 
         {summary && summary.unlocks.length > 0 && (
           <>
-            <p className={styles.sectionLabel}>Unlocked</p>
+            <p className={styles.sectionLabel}>{t('Unlocked')}</p>
             {summary.unlocks.map((cosmetic) => (
               <div key={cosmetic.id} className={styles.unlockRow}>
                 <span
@@ -450,7 +515,7 @@ export function ResultScreen({
                   }}
                 />
                 <span>
-                  {cosmetic.name} {cosmetic.kind}
+                  {t(cosmetic.name)} {t(cosmetic.kind)}
                 </span>
               </div>
             ))}
@@ -460,10 +525,10 @@ export function ResultScreen({
 
       <footer className={styles.footer}>
         <button type="button" className={styles.primary} onClick={onPrimary}>
-          {primaryLabel}
+          {t(primaryLabel)}
         </button>
         <button type="button" className={styles.ghost} onClick={onSecondary}>
-          {secondaryLabel}
+          {t(secondaryLabel)}
         </button>
       </footer>
     </section>

@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useId } from 'react';
 import { kitName } from '../../core/equipment/catalog';
 import type { PaddleKit } from '../../core/equipment/types';
@@ -125,7 +126,7 @@ export function MaterialGlyph({ id }: { id: string }) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      {shape}
+      {t(shape)}
     </svg>
   );
 }
@@ -174,7 +175,7 @@ export function WorkshopSymbol({
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      {shape}
+      {t(shape)}
     </svg>
   );
 }
@@ -187,7 +188,11 @@ export function PaddlePreview({ kit }: { kit: PaddleKit }) {
   const height = kit.frame === 'extended' ? 158 : kit.frame === 'compact' ? 136 : 148;
   const top = 120 - height / 2;
   return (
-    <svg viewBox="0 0 320 240" role="img" aria-label={`Paddle assembly preview: ${kitName(kit)}`}>
+    <svg
+      viewBox="0 0 320 240"
+      role="img"
+      aria-label={t(msg('Paddle assembly preview: {0}', [t(kitName(kit))]))}
+    >
       <defs>
         <linearGradient id={`${id}-face`} x1="0" y1="0" x2="1" y2="1">
           <stop stopColor={face} />

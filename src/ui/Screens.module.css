@@ -24,7 +24,7 @@
   margin: 14px 0 0;
   font-size: 13px;
   line-height: 1.5;
-  text-align: left;
+  text-align: start;
 }
 
 .controls > div {
@@ -103,6 +103,15 @@
 
 .back:hover {
   background: rgba(238, 242, 255, 0.1);
+}
+
+:global(html[dir='rtl']) .back svg {
+  transform: scaleX(-1);
+}
+
+.scoreLine,
+.score {
+  direction: ltr;
 }
 
 .body {
@@ -203,7 +212,7 @@
   color: var(--ink);
   font: inherit;
   line-height: 1.5;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -214,7 +223,7 @@
   right: 18px;
   width: 7px;
   height: 7px;
-  border-right: 2px solid var(--muted);
+  border-inline-end: 2px solid var(--muted);
   border-bottom: 2px solid var(--muted);
   transform: rotate(45deg);
   transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.25, 1);
@@ -367,7 +376,7 @@
 /* The global sound control stays in the viewport corner on menu screens. */
 @media (max-width: 707px) {
   .header {
-    padding-right: 48px;
+    padding-inline-end: 48px;
   }
 }
 
@@ -492,7 +501,7 @@
   background: rgba(16, 20, 34, 0.66);
   color: var(--ink);
   font-family: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   transition:
     transform 0.12s ease,
@@ -540,7 +549,7 @@
   font-size: 12px;
   font-weight: 650;
   color: var(--muted);
-  text-align: right;
+  text-align: end;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -625,7 +634,7 @@
   place-items: center;
   min-width: 20px;
   height: 20px;
-  margin-left: 8px;
+  margin-inline-start: 8px;
   padding: 0 6px;
   border-radius: 7px;
   background: var(--you);
@@ -649,7 +658,7 @@
   background: var(--card);
   color: var(--ink);
   font-family: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -959,7 +968,7 @@
 }
 
 .bracketScore {
-  margin-left: auto;
+  margin-inline-start: auto;
   font-size: 14px;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
@@ -1055,7 +1064,7 @@
   font-family: inherit;
   font-size: 13px;
   font-weight: 650;
-  text-align: left;
+  text-align: start;
 }
 
 button.unlockRow {
@@ -1159,7 +1168,7 @@ button.unlockRow {
 
 .sliderValue {
   flex: 0 0 44px;
-  text-align: right;
+  text-align: end;
   font-size: 13px;
   font-weight: 650;
   color: var(--muted);
@@ -1222,8 +1231,8 @@ button.unlockRow {
 
 @media (min-width: 620px) {
   .screen {
-    padding-left: max(calc(var(--safe-l) + 14px), calc(50vw - 300px));
-    padding-right: max(calc(var(--safe-r) + 14px), calc(50vw - 300px));
+    padding-inline-start: max(calc(var(--safe-l) + 14px), calc(50vw - 300px));
+    padding-inline-end: max(calc(var(--safe-r) + 14px), calc(50vw - 300px));
   }
 }
 
@@ -1338,7 +1347,7 @@ button.unlockRow {
 }
 
 /*
- * Home's top bar gives the profile room while leaving the right edge clear
+ * Home's top bar gives the profile room while leaving the inline-end edge clear
  * for the HUD's sound button, which floats over every screen. Talents and
  * Settings live in the home screen's bottom navigation.
  */
@@ -1347,7 +1356,7 @@ button.unlockRow {
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
-  padding-right: 50px;
+  padding-inline-end: 50px;
 }
 
 .topBar > .chip {

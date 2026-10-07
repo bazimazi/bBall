@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useState } from 'react';
 import { botProfile } from '../../core/bots/levels';
 import { CHALLENGES, contractChallenge } from '../../core/modes/challenges';
@@ -25,19 +26,27 @@ export function ChallengeScreen({ profile, onPick, onBack }: ChallengeScreenProp
 
   return (
     <Screen
-      title="Challenge"
-      subtitle={`${cleared} of ${CHALLENGES.length} cleared`}
+      title={t('Challenge')}
+      subtitle={t(msg('{0} of {1} cleared', [t(cleared), t(CHALLENGES.length)]))}
       onBack={onBack}
     >
       <PaddleNotice profile={profile} policy="neutral" />
       <MenuDisclosure
-        title="Five-trial contract playlist"
-        hint={`Set ${Math.ceil(seriesStart / 5)} · ${(profile.progress.contracts ?? 0) - seriesStart + 1}/5 cleared`}
+        title={t('Five-trial contract playlist')}
+        hint={t(
+          msg('Set {0} · {1}/5 cleared', [
+            t(Math.ceil(seriesStart / 5)),
+            t((profile.progress.contracts ?? 0) - seriesStart + 1)
+          ])
+        )}
       >
         <p className={styles.rowBlurb}>
-          Seeded set {Math.ceil(seriesStart / 5)} ·{' '}
-          {(profile.progress.contracts ?? 0) - seriesStart + 1} of 5 cleared. Complete each
-          objective in order; progress survives reloads.
+          {t('Seeded set ')}
+          {t(Math.ceil(seriesStart / 5))}
+          {t(' ·')}
+          {t(' ')}
+          {t((profile.progress.contracts ?? 0) - seriesStart + 1)}
+          {t(' of 5 cleared. Complete each objective in order; progress survives reloads.')}
         </p>
         {Array.from({ length: 5 }, (_, i) => contractChallenge(seriesStart + i)).map((trial) => (
           <button
@@ -47,33 +56,38 @@ export function ChallengeScreen({ profile, onPick, onBack }: ChallengeScreenProp
             disabled={Number(trial.id.slice(9)) > (profile.progress.contracts ?? 0) + 1}
             onClick={() => onPick(trial.id)}
           >
-            {trial.name} · {trial.objective.label}
-            {Number(trial.id.slice(9)) <= (profile.progress.contracts ?? 0) ? ' ✓' : ''}
+            {t(trial.name)}
+            {t(' · ')}
+            {t(trial.objective.label)}
+            {t(Number(trial.id.slice(9)) <= (profile.progress.contracts ?? 0) ? ' ✓' : '')}
           </button>
         ))}
         <p className={styles.rowBlurb}>
-          Ends at contract {seriesEnd}. Normal contract rewards; no playlist bonus.
+          {t('Ends at contract ')}
+          {t(seriesEnd)}
+          {t('. Normal contract rewards; no playlist bonus.')}
         </p>
       </MenuDisclosure>
       <button type="button" className={styles.row} onClick={() => onPick(contract.id)}>
         <span className={styles.rowText}>
-          <span className={styles.rowTitle}>{contract.name}</span>
+          <span className={styles.rowTitle}>{t(contract.name)}</span>
           <span className={styles.rowBlurb}>
-            {contract.objective.label} · Ongoing contract series
+            {t(contract.objective.label)}
+            {t(' · Ongoing contract series')}
           </span>
         </span>
       </button>
-      <nav className={styles.pager} aria-label="Trial pages">
+      <nav className={styles.pager} aria-label={t('Trial pages')}>
         <button
           type="button"
           className={styles.ghost}
           disabled={page === 0}
           onClick={() => setPage(page - 1)}
         >
-          Previous
+          {t('Previous')}
         </button>
         <GamePicker
-          label="Trial group"
+          label={t('Trial group')}
           compact
           value={page}
           onChange={setPage}
@@ -88,7 +102,7 @@ export function ChallengeScreen({ profile, onPick, onBack }: ChallengeScreenProp
           disabled={page === pageCount - 1}
           onClick={() => setPage(page + 1)}
         >
-          Next
+          {t('Next')}
         </button>
       </nav>
       <div className={styles.grid} key={page}>
@@ -104,16 +118,18 @@ export function ChallengeScreen({ profile, onPick, onBack }: ChallengeScreenProp
             >
               <span className={styles.rowText}>
                 <span className={styles.rowTitle}>
-                  {challenge.name}
-                  {done ? ' ✓' : ''}
+                  {t(challenge.name)}
+                  {t(done ? ' ✓' : '')}
                 </span>
-                <span className={styles.rowBlurb}>{challenge.blurb}</span>
+                <span className={styles.rowBlurb}>{t(challenge.blurb)}</span>
                 <span className={styles.rowBlurb}>
-                  {challenge.objective.label} · vs {botProfile(challenge.bot).name}
+                  {t(challenge.objective.label)}
+                  {t(' · vs ')}
+                  {t(botProfile(challenge.bot).name)}
                 </span>
               </span>
               <span className={done ? `${styles.rowMeta} ${styles.done}` : styles.rowMeta}>
-                {done ? 'Cleared' : `${challenge.xp} XP`}
+                {t(done ? 'Cleared' : msg('{0} XP', [t(challenge.xp)]))}
               </span>
             </button>
           );

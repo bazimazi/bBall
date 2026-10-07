@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { ACHIEVEMENTS } from '../../core/achievements/catalog';
 import { levelOf } from '../../core/progression/levels';
 import type { PlayerProfile } from '../../core/profile/types';
@@ -23,8 +24,8 @@ export function AchievementsScreen({ profile, onBack }: AchievementsScreenProps)
 
   return (
     <Screen
-      title="Achievements"
-      subtitle={`${earned} of ${ACHIEVEMENTS.length} unlocked`}
+      title={t('Achievements')}
+      subtitle={t(msg('{0} of {1} unlocked', [t(earned), t(ACHIEVEMENTS.length)]))}
       onBack={onBack}
     >
       {ordered.map((achievement) => {
@@ -38,11 +39,11 @@ export function AchievementsScreen({ profile, onBack }: AchievementsScreenProps)
             }
           >
             <span className={done ? `${styles.tick} ${styles.tickOn}` : styles.tick}>
-              {done ? '✓' : '·'}
+              {t(done ? '✓' : '·')}
             </span>
             <span className={styles.rowText}>
-              <span className={styles.rowTitle}>{achievement.name}</span>
-              <span className={styles.rowBlurb}>{achievement.description}</span>
+              <span className={styles.rowTitle}>{t(achievement.name)}</span>
+              <span className={styles.rowBlurb}>{t(achievement.description)}</span>
               {!done && progress > 0 && (
                 <span className={styles.miniTrack}>
                   <span
@@ -52,7 +53,12 @@ export function AchievementsScreen({ profile, onBack }: AchievementsScreenProps)
                 </span>
               )}
             </span>
-            {achievement.xp > 0 && <span className={styles.rowMeta}>{achievement.xp} XP</span>}
+            {achievement.xp > 0 && (
+              <span className={styles.rowMeta}>
+                {t(achievement.xp)}
+                {t(' XP')}
+              </span>
+            )}
           </div>
         );
       })}

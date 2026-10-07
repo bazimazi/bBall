@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import styles from '../Screens.module.css';
 
 export function ChoiceGroup<T extends string | number>({
@@ -13,7 +14,7 @@ export function ChoiceGroup<T extends string | number>({
 }) {
   return (
     <fieldset className={styles.choiceGroup}>
-      <legend className={styles.sectionLabel}>{label}</legend>
+      <legend className={styles.sectionLabel}>{t(label)}</legend>
       <div className={styles.choices}>
         {options.map((option) => (
           <button
@@ -23,8 +24,8 @@ export function ChoiceGroup<T extends string | number>({
             aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}
           >
-            <span>{option.name}</span>
-            {option.hint && <small>{option.hint}</small>}
+            <span>{t(option.name)}</span>
+            {option.hint && <small>{t(option.hint)}</small>}
           </button>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import styles from '../Overlay.module.css';
 import { PanelButton } from './PanelButton';
 import { ControlsReference } from '../components/ControlsReference';
@@ -46,48 +47,67 @@ export function PausePanel({
 }: PausePanelProps) {
   return (
     <div className={styles.panel}>
-      <h2 className={styles.heading}>Paused</h2>
-      <p className={styles.tagline}>{label}</p>
+      <h2 className={styles.heading}>{t('Paused')}</h2>
+      <p className={styles.tagline}>{t(label)}</p>
       {resized && (
         <p className={styles.tagline}>
-          The court size changed. Find the ball, then resume when ready.
+          {t('The court size changed. Find the ball, then resume when ready.')}
         </p>
       )}
       {score && (
         <p
           className={styles.score}
-          aria-label={`${versus ? 'Player 1' : 'You'} ${score.you}, ${versus ? 'Player 2' : 'opponent'} ${score.bot}`}
+          aria-label={t(
+            msg('{0} {1}, {2} {3}', [
+              t(versus ? 'Player 1' : 'You'),
+              t(score.you),
+              t(versus ? 'Player 2' : 'opponent'),
+              t(score.bot)
+            ])
+          )}
         >
-          <span className={styles.scoreYou}>{score.you}</span>
-          <i>:</i>
-          <span className={styles.scoreBot}>{score.bot}</span>
+          <span className={styles.scoreYou}>{t(score.you)}</span>
+          <i>{t(':')}</i>
+          <span className={styles.scoreBot}>{t(score.bot)}</span>
         </p>
       )}
       {lives && (
-        <p className={styles.score} aria-label={`${lives.left} of ${lives.max} lives left`}>
+        <p
+          className={styles.score}
+          aria-label={t(msg('{0} of {1} lives left', [t(lives.left), t(lives.max)]))}
+        >
           <span className={styles.scoreYou}>
-            {'♥'.repeat(lives.left)}
-            <span className={styles.spent}>{'♥'.repeat(Math.max(0, lives.max - lives.left))}</span>
+            {t('♥'.repeat(lives.left))}
+            <span className={styles.spent}>
+              {t('♥'.repeat(Math.max(0, lives.max - lives.left)))}
+            </span>
           </span>
         </p>
       )}
       <GoalList goals={goals} />
-      {goals.length === 0 && objective && <p className={styles.tagline}>{objective}</p>}
+      {goals.length === 0 && objective && <p className={styles.tagline}>{t(objective)}</p>}
       {enemyAbilities.length > 0 && (
         <details className={styles.controls}>
-          <summary>Opponent skills · {enemyAbilities.length}</summary>
+          <summary>
+            {t('Opponent skills · ')}
+            {t(enemyAbilities.length)}
+          </summary>
           <dl className={styles.opponentSkills}>
             {enemyAbilities.map((skill) => (
               <div key={skill.id}>
                 <dt>
-                  {skill.name} ·{' '}
-                  {skill.active
-                    ? 'Active'
-                    : skill.ready
-                      ? 'Ready'
-                      : `${skill.cooldownLeft}s recovery`}
+                  {t(skill.name)}
+                  {t(' ·')}
+                  {t(' ')}
+                  {t(
+                    skill.active
+                      ? 'Active'
+                      : skill.ready
+                        ? 'Ready'
+                        : msg('{0}s recovery', [t(skill.cooldownLeft)])
+                  )}
                 </dt>
-                <dd>{abilityById(skill.id)?.blurb}</dd>
+                <dd>{t(abilityById(skill.id)?.blurb)}</dd>
               </div>
             ))}
           </dl>
@@ -96,26 +116,26 @@ export function PausePanel({
       {onStep && (
         <>
           <p className={styles.tagline}>
-            {practiceLanding ?? 'Step to inspect the serve or rally.'}
+            {t(practiceLanding ?? 'Step to inspect the serve or rally.')}
           </p>
           <PanelButton variant="ghost" onClick={onStep}>
-            Step 0.1 seconds
+            {t('Step 0.1 seconds')}
           </PanelButton>
         </>
       )}
-      <PanelButton onClick={onResume}>Resume</PanelButton>
+      <PanelButton onClick={onResume}>{t('Resume')}</PanelButton>
       <PanelButton variant="ghost" onClick={onSettings}>
-        Settings
+        {t('Settings')}
       </PanelButton>
       <PanelButton variant="ghost" onClick={onRestart}>
-        Restart
+        {t('Restart')}
       </PanelButton>
       <PanelButton variant="ghost" onClick={onQuit}>
-        {quitLabel}
+        {t(quitLabel)}
       </PanelButton>
       <SaveNotice />
       <details className={styles.controls}>
-        <summary tabIndex={0}>Controls</summary>
+        <summary tabIndex={0}>{t('Controls')}</summary>
         <ControlsReference versus={versus} />
       </details>
     </div>

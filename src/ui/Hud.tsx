@@ -1,3 +1,4 @@
+import { t } from '../core/i18n/index';
 import type { MouseEvent, ReactNode } from 'react';
 
 import styles from './Hud.module.css';
@@ -40,11 +41,11 @@ function IconButton({ label, onClick, children, pressed }: IconButtonProps) {
     <button
       type="button"
       className={styles.button}
-      aria-label={label}
+      aria-label={t(label)}
       aria-pressed={pressed}
       onClick={handleClick}
     >
-      {children}
+      {t(children)}
     </button>
   );
 }
@@ -66,7 +67,7 @@ export function Hud({
     <>
       <div className={styles.hud}>
         <IconButton
-          label={muted ? 'Unmute sound' : 'Mute sound'}
+          label={t(muted ? 'Unmute sound' : 'Mute sound')}
           pressed={muted}
           onClick={onToggleMute}
         >
@@ -74,21 +75,21 @@ export function Hud({
         </IconButton>
 
         {canPause && (
-          <IconButton label="Pause game" onClick={onPause}>
+          <IconButton label={t('Pause game')} onClick={onPause}>
             <PauseIcon />
           </IconButton>
         )}
       </div>
       {resumeIn > 0 && (
         <div className={styles.countdown} role="status" aria-live="polite" aria-atomic="true">
-          <span>Ready</span>
-          <strong>{resumeIn}</strong>
+          <span>{t('Ready')}</span>
+          <strong>{t(resumeIn)}</strong>
         </div>
       )}
       {serving && onServe && (
         <button type="button" className={styles.serve} onClick={onServe}>
-          {manualServe ? 'Serve when ready' : 'Serve now'}
-          <span>{coarse ? 'Tap' : keyList(keyBindings, 'serve')}</span>
+          {t(manualServe ? 'Serve when ready' : 'Serve now')}
+          <span>{t(coarse ? 'Tap' : keyList(keyBindings, 'serve'))}</span>
         </button>
       )}
     </>

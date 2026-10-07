@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useState } from 'react';
 
 import { ACCENTS } from '../../core/cosmetics/catalog';
@@ -8,6 +9,8 @@ import { AVATARS, type AvatarId, type PlayerProfile } from '../../core/profile/t
 import { Avatar } from '../components/Avatar';
 import { BrandLogo } from '../components/BrandLogo';
 import { SaveNotice } from '../components/SaveNotice';
+import { LanguageChoice } from '../components/LanguageChoice';
+import { useSettings } from '../hooks/useSettings';
 import styles from '../Screens.module.css';
 
 interface OnboardingScreenProps {
@@ -20,6 +23,7 @@ interface OnboardingScreenProps {
  * gets out of the way, because nobody installs a ball game to fill in a form.
  */
 export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
+  useSettings();
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<AvatarId>(profile.avatar);
   const [accent, setAccent] = useState(profile.equipped.accent);
@@ -47,32 +51,34 @@ export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
   return (
     <section className={styles.screen}>
       <BrandLogo />
-      <p className={styles.tagline}>Make it yours - or skip and play</p>
+      <p className={styles.tagline}>{t('Make it yours - or skip and play')}</p>
 
       <div className={styles.body}>
+        <LanguageChoice />
         <SaveNotice />
         <div className={styles.field}>
           <label className={styles.label} htmlFor="player-name">
-            Name
+            {t('Name')}
           </label>
           <input
             id="player-name"
+            dir="auto"
             className={styles.input}
             value={name}
             maxLength={NAME_MAX}
-            placeholder="Player"
+            placeholder={t('Player')}
             autoComplete="off"
             onChange={(event) => setName(event.target.value)}
           />
         </div>
 
-        <p className={styles.sectionLabel}>Avatar</p>
+        <p className={styles.sectionLabel}>{t('Avatar')}</p>
         <div className={styles.swatchGrid}>
           {AVATARS.map((id) => (
             <button
               key={id}
               type="button"
-              aria-label={`Avatar ${id}`}
+              aria-label={t(msg('Avatar {0}', [t(id)]))}
               aria-pressed={id === avatar}
               className={id === avatar ? `${styles.swatch} ${styles.selected}` : styles.swatch}
               onClick={() => setAvatar(id)}
@@ -82,19 +88,19 @@ export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
           ))}
         </div>
 
-        <p className={styles.sectionLabel}>Colour</p>
+        <p className={styles.sectionLabel}>{t('Colour')}</p>
         <div className={styles.swatchGrid}>
           {ACCENTS.filter((item) => item.unlock.type === 'default').map((item) => (
             <button
               key={item.id}
               type="button"
-              aria-label={item.name}
+              aria-label={t(item.name)}
               aria-pressed={item.id === accent}
               className={item.id === accent ? `${styles.swatch} ${styles.selected}` : styles.swatch}
               onClick={() => setAccent(item.id)}
             >
               <span className={styles.swatchDisc} style={{ background: item.css }} />
-              <span className={styles.swatchName}>{item.name}</span>
+              <span className={styles.swatchName}>{t(item.name)}</span>
             </button>
           ))}
         </div>
@@ -102,10 +108,10 @@ export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
 
       <footer className={styles.footer}>
         <button type="button" className={styles.primary} onClick={start}>
-          Start playing
+          {t('Start playing')}
         </button>
         <button type="button" className={styles.ghost} onClick={skip}>
-          Skip
+          {t('Skip')}
         </button>
       </footer>
     </section>

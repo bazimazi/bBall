@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useState, type CSSProperties } from 'react';
 import {
   COMPONENTS,
@@ -107,7 +108,12 @@ function ContactDiagram({ kit, moving }: { kit: PaddleKit; moving: boolean }) {
     <svg
       viewBox="0 0 220 130"
       role="img"
-      aria-label={`${moving ? 'Moving' : 'Stationary'} ordinary return angle ${Math.round((angle * 180) / Math.PI)} degrees`}
+      aria-label={t(
+        msg('{0} ordinary return angle {1} degrees', [
+          t(moving ? 'Moving' : 'Stationary'),
+          t(Math.round((angle * 180) / Math.PI))
+        ])
+      )}
     >
       <path d="M12 12H208V118H12Z" fill="none" stroke="currentColor" opacity=".15" />
       <path d="M22 48V94" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
@@ -203,34 +209,49 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
     act({ type: 'compare', kit: selected }, 'Comparison recorded. Try both kits in Practice.');
   };
   const showcase = (
-    <section className={css.showcase} style={accent(selected.surface)} aria-label="Selected paddle">
+    <section
+      className={css.showcase}
+      style={accent(selected.surface)}
+      aria-label={t('Selected paddle')}
+    >
       <div className={css.preview} ref={previewMotion} data-workshop-motion="paddle">
         <PaddlePreview kit={selected} />
       </div>
       <div className={css.identity}>
         <span className={css.state}>
-          {equipped ? 'Equipped' : owned ? 'Ready to equip' : 'Bench loan'}
+          {t(equipped ? 'Equipped' : owned ? 'Ready to equip' : 'Bench loan')}
         </span>
-        <h3>{playstyle(selected)}</h3>
-        <p>{kitName(selected)}</p>
+        <h3>{t(playstyle(selected))}</h3>
+        <p>{t(kitName(selected))}</p>
       </div>
-      <div className={css.readouts} aria-label="Paddle properties with current talents">
+      <div className={css.readouts} aria-label={t('Paddle properties with current talents')}>
         <span>
-          <b>{Math.round((1 + reach) * 100)}%</b> Reach
+          <b>
+            {t(Math.round((1 + reach) * 100))}
+            {t('%')}
+          </b>
+          {t(' Reach')}
         </span>
         <span>
-          <b>{Math.round(grip * 100)}%</b> Moving grip
+          <b>
+            {t(Math.round(grip * 100))}
+            {t('%')}
+          </b>
+          {t(' Moving grip')}
         </span>
         <span>
-          <b>{selected.core === 'cork' || selected.core === 'memory-gel' ? 80 : 60}%</b> Bonus
-          damping
+          <b>
+            {t(selected.core === 'cork' || selected.core === 'memory-gel' ? 80 : 60)}
+            {t('%')}
+          </b>
+          {t(' Bonus damping')}
         </span>
       </div>
     </section>
   );
   return (
     <Screen
-      title="Paddle Workshop"
+      title={t('Paddle Workshop')}
       onBack={onBack}
       className={css.screen}
       footer={
@@ -239,9 +260,9 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
             type="button"
             className={`${styles.ghost} ${css.equip}`}
             disabled={!owned || equipped}
-            aria-label={
+            aria-label={t(
               equipped ? 'Equipped' : owned ? 'Equip paddle' : 'Craft and unlock parts to equip'
-            }
+            )}
             onClick={() =>
               act(
                 { type: 'equip', kit: selected },
@@ -249,17 +270,18 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
               )
             }
           >
-            {equipped ? 'Equipped' : owned ? 'Equip paddle' : 'Loan only'}
+            {t(equipped ? 'Equipped' : owned ? 'Equip paddle' : 'Loan only')}
           </button>
           <button
             type="button"
             className={`${styles.primary} ${css.test}`}
-            aria-label="Try selected paddle · no rewards"
+            aria-label={t('Try selected paddle · no rewards')}
             onClick={() => onBench(selected, 'routine')}
           >
             <WorkshopSymbol kind="play" />
             <span>
-              Test paddle<small>Free practice · no rewards</small>
+              {t('Test paddle')}
+              <small>{t('Free practice · no rewards')}</small>
             </span>
           </button>
         </div>
@@ -270,7 +292,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
           <nav
             className={`${css.views} ${css.motionTabs}`}
             style={tabPosition(VIEWS.indexOf(view), VIEWS.length)}
-            aria-label="Workshop views"
+            aria-label={t('Workshop views')}
           >
             {VIEWS.map((name) => (
               <button
@@ -280,29 +302,29 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                 aria-controls="workshop-view"
                 onClick={() => setView(name)}
               >
-                {name}
+                {t(name)}
               </button>
             ))}
           </nav>
-          <span className={css.wallet} aria-label={`${w.marks} Workshop Marks`}>
+          <span className={css.wallet} aria-label={t(msg('{0} Workshop Marks', [t(w.marks)]))}>
             <WorkshopSymbol kind="marks" />
-            <b>{w.marks}</b>
-            <span>Marks</span>
+            <b>{t(w.marks)}</b>
+            <span>{t('Marks')}</span>
           </span>
         </div>
         <div id="workshop-view" className={css.view} ref={viewMotion} data-workshop-motion="view">
           {(view === 'Build' || view === 'Practice') && (
             <div className={css.buildSummary}>
-              {showcase}
+              {t(showcase)}
               {view === 'Build' && (
                 <div className={css.mission} data-workshop-comparison>
                   <button type="button" className={styles.ghost} onClick={compare}>
-                    Compare selected kit
+                    {t('Compare selected kit')}
                   </button>
                   <span>
-                    {w.introduced ? 'Free comparison' : '+12 starter Marks'}
+                    {t(w.introduced ? 'Free comparison' : '+12 starter Marks')}
                     <small>
-                      {w.introduced ? 'Owned changes are free' : 'Change core or surface'}
+                      {t(w.introduced ? 'Owned changes are free' : 'Change core or surface')}
                     </small>
                   </span>
                 </div>
@@ -310,7 +332,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
             </div>
           )}
           {view === 'Build' && (
-            <section className={css.builder} aria-label="Assemble paddle">
+            <section className={css.builder} aria-label={t('Assemble paddle')}>
               <div
                 className={`${css.slots} ${css.motionTabs}`}
                 style={tabPosition(
@@ -319,31 +341,31 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                   slot === 'tuning' ? undefined : MATERIAL_COLOURS[selected[slot]]
                 )}
                 role="group"
-                aria-label="Paddle parts"
+                aria-label={t('Paddle parts')}
               >
                 {EQUIPMENT_SLOTS.map((key) => (
                   <button
                     key={key}
                     type="button"
-                    aria-label={SLOT_NAMES[key]}
+                    aria-label={t(SLOT_NAMES[key])}
                     aria-pressed={slot === key}
                     aria-controls="workshop-materials"
                     style={accent(selected[key])}
                     onClick={() => changeSlot(key)}
                   >
                     <MaterialGlyph id={selected[key]} />
-                    <span>{SHORT[key]}</span>
+                    <span>{t(SHORT[key])}</span>
                   </button>
                 ))}
                 <button
                   type="button"
-                  aria-label="Tuning"
+                  aria-label={t('Tuning')}
                   aria-pressed={slot === 'tuning'}
                   aria-controls="workshop-materials"
                   onClick={() => changeSlot('tuning')}
                 >
                   <WorkshopSymbol kind="target" />
-                  <span>Tune</span>
+                  <span>{t('Tune')}</span>
                 </button>
               </div>
               <div
@@ -357,7 +379,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                     className={`${css.tuningChoices} ${css.motionTabs}`}
                     style={tabPosition(TUNINGS.indexOf(selected.tuning), TUNINGS.length)}
                     role="group"
-                    aria-label="Tuning settings"
+                    aria-label={t('Tuning settings')}
                   >
                     {TUNINGS.map((tuning) => (
                       <button
@@ -368,14 +390,18 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                       >
                         <WorkshopSymbol kind={tuning === 'firm' ? 'attack' : 'target'} />
                         <b>
-                          {tuning === 'standard' ? 'Standard' : tuning === 'firm' ? 'Firm' : 'Grip'}
+                          {t(
+                            tuning === 'standard' ? 'Standard' : tuning === 'firm' ? 'Firm' : 'Grip'
+                          )}
                         </b>
                         <small>
-                          {tuning === 'standard'
-                            ? 'Balanced'
-                            : tuning === 'firm'
-                              ? 'Rebound ↑ grip ↓'
-                              : 'Grip ↑ placement ↓'}
+                          {t(
+                            tuning === 'standard'
+                              ? 'Balanced'
+                              : tuning === 'firm'
+                                ? 'Rebound ↑ grip ↓'
+                                : 'Grip ↑ placement ↓'
+                          )}
                         </small>
                       </button>
                     ))}
@@ -384,35 +410,40 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                   <div
                     className={css.carousel}
                     role="group"
-                    aria-label={`${SLOT_NAMES[slot]} materials`}
+                    aria-label={t(msg('{0} materials', [t(SLOT_NAMES[slot])]))}
                   >
                     <button
                       type="button"
                       className={css.pageArrow}
-                      aria-label="Previous materials"
+                      aria-label={t('Previous materials')}
                       disabled={page === 0}
                       onClick={() => setPage(page - 1)}
                     >
-                      ‹
+                      {t('‹')}
                     </button>
                     <div className={css.inventory}>
                       {materials.slice(page * 2, page * 2 + 2).map((c) => (
                         <button
                           key={c.id}
                           type="button"
-                          aria-label={`Select ${c.name}`}
+                          aria-label={t(msg('Select {0}', [t(c.name)]))}
                           aria-pressed={selected[slot] === c.id}
                           className={css.material}
                           style={accent(c.id)}
                           onClick={() => choose(slot, c.id)}
                         >
                           <MaterialGlyph id={c.id} />
-                          <b>{c.name}</b>
-                          <small>{MATERIAL_HINTS[c.id]}</small>
+                          <b>{t(c.name)}</b>
+                          <small>{t(MATERIAL_HINTS[c.id])}</small>
                           <span>
-                            {w.owned.includes(c.id)
-                              ? 'Owned'
-                              : `${c.milestone > stage ? 'Loan · ' : ''}${c.cost} Marks`}
+                            {t(
+                              w.owned.includes(c.id)
+                                ? 'Owned'
+                                : msg('{0}{1} Marks', [
+                                    t(c.milestone > stage ? 'Loan · ' : ''),
+                                    t(c.cost)
+                                  ])
+                            )}
                           </span>
                         </button>
                       ))}
@@ -420,23 +451,28 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                     <button
                       type="button"
                       className={css.pageArrow}
-                      aria-label="Next materials"
+                      aria-label={t('Next materials')}
                       disabled={page >= pages - 1}
                       onClick={() => setPage(page + 1)}
                     >
-                      ›
+                      {t('›')}
                     </button>
                   </div>
                 )}
                 <div className={css.pageInfo} aria-live="polite">
                   <span>
-                    {slot === 'tuning'
-                      ? stage < 2
-                        ? 'Loan until Tuning craft'
-                        : 'Free to switch'
-                      : `${SHORT[slot]} · ${page + 1}/${pages}`}
+                    {t(
+                      slot === 'tuning'
+                        ? stage < 2
+                          ? 'Loan until Tuning craft'
+                          : 'Free to switch'
+                        : msg('{0} · {1}/{2}', [t(SHORT[slot]), t(page + 1), t(pages)])
+                    )}
                   </span>
-                  <span>{crafted}/11 crafted</span>
+                  <span>
+                    {t(crafted)}
+                    {t('/11 crafted')}
+                  </span>
                 </div>
               </div>
               <div className={css.buildActions}>
@@ -445,7 +481,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                   className={styles.ghost}
                   onClick={() => setDetail('material')}
                 >
-                  {slot === 'tuning' ? 'Tuning details' : 'Material details'}
+                  {t(slot === 'tuning' ? 'Tuning details' : 'Material details')}
                 </button>
                 {slot !== 'tuning' && !w.owned.includes(part.id) ? (
                   <button
@@ -460,13 +496,19 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                       )
                     }
                   >
-                    {stage < part.milestone
-                      ? `Unlock at ${STAGES[part.milestone]}`
-                      : `Craft · ${part.cost} Marks`}
+                    {t(
+                      stage < part.milestone
+                        ? msg('Unlock at {0}', [t(STAGES[part.milestone])])
+                        : msg('Craft · {0} Marks', [t(part.cost)])
+                    )}
                   </button>
                 ) : (
                   <span className={css.ownedHint}>
-                    {slot === 'tuning' ? 'Try any setting free' : `${part.name} · owned`}
+                    {t(
+                      slot === 'tuning'
+                        ? 'Try any setting free'
+                        : msg('{0} · owned', [t(part.name)])
+                    )}
                   </span>
                 )}
               </div>
@@ -475,8 +517,8 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
           {view === 'Practice' && (
             <section className={css.range} aria-labelledby="range-title">
               <div className={css.sectionHead}>
-                <h3 id="range-title">Practice range</h3>
-                <span>Free loans · no rewards</span>
+                <h3 id="range-title">{t('Practice range')}</h3>
+                <span>{t('Free loans · no rewards')}</span>
               </div>
               <div className={css.drills}>
                 {(['routine', 'attack', 'edge'] as const).map((serve) => (
@@ -484,49 +526,56 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                     key={serve}
                     type="button"
                     onClick={() => onBench(selected, serve)}
-                    aria-label={
+                    aria-label={t(
                       serve === 'routine'
                         ? 'Routine return'
                         : serve === 'attack'
                           ? 'Incoming attack'
                           : 'Edge approach'
-                    }
+                    )}
                   >
                     <WorkshopSymbol
                       kind={serve === 'routine' ? 'target' : serve === 'attack' ? 'attack' : 'edge'}
                     />
                     <span>
                       <b>
-                        {serve === 'routine'
-                          ? 'Routine return'
-                          : serve === 'attack'
-                            ? 'Incoming attack'
-                            : 'Edge approach'}
+                        {t(
+                          serve === 'routine'
+                            ? 'Routine return'
+                            : serve === 'attack'
+                              ? 'Incoming attack'
+                              : 'Edge approach'
+                        )}
                       </b>
                       <small>
-                        {serve === 'routine'
-                          ? 'Find your feel'
-                          : serve === 'attack'
-                            ? 'Catch the bonus pace'
-                            : 'Work the outer contact'}
+                        {t(
+                          serve === 'routine'
+                            ? 'Find your feel'
+                            : serve === 'attack'
+                              ? 'Catch the bonus pace'
+                              : 'Work the outer contact'
+                        )}
                       </small>
                     </span>
-                    <span aria-hidden="true">↗</span>
+                    <span aria-hidden="true">{t('↗')}</span>
                   </button>
                 ))}
               </div>
               <button type="button" className={styles.ghost} onClick={() => setDetail('paths')}>
-                Compare return paths
+                {t('Compare return paths')}
               </button>
             </section>
           )}
           {view === 'Progress' && (
             <section className={css.progression} aria-labelledby="progression-title">
               <div className={css.sectionHead}>
-                <h3 id="progression-title">{STAGES[stage]}</h3>
-                <span>{completed}/6 complete</span>
+                <h3 id="progression-title">{t(STAGES[stage])}</h3>
+                <span>
+                  {t(completed)}
+                  {t('/6 complete')}
+                </span>
               </div>
-              <ol className={css.path} aria-label="Workshop unlock path">
+              <ol className={css.path} aria-label={t('Workshop unlock path')}>
                 {PATH.map((name, i) => (
                   <li
                     key={name}
@@ -534,26 +583,28 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                     aria-current={Math.max(1, stage) === i + 1 ? 'step' : undefined}
                   >
                     <span>{stage >= i + 1 ? <WorkshopSymbol kind="check" /> : i + 1}</span>
-                    <b>{name}</b>
+                    <b>{t(name)}</b>
                   </li>
                 ))}
               </ol>
-              <p className={css.next}>{NEXT[stage]}</p>
+              <p className={css.next}>{t(NEXT[stage])}</p>
               <div className={css.contractHeading}>
-                <h4>Technique contracts</h4>
+                <h4>{t('Technique contracts')}</h4>
                 <span>
-                  {contractIndex + 1}/{WORKSHOP_CONTRACTS.length}
+                  {t(contractIndex + 1)}
+                  {t('/')}
+                  {t(WORKSHOP_CONTRACTS.length)}
                 </span>
               </div>
               <div className={css.contractCarousel}>
                 <button
                   type="button"
                   className={css.pageArrow}
-                  aria-label="Previous contract"
+                  aria-label={t('Previous contract')}
                   disabled={contractIndex === 0}
                   onClick={() => setContractIndex(contractIndex - 1)}
                 >
-                  ‹
+                  {t('‹')}
                 </button>
                 <div
                   className={`${css.contract} ${done ? css.contractDone : ''}`}
@@ -562,33 +613,35 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                   aria-live="polite"
                 >
                   <div className={css.sectionHead}>
-                    <b>{contract.name}</b>
-                    <span>{done ? 'Complete' : `+${contract.reward} Marks`}</span>
+                    <b>{t(contract.name)}</b>
+                    <span>{t(done ? 'Complete' : msg('+{0} Marks', [t(contract.reward)]))}</span>
                   </div>
-                  <p>{contract.description}</p>
+                  <p>{t(contract.description)}</p>
                   <div className={css.contractMeter}>
-                    <progress max={contract.target} value={value} aria-label={contract.name} />
+                    <progress max={contract.target} value={value} aria-label={t(contract.name)} />
                     <span>
-                      {value}/{contract.target}
+                      {t(value)}
+                      {t('/')}
+                      {t(contract.target)}
                     </span>
                   </div>
                 </div>
                 <button
                   type="button"
                   className={css.pageArrow}
-                  aria-label="Next contract"
+                  aria-label={t('Next contract')}
                   disabled={contractIndex === WORKSHOP_CONTRACTS.length - 1}
                   onClick={() => setContractIndex(contractIndex + 1)}
                 >
-                  ›
+                  {t('›')}
                 </button>
               </div>
               <div className={css.buildActions}>
                 <button type="button" className={styles.ghost} onClick={() => setDetail('rewards')}>
-                  Marks & signatures
+                  {t('Marks & signatures')}
                 </button>
                 <button type="button" className={styles.ghost} onClick={onCustomize}>
-                  Finishes & engravings ↗
+                  {t('Finishes & engravings ↗')}
                 </button>
               </div>
             </section>
@@ -596,36 +649,44 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
           {view === 'Saved' && (
             <section className={css.saved} aria-labelledby="saved-title">
               <div className={css.sectionHead}>
-                <h3 id="saved-title">Saved paddles</h3>
+                <h3 id="saved-title">{t('Saved paddles')}</h3>
                 {profile.progress.run?.equipment?.version === 1 ? (
                   <button
                     type="button"
                     className={styles.ghost}
-                    aria-label="Gauntlet service"
+                    aria-label={t('Gauntlet service')}
                     onClick={() => setDetail('service')}
                   >
-                    Service · {profile.progress.run.credits ?? 0} credits
+                    {t('Service · ')}
+                    {t(profile.progress.run.credits ?? 0)}
+                    {t(' credits')}
                   </button>
                 ) : (
-                  <span>{w.presets.filter(Boolean).length}/3 saved</span>
+                  <span>
+                    {t(w.presets.filter(Boolean).length)}
+                    {t('/3 saved')}
+                  </span>
                 )}
               </div>
               <div
                 className={`${css.presetTabs} ${css.motionTabs}`}
                 style={tabPosition(presetIndex, w.presets.length)}
                 role="group"
-                aria-label="Paddle presets"
+                aria-label={t('Paddle presets')}
               >
                 {w.presets.map((p, index) => (
                   <button
                     key={index}
                     type="button"
-                    aria-label={`Paddle preset ${index + 1}`}
+                    aria-label={t(msg('Paddle preset {0}', [t(index + 1)]))}
                     aria-pressed={presetIndex === index}
                     onClick={() => setPresetIndex(index)}
                   >
-                    <span>0{index + 1}</span>
-                    <b>{p?.name ?? 'Empty'}</b>
+                    <span>
+                      {t('0')}
+                      {t(index + 1)}
+                    </span>
+                    <b>{p?.name ?? t('Empty')}</b>
                   </button>
                 ))}
               </div>
@@ -635,27 +696,30 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                 data-workshop-motion="preset"
                 aria-live="polite"
               >
-                <h4>{preset?.name ?? 'Save your favourite'}</h4>
+                <h4>{preset?.name ?? t('Save your favourite')}</h4>
                 <p>
-                  {preset
-                    ? kitName(preset.kit)
-                    : 'Equip a paddle, then save it here for your next match.'}
+                  {t(
+                    preset
+                      ? kitName(preset.kit)
+                      : 'Equip a paddle, then save it here for your next match.'
+                  )}
                 </p>
               </div>
               <label className={css.presetName}>
-                <span>Preset name</span>
+                <span>{t('Preset name')}</span>
                 <input
                   maxLength={24}
                   value={presetName}
+                  dir="auto"
                   onChange={(e) => setPresetName(e.target.value)}
-                  placeholder="My paddle"
+                  placeholder={t('My paddle')}
                 />
               </label>
               <div className={css.buildActions}>
                 <button
                   type="button"
                   className={styles.ghost}
-                  aria-label={`Save equipped paddle to slot ${presetIndex + 1}`}
+                  aria-label={t(msg('Save equipped paddle to slot {0}', [t(presetIndex + 1)]))}
                   onClick={() =>
                     act(
                       { type: 'preset', slot: presetIndex, action: 'save', name: presetName },
@@ -663,12 +727,12 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                     )
                   }
                 >
-                  Save equipped
+                  {t('Save equipped')}
                 </button>
                 <button
                   type="button"
                   className={styles.ghost}
-                  aria-label={`Load paddle slot ${presetIndex + 1}`}
+                  aria-label={t(msg('Load paddle slot {0}', [t(presetIndex + 1)]))}
                   disabled={!preset}
                   onClick={() => {
                     if (
@@ -677,19 +741,19 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                       setSelected({ ...preset!.kit });
                   }}
                 >
-                  Load
+                  {t('Load')}
                 </button>
               </div>
             </section>
           )}
         </div>
         <p className={css.notice} role="status" aria-live="polite">
-          {notice}
+          {t(notice)}
         </p>
       </div>
       {detail && (
         <Dialog
-          label={
+          label={t(
             detail === 'material'
               ? slot === 'tuning'
                 ? 'Tuning details'
@@ -699,7 +763,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                 : detail === 'rewards'
                   ? 'Marks and signatures'
                   : 'Gauntlet service'
-          }
+          )}
           portal
           className={css.overlay}
           onDismiss={closeDetail}
@@ -712,23 +776,25 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
           >
             <header>
               <h3>
-                {detail === 'material'
-                  ? slot === 'tuning'
-                    ? 'Tuning details'
-                    : part.name
-                  : detail === 'paths'
-                    ? 'Return paths'
-                    : detail === 'rewards'
-                      ? 'Marks & signatures'
-                      : 'Gauntlet service'}
+                {t(
+                  detail === 'material'
+                    ? slot === 'tuning'
+                      ? 'Tuning details'
+                      : part.name
+                    : detail === 'paths'
+                      ? 'Return paths'
+                      : detail === 'rewards'
+                        ? 'Marks & signatures'
+                        : 'Gauntlet service'
+                )}
               </h3>
               <button
                 type="button"
                 className={styles.ghost}
-                aria-label="Close details"
+                aria-label={t('Close details')}
                 onClick={closeDetail}
               >
-                ✕
+                {t('✕')}
               </button>
             </header>
             <div className={css.detailBody}>
@@ -737,76 +803,91 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                   {slot === 'tuning' ? (
                     <>
                       <p>
-                        <b>Standard</b>Balanced response.
+                        <b>{t('Standard')}</b>
+                        {t('Balanced response.')}
                       </p>
                       <p>
-                        <b>Firm</b>More ordinary rebound, less moving grip.
+                        <b>{t('Firm')}</b>
+                        {t('More ordinary rebound, less moving grip.')}
                       </p>
                       <p>
-                        <b>Grip</b>More moving grip, softer geometric placement.
+                        <b>{t('Grip')}</b>
+                        {t('More moving grip, softer geometric placement.')}
                       </p>
                       <p className={css.muted}>
-                        {stage < 2
-                          ? 'Free to test. Complete a contact contract to unlock tuning for scored play.'
-                          : 'Unlocked. Switch settings freely.'}
+                        {t(
+                          stage < 2
+                            ? 'Free to test. Complete a contact contract to unlock tuning for scored play.'
+                            : 'Unlocked. Switch settings freely.'
+                        )}
                       </p>
                     </>
                   ) : (
                     <>
                       <p>
-                        <b>Gain</b>
-                        {part.benefit}
+                        <b>{t('Gain')}</b>
+                        {t(part.benefit)}
                       </p>
                       <p>
-                        <b>Trade-off</b>
-                        {part.costText}
+                        <b>{t('Trade-off')}</b>
+                        {t(part.costText)}
                       </p>
                       <p>
-                        <b>Technique</b>
-                        {part.technique}
+                        <b>{t('Technique')}</b>
+                        {t(part.technique)}
                       </p>
                       {!w.owned.includes(part.id) && (
                         <p className={css.muted}>
-                          {stage < part.milestone
-                            ? `Unlocks at ${STAGES[part.milestone]}.`
-                            : w.marks < part.cost
-                              ? `${part.cost - w.marks} more Marks to craft.`
-                              : 'Ready to craft.'}{' '}
-                          Free to test now.
+                          {t(
+                            stage < part.milestone
+                              ? msg('Unlocks at {0}.', [t(STAGES[part.milestone])])
+                              : w.marks < part.cost
+                                ? msg('{0} more Marks to craft.', [t(part.cost - w.marks)])
+                                : 'Ready to craft.'
+                          )}
+                          {t(' ')}
+                          {t('Free to test now.')}
                         </p>
                       )}
                     </>
                   )}
                   <div className={css.propertyDetails}>
-                    <h4>Your paddle response</h4>
+                    <h4>{t('Your paddle response')}</h4>
                     <p>
-                      Reach and moving grip include your talents.
-                      {reach >= BALANCE.talents.maxLength ? ' Reach is capped.' : ''}
-                      {grip >= BALANCE.equipment.overallSpinMax
-                        ? ' Moving grip is capped.'
-                        : ''}{' '}
-                      Damping affects incoming bonus pace.
+                      {t('Reach and moving grip include your talents.')}
+                      {t(reach >= BALANCE.talents.maxLength ? ' Reach is capped.' : '')}
+                      {t(grip >= BALANCE.equipment.overallSpinMax ? ' Moving grip is capped.' : '')}
+                      {t(' ')}
+                      {t('Damping affects incoming bonus pace.')}
                     </p>
                     <p>
-                      {bonus > 0
-                        ? `+${(bonus * 100).toFixed(1)}% ordinary clean-centre growth.`
-                        : 'Standard clean-centre growth.'}
-                      {reboundLimit ? ' At the passive limit in clutch.' : ''} Charged returns keep
-                      their skill response.
+                      {t(
+                        bonus > 0
+                          ? msg('+{0}% ordinary clean-centre growth.', [
+                              t((bonus * 100).toFixed(1))
+                            ])
+                          : 'Standard clean-centre growth.'
+                      )}
+                      {t(reboundLimit ? ' At the passive limit in clutch.' : '')}
+                      {t(' Charged returns keep their skill response.')}
                     </p>
                     <p>
-                      {selected.surface === 'ceramic'
-                        ? 'Straight centre band.'
-                        : selected.surface === 'split'
-                          ? 'Steady centre, grippy ends.'
-                          : selected.surface === 'woven'
-                            ? 'Gentle edge response.'
-                            : selected.surface === 'rubber'
-                              ? 'Flatter stationary contact.'
-                              : 'Standard geometric placement.'}
-                      {selected.frame === 'compact'
-                        ? ' Compact frame sharpens geometric placement.'
-                        : ''}
+                      {t(
+                        selected.surface === 'ceramic'
+                          ? 'Straight centre band.'
+                          : selected.surface === 'split'
+                            ? 'Steady centre, grippy ends.'
+                            : selected.surface === 'woven'
+                              ? 'Gentle edge response.'
+                              : selected.surface === 'rubber'
+                                ? 'Flatter stationary contact.'
+                                : 'Standard geometric placement.'
+                      )}
+                      {t(
+                        selected.frame === 'compact'
+                          ? ' Compact frame sharpens geometric placement.'
+                          : ''
+                      )}
                     </p>
                   </div>
                 </>
@@ -817,49 +898,60 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                     className={`${css.presetTabs} ${css.motionTabs}`}
                     style={tabPosition(Number(moving), 2)}
                     role="group"
-                    aria-label="Contact motion"
+                    aria-label={t('Contact motion')}
                   >
                     <button type="button" aria-pressed={!moving} onClick={() => setMoving(false)}>
-                      Stationary
+                      {t('Stationary')}
                     </button>
                     <button type="button" aria-pressed={moving} onClick={() => setMoving(true)}>
-                      Moving
+                      {t('Moving')}
                     </button>
                   </div>
                   <div className={css.comparison} ref={pathsMotion} data-workshop-motion="paths">
                     <div>
-                      <h4>Neutral</h4>
+                      <h4>{t('Neutral')}</h4>
                       <ContactDiagram kit={{ ...NEUTRAL_KIT }} moving={moving} />
                     </div>
                     <div>
-                      <h4>Selected</h4>
+                      <h4>{t('Selected')}</h4>
                       <ContactDiagram kit={selected} moving={moving} />
                     </div>
                   </div>
                   <p className={css.muted}>
-                    Ordinary surface response only. Your skills still apply in live practice.
+                    {t('Ordinary surface response only. Your skills still apply in live practice.')}
                   </p>
                 </>
               )}
               {detail === 'rewards' && (
                 <>
                   <p>
-                    <b>Earn Marks</b>Scored wins/losses earn 4/2 Marks after three paddle contacts.
-                    Gauntlet pays per act. Technique contracts pay once.
+                    <b>{t('Earn Marks')}</b>
+                    {t(
+                      'Scored wins/losses earn 4/2 Marks after three paddle contacts. Gauntlet pays per act. Technique contracts pay once.'
+                    )}
                   </p>
                   <p>
-                    <b>Practice</b>Practice and survival Endless pay no Marks. All materials are
-                    free to test.
+                    <b>{t('Practice')}</b>
+                    {t(
+                      'Practice and survival Endless pay no Marks. All materials are free to test.'
+                    )}
                   </p>
                   <p>
-                    <b>Signatures</b>
-                    {stage >= 5
-                      ? `${w.signatures} encounters · cycle ${Math.floor(w.signatures / 10) + 1}. Combat bonuses remain capped.`
-                      : 'Complete Signature craft to unlock your signature engraving.'}
+                    <b>{t('Signatures')}</b>
+                    {t(
+                      stage >= 5
+                        ? msg('{0} encounters · cycle {1}. Combat bonuses remain capped.', [
+                            t(w.signatures),
+                            t(Math.floor(w.signatures / 10) + 1)
+                          ])
+                        : 'Complete Signature craft to unlock your signature engraving.'
+                    )}
                   </p>
                   {crafted === 11 && (
                     <p>
-                      All functional recipes crafted. Continue for signatures and cosmetic records.
+                      {t(
+                        'All functional recipes crafted. Continue for signatures and cosmetic records.'
+                      )}
                     </p>
                   )}
                 </>
@@ -867,8 +959,9 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
               {detail === 'service' && (
                 <>
                   <p>
-                    Swap to this owned paddle for 2 credits at an act boundary, after resolving your
-                    boon offer.
+                    {t(
+                      'Swap to this owned paddle for 2 credits at an act boundary, after resolving your boon offer.'
+                    )}
                   </p>
                   <button
                     type="button"
@@ -884,7 +977,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                         closeDetail();
                     }}
                   >
-                    Change run paddle · 2 credits
+                    {t('Change run paddle · 2 credits')}
                   </button>
                 </>
               )}

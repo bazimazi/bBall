@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useState } from 'react';
 import { loadCouchPresets, saveCouchPresets } from '../../core/modes/couchPresets';
 import { endlessRecordKey } from '../../core/modes/sessions';
@@ -75,14 +76,24 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
   const best = (value: { waves: number; rally: number } | undefined) =>
     waves ? (value?.waves ?? 0) : (value?.rally ?? 0);
   return (
-    <Screen title="More modes" subtitle="Quick games, cups and couch play" onBack={onBack}>
+    <Screen
+      title={t('More modes')}
+      subtitle={t('Quick games, cups and couch play')}
+      onBack={onBack}
+    >
       <MenuDisclosure
-        title="Court & couch rules"
-        hint={`${ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'} · ${waves ? 'Waves' : 'Classic rally'} · ${series > 1 ? `Best of ${series}` : 'Single match'} Versus`}
+        title={t('Court & couch rules')}
+        hint={t(
+          msg('{0} · {1} · {2} Versus', [
+            t(ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'),
+            t(waves ? 'Waves' : 'Classic rally'),
+            t(series > 1 ? `Best of ${series}` : 'Single match')
+          ])
+        )}
       >
         <div className={styles.fieldGrid}>
           <GamePicker
-            label="Court for Endless and Versus"
+            label={t('Court for Endless and Versus')}
             value={arenaId}
             onChange={setArenaId}
             options={[
@@ -91,7 +102,7 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             ]}
           />
           <GamePicker
-            label="Endless format"
+            label={t('Endless format')}
             value={waves ? 'waves' : 'classic'}
             onChange={(value) => setWaves(value === 'waves')}
             options={[
@@ -105,16 +116,26 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
           />
         </div>
         <p className={styles.rowBlurb}>
-          {category === 'neutral' ? 'Neutral equipment' : 'Workshop equipment'} best: {best(record)}{' '}
-          {waves ? 'waves' : 'returns'}. Neutral:{' '}
-          {best(profile.progress.workshop.endless[`neutral-${recordKey}`])} · Workshop:{' '}
-          {best(profile.progress.workshop.endless[`workshop-${recordKey}`])} · Legacy:{' '}
-          {best(legacy)}.
-          {waves && ' Court choice seeds the route. Courts change safely between waves.'}
+          {t(category === 'neutral' ? 'Neutral equipment' : 'Workshop equipment')}
+          {t(' best: ')}
+          {t(best(record))}
+          {t(' ')}
+          {t(waves ? 'waves' : 'returns')}
+          {t('. Neutral:')}
+          {t(' ')}
+          {t(best(profile.progress.workshop.endless[`neutral-${recordKey}`]))}
+          {t(' · Workshop:')}
+          {t(' ')}
+          {t(best(profile.progress.workshop.endless[`workshop-${recordKey}`]))}
+          {t(' · Legacy:')}
+          {t(' ')}
+          {t(best(legacy))}
+          {t('.')}
+          {t(waves && ' Court choice seeds the route. Courts change safely between waves.')}
         </p>
         <div className={styles.fieldGrid}>
           <GamePicker<1 | 3 | 5>
-            label="Versus series"
+            label={t('Versus series')}
             value={series}
             onChange={setSeries}
             options={[
@@ -124,7 +145,7 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             ]}
           />
           <GamePicker<'' | 'speed' | 'precision'>
-            label="Versus rule"
+            label={t('Versus rule')}
             value={duel}
             onChange={setDuel}
             options={[
@@ -134,7 +155,7 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             ]}
           />
           <GamePicker
-            label="Versus court"
+            label={t('Versus court')}
             value={mirror ? 'mirror' : 'original'}
             onChange={(value) => setMirror(value === 'mirror')}
             options={[
@@ -148,10 +169,10 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
           />
         </div>
         <p className={styles.rowBlurb}>
-          Review these rules together. Versus earns no XP or records.
+          {t('Review these rules together. Versus earns no XP or records.')}
         </p>
         <details>
-          <summary>Four saved couch presets · this device</summary>
+          <summary>{t('Four saved couch presets · this device')}</summary>
           {Array.from({ length: 4 }, (_, i) => (
             <div className={styles.presetRow} key={i}>
               <button
@@ -165,7 +186,8 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
                   saveCouchPresets(next);
                 }}
               >
-                Save couch {i + 1}
+                {t('Save couch ')}
+                {t(i + 1)}
               </button>
               <button
                 type="button"
@@ -179,7 +201,8 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
                   setDuel(p.duel ?? '');
                 }}
               >
-                Load couch {i + 1}
+                {t('Load couch ')}
+                {t(i + 1)}
               </button>
             </div>
           ))}
@@ -203,16 +226,35 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             }
           >
             <span className={styles.rowText}>
-              <span className={styles.rowTitle}>{mode.name}</span>
+              <span className={styles.rowTitle}>{t(mode.name)}</span>
               <span className={styles.rowBlurb}>
-                {mode.id === 'endless'
-                  ? `${waves ? 'Waves' : 'Classic rally'} · ${ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'} · ${category} best ${best(record)}`
-                  : mode.id === 'versus'
-                    ? `${series > 1 ? `Best of ${series}` : 'Single match'} · ${duel === 'precision' ? 'Precision' : duel === 'speed' ? 'Fast ball' : 'Standard'}${mirror ? ' · Mirrored' : ''}`
-                    : mode.blurb}
+                {t(
+                  mode.id === 'endless'
+                    ? msg('{0} · {1} · {2} best {3}', [
+                        t(waves ? 'Waves' : 'Classic rally'),
+                        t(
+                          ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'
+                        ),
+                        t(category),
+                        t(best(record))
+                      ])
+                    : mode.id === 'versus'
+                      ? msg('{0} · {1}{2}', [
+                          t(series > 1 ? `Best of ${series}` : 'Single match'),
+                          t(
+                            duel === 'precision'
+                              ? 'Precision'
+                              : duel === 'speed'
+                                ? 'Fast ball'
+                                : 'Standard'
+                          ),
+                          t(mirror ? ' · Mirrored' : '')
+                        ])
+                      : mode.blurb
+                )}
               </span>
             </span>
-            <span className={styles.rowMeta}>{metaFor(mode, profile)}</span>
+            <span className={styles.rowMeta}>{t(metaFor(mode, profile))}</span>
           </button>
         ))}
       </div>

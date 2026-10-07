@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { Window } from 'happy-dom';
 import { PassThrough } from 'node:stream';
 import { createElement } from 'react';
 import { renderToPipeableStream, renderToStaticMarkup } from 'react-dom/server';
@@ -160,6 +161,23 @@ try {
     assert.equal((group.match(/aria-pressed="true"/g) ?? []).length, 1);
   }
   settingsStore.update(DEFAULT_SETTINGS);
+  const localeWindow = new Window();
+  try {
+    settingsStore.update({ language: 'fa' });
+    for (const [name, screen] of cases) {
+      const component = createElement(pages[name], props);
+      const html = await render(createElement(MenuBoundary, { screen, onBack: noop }, component));
+      localeWindow.document.body.innerHTML = html;
+      const text = localeWindow.document.body.textContent.replace(
+        /bBall|English|Space|Enter|Escape|Tab|Ctrl|Alt|Shift|Command|Esc/g,
+        ''
+      );
+      assert.doesNotMatch(text, /[a-z]{2,}|\{\d+\}/i, `${name} has untranslated Persian content.`);
+    }
+  } finally {
+    localeWindow.close();
+    settingsStore.update(DEFAULT_SETTINGS);
+  }
   const pending = renderToStaticMarkup(
     createElement(
       MenuBoundary,

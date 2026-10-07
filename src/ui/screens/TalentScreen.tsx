@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 import { BALANCE, nextSlotLevel } from '../../core/balance/config';
@@ -108,8 +109,10 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
 
   return (
     <Screen
-      title="Talents"
-      subtitle={`Level ${level} · ${spent} of ${TOTAL_TALENT_COST} invested`}
+      title={t('Talents')}
+      subtitle={t(
+        msg('Level {0} · {1} of {2} invested', [t(level), t(spent), t(TOTAL_TALENT_COST)])
+      )}
       onBack={onBack}
       footer={
         <button
@@ -126,33 +129,39 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
             }
           }}
         >
-          {confirmRespec ? 'Tap again to refund every branch' : 'Reset all talents · free'}
+          {t(confirmRespec ? 'Tap again to refund every branch' : 'Reset all talents · free')}
         </button>
       }
     >
       <MenuDisclosure
-        title="Saved builds"
-        hint={`${save.presets?.filter(Boolean).length ?? 0}/${buildSlots(level)} slots saved`}
+        title={t('Saved builds')}
+        hint={t(
+          msg('{0}/{1} slots saved', [
+            t(save.presets?.filter(Boolean).length ?? 0),
+            t(buildSlots(level))
+          ])
+        )}
       >
         <p className={screens.rowBlurb}>
-          Save your current talents and skills, then load them with a free respec. Six slots open at
-          level 50; eight at level 100.
+          {t(
+            'Save your current talents and skills, then load them with a free respec. Six slots open at level 50; eight at level 100.'
+          )}
         </p>
         {Array.from({ length: buildSlots(level) }, (_, i) => (
           <div key={i} className={screens.preset}>
-            <span>{save.presets?.[i]?.name ?? `Build ${i + 1} · empty`}</span>
+            <span>{t(save.presets?.[i]?.name ?? msg('Build {0} · empty', [t(i + 1)]))}</span>
             <button
               type="button"
               className={screens.ghost}
-              aria-label={`Save current talents to build ${i + 1}`}
+              aria-label={t(msg('Save current talents to build {0}', [t(i + 1)]))}
               onClick={() => progression.talentBuild(i, 'save', `Build ${i + 1}`)}
             >
-              Save current
+              {t('Save current')}
             </button>
             <button
               type="button"
               className={screens.ghost}
-              aria-label={`Load build ${i + 1}`}
+              aria-label={t(msg('Load build {0}', [t(i + 1)]))}
               disabled={!save.presets?.[i]}
               onClick={() => {
                 progression.talentBuild(i, 'load');
@@ -161,13 +170,13 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
                 setConfirmRespec(false);
               }}
             >
-              Load
+              {t('Load')}
             </button>
           </div>
         ))}
       </MenuDisclosure>
       {/* --------------------------------------------------------- actives */}
-      <p className={screens.sectionLabel}>Active skills</p>
+      <p className={screens.sectionLabel}>{t('Active skills')}</p>
       <div className={styles.slots}>
         {Array.from({ length: slots }, (_, index) => {
           const id = loadout.equipped[index] ?? null;
@@ -185,7 +194,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
               <span className={def ? styles.slotGlyphOn : styles.slotGlyph}>
                 {def ? <TalentIcon id={def.talent} /> : '+'}
               </span>
-              <span className={styles.slotName}>{def ? def.name : 'Empty'}</span>
+              <span className={styles.slotName}>{t(def ? def.name : 'Empty')}</span>
             </button>
           );
         })}
@@ -195,7 +204,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         <div className={styles.picker}>
           {owned.length === 0 && (
             <p className={screens.note}>
-              Learn Power Strike, Dash or Perfect Guard - or any ultimate - to fill a slot.
+              {t('Learn Power Strike, Dash or Perfect Guard - or any ultimate - to fill a slot.')}
             </p>
           )}
           {ABILITY_DEFS.filter((def) => owned.includes(def.id)).map((def) => (
@@ -215,8 +224,8 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
                 <TalentIcon id={def.talent} />
               </span>
               <span>
-                <span className={styles.chipName}>{def.name}</span>
-                <span className={styles.chipMeta}>{def.summary(loadout.effects)}</span>
+                <span className={styles.chipName}>{t(def.name)}</span>
+                <span className={styles.chipMeta}>{t(def.summary(loadout.effects))}</span>
               </span>
             </button>
           ))}
@@ -225,14 +234,18 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
 
       {nextSlot !== null && (
         <p className={screens.note}>
-          Slot {slots + 1} unlocks at level {nextSlot}.
+          {t('Slot ')}
+          {t(slots + 1)}
+          {t(' unlocks at level ')}
+          {t(nextSlot)}
+          {t('.')}
         </p>
       )}
 
       {/* ----------------------------------------------------------- trees */}
       <div className={styles.points} aria-live="polite">
-        <span className={styles.pointsLabel}>Points left</span>
-        <span className={styles.pointsValue}>{save.points}</span>
+        <span className={styles.pointsLabel}>{t('Points left')}</span>
+        <span className={styles.pointsValue}>{t(save.points)}</span>
       </div>
 
       <div className={styles.trees}>
@@ -253,12 +266,16 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         ))}
       </div>
       <p className={screens.note}>
-        Swipe the branches · tap a talent to spend a point. <b>Ultimates</b> unlock after{' '}
-        {tierRequirement(ULTIMATE_TIER)} points in a branch. Advanced court talents continue below.
+        {t('Swipe the branches · tap a talent to spend a point. ')}
+        <b>{t('Ultimates')}</b>
+        {t(' unlock after')}
+        {t(' ')}
+        {t(tierRequirement(ULTIMATE_TIER))}
+        {t(' points in a branch. Advanced court talents continue below.')}
       </p>
 
       {/* ------------------------------------------------------- synergies */}
-      <p className={screens.sectionLabel}>Synergies</p>
+      <p className={screens.sectionLabel}>{t('Synergies')}</p>
       {SYNERGIES.map((synergy) => {
         const on = activeIds.has(synergy.id);
         return (
@@ -266,20 +283,30 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
             key={synergy.id}
             className={on ? `${styles.synergy} ${styles.synergyOn}` : styles.synergy}
           >
-            <span className={styles.synergyTick}>{on ? '✦' : '·'}</span>
+            <span className={styles.synergyTick}>{t(on ? '✦' : '·')}</span>
             <span className={styles.rowText}>
-              <span className={styles.rowTitle}>{synergy.name}</span>
-              <span className={styles.rowBlurb}>{synergy.blurb}</span>
+              <span className={styles.rowTitle}>{t(synergy.name)}</span>
+              <span className={styles.rowBlurb}>{t(synergy.blurb)}</span>
               <span className={styles.rowBlurb}>
-                {on
-                  ? 'Active'
-                  : synergy.requires
-                      .map((need) => {
-                        const rank = save.ranks[need.talent] ?? 0;
-                        return `${talentById(need.talent)?.name ?? need.talent} ${Math.min(rank, need.rank)}/${need.rank}`;
-                      })
-                      .join(' · ')}
-                {!on && synergy.minEquipped ? ` · Equip ${synergy.minEquipped} skills` : ''}
+                {t(
+                  on
+                    ? 'Active'
+                    : synergy.requires
+                        .map((need) => {
+                          const rank = save.ranks[need.talent] ?? 0;
+                          return msg('{0} {1}/{2}', [
+                            t(talentById(need.talent)?.name ?? need.talent),
+                            t(Math.min(rank, need.rank)),
+                            t(need.rank)
+                          ]);
+                        })
+                        .join(' · ')
+                )}
+                {t(
+                  !on && synergy.minEquipped
+                    ? msg(' · Equip {0} skills', [t(synergy.minEquipped)])
+                    : ''
+                )}
               </span>
             </span>
           </div>
@@ -287,14 +314,18 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
       })}
 
       <p className={screens.note}>
-        Paddle length {lengthLabel(loadout.effects.length)} · speed{' '}
-        {Math.round(loadout.paddleSpeed)} from level.
+        {t('Paddle length ')}
+        {t(lengthLabel(loadout.effects.length))}
+        {t(' · speed')}
+        {t(' ')}
+        {t(Math.round(loadout.paddleSpeed))}
+        {t(' from level.')}
       </p>
 
       {/* ------------------------------------------------------ the tooltip */}
       {selected && state && (
         <Dialog
-          label={selected.name}
+          label={t(selected.name)}
           onDismiss={() => setOpen(null)}
           className={styles.sheetLayer}
           portal
@@ -302,7 +333,7 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
           <button
             type="button"
             className={styles.sheetScrim}
-            aria-label="Close talent details"
+            aria-label={t('Close talent details')}
             tabIndex={-1}
             onClick={() => setOpen(null)}
           />
@@ -323,48 +354,58 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
               </span>
               <span className={styles.rowText}>
                 <span className={styles.sheetName} tabIndex={-1} data-dialog-initial>
-                  {selected.name}
+                  {t(selected.name)}
                 </span>
                 <span className={styles.sheetRank}>
-                  Rank {state.rank} / {selected.maxRank}
+                  {t('Rank ')}
+                  {t(state.rank)}
+                  {t(' / ')}
+                  {t(selected.maxRank)}
                   {isUltimate(selected) ? (
-                    <span className={`${styles.activeTag} ${styles.ultimateTag}`}>ultimate</span>
+                    <span className={`${styles.activeTag} ${styles.ultimateTag}`}>
+                      {t('ultimate')}
+                    </span>
                   ) : (
-                    selected.ability && <span className={styles.activeTag}>active skill</span>
+                    selected.ability && (
+                      <span className={styles.activeTag}>{t('active skill')}</span>
+                    )
                   )}
                 </span>
               </span>
             </div>
 
-            <p className={styles.sheetBlurb}>{selected.blurb}</p>
+            <p className={styles.sheetBlurb}>{t(selected.blurb)}</p>
             {SYNERGIES.filter((entry) =>
               entry.requires.some((need) => need.talent === selected.id)
             ).map((entry) => (
               <p key={entry.id} className={styles.detailLine}>
                 <span className={styles.detailTag}>
-                  {activeIds.has(entry.id) ? 'Active' : 'Combo'}
+                  {t(activeIds.has(entry.id) ? 'Active' : 'Combo')}
                 </span>
-                {entry.name}: {entry.blurb}
+                {t(entry.name)}
+                {t(': ')}
+                {t(entry.blurb)}
               </p>
             ))}
 
             {state.rank > 0 && (
               <p className={styles.detailLine}>
-                <span className={styles.detailTag}>Now</span>
-                {selected.rankText(state.rank)}
+                <span className={styles.detailTag}>{t('Now')}</span>
+                {t(selected.rankText(state.rank))}
               </p>
             )}
             {!state.maxed && (
               <p className={styles.detailLine}>
                 <span className={`${styles.detailTag} ${styles.detailNext}`}>
-                  Rank {state.rank + 1}
+                  {t('Rank ')}
+                  {t(state.rank + 1)}
                 </span>
-                {selected.rankText(state.rank + 1)}
+                {t(selected.rankText(state.rank + 1))}
               </p>
             )}
 
             {state.maxed ? (
-              <p className={styles.maxedNote}>Fully invested</p>
+              <p className={styles.maxedNote}>{t('Fully invested')}</p>
             ) : (
               <>
                 <button
@@ -373,13 +414,16 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
                   disabled={!state.canBuy}
                   onClick={() => buy(selected)}
                 >
-                  Spend {state.cost} point{state.cost > 1 ? 's' : ''}
+                  {t('Spend ')}
+                  {t(state.cost)}
+                  {t(' point')}
+                  {t(state.cost > 1 ? 's' : '')}
                 </button>
-                {!state.canBuy && <p className={screens.note}>{blockText(state)}</p>}
+                {!state.canBuy && <p className={screens.note}>{t(blockText(state))}</p>}
               </>
             )}
             <button type="button" className={screens.ghost} onClick={() => setOpen(null)}>
-              Close details
+              {t('Close details')}
             </button>
           </div>
         </Dialog>

@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import type { PlayerProfile } from '../../core/profile/types';
 import { kitName } from '../../core/equipment/catalog';
 import { fixedDailyKit } from '../../core/equipment/policy';
@@ -33,8 +34,8 @@ export function PaddleNotice({
               ? `${kitName(session.kit)} · starting kit saved for this ${policy === 'run' ? 'run' : 'cup'}.`
               : `${kitName(profile.progress.workshop.equipped)} · ${policy === 'run' || policy === 'cup' ? 'saved when you start' : 'equipped for this match'}.`;
   return (
-    <p className={styles.note} style={{ textAlign: 'left', marginTop: 0 }}>
-      {text}
+    <p className={styles.note} style={{ textAlign: 'start', marginTop: 0 }}>
+      {t(text)}
     </p>
   );
 }

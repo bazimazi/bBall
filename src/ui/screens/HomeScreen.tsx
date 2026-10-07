@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import type { CSSProperties } from 'react';
 
 import { nextStage, TOTAL_STARS, totalStars, worldById } from '../../core/campaign/journey';
@@ -54,23 +55,35 @@ function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () =
       className={modes.feature}
       style={accent(world?.hue ?? 171)}
       onClick={onPick}
-      aria-label="Open Journey map"
+      aria-label={t('Open Journey map')}
     >
       <span className={modes.homeJourneyTop}>
         <span className={modes.featureIcon}>
           <MapIcon />
         </span>
         <span className={modes.homeJourneyTitle}>
-          <span className={modes.featureName}>Journey</span>
+          <span className={modes.featureName}>{t('Journey')}</span>
           <span className={modes.featureSub}>
-            {next
-              ? `${next.world}-${next.index + 1} · ${next.name}${next.boss ? ' · Boss' : ''}`
-              : 'Every stage cleared'}
+            {t(
+              next
+                ? msg('{0}-{1} · {2}{3}', [
+                    t(next.world),
+                    t(next.index + 1),
+                    t(next.name),
+                    t(next.boss ? ' · Boss' : '')
+                  ])
+                : 'Every stage cleared'
+            )}
           </span>
         </span>
-        <span className={modes.featureMeta} aria-label={`${stars} of ${TOTAL_STARS} stars`}>
+        <span
+          className={modes.featureMeta}
+          aria-label={t(msg('{0} of {1} stars', [t(stars), t(TOTAL_STARS)]))}
+        >
           <StarIcon />
-          {stars}/{TOTAL_STARS}
+          {t(stars)}
+          {t('/')}
+          {t(TOTAL_STARS)}
         </span>
       </span>
       <span className={`${modes.featureBar} ${modes.homeProgress}`}>
@@ -106,13 +119,15 @@ function DailyTile({ profile, onPick }: { profile: PlayerProfile; onPick: () => 
         ) : (
           <span className={modes.featureMeta}>
             <FlameIcon />
-            {alive ? record.streak : 0}
+            {t(alive ? record.streak : 0)}
           </span>
         )}
       </span>
-      <span className={modes.featureName}>Daily challenge</span>
-      <span className={modes.featureSub}>{spec.title}</span>
-      {!(medals & 1) && <span className={`${modes.featureTag} ${modes.pulse}`}>New today</span>}
+      <span className={modes.featureName}>{t('Daily challenge')}</span>
+      <span className={modes.featureSub}>{t(spec.title)}</span>
+      {!(medals & 1) && (
+        <span className={`${modes.featureTag} ${modes.pulse}`}>{t('New today')}</span>
+      )}
     </button>
   );
 }
@@ -135,22 +150,24 @@ function GauntletTile({ profile, onPick }: { profile: PlayerProfile; onPick: () 
         {live && (
           <span className={modes.featureMeta}>
             <HeartIcon />
-            {run.hearts}
+            {t(run.hearts)}
           </span>
         )}
       </span>
-      <span className={modes.featureName}>Gauntlet</span>
+      <span className={modes.featureName}>{t('Gauntlet')}</span>
       <span className={modes.featureSub}>
-        {live
-          ? runPosition(run)
-          : records.clears > 0
-            ? `Cleared ${records.clears}×`
-            : records.runs > 0
-              ? `Best depth ${records.bestStage}`
-              : 'Sprint, Expedition or Endless'}
+        {t(
+          live
+            ? runPosition(run)
+            : records.clears > 0
+              ? msg('Cleared {0}×', [t(records.clears)])
+              : records.runs > 0
+                ? msg('Best depth {0}', [t(records.bestStage)])
+                : 'Sprint, Expedition or Endless'
+        )}
       </span>
       {live && run.offer && (
-        <span className={`${modes.featureTag} ${modes.pulse}`}>Boon waiting</span>
+        <span className={`${modes.featureTag} ${modes.pulse}`}>{t('Boon waiting')}</span>
       )}
     </button>
   );
@@ -188,21 +205,26 @@ export function HomeScreen({
           <div className={modes.homeIntro}>
             <BrandLogo />
             <p className={styles.tagline}>
-              {demoLevel !== null
-                ? 'Demo · nothing is saved'
-                : newcomer
-                  ? 'Your first match starts here'
-                  : cup
-                    ? `${cup.name} in progress`
-                    : 'Ready when you are'}
+              {t(
+                demoLevel !== null
+                  ? 'Demo · nothing is saved'
+                  : newcomer
+                    ? 'Your first match starts here'
+                    : cup
+                      ? msg('{0} in progress', [t(cup.name)])
+                      : 'Ready when you are'
+              )}
             </p>
           </div>
 
           {demoLevel !== null && (
             <div className={styles.demoBar}>
-              <span>Demo · level {demoLevel}</span>
+              <span>
+                {t('Demo · level ')}
+                {t(demoLevel)}
+              </span>
               <button type="button" className={styles.demoExit} onClick={onExitDemo}>
-                Exit
+                {t('Exit')}
               </button>
             </div>
           )}
@@ -214,12 +236,17 @@ export function HomeScreen({
             {profile.stats.matches < HINT_MATCHES && (
               <>
                 <p className={styles.note}>
-                  {coarse
-                    ? 'Drag to move your paddle'
-                    : `Move the mouse or use ${keyList(keyBindings, 'up')} / ${keyList(keyBindings, 'down')}`}
+                  {t(
+                    coarse
+                      ? 'Drag to move your paddle'
+                      : msg('Move the mouse or use {0} / {1}', [
+                          keyList(keyBindings, 'up'),
+                          keyList(keyBindings, 'down')
+                        ])
+                  )}
                 </p>
                 <button type="button" className={styles.ghost} onClick={onHelp}>
-                  New here? Learn the controls
+                  {t('New here? Learn the controls')}
                 </button>
               </>
             )}
@@ -227,7 +254,7 @@ export function HomeScreen({
 
           <section className={modes.homeGroup} aria-labelledby="home-other-modes">
             <h2 id="home-other-modes" className={modes.homeLabel}>
-              More ways to play
+              {t('More ways to play')}
             </h2>
             <div className={modes.homeCards}>
               <DailyTile profile={profile} onPick={() => onPick('daily')} />
@@ -236,35 +263,35 @@ export function HomeScreen({
           </section>
 
           <button type="button" className={styles.ghost} onClick={onModes}>
-            More modes
+            {t('More modes')}
           </button>
           {profile.stats.matches >= HINT_MATCHES && (
             <button type="button" className={styles.ghost} onClick={onHelp}>
-              How to play
+              {t('How to play')}
             </button>
           )}
           {demoLevel === null && <SyncBadge account={account} />}
         </div>
       </div>
 
-      <nav className={modes.homeUtilities} aria-label="Player tools">
+      <nav className={modes.homeUtilities} aria-label={t('Player tools')}>
         <button
           type="button"
           className={modes.homeUtility}
           onClick={onTalents}
-          aria-label={points > 0 ? `Talents, ${points} points to spend` : 'Talents'}
+          aria-label={t(points > 0 ? msg('Talents, {0} points to spend', [t(points)]) : 'Talents')}
         >
           <SparkIcon />
-          <span>Talents</span>
-          {points > 0 && <span className={modes.homePoints}>{points}</span>}
+          <span>{t('Talents')}</span>
+          {points > 0 && <span className={modes.homePoints}>{t(points)}</span>}
         </button>
         <button type="button" className={modes.homeUtility} onClick={onWorkshop}>
           <WrenchIcon />
-          <span>Workshop</span>
+          <span>{t('Workshop')}</span>
         </button>
         <button type="button" className={modes.homeUtility} onClick={onSettings}>
           <GearIcon />
-          <span>Settings</span>
+          <span>{t('Settings')}</span>
         </button>
       </nav>
     </section>

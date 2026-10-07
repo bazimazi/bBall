@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useState } from 'react';
 import { ARENA_PRESETS } from '../../core/modes/arenas';
 import { BOSSES, bossById } from '../../core/modes/bosses';
@@ -23,7 +24,7 @@ interface DifficultyScreenProps {
 
 function RankDots({ rank }: { rank: number }) {
   return (
-    <span className={styles.rank} aria-label={`Difficulty ${rank} of 5`}>
+    <span className={styles.rank} aria-label={t(msg('Difficulty {0} of 5', [t(rank)]))}>
       {[1, 2, 3, 4, 5].map((step) => (
         <i
           key={step}
@@ -57,12 +58,12 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
 
   return (
     <Screen
-      title={practice ? 'Practice' : 'Quick Match'}
-      subtitle={
+      title={t(practice ? 'Practice' : 'Quick Match')}
+      subtitle={t(
         practice
           ? 'Nothing is recorded'
-          : `First to ${contract === 'mythic' ? 9 : contract === 'master' ? 7 : 5} wins`
-      }
+          : msg('First to {0} wins', [t(contract === 'mythic' ? 9 : contract === 'master' ? 7 : 5)])
+      )}
       onBack={onBack}
       footer={
         drillBot && (
@@ -71,7 +72,7 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
             className={styles.primary}
             onClick={() => onPick(drillBot.id, options)}
           >
-            Start boss drill
+            {t('Start boss drill')}
           </button>
         )
       }
@@ -79,17 +80,26 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
       <PaddleNotice profile={profile} />
       {practice && <PracticePaceChoice />}
       <MenuDisclosure
-        title={practice ? 'Practice setup' : 'Match setup'}
-        hint={
+        title={t(practice ? 'Practice setup' : 'Match setup')}
+        hint={t(
           drill
-            ? `${drill.spec.name} · ${phase?.label ?? 'Opening phase'} · ${school}`
-            : `${ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'} · ${school}${contract ? ` · ${contract === 'master' ? 'Master' : 'Mythic'}` : ''}${series > 1 && !practice ? ` · Best of ${series}` : ''}`
-        }
+            ? msg('{0} · {1} · {2}', [
+                t(drill.spec.name),
+                t(phase?.label ?? 'Opening phase'),
+                t(school)
+              ])
+            : msg('{0} · {1}{2}{3}', [
+                t(ARENA_PRESETS.find((court) => court.id === arenaId)?.name ?? 'Open court'),
+                t(school),
+                t(contract ? ` · ${contract === 'master' ? 'Master' : 'Mythic'}` : ''),
+                t(series > 1 && !practice ? ` · Best of ${series}` : '')
+              ])
+        )}
       >
         {practice && (
           <div className={styles.fieldGrid}>
             <GamePicker
-              label="Boss drill"
+              label={t('Boss drill')}
               value={bossId}
               onChange={(value) => {
                 setBossId(value);
@@ -106,7 +116,7 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
             />
             {bossId && (
               <GamePicker
-                label="Isolated phase"
+                label={t('Isolated phase')}
                 value={bossPhase}
                 onChange={setBossPhase}
                 options={[
@@ -122,14 +132,15 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
         )}
         {drill && (
           <p className={styles.rowBlurb}>
-            Boss drills use the selected phase's opponent and court. Retry repeats that phase with
-            your current equipped skills.
+            {t(
+              "Boss drills use the selected phase's opponent and court. Retry repeats that phase with your current equipped skills."
+            )}
           </p>
         )}
         <div className={styles.fieldGrid}>
           {!drill && (
             <GamePicker
-              label="Court"
+              label={t('Court')}
               value={arenaId}
               onChange={setArenaId}
               options={[
@@ -139,7 +150,7 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
             />
           )}
           <GamePicker
-            label="Opponent school"
+            label={t('Opponent school')}
             value={personality}
             onChange={setPersonality}
             options={PERSONALITIES.map((p) => ({
@@ -149,11 +160,11 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
             }))}
           />
         </div>
-        <p className={styles.rowBlurb}>{SCHOOL_SCOUT[personality]}</p>
+        <p className={styles.rowBlurb}>{t(SCHOOL_SCOUT[personality])}</p>
         <div className={styles.fieldGrid}>
           {!practice && (
             <GamePicker<'' | 'master' | 'mythic'>
-              label="Contract"
+              label={t('Contract')}
               value={contract}
               onChange={setContract}
               options={[
@@ -165,7 +176,7 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
           )}
           {!practice && (
             <GamePicker<1 | 3 | 5>
-              label="Series"
+              label={t('Series')}
               value={series}
               onChange={setSeries}
               options={[
@@ -178,29 +189,37 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
         </div>
         {!practice && contract && (
           <p className={styles.rowBlurb}>
-            Legend opponent · first to {contract === 'mythic' ? 9 : 7} ·{' '}
-            {contract === 'mythic' ? '80%' : '90%'} paddle reach
+            {t('Legend opponent · first to ')}
+            {t(contract === 'mythic' ? 9 : 7)}
+            {t(' ·')}
+            {t(' ')}
+            {t(contract === 'mythic' ? '80%' : '90%')}
+            {t(' paddle reach')}
           </p>
         )}
       </MenuDisclosure>
       <p className={styles.sectionLabel}>
-        {drill
-          ? 'Drill opponent'
-          : contract && !practice
-            ? 'Contract opponent'
-            : 'Choose your opponent'}
+        {t(
+          drill
+            ? 'Drill opponent'
+            : contract && !practice
+              ? 'Contract opponent'
+              : 'Choose your opponent'
+        )}
       </p>
       {drillBot ? (
         <div className={styles.row}>
           <span className={styles.rowText}>
             <span className={styles.rowTitle}>
-              {drillBot.name} · {phase?.label ?? 'Opening phase'}
+              {t(drillBot.name)}
+              {t(' · ')}
+              {t(phase?.label ?? 'Opening phase')}
             </span>
-            <span className={styles.rowBlurb}>{drillBot.blurb}</span>
+            <span className={styles.rowBlurb}>{t(drillBot.blurb)}</span>
           </span>
           <span className={styles.rowMeta}>
             <RankDots rank={drillBot.rank} />
-            <span>Free play</span>
+            <span>{t('Free play')}</span>
           </span>
         </div>
       ) : (
@@ -216,13 +235,19 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
                   onClick={() => onPick(contract && !practice ? 'legend' : bot.id, options)}
                 >
                   <span className={styles.rowText}>
-                    <span className={styles.rowTitle}>{bot.name}</span>
-                    <span className={styles.rowBlurb}>{bot.blurb}</span>
+                    <span className={styles.rowTitle}>{t(bot.name)}</span>
+                    <span className={styles.rowBlurb}>{t(bot.blurb)}</span>
                   </span>
                   <span className={styles.rowMeta}>
                     <RankDots rank={bot.rank} />
                     <span>
-                      {practice ? 'Free play' : wins > 0 ? `${wins} won` : `${bot.xpFactor}x XP`}
+                      {t(
+                        practice
+                          ? 'Free play'
+                          : wins > 0
+                            ? msg('{0} won', [t(wins)])
+                            : msg('{0}x XP', [t(bot.xpFactor)])
+                      )}
                     </span>
                   </span>
                 </button>

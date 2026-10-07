@@ -59,6 +59,21 @@ prerequisites, signing, deep links, and what the shell is allowed to do.
 
 ## Playing
 
+Choose **English** or **فارسی** during first-time setup, or in **Settings → Language**.
+The choice is saved on this device and takes effect immediately. Persian includes
+menus, lessons, match messages, progression, equipment, account feedback and
+accessibility labels, with right-to-left menus and Persian digits. Player names,
+email addresses, physical controls and court orientation retain their meaning.
+Persian menus and canvas text use the bundled [Vazirmatn](https://github.com/rastikerdar/vazirmatn)
+variable font. Its license ships in `public/fonts/vazirmatn/OFL.txt`. The sound
+control sits on the left in RTL layouts and on the right in LTR layouts.
+
+Translations live in `src/core/i18n/fa.json`. English text is the source catalog;
+use `t()` at display boundaries and `msg()` with numbered placeholders for
+interpolated UI messages. Keep IDs, saves and shared simulation data in their
+original form. Run `npm run check:i18n`, `npm run check:menus`,
+`npm run check:ui` and `npm run check:i18n:layout` when adding language content.
+
 Default controls:
 
 | Input                                | Action                                                                 |
@@ -334,7 +349,8 @@ stay pinned, and changing views preserves your trial paddle. Find tuning under
 **Build → Tune**, presets under **Saved**, and eligible Gauntlet service there too.
 Leave a paddle test through **Pause → Back to Workshop** to continue editing the
 same trial kit. Browser/native Back also returns there after pausing the test.
-Sliding highlights track Workshop tabs, parts, tuning and presets. Panels move
+Sliding highlights track Workshop tabs, parts, tuning and presets in both LTR
+and RTL layouts. Panels move
 in the navigation direction, the paddle responds to material changes, and detail
 popups animate both opening and closing while keeping keyboard focus contained.
 These transitions run in Full and Calm and ignore system motion preferences.

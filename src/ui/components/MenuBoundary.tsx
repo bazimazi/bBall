@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import { Component, Suspense, type ReactNode } from 'react';
 import type { ScreenId } from '../hooks/useGameFlow';
 import { Screen } from './Screen';
@@ -55,15 +56,15 @@ export class MenuBoundary extends Component<MenuBoundaryProps, MenuBoundaryState
     if (this.state.failed)
       return (
         <Screen
-          title={title}
-          subtitle={pausedGame ? 'Game paused' : ''}
+          title={t(title)}
+          subtitle={t(pausedGame ? 'Game paused' : '')}
           onBack={onBack}
           onEscape={pausedGame ? onBack : undefined}
           footer={
             <>
               {pausedGame && (
                 <button type="button" className={styles.primary} onClick={onBack}>
-                  Return to paused game
+                  {t('Return to paused game')}
                 </button>
               )}
               <button
@@ -71,20 +72,22 @@ export class MenuBoundary extends Component<MenuBoundaryProps, MenuBoundaryState
                 className={pausedGame ? styles.ghost : styles.primary}
                 onClick={() => window.location.reload()}
               >
-                Reload game
+                {t('Reload game')}
               </button>
               {!pausedGame && (
                 <button type="button" className={styles.ghost} onClick={onBack}>
-                  Back
+                  {t('Back')}
                 </button>
               )}
             </>
           }
         >
           <p role="alert">
-            {pausedGame
-              ? 'This page couldn’t be opened. Return to your paused game, or reload to try again. Reload ends the current match.'
-              : 'This page couldn’t be opened. Go back, or reload the game to try again.'}
+            {t(
+              pausedGame
+                ? 'This page couldn’t be opened. Return to your paused game, or reload to try again. Reload ends the current match.'
+                : 'This page couldn’t be opened. Go back, or reload the game to try again.'
+            )}
           </p>
         </Screen>
       );
@@ -92,18 +95,20 @@ export class MenuBoundary extends Component<MenuBoundaryProps, MenuBoundaryState
       <Suspense
         fallback={
           <Screen
-            title={title}
-            subtitle={pausedGame ? 'Game paused' : ''}
+            title={t(title)}
+            subtitle={t(pausedGame ? 'Game paused' : '')}
             onBack={onBack}
             onEscape={pausedGame ? onBack : undefined}
           >
             <p role="status" aria-live="polite">
-              Opening {title}…
+              {t('Opening ')}
+              {t(title)}
+              {t('…')}
             </p>
           </Screen>
         }
       >
-        {children}
+        {t(children)}
       </Suspense>
     );
   }

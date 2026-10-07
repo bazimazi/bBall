@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { levelOf } from '../../core/progression/levels';
 import { MASTERY_TRACKS, MASTERY_CYCLE } from '../../core/progression/mastery';
 import { useState } from 'react';
@@ -32,8 +33,8 @@ interface ProfileScreenProps {
 function Stat({ value, label }: { value: string | number; label: string }) {
   return (
     <div className={styles.stat}>
-      <div className={styles.statValue}>{value}</div>
-      <div className={styles.statLabel}>{label}</div>
+      <div className={styles.statValue}>{t(value)}</div>
+      <div className={styles.statLabel}>{t(label)}</div>
     </div>
   );
 }
@@ -55,12 +56,14 @@ function GuestReset({ onReset }: { onReset: () => void }) {
         className={`${styles.ghost} ${styles.danger}`}
         onClick={() => setShow(true)}
       >
-        Reset progress
+        {t('Reset progress')}
       </button>
       <ConfirmAction
         show={show}
-        title="Reset guest progress?"
-        description="This erases this device's guest profile and starts over. XP, records, Journey stars, talents, achievements and cosmetic unlocks will be lost. This cannot be undone. Device settings stay."
+        title={t('Reset guest progress?')}
+        description={t(
+          "This erases this device's guest profile and starts over. XP, records, Journey stars, talents, achievements and cosmetic unlocks will be lost. This cannot be undone. Device settings stay."
+        )}
         cancelLabel="Keep progress"
         confirmLabel="Erase guest progress"
         onCancel={() => setShow(false)}
@@ -118,15 +121,16 @@ export function ProfileScreen({
   };
 
   return (
-    <Screen title="Profile" onBack={onBack}>
+    <Screen title={t('Profile')} onBack={onBack}>
       <div className={styles.card} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
         <Avatar avatar={profile.avatar} large />
         <div style={{ flex: '1 1 auto', minWidth: 0 }}>
           <input
             className={styles.input}
             value={nameDraft.value}
+            dir="auto"
             maxLength={NAME_MAX}
-            aria-label="Player name"
+            aria-label={t('Player name')}
             onChange={(event) => setNameDraft({ ...nameDraft, value: event.target.value })}
             onBlur={() => saveIdentity()}
             onKeyDown={(event) => {
@@ -149,16 +153,20 @@ export function ProfileScreen({
 
       {demoLevel === null && (
         <>
-          <p className={styles.sectionLabel}>Account</p>
+          <p className={styles.sectionLabel}>{t('Account')}</p>
           <button type="button" className={styles.ghost} onClick={onAccount}>
-            {account.status === 'authenticated' ? (account.email ?? 'Account') : 'Sign in'}
-            {account.pending > 0 && <span className={styles.badge}>{account.pending}</span>}
+            {account.status === 'authenticated' ? (
+              <bdi dir="ltr">{account.email ?? t('Account')}</bdi>
+            ) : (
+              t('Sign in')
+            )}
+            {account.pending > 0 && <span className={styles.badge}>{t(account.pending)}</span>}
           </button>
           <SyncBadge account={account} showGuest />
         </>
       )}
 
-      <p className={styles.sectionLabel}>Avatar</p>
+      <p className={styles.sectionLabel}>{t('Avatar')}</p>
       <div className={styles.swatchGrid}>
         {AVATARS.map((avatar) => (
           <button
@@ -167,7 +175,7 @@ export function ProfileScreen({
             className={
               avatar === profile.avatar ? `${styles.swatch} ${styles.selected}` : styles.swatch
             }
-            aria-label={`Avatar ${avatar}`}
+            aria-label={t(msg('Avatar {0}', [t(avatar)]))}
             aria-pressed={avatar === profile.avatar}
             onClick={() => saveIdentity(avatar)}
           >
@@ -176,46 +184,60 @@ export function ProfileScreen({
         ))}
       </div>
 
-      <p className={styles.sectionLabel}>Record</p>
+      <p className={styles.sectionLabel}>{t('Record')}</p>
       <div className={styles.stats}>
-        <Stat value={played} label="Matches" />
-        <Stat value={stats.wins} label="Wins" />
-        <Stat value={`${winRate}%`} label="Win rate" />
-        <Stat value={stats.bestRally} label="Best rally" />
-        <Stat value={stats.endlessBest} label="Legacy Endless" />
-        <Stat value={stats.bestStreak} label="Streak" />
-        <Stat value={stats.cupsWon} label="Cups won" />
-        <Stat value={stats.challengesCleared} label="Challenges" />
-        <Stat value={playTime(stats.playSeconds)} label="Played" />
+        <Stat value={played} label={t('Matches')} />
+        <Stat value={stats.wins} label={t('Wins')} />
+        <Stat value={`${winRate}%`} label={t('Win rate')} />
+        <Stat value={stats.bestRally} label={t('Best rally')} />
+        <Stat value={stats.endlessBest} label={t('Legacy Endless')} />
+        <Stat value={stats.bestStreak} label={t('Streak')} />
+        <Stat value={stats.cupsWon} label={t('Cups won')} />
+        <Stat value={stats.challengesCleared} label={t('Challenges')} />
+        <Stat value={playTime(stats.playSeconds)} label={t('Played')} />
       </div>
 
       <MenuDisclosure
-        title="Mastery"
-        hint={`Rank ${Math.max(0, Math.floor((levelOf(profile.xp) - 50) / 5))} · technique, schools, courts & builds`}
+        title={t('Mastery')}
+        hint={t(
+          msg('Rank {0} · technique, schools, courts & builds', [
+            t(Math.max(0, Math.floor((levelOf(profile.xp) - 50) / 5)))
+          ])
+        )}
       >
         <div className={styles.stats}>
-          <Stat value={profile.progress.journey['frontier-v2'] ?? 0} label="Frontier sectors" />
-          <Stat value={profile.progress.contracts ?? 0} label="Contracts" />
-          <Stat value={profile.progress.dailyMaster.clears} label="Master Daily clears" />
+          <Stat
+            value={profile.progress.journey['frontier-v2'] ?? 0}
+            label={t('Frontier sectors')}
+          />
+          <Stat value={profile.progress.contracts ?? 0} label={t('Contracts')} />
+          <Stat value={profile.progress.dailyMaster.clears} label={t('Master Daily clears')} />
         </div>
         <p className={styles.rowBlurb}>
-          Win scored matches against Pro or harder. Each {MASTERY_CYCLE} marks opens a new cycle.
-          Combat points cap at level 50; mastery earns records, achievements and colours.
+          {t('Win scored matches against Pro or harder. Each ')}
+          {t(MASTERY_CYCLE)}{' '}
+          {t(
+            ' marks opens a new cycle. Combat points cap at level 50; mastery earns records, achievements and colours.'
+          )}
         </p>
         <div className={styles.masteryTracks}>
           {MASTERY_TRACKS.map((track) => {
             const marks = profile.progress.mastery[track.id] ?? 0;
             return (
               <div key={track.id} className={styles.masteryTrack}>
-                <span>{track.name}</span>
+                <span>{t(track.name)}</span>
                 <small>
-                  Cycle {Math.floor(marks / MASTERY_CYCLE) + 1} · {marks % MASTERY_CYCLE}/
-                  {MASTERY_CYCLE}
+                  {t('Cycle ')}
+                  {t(Math.floor(marks / MASTERY_CYCLE) + 1)}
+                  {t(' · ')}
+                  {t(marks % MASTERY_CYCLE)}
+                  {t('/')}
+                  {t(MASTERY_CYCLE)}
                 </small>
                 <progress
                   max={MASTERY_CYCLE}
                   value={marks % MASTERY_CYCLE}
-                  aria-label={`${track.name} mastery`}
+                  aria-label={t(msg('{0} mastery', [t(track.name)]))}
                 />
               </div>
             );
@@ -223,42 +245,53 @@ export function ProfileScreen({
         </div>
       </MenuDisclosure>
 
-      <p className={styles.sectionLabel}>Build</p>
+      <p className={styles.sectionLabel}>{t('Build')}</p>
       <div className={styles.stats}>
-        <Stat value={profile.talents.points} label="Points" />
-        <Stat value={talents.bestDrive} label="Best drive" />
-        <Stat value={talents.abilitiesUsed} label="Skills used" />
-        <Stat value={talents.crits} label="Criticals" />
-        <Stat value={talents.shieldSaves} label="Shields" />
-        <Stat value={talents.perfectGuards} label="Guards" />
+        <Stat value={profile.talents.points} label={t('Points')} />
+        <Stat value={talents.bestDrive} label={t('Best drive')} />
+        <Stat value={talents.abilitiesUsed} label={t('Skills used')} />
+        <Stat value={talents.crits} label={t('Criticals')} />
+        <Stat value={talents.shieldSaves} label={t('Shields')} />
+        <Stat value={talents.perfectGuards} label={t('Guards')} />
       </div>
 
       <div className={styles.buttonRow}>
         <button type="button" className={styles.ghost} onClick={onAchievements}>
-          Achievements {earned}/{ACHIEVEMENTS.length}
+          {t('Achievements ')}
+          {t(earned)}
+          {t('/')}
+          {t(ACHIEVEMENTS.length)}
         </button>
         <button type="button" className={styles.ghost} onClick={onCustomize}>
-          Customise
+          {t('Customise')}
         </button>
         <button type="button" className={styles.ghost} onClick={onWorkshop}>
-          Paddle Workshop · {profile.progress.workshop.marks} Marks
+          {t('Paddle Workshop · ')}
+          {t(profile.progress.workshop.marks)}
+          {t(' Marks')}
         </button>
       </div>
       <button type="button" className={styles.ghost} onClick={onSettings}>
-        Settings
+        {t('Settings')}
       </button>
 
       {demoLevel !== null ? (
         // There is nothing here to erase: a demo profile is never written.
-        <p className={styles.note}>Demo profile · level {demoLevel}. Nothing here is saved.</p>
+        <p className={styles.note}>
+          {t('Demo profile · level ')}
+          {t(demoLevel)}
+          {t('. Nothing here is saved.')}
+        </p>
       ) : account.status !== 'guest' ? (
         // The server owns this save, so wiping the local copy would achieve
         // nothing but a re-download. Deleting the account is the real action,
         // and it lives on the account screen where it can be confirmed.
         <p className={styles.note}>
-          {account.status === 'authenticated'
-            ? 'This progress lives on your account. To erase it, delete the account from the account screen.'
-            : 'Restoring your account. Progress reset is unavailable until this finishes.'}
+          {t(
+            account.status === 'authenticated'
+              ? 'This progress lives on your account. To erase it, delete the account from the account screen.'
+              : 'Restoring your account. Progress reset is unavailable until this finishes.'
+          )}
         </p>
       ) : (
         <GuestReset
@@ -270,7 +303,7 @@ export function ProfileScreen({
       )}
 
       <button type="button" className={styles.ghost} onClick={onDemo}>
-        {demoLevel === null ? 'Demo a level' : 'Change demo level'}
+        {t(demoLevel === null ? 'Demo a level' : 'Change demo level')}
       </button>
     </Screen>
   );

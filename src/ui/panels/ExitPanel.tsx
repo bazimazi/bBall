@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import styles from '../Overlay.module.css';
 import { PanelButton } from './PanelButton';
 import { useLocalSave } from '../hooks/useLocalSave';
@@ -20,12 +21,12 @@ export function ExitPanel({ native, onExit, onCancel }: ExitPanelProps) {
   const unsaved = useLocalSave() !== 'saved';
   return (
     <div className={styles.panel}>
-      <h2 className={styles.heading}>{native ? 'Close bBall?' : 'Leave bBall?'}</h2>
-      {!unsaved && <p className={styles.tagline}>Your progress is saved on this device.</p>}
-      <PanelButton onClick={onCancel}>Keep playing</PanelButton>
+      <h2 className={styles.heading}>{t(native ? 'Close bBall?' : 'Leave bBall?')}</h2>
+      {!unsaved && <p className={styles.tagline}>{t('Your progress is saved on this device.')}</p>}
+      <PanelButton onClick={onCancel}>{t('Keep playing')}</PanelButton>
       <SaveNotice />
       <PanelButton variant="ghost" onClick={onExit}>
-        {native ? 'Close' : 'Leave'}
+        {t(native ? 'Close' : 'Leave')}
       </PanelButton>
     </div>
   );

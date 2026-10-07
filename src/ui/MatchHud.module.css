@@ -14,7 +14,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+:global(html[dir='rtl']) .info {
+  left: auto;
+  right: calc(var(--safe-r) + 16px);
+}
+
 .score {
+  direction: ltr;
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
@@ -61,7 +67,7 @@
   border-top: 1px solid var(--edge);
   background: transparent;
   color: var(--ink);
-  text-align: left;
+  text-align: start;
   font: inherit;
   font-size: 11px;
   cursor: pointer;
@@ -93,7 +99,7 @@
   border-top: 1px solid var(--edge);
   background: transparent;
   color: var(--muted);
-  text-align: left;
+  text-align: start;
   font: inherit;
   font-size: 11px;
   line-height: 1.4;

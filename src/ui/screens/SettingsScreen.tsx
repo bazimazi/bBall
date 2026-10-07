@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useEffect, type CSSProperties } from 'react';
 
 import {
@@ -18,6 +19,7 @@ import { isNativeShell } from '../../core/platform/shell';
 import styles from '../Screens.module.css';
 import { KeyBindingsEditor } from '../components/KeyBindingsEditor';
 import { keyList } from '../../core/settings/controls';
+import { LANGUAGES } from '../../core/i18n/languages';
 
 interface SettingsScreenProps {
   /** Return to Pause rather than leaving or automatically resuming the match. */
@@ -86,7 +88,7 @@ function Segmented<T extends string | boolean>({
   disabled?: boolean;
 }) {
   return (
-    <div className={styles.segmented} role="group" aria-label={label}>
+    <div className={styles.segmented} role="group" aria-label={t(label)}>
       {choices.map((choice) => (
         <button
           key={String(choice.id)}
@@ -96,7 +98,7 @@ function Segmented<T extends string | boolean>({
           disabled={disabled}
           onClick={() => onChange(choice.id)}
         >
-          {choice.label}
+          {t(choice.label)}
         </button>
       ))}
     </div>
@@ -118,7 +120,7 @@ function Level({
   const percent = Math.round(value * 100);
   return (
     <label className={styles.slider}>
-      <span className={styles.sliderLabel}>{label}</span>
+      <span className={styles.sliderLabel}>{t(label)}</span>
       <input
         className={styles.range}
         type="range"
@@ -131,7 +133,9 @@ function Level({
         onPointerUp={onCommit}
         onKeyUp={onCommit}
       />
-      <span className={styles.sliderValue}>{percent === 0 ? 'Off' : `${percent}%`}</span>
+      <span className={styles.sliderValue}>
+        {t(percent === 0 ? 'Off' : msg('{0}%', [t(percent)]))}
+      </span>
     </label>
   );
 }
@@ -160,53 +164,62 @@ export function SettingsScreen({
 
   return (
     <Screen
-      title="Settings"
-      subtitle={pausedGame ? 'Game paused · This device only' : 'This device only'}
+      title={t('Settings')}
+      subtitle={t(pausedGame ? 'Game paused · This device only' : 'This device only')}
       onBack={onBack}
       onEscape={pausedGame ? onBack : undefined}
       footer={
         pausedGame && (
           <button type="button" className={styles.primary} onClick={onBack}>
-            Return to paused game
+            {t('Return to paused game')}
           </button>
         )
       }
     >
+      <p className={styles.sectionLabel}>{t('Language')}</p>
+      <Segmented
+        label={t('Language')}
+        choices={LANGUAGES}
+        value={settings.language}
+        onChange={(language) => set({ language })}
+      />
       {mobile && (
         <>
-          <p className={styles.sectionLabel}>Fullscreen</p>
+          <p className={styles.sectionLabel}>{t('Fullscreen')}</p>
           <Segmented
-            label="Fullscreen"
+            label={t('Fullscreen')}
             choices={TOGGLE}
             value={settings.fullscreen}
             disabled={!fullscreenSupported || fullscreen.pending}
             onChange={(enabled) => void setFullscreenPreference(enabled)}
           />
           <p className={styles.note} role="status">
-            {fullscreen.error ??
-              (fullscreen.target === 'checking'
-                ? 'Checking fullscreen support…'
-                : !fullscreenSupported
-                  ? 'Fullscreen is unavailable in this browser or app.'
-                  : settings.fullscreen && !fullscreen.active && !fullscreen.pending
-                    ? 'Tap On or start a match to enter fullscreen again.'
-                    : fullscreen.target === 'ios'
-                      ? 'Hide the status bar and let the Home indicator fade while playing.'
-                      : 'Hide system bars for more room to play. Swipe from the screen edge to reveal them.')}
+            {t(
+              fullscreen.error ??
+                (fullscreen.target === 'checking'
+                  ? 'Checking fullscreen support…'
+                  : !fullscreenSupported
+                    ? 'Fullscreen is unavailable in this browser or app.'
+                    : settings.fullscreen && !fullscreen.active && !fullscreen.pending
+                      ? 'Tap On or start a match to enter fullscreen again.'
+                      : fullscreen.target === 'ios'
+                        ? 'Hide the status bar and let the Home indicator fade while playing.'
+                        : 'Hide system bars for more room to play. Swipe from the screen edge to reveal them.')
+            )}
           </p>
         </>
       )}
-      <p className={styles.sectionLabel}>Sound</p>
+      <p className={styles.sectionLabel}>{t('Sound')}</p>
       <div className={styles.card}>
         <div className={styles.settingStack}>
           <Level
-            label="Music"
+            label={t('Music')}
             value={settings.musicVolume}
             onChange={(musicVolume) => set({ musicVolume })}
             onCommit={onMusicPreview}
           />
           <Level
-            label="Effects"
+            label={t('Effects')}
             value={settings.sfxVolume}
             onChange={(sfxVolume) => set({ sfxVolume })}
             onCommit={onPreview}
@@ -214,60 +227,63 @@ export function SettingsScreen({
         </div>
       </div>
       <button type="button" className={styles.ghost} onClick={onMusicPreview}>
-        Preview music · 5 seconds
+        {t('Preview music · 5 seconds')}
       </button>
       <p className={styles.note}>
-        The soundtrack follows the rally. Both previews respect the mute button.
+        {t('The soundtrack follows the rally. Both previews respect the mute button.')}
       </p>
 
-      <p className={styles.sectionLabel}>Visual effects</p>
+      <p className={styles.sectionLabel}>{t('Visual effects')}</p>
       <Segmented
-        label="Visual effects"
+        label={t('Visual effects')}
         choices={EFFECTS}
         value={settings.effects}
         onChange={(effects) => set({ effects })}
       />
       <p className={styles.note}>
-        Calm removes camera movement, screen flashes and animated menu backgrounds, with fewer
-        particles.
+        {t(
+          'Calm removes camera movement, screen flashes and animated menu backgrounds, with fewer particles.'
+        )}
       </p>
 
-      <p className={styles.sectionLabel}>Screen shake</p>
+      <p className={styles.sectionLabel}>{t('Screen shake')}</p>
       <Segmented
-        label="Screen shake"
+        label={t('Screen shake')}
         choices={SHAKES}
         value={settings.shake}
         onChange={(shake) => set({ shake })}
       />
-      <p className={styles.note}>Camera movement stays off when Calm is active.</p>
+      <p className={styles.note}>{t('Camera movement stays off when Calm is active.')}</p>
 
-      <p className={styles.sectionLabel}>Court image quality</p>
+      <p className={styles.sectionLabel}>{t('Court image quality')}</p>
       <Segmented
-        label="Court image quality"
+        label={t('Court image quality')}
         choices={CANVAS_QUALITIES}
         value={settings.canvasQuality}
         onChange={(canvasQuality) => set({ canvasQuality })}
       />
       <p className={styles.note}>
-        If rallies stutter, try Balanced or Low. The court looks softer on high-resolution screens;
-        menu text, controls and game timing stay the same.
+        {t(
+          'If rallies stutter, try Balanced or Low. The court looks softer on high-resolution screens; menu text, controls and game timing stay the same.'
+        )}
       </p>
 
-      <p className={styles.sectionLabel}>Controls</p>
+      <p className={styles.sectionLabel}>{t('Controls')}</p>
       <KeyBindingsEditor />
       <Segmented
-        label="Touch movement"
+        label={t('Touch movement')}
         choices={TOUCH_MODES}
         value={settings.touchMode}
         onChange={(touchMode) => set({ touchMode })}
       />
       <p className={styles.note}>
-        Follow finger places the paddle at your finger. Relative drag moves from its current
-        position, so you can steer from a clear part of the court.
+        {t(
+          'Follow finger places the paddle at your finger. Relative drag moves from its current position, so you can steer from a clear part of the court.'
+        )}
       </p>
       {settings.touchMode === 'relative' && (
         <label className={styles.slider}>
-          <span className={styles.sliderLabel}>Drag sensitivity</span>
+          <span className={styles.sliderLabel}>{t('Drag sensitivity')}</span>
           <input
             type="range"
             className={styles.range}
@@ -280,41 +296,45 @@ export function SettingsScreen({
             }
             onChange={(event) => set({ touchSensitivity: Number(event.target.value) / 100 })}
           />
-          <span className={styles.sliderValue}>{Math.round(settings.touchSensitivity * 100)}%</span>
+          <span className={styles.sliderValue}>
+            {t(Math.round(settings.touchSensitivity * 100))}
+            {t('%')}
+          </span>
         </label>
       )}
 
-      <p className={styles.sectionLabel}>Serve pacing</p>
+      <p className={styles.sectionLabel}>{t('Serve pacing')}</p>
       <Segmented
-        label="Serve pacing"
+        label={t('Serve pacing')}
         choices={SERVES}
         value={settings.autoServe}
         onChange={(autoServe) => set({ autoServe })}
       />
       <p className={styles.note}>
-        When ready waits for a tap, {keyList(settings.keyBindings, 'serve')} or the Serve button.
-        Drag to aim without launching.
+        {t('When ready waits for a tap, ')}
+        {t(keyList(settings.keyBindings, 'serve'))}
+        {t(' or the Serve button. Drag to aim without launching.')}
       </p>
 
-      <p className={styles.sectionLabel}>Countdown after pause</p>
+      <p className={styles.sectionLabel}>{t('Countdown after pause')}</p>
       <Segmented
-        label="Countdown after pause"
+        label={t('Countdown after pause')}
         choices={TOGGLE}
         value={settings.resumeCountdown}
         onChange={(resumeCountdown) => set({ resumeCountdown })}
       />
 
-      <p className={styles.sectionLabel}>Vibration</p>
+      <p className={styles.sectionLabel}>{t('Vibration')}</p>
       <Segmented
-        label="Vibration"
+        label={t('Vibration')}
         choices={TOGGLE}
         value={settings.haptics}
         onChange={(haptics) => set({ haptics })}
       />
 
-      <p className={styles.sectionLabel}>Replay the deciding point</p>
+      <p className={styles.sectionLabel}>{t('Replay the deciding point')}</p>
       <Segmented
-        label="Replay the deciding point"
+        label={t('Replay the deciding point')}
         choices={TOGGLE}
         value={settings.replays}
         onChange={(replays) => set({ replays })}
@@ -322,9 +342,9 @@ export function SettingsScreen({
 
       {/* Stored on this device, not the profile: it follows the hand holding
           the phone, and a demo must not be able to change it for the real save. */}
-      <p className={styles.sectionLabel}>Skill buttons</p>
+      <p className={styles.sectionLabel}>{t('Skill buttons')}</p>
       <Segmented
-        label="Skill button side"
+        label={t('Skill button side')}
         choices={SIDES}
         value={settings.skillSide}
         onChange={(skillSide) => set({ skillSide })}

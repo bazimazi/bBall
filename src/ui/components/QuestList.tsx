@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { dayKey } from '../../core/progression/xp';
 import { QUEST_BONUS_XP, QUEST_XP, questById, questStateFor } from '../../core/quests/quests';
 import type { PlayerProfile } from '../../core/profile/types';
@@ -22,11 +23,13 @@ export function QuestList({ profile, title = "Today's quests", day = dayKey() }:
   return (
     <div className={styles.quests}>
       <div className={styles.questHead}>
-        <span>{title}</span>
+        <span>{t(title)}</span>
         <span>
-          {done === state.ids.length
-            ? `All done · +${QUEST_BONUS_XP} bonus`
-            : `${done} / ${state.ids.length}`}
+          {t(
+            done === state.ids.length
+              ? msg('All done · +{0} bonus', [t(QUEST_BONUS_XP)])
+              : msg('{0} / {1}', [t(done), t(state.ids.length)])
+          )}
         </span>
       </div>
       {state.ids.map((id, i) => {
@@ -36,9 +39,12 @@ export function QuestList({ profile, title = "Today's quests", day = dayKey() }:
         const complete = state.done[i] ?? false;
         return (
           <div key={id} className={complete ? `${styles.quest} ${styles.questDone}` : styles.quest}>
-            <span>{quest.label}</span>
+            <span>{t(quest.label)}</span>
             <span className={styles.questXp}>
-              {complete ? '✓' : `${progress}/${quest.target}`} · {QUEST_XP[quest.tier]} XP
+              {t(complete ? '✓' : msg('{0}/{1}', [t(progress), t(quest.target)]))}
+              {t(' · ')}
+              {t(QUEST_XP[quest.tier])}
+              {t(' XP')}
             </span>
             <span className={styles.questBar}>
               <span

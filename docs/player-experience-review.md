@@ -1,5 +1,15 @@
 # bBall player experience review
 
+**Languages, 7 October:** English and Persian are available during first-time
+setup and in Settings. Persian translates menus, lessons, gameplay feedback,
+progression, equipment, account feedback and accessibility labels. Menus read
+right to left with the sound control on the left. Bundled Vazirmatn is used for
+Persian menus and canvas text. Paddle controls and court orientation stay consistent. The
+choice persists per device and changes immediately without restarting play.
+Translation coverage, generated descriptions, search, focus preservation and
+draft preservation have automated checks. Native webview and human translation
+review remain separate from browser and catalog checks.
+
 Reviewed on 3 October 2026; continued on 4–6 October 2026. This historical review covers the React and canvas game before the endless expansion,
 its shared physics and mode rules, input handling, first-run flow, menus,
 feedback, settings and regression coverage.
@@ -29,7 +39,9 @@ contracts and presets. Their main content fits the tested phone, tablet, desktop
 and landscape sizes without vertical scrolling; detailed explanations open in
 bounded popups. Sliding selection highlights, directional panel changes and
 animated popup entry/exit provide navigation feedback without adding scrolling
-or losing keyboard focus. These transitions run in Full and Calm and ignore
+or losing keyboard focus. Selection highlights follow the selected button in
+both LTR and RTL layouts, including parts, tuning, presets and contact-motion
+choices. These transitions run in Full and Calm and ignore
 system/browser motion preferences. Equip and the bench action stay pinned. Material identity and
 stored-charge cues remain visible in Calm and with sound muted, and all contact
 motion continues to ignore system/browser reduced-motion preferences. The

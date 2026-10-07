@@ -1,6 +1,7 @@
+import { t as translateText, locale } from '../../core/i18n';
 import { BALL_R, FIELD_H } from '../constants';
 import { bumperHue, wellPolarity, WIND_WARNING } from '../arena';
-import { hsla } from '../palette';
+import { hsla, PERSIAN_CANVAS_FONT } from '../palette';
 import type { World } from '../world';
 import type { GlowCache } from './glow';
 import { roundRect } from './shapes';
@@ -102,11 +103,13 @@ function drawCourseLabel(
   y: number,
   color: string
 ): void {
+  text = translateText(text);
   const pixel = 1 / view.scale;
   ctx.save();
   ctx.translate(x, y);
   if (view.rotated) ctx.rotate(Math.PI / 2);
-  ctx.font = `${12 * pixel}px sans-serif`;
+  const font = locale() === 'fa-IR' ? PERSIAN_CANVAS_FONT : 'sans-serif';
+  ctx.font = `${12 * pixel}px ${font}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(3,4,10,.85)';

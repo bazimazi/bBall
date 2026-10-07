@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useEffect, useMemo, useState } from 'react';
 
 import { levelFromXp } from '../../core/progression/levels';
@@ -41,14 +42,17 @@ export function XpBar({ xp, from, labels = true }: XpBarProps) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(info.progress * 100)}
-        aria-label={`Level ${info.level} progress`}
+        aria-label={t(msg('Level {0} progress', [t(info.level)]))}
       >
         <div className={styles.xpFill} style={{ width: `${Math.round(fill * 100)}%` }} />
       </div>
       {labels && (
         <p className={styles.xpMeta} style={{ marginTop: 5 }}>
-          <span>Level {info.level}</span>
-          <span>{`${info.into} / ${info.span} XP`}</span>
+          <span>
+            {t('Level ')}
+            {t(info.level)}
+          </span>
+          <span>{t(msg('{0} / {1} XP', [t(info.into), t(info.span)]))}</span>
         </p>
       )}
     </div>

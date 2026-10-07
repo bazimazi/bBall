@@ -5,6 +5,7 @@ import type { Side } from './types';
 export const HUE = { you: 171, bot: 342, hot: 34 } as const;
 
 export const CANVAS_FONT = '-apple-system, system-ui, "Segoe UI", Roboto, sans-serif';
+export const PERSIAN_CANVAS_FONT = '"Vazirmatn", Tahoma, "Segoe UI", Arial, sans-serif';
 
 export const INK = 'rgba(238,242,255,';
 export const BACKDROP = '#06080f';

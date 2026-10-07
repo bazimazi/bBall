@@ -15,6 +15,7 @@
  */
 
 .bar {
+  direction: ltr;
   position: fixed;
   right: calc(var(--safe-r) + 12px);
   /* Leave the bottom paddle lane visible and available for pointer input. */

@@ -1,3 +1,4 @@
+import { t } from '../core/i18n/index';
 import { useEffect, useState, type CSSProperties } from 'react';
 
 import styles from './UltimateFlare.module.css';
@@ -62,8 +63,8 @@ export function UltimateFlare({ castId, hue, active, show }: UltimateFlareProps)
 
   return (
     <div className={styles.layer} style={style} aria-hidden="true">
-      {active && <div className={styles.veil} />}
-      {flare > 0 && <div key={flare} className={styles.flare} />}
+      {t(active && <div className={styles.veil} />)}
+      {t(flare > 0 && <div key={flare} className={styles.flare} />)}
     </div>
   );
 }

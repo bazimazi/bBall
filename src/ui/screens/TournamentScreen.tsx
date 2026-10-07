@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { SCHOOL_SCOUT } from '../../core/modes/recipes';
 import { tournamentRules } from '../../core/modes/rules';
 import { useState } from 'react';
@@ -46,15 +47,18 @@ function Bracket({ profile }: { profile: PlayerProfile }) {
             aria-current={current ? 'step' : undefined}
           >
             <span className={styles.rowText}>
-              <span className={styles.rowTitle}>{round.name}</span>
+              <span className={styles.rowTitle}>{t(round.name)}</span>
               <span className={styles.rowBlurb}>
-                vs {opponent.name} · first to {round.winScore}
+                {t('vs ')}
+                {t(opponent.name)}
+                {t(' · first to ')}
+                {t(round.winScore)}
               </span>
             </span>
             <span
               className={`${styles.bracketScore} ${played ? (played.won ? styles.win : styles.lose) : ''}`}
             >
-              {played ? `${played.you}-${played.bot}` : current ? 'Next' : '—'}
+              {t(played ? msg('{0}-{1}', [t(played.you), t(played.bot)]) : current ? 'Next' : '—')}
             </span>
           </div>
         );
@@ -79,8 +83,8 @@ function ActiveCup({
   const round = roundsFor(active)[active.round] ?? roundsFor(active)[0]!;
   return (
     <Screen
-      title={cup.name}
-      subtitle={`Round ${active.round + 1} of ${roundsFor(active).length}`}
+      title={t(cup.name)}
+      subtitle={t(msg('Round {0} of {1}', [t(active.round + 1), t(roundsFor(active).length)]))}
       onBack={onBack}
       footer={
         <>
@@ -90,14 +94,15 @@ function ActiveCup({
             onClick={onPlay}
             disabled={(active.equipment?.version ?? 0) > 1}
           >
-            Play {round.name}
+            {t('Play ')}
+            {t(round.name)}
           </button>
           <button
             type="button"
             className={`${styles.ghost} ${styles.danger}`}
             onClick={() => setConfirm(true)}
           >
-            Give up the cup
+            {t('Give up the cup')}
           </button>
         </>
       }
@@ -105,19 +110,29 @@ function ActiveCup({
       <PaddleNotice profile={profile} policy="cup" />
       <div className={styles.card}>
         <p className={styles.sectionLabel}>
-          Next opponent · {rules.bot.name} · {school}
-          {active.format === 'ladder' ? ` · Season ${(active.season ?? 0) + 1}` : ''}
+          {t('Next opponent · ')}
+          {t(rules.bot.name)}
+          {t(' · ')}
+          {t(school)}
+          {t(active.format === 'ladder' ? msg(' · Season {0}', [t((active.season ?? 0) + 1)]) : '')}
         </p>
-        <p className={styles.rowBlurb}>{SCHOOL_SCOUT[school]}</p>
+        <p className={styles.rowBlurb}>{t(SCHOOL_SCOUT[school])}</p>
         <p className={styles.rowBlurb}>
-          {rules.courtFamily ?? 'Open court'} · first to {rules.winScore}
+          {t(rules.courtFamily ?? 'Open court')}
+          {t(' · first to ')}
+          {t(rules.winScore)}
         </p>
       </div>
       <Bracket profile={profile} />
       <ConfirmAction
         show={confirm}
-        title="Give up this cup?"
-        description={`This ends your ${cup.name} at round ${active.round + 1} of ${roundsFor(active).length}. It will not count as a cup won. Your earned XP and unlocks stay. You can keep the cup and return later.`}
+        title={t('Give up this cup?')}
+        description={t(
+          msg(
+            'This ends your {0} at round {1} of {2}. It will not count as a cup won. Your earned XP and unlocks stay. You can keep the cup and return later.',
+            [t(cup.name), t(active.round + 1), t(roundsFor(active).length)]
+          )
+        )}
         cancelLabel="Keep cup"
         confirmLabel="Give up cup"
         onCancel={() => setConfirm(false)}
@@ -155,29 +170,38 @@ export function TournamentScreen({
 
   return (
     <Screen
-      title="Tournament"
-      subtitle="Choose a format and compete for a cup"
+      title={t('Tournament')}
+      subtitle={t('Choose a format and compete for a cup')}
       onBack={onBack}
       footer={
         <button type="button" className={styles.primary} onClick={() => onStart(tier, format)}>
-          Start {tierById(tier).name}
+          {t('Start ')}
+          {t(tierById(tier).name)}
         </button>
       }
     >
       <PaddleNotice profile={profile} policy="cup" />
       {last && (
         <div className={styles.card}>
-          <p className={styles.sectionLabel}>Last cup</p>
-          <p className={styles.note} style={{ textAlign: 'left', marginTop: 6 }}>
-            {last.champion
-              ? `Champion of the ${tierById(last.tier).name}`
-              : `Knocked out in the ${(roundsFor(last)[Math.max(0, last.round - 1)] ?? roundsFor(last)[0]!).name.toLowerCase()}`}
+          <p className={styles.sectionLabel}>{t('Last cup')}</p>
+          <p className={styles.note} style={{ textAlign: 'start', marginTop: 6 }}>
+            {t(
+              last.champion
+                ? msg('Champion of the {0}', [t(tierById(last.tier).name)])
+                : msg('Knocked out in the {0}', [
+                    t(
+                      (
+                        roundsFor(last)[Math.max(0, last.round - 1)] ?? roundsFor(last)[0]!
+                      ).name.toLowerCase()
+                    )
+                  ])
+            )}
           </p>
         </div>
       )}
 
       <ChoiceGroup<TournamentFormat>
-        label="Format"
+        label={t('Format')}
         value={format}
         onChange={setFormat}
         options={CUP_FORMATS.map((f) => ({
@@ -186,7 +210,7 @@ export function TournamentScreen({
           hint: f === 'classic' ? '3 rounds' : f === 'marathon' ? '7 rounds' : '6-round seasons'
         }))}
       />
-      <p className={styles.sectionLabel}>Choose a cup</p>
+      <p className={styles.sectionLabel}>{t('Choose a cup')}</p>
       <div className={styles.grid}>
         {TOURNAMENT_TIERS.map((item) => {
           const locked = level < item.minLevel;
@@ -200,13 +224,15 @@ export function TournamentScreen({
               onClick={() => setTier(item.id)}
             >
               <span className={styles.rowText}>
-                <span className={styles.rowTitle}>{item.name}</span>
+                <span className={styles.rowTitle}>{t(item.name)}</span>
                 <span className={styles.rowBlurb}>
-                  {item.opponents.map((id) => botProfile(id).name).join(' → ')}
+                  {t(item.opponents.map((id) => botProfile(id).name).join(' → '))}
                 </span>
               </span>
               <span className={styles.rowMeta}>
-                {locked ? `Level ${item.minLevel}` : `${item.trophyXp} XP`}
+                {t(
+                  locked ? msg('Level {0}', [t(item.minLevel)]) : msg('{0} XP', [t(item.trophyXp)])
+                )}
               </span>
             </button>
           );

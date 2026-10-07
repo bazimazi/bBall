@@ -1,3 +1,4 @@
+import { t as translateText } from '../../core/i18n';
 import { BALL_R } from '../constants';
 import { easeOutBack, easeOutCubic, ORB_LIFE, orbAt } from '../effects';
 import { aimedServe, serveAimAngle, VS_TIME } from '../match';
@@ -155,7 +156,7 @@ export function drawVersusCard(
     [fx.vsLeft, youHue, -1, leftShift],
     [fx.vsRight, botHue, 1, rightShift]
   ] as const) {
-    const text = name.toUpperCase();
+    const text = (sign < 0 && !world.rules.versus ? name : translateText(name)).toUpperCase();
     ctx.font = `850 ${size.toFixed(1)}px ${font}`;
     const width = ctx.measureText(text).width;
     const fit = width > room ? room / width : 1;
@@ -177,7 +178,7 @@ export function drawVersusCard(
     ctx.textAlign = 'center';
     ctx.font = `900 ${(24 * s).toFixed(1)}px ${font}`;
     ctx.fillStyle = 'rgba(238,242,255,0.95)';
-    ctx.fillText('VS', 0, 1 * s);
+    ctx.fillText(translateText('VS'), 0, 1 * s);
     ctx.restore();
   }
 
@@ -186,7 +187,7 @@ export function drawVersusCard(
     ctx.textAlign = 'center';
     ctx.font = `650 ${(14 * s).toFixed(1)}px ${font}`;
     ctx.fillStyle = 'rgba(238,242,255,0.72)';
-    ctx.fillText(fx.vsSub, cx, y + bandH / 2 + 20 * s);
+    ctx.fillText(translateText(fx.vsSub), cx, y + bandH / 2 + 20 * s);
   }
   ctx.restore();
 }
@@ -234,7 +235,7 @@ export function drawReplayFrame(
 
     // The recording light and the word, on a pill of their own.
     ctx.font = `800 ${(15 * s).toFixed(1)}px ${font}`;
-    const word = ctx.measureText('REPLAY').width;
+    const word = ctx.measureText(translateText('REPLAY')).width;
     ctx.fillStyle = 'rgba(2,3,8,0.7)';
     pill(ctx, labelX - 8 * s, labelY - 15 * s, word + 44 * s, 30 * s);
     const blink = Math.sin(fx.time * 6) > -0.2 ? 1 : 0.25;
@@ -244,14 +245,18 @@ export function drawReplayFrame(
     ctx.fill();
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(238,242,255,0.94)';
-    ctx.fillText('REPLAY', labelX + 22 * s, labelY + 1);
+    ctx.fillText(translateText('REPLAY'), labelX + 22 * s, labelY + 1);
 
     ctx.textAlign = 'right';
     ctx.font = `650 ${(12 * s).toFixed(1)}px ${font}`;
     ctx.fillStyle = 'rgba(238,242,255,0.55)';
     const hintY = across ? view.vh - 40 * s : view.vh - Math.max(depth / 2, 20 * s);
     const hintX = across ? view.vw - depth - pad : view.vw - 18 * s;
-    ctx.fillText(coarse ? 'Tap to skip' : 'Click or press Space to skip', hintX, hintY);
+    ctx.fillText(
+      translateText(coarse ? 'Tap to skip' : 'Click or press Space to skip'),
+      hintX,
+      hintY
+    );
 
     // How much of the point is left to see.
     const hue = hueOf(world, world.match.winner ?? 'you');

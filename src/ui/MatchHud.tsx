@@ -1,3 +1,4 @@
+import { t, msg } from '../core/i18n/index';
 import type { GameSnapshot } from '../game/types';
 import type { CSSProperties } from 'react';
 import { TalentIcon } from './icons/TalentIcon';
@@ -24,62 +25,99 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
       <p className={styles.score} aria-hidden="true">
         {lives ? (
           <span>
-            Lives{' '}
+            {t('Lives')}
+            {t(' ')}
             <b>
-              {snapshot.lives}/{snapshot.maxLives}
+              {t(snapshot.lives)}
+              {t('/')}
+              {t(snapshot.maxLives)}
             </b>
           </span>
         ) : (
           <>
             <span>
-              {you} <b className={styles.you}>{snapshot.scoreYou}</b>
+              {t(you)} <b className={styles.you}>{t(snapshot.scoreYou)}</b>
             </span>
-            <span className={styles.botScore} title={bot}>
-              <span className={styles.opponentName}>{shortName}</span> <b>{snapshot.scoreBot}</b>
+            <span className={styles.botScore} title={t(bot)}>
+              <span className={styles.opponentName}>{t(shortName)}</span>{' '}
+              <b>{t(snapshot.scoreBot)}</b>
             </span>
           </>
         )}
       </p>
       <span className={styles.sr} role="status" aria-live="polite" aria-atomic="true">
-        {announcement}
+        {t(announcement)}
       </span>
       <p className={styles.target}>
-        {lives ? `Best rally ${snapshot.bestThisMatch}` : `First to ${snapshot.winScore}`}
+        {t(
+          lives
+            ? msg('Best rally {0}', [t(snapshot.bestThisMatch)])
+            : msg('First to {0}', [t(snapshot.winScore)])
+        )}
       </p>
       {!!snapshot.rallyPressure && (
         <p
           className={styles.objective}
-          title={`Rally pressure: reach reduced by ${snapshot.rallyPressure}%`}
+          title={t(msg('Rally pressure: reach reduced by {0}%', [t(snapshot.rallyPressure)]))}
         >
-          Reach −{snapshot.rallyPressure}%
+          {t('Reach −')}
+          {t(snapshot.rallyPressure)}
+          {t('%')}
         </p>
       )}
       {!versus && snapshot.paddleKit && (
         <p
           className={`${styles.objective} ${styles.equipment}`}
-          title={`Your paddle: ${snapshot.paddleKit}. Rival: ${snapshot.opponentKit ?? 'Neutral paddle'}`}
+          title={t(
+            msg('Your paddle: {0}. Rival: {1}', [
+              t(snapshot.paddleKit),
+              t(snapshot.opponentKit ?? 'Neutral paddle')
+            ])
+          )}
         >
-          {snapshot.materialCharge ? 'Impact stored ◇ · ' : ''}
-          {snapshot.paddleKit}
+          {t(snapshot.materialCharge ? 'Impact stored ◇ · ' : '')}
+          {t(snapshot.paddleKit)}
         </p>
       )}
       {!versus && !!snapshot.enemyAbilities?.length && (
-        <div className={styles.enemy} role="group" aria-label="Opponent skills">
-          <span className={styles.enemyLabel}>Rival</span>
+        <div className={styles.enemy} role="group" aria-label={t('Opponent skills')}>
+          <span className={styles.enemyLabel}>{t('Rival')}</span>
           {snapshot.enemyAbilities.map((skill) => (
             <span
               key={skill.id}
               className={styles.enemySkill}
               style={{ '--skill-hue': skill.hue } as CSSProperties}
               role="img"
-              aria-label={`${skill.name}: ${skill.active ? 'active' : skill.ready ? 'ready' : `${skill.cooldownLeft}s recovery`}`}
-              title={`${skill.name}: ${skill.active ? 'active' : skill.ready ? 'ready' : `${skill.cooldownLeft}s recovery`}`}
+              aria-label={t(
+                msg('{0}: {1}', [
+                  t(skill.name),
+                  t(
+                    skill.active
+                      ? 'active'
+                      : skill.ready
+                        ? 'ready'
+                        : `${skill.cooldownLeft}s recovery`
+                  )
+                ])
+              )}
+              title={t(
+                msg('{0}: {1}', [
+                  t(skill.name),
+                  t(
+                    skill.active
+                      ? 'active'
+                      : skill.ready
+                        ? 'ready'
+                        : `${skill.cooldownLeft}s recovery`
+                  )
+                ])
+              )}
               data-active={skill.active}
               data-ready={skill.ready}
             >
               <TalentIcon id={skill.talent} />
               <small aria-hidden="true">
-                {skill.active ? '!' : skill.ready ? '✓' : skill.cooldownLeft}
+                {t(skill.active ? '!' : skill.ready ? '✓' : skill.cooldownLeft)}
               </small>
             </span>
           ))}
@@ -94,25 +132,35 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
             onGoals();
           }}
           disabled={!snapshot.canPause}
-          aria-label={`Star goals. ${snapshot.goals.map((goal) => `${goal.label}: ${goal.progress}, ${goal.state}`).join('. ')}. Pause to review.`}
+          aria-label={t(
+            msg('Star goals. {0}. Pause to review.', [
+              t(
+                snapshot.goals
+                  .map((goal) => `${goal.label}: ${goal.progress}, ${goal.state}`)
+                  .join('. ')
+              )
+            ])
+          )}
         >
-          <strong>Goals</strong>
+          <strong>{t('Goals')}</strong>
           <span className={styles.goalPips} aria-hidden="true">
             {snapshot.goals.map((goal) => (
               <span
                 key={goal.id}
                 data-state={goal.state}
-                title={`${goal.label}: ${goal.progress}, ${goal.state}`}
+                title={t(msg('{0}: {1}, {2}', [t(goal.label), t(goal.progress), t(goal.state)]))}
               >
-                {goal.state === 'missed'
-                  ? '×'
-                  : goal.state === 'reached' || goal.state === 'earned'
-                    ? '★'
-                    : '☆'}
+                {t(
+                  goal.state === 'missed'
+                    ? '×'
+                    : goal.state === 'reached' || goal.state === 'earned'
+                      ? '★'
+                      : '☆'
+                )}
               </span>
             ))}
           </span>
-          <span aria-hidden="true">›</span>
+          <span aria-hidden="true">{t('›')}</span>
         </button>
       ) : (
         objective && (
@@ -124,11 +172,11 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
               onGoals();
             }}
             disabled={!snapshot.canPause}
-            title={objective}
-            aria-label={`${objective}. Pause to review match rules.`}
+            title={t(objective)}
+            aria-label={t(msg('{0}. Pause to review match rules.', [t(objective)]))}
           >
-            <span>{objective}</span>
-            <small aria-hidden="true">›</small>
+            <span>{t(objective)}</span>
+            <small aria-hidden="true">{t('›')}</small>
           </button>
         )
       )}

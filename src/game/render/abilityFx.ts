@@ -1,3 +1,4 @@
+import { t as translateText } from '../../core/i18n';
 import { abilityById } from '../../core/talents/abilities';
 import { liveEffect } from '../abilities';
 import { GhostTrail, ULTIMATE_BANNER, type Cast } from '../casts';
@@ -889,7 +890,7 @@ export function drawUltimateBanner(
   ctx.shadowColor = hsla(fx.castHue, 100, 50, 0.9);
   ctx.shadowBlur = 18;
   ctx.fillStyle = hsla(fx.castHue, 100, 76, 1);
-  ctx.fillText(fx.castLabel.toUpperCase(), 0, 0);
+  ctx.fillText(translateText(fx.castLabel.toUpperCase()), 0, 0);
 
   // A hairline under it, drawn out from the centre as the banner lands.
   ctx.shadowBlur = 0;

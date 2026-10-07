@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Dialog } from './Dialog';
 import { useBackHandler } from '../hooks/useBackHandler';
@@ -56,11 +57,11 @@ export function GamePicker<T extends string | number>({
   const selected = options.find((option) => option.value === value);
   return (
     <div className={styles.field} data-picker={label}>
-      {!compact && <span className={styles.label}>{label}</span>}
+      {!compact && <span className={styles.label}>{t(label)}</span>}
       <button
         type="button"
         className={styles.trigger}
-        aria-label={label}
+        aria-label={t(label)}
         aria-describedby={valueId}
         aria-haspopup="dialog"
         aria-expanded={phase === 'open' && !disabled}
@@ -68,14 +69,14 @@ export function GamePicker<T extends string | number>({
         data-value={value}
         onClick={() => setPhase('open')}
       >
-        <span id={valueId}>{selected?.name ?? placeholder}</span>
+        <span id={valueId}>{t(selected?.name ?? placeholder)}</span>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="m9 5 7 7-7 7" />
         </svg>
       </button>
       {phase !== 'closed' && !disabled && (
         <PickerSheet
-          label={label}
+          label={t(label)}
           value={value}
           options={options}
           closing={phase === 'closing'}
@@ -112,7 +113,7 @@ function PickerSheet<T extends string | number>({
   const typed = useRef({ text: '', time: 0 });
   const searchable = options.length > 12;
   const visible = options.filter((option) =>
-    `${option.name} ${option.hint ?? ''}`.toLowerCase().includes(query.trim().toLowerCase())
+    `${t(option.name)} ${t(option.hint ?? '')}`.toLowerCase().includes(query.trim().toLowerCase())
   );
   const enabled = visible.filter((option) => !option.disabled);
   const active = enabled.find((option) => option.value === cursor) ?? enabled[0];
@@ -158,8 +159,8 @@ function PickerSheet<T extends string | number>({
         (now - typed.current.time < 600 ? typed.current.text : '') + event.key.toLowerCase();
       typed.current = { text, time: now };
       const match =
-        enabled.find((option) => option.name.toLowerCase().startsWith(text)) ??
-        enabled.find((option) => option.name.toLowerCase().startsWith(event.key.toLowerCase()));
+        enabled.find((option) => t(option.name).toLowerCase().startsWith(text)) ??
+        enabled.find((option) => t(option.name).toLowerCase().startsWith(event.key.toLowerCase()));
       if (match) {
         event.preventDefault();
         setCursor(match.value);
@@ -169,7 +170,7 @@ function PickerSheet<T extends string | number>({
 
   return (
     <Dialog
-      label={label}
+      label={t(label)}
       labelledBy={titleId}
       onDismiss={requestClose}
       className={`${styles.overlay} ${closing ? styles.closing : ''}`}
@@ -180,7 +181,7 @@ function PickerSheet<T extends string | number>({
         type="button"
         className={styles.scrim}
         tabIndex={-1}
-        aria-label={`Dismiss ${label}`}
+        aria-label={t(msg('Dismiss {0}', [t(label)]))}
         onClick={() => requestClose()}
       />
       <div
@@ -194,14 +195,14 @@ function PickerSheet<T extends string | number>({
       >
         <header className={styles.header}>
           <div>
-            <span className={styles.kicker}>Choose</span>
-            <h2 id={titleId}>{label}</h2>
+            <span className={styles.kicker}>{t('Choose')}</span>
+            <h2 id={titleId}>{t(label)}</h2>
           </div>
           <button
             type="button"
             className={styles.close}
             onClick={() => requestClose()}
-            aria-label="Close choices"
+            aria-label={t('Close choices')}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="m6 6 12 12M6 18 18 6" />
@@ -212,8 +213,8 @@ function PickerSheet<T extends string | number>({
           <input
             className={styles.search}
             type="search"
-            aria-label={`Search ${label.toLowerCase()}`}
-            placeholder="Find a choice…"
+            aria-label={t(msg('Search {0}', [t(label.toLowerCase())]))}
+            placeholder={t('Find a choice…')}
             value={query}
             onChange={(event) => !closing && setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -233,7 +234,7 @@ function PickerSheet<T extends string | number>({
           id={listId}
           className={styles.list}
           role="listbox"
-          aria-label={label}
+          aria-label={t(label)}
           aria-activedescendant={activeIndex < 0 ? undefined : `${listId}-${activeIndex}`}
           tabIndex={0}
           data-dialog-initial
@@ -257,25 +258,25 @@ function PickerSheet<T extends string | number>({
             >
               {option.tag && (
                 <span className={styles.tag} aria-hidden="true">
-                  {option.tag}
+                  {t(option.tag)}
                 </span>
               )}
               <span className={styles.optionText}>
-                <strong>{option.name}</strong>
-                {option.hint && <small>{option.hint}</small>}
+                <strong>{t(option.name)}</strong>
+                {option.hint && <small>{t(option.hint)}</small>}
               </span>
               <span className={styles.mark} aria-hidden="true">
-                {option.disabled ? '◇' : option.value === value ? '✓' : ''}
+                {t(option.disabled ? '◇' : option.value === value ? '✓' : '')}
               </span>
             </button>
           ))}
           {visible.length === 0 && (
             <p className={styles.empty} role="status">
-              No choices match. Try another search.
+              {t('No choices match. Try another search.')}
             </p>
           )}
         </div>
-        <p className={styles.footer}>Choose to apply · Back to cancel</p>
+        <p className={styles.footer}>{t('Choose to apply · Back to cancel')}</p>
       </div>
     </Dialog>
   );

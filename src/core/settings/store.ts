@@ -12,6 +12,7 @@ import { loadRecord, saveRecord, type StoreSpec } from '../storage/localStore';
 import { AUDIO_MIX } from '../../game/audioMix';
 import type { PracticePace } from '../modes/types';
 import { DEFAULT_BINDINGS, validateBindings, type KeyBindings } from './controls';
+import type { Language } from '../i18n/languages';
 
 export type SkillSide = 'left' | 'right';
 
@@ -22,6 +23,8 @@ export type CanvasQuality = 'high' | 'balanced' | 'low';
 export type TouchMode = 'direct' | 'relative';
 
 export interface DeviceSettings {
+  /** Display language on this device; never changes shared game data. */
+  language: Language;
   /** The screen edge the in-game skill buttons sit on. */
   skillSide: SkillSide;
   /** 0..1. The soundtrack's own level, under the master mute. */
@@ -51,6 +54,7 @@ export interface DeviceSettings {
 }
 
 export const DEFAULT_SETTINGS: DeviceSettings = {
+  language: 'en',
   skillSide: 'left',
   musicVolume: AUDIO_MIX.musicDefault,
   sfxVolume: AUDIO_MIX.effectsDefault,
@@ -92,6 +96,7 @@ const SPEC: StoreSpec<DeviceSettings> = {
     if (typeof data !== 'object' || data === null) return null;
     const source = data as Partial<DeviceSettings>;
     return {
+      language: source.language === 'fa' ? 'fa' : DEFAULT_SETTINGS.language,
       skillSide: source.skillSide === 'right' ? 'right' : DEFAULT_SETTINGS.skillSide,
       musicVolume: unit(source.musicVolume, DEFAULT_SETTINGS.musicVolume),
       sfxVolume: unit(source.sfxVolume, DEFAULT_SETTINGS.sfxVolume),

@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useState } from 'react';
 
 import { abilitySlotsForLevel, BALANCE, paddleSpeedForLevel } from '../../core/balance/config';
@@ -24,8 +25,8 @@ function cosmeticsAt(level: number): number {
 function Fact({ value, label }: { value: string | number; label: string }) {
   return (
     <div className={styles.stat}>
-      <div className={styles.statValue}>{value}</div>
-      <div className={styles.statLabel}>{label}</div>
+      <div className={styles.statValue}>{t(value)}</div>
+      <div className={styles.statLabel}>{t(label)}</div>
     </div>
   );
 }
@@ -59,8 +60,8 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
 
   return (
     <Screen
-      title="Demo"
-      subtitle="Play any level. Nothing is saved."
+      title={t('Demo')}
+      subtitle={t('Play any level. Nothing is saved.')}
       onBack={onBack}
       footer={
         <>
@@ -70,17 +71,21 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
             disabled={!valid}
             onClick={() => onStart(level)}
           >
-            {demoLevel === null ? `Demo level ${level}` : `Switch to level ${level}`}
+            {t(
+              demoLevel === null
+                ? msg('Demo level {0}', [t(level)])
+                : msg('Switch to level {0}', [t(level)])
+            )}
           </button>
           {demoLevel !== null && (
             <button type="button" className={styles.ghost} onClick={onExit}>
-              Exit demo
+              {t('Exit demo')}
             </button>
           )}
         </>
       }
     >
-      <p className={styles.sectionLabel}>Level</p>
+      <p className={styles.sectionLabel}>{t('Level')}</p>
       <input
         className={styles.input}
         type="number"
@@ -89,7 +94,7 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
         max={DEMO_LEVEL_MAX}
         step={1}
         value={text}
-        aria-label={`Demo level, 1 to ${DEMO_LEVEL_MAX}`}
+        aria-label={t(msg('Demo level, 1 to {0}', [t(DEMO_LEVEL_MAX)]))}
         onChange={(event) => edit(event.target.value)}
         onBlur={() => setText(String(level))}
         onKeyDown={(event) => {
@@ -99,20 +104,27 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
         }}
       />
 
-      <p className={styles.sectionLabel}>At this level</p>
+      <p className={styles.sectionLabel}>{t('At this level')}</p>
       <div className={styles.stats}>
-        <Fact value={points} label="Talent points" />
-        <Fact value={slots} label="Skill slots" />
-        <Fact value={cups.length} label="Cups open" />
-        <Fact value={cosmeticsAt(level)} label="Cosmetics" />
-        <Fact value={paddleSpeedForLevel(level)} label="Paddle speed" />
+        <Fact value={points} label={t('Talent points')} />
+        <Fact value={slots} label={t('Skill slots')} />
+        <Fact value={cups.length} label={t('Cups open')} />
+        <Fact value={cosmeticsAt(level)} label={t('Cosmetics')} />
+        <Fact value={paddleSpeedForLevel(level)} label={t('Paddle speed')} />
       </div>
 
       <p className={styles.note}>
-        A demo profile starts with a clean record and the talent points level {level} has earned.
-        Levelling never stops, but what it pays does: talent points end at level {pointsCap} and
-        paddle speed at {BALANCE.paddle.max}. Matches, XP and builds from a demo are thrown away
-        when you leave - your real progress is untouched.
+        {t('A demo profile starts with a clean record and the talent points level ')}
+        {t(level)}{' '}
+        {t(
+          ' has earned. Levelling never stops, but what it pays does: talent points end at level '
+        )}
+        {t(pointsCap)}
+        {t(' and paddle speed at ')}
+        {t(BALANCE.paddle.max)}
+        {t(
+          '. Matches, XP and builds from a demo are thrown away when you leave - your real progress is untouched.'
+        )}
       </p>
     </Screen>
   );

@@ -5,7 +5,7 @@ import { useScreenFocus } from '../hooks/useScreenFocus';
 export function BrandLogo() {
   const heading = useScreenFocus();
   return (
-    <h1 ref={heading} className={styles.logo} tabIndex={-1} data-screen-heading>
+    <h1 ref={heading} className={styles.logo} tabIndex={-1} data-screen-heading dir="ltr">
       <img src={`${import.meta.env.BASE_URL}brand/mark.svg`} width="48" height="48" alt="" />
       <span className={styles.wordmark}>
         <span>b</span>Ball

@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
@@ -22,6 +23,7 @@ import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
 import { PaddleNotice } from '../components/PaddleNotice';
 import { GamePicker } from '../components/GamePicker';
+import { useSettings } from '../hooks/useSettings';
 import { LockIcon, StarIcon, StarRow } from '../icons/ModeIcons';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
@@ -55,6 +57,7 @@ function lockReason(
  * player should play next.
  */
 export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
+  const { language } = useSettings();
   const journey = profile.progress.journey;
   const stars = totalStars(journey);
   const upcoming = nextStage(journey);
@@ -95,12 +98,12 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
 
   return (
     <Screen
-      title="Journey"
-      subtitle={
+      title={t('Journey')}
+      subtitle={t(
         worldId > 30
-          ? `Journey Beyond · sector ${worldId - 30}`
-          : `${stars} of ${TOTAL_STARS} Story stars`
-      }
+          ? msg('Journey Beyond · sector {0}', [t(worldId - 30)])
+          : msg('{0} of {1} Story stars', [t(stars), t(TOTAL_STARS)])
+      )}
       onBack={onBack}
       footer={
         <button
@@ -109,18 +112,20 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
           disabled={!playable}
           onClick={() => shown && onPlay(shown.id)}
         >
-          {shown
-            ? playable
-              ? `Play ${shown.world}-${shown.index + 1}`
-              : 'Locked'
-            : 'Pick a stage'}
+          {t(
+            shown
+              ? playable
+                ? msg('Play {0}-{1}', [t(shown.world), t(shown.index + 1)])
+                : 'Locked'
+              : 'Pick a stage'
+          )}
         </button>
       }
     >
       <PaddleNotice profile={profile} />
       <div className={styles.fieldGrid}>
         <GamePicker<'story' | 'veteran' | 'ascendant'>
-          label="Journey rules"
+          label={t('Journey rules')}
           value={worldId > 30 ? 'story' : variant}
           disabled={worldId > 30}
           onChange={setVariant}
@@ -139,7 +144,7 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
           ]}
         />
         <GamePicker
-          label="Chapter"
+          label={t('Chapter')}
           value={worldId > 30 ? 6 : Math.floor((worldId - 1) / 5)}
           onChange={(chapter) => {
             if (chapter === 6) {
@@ -177,21 +182,23 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
       </div>
       {variant !== 'story' && worldId <= 30 && (
         <p className={styles.rowBlurb} style={{ margin: 0 }}>
-          {variant === 'veteran'
-            ? 'Clear each Story stage to unlock its Veteran rematch.'
-            : 'Clear each Story stage to face Legend with a shorter paddle.'}
+          {t(
+            variant === 'veteran'
+              ? 'Clear each Story stage to unlock its Veteran rematch.'
+              : 'Clear each Story stage to face Legend with a shorter paddle.'
+          )}
         </p>
       )}
       <div
         className={modes.tabs}
         role="tablist"
-        aria-label="Journey worlds"
+        aria-label={t('Journey worlds')}
         onKeyDown={(event) => {
           const current = worlds.findIndex((item) => item.id === worldId);
           const index =
-            event.key === 'ArrowRight'
+            event.key === (language === 'fa' ? 'ArrowLeft' : 'ArrowRight')
               ? (current + 1) % worlds.length
-              : event.key === 'ArrowLeft'
+              : event.key === (language === 'fa' ? 'ArrowRight' : 'ArrowLeft')
                 ? (current + worlds.length - 1) % worlds.length
                 : event.key === 'Home'
                   ? 0
@@ -223,10 +230,12 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
               style={accent(item.hue)}
               onClick={() => pickWorld(item.id)}
             >
-              <span className={modes.tabName}>{item.name}</span>
+              <span className={modes.tabName}>{t(item.name)}</span>
               <span className={modes.tabMeta}>
                 {unlocked ? <StarIcon /> : <LockIcon />}
-                {starsInWorld(journey, item)}/{item.stages.length * 3}
+                {t(starsInWorld(journey, item))}
+                {t('/')}
+                {t(item.stages.length * 3)}
               </span>
             </button>
           );
@@ -235,29 +244,35 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
 
       <div className={modes.worldHead}>
         <span className={styles.sectionLabel} style={{ margin: 0 }}>
-          World {world.id} · {world.theme}
+          {t('World ')}
+          {t(world.id)}
+          {t(' · ')}
+          {t(world.theme)}
         </span>
       </div>
 
       {!open && (
         <p className={modes.lockNote}>
           <LockIcon />
-          {lockReason(world, stars, journey)}
+          {t(lockReason(world, stars, journey))}
         </p>
       )}
 
       {pageCount > 1 && (
-        <nav className={styles.pager} aria-label="Stage pages">
+        <nav className={styles.pager} aria-label={t('Stage pages')}>
           <button
             type="button"
             className={styles.ghost}
             disabled={stagePage === 0}
             onClick={() => setStageId(world.stages[(stagePage - 1) * 6]!.id)}
           >
-            Previous
+            {t('Previous')}
           </button>
           <span>
-            Stages {stagePage * 6 + 1}–{Math.min((stagePage + 1) * 6, world.stages.length)}
+            {t('Stages ')}
+            {t(stagePage * 6 + 1)}
+            {t('–')}
+            {t(Math.min((stagePage + 1) * 6, world.stages.length))}
           </span>
           <button
             type="button"
@@ -265,7 +280,7 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
             disabled={stagePage === pageCount - 1}
             onClick={() => setStageId(world.stages[(stagePage + 1) * 6]!.id)}
           >
-            Next
+            {t('Next')}
           </button>
         </nav>
       )}
@@ -314,7 +329,7 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
             setStageId(next.id);
           }}
         >
-          Journey Beyond · next frontier sector
+          {t('Journey Beyond · next frontier sector')}
         </button>
       ) : null}
     </Screen>
@@ -346,10 +361,12 @@ function StageTile({ stage, hue, mask, open, next, selected, onSelect }: StageTi
       aria-pressed={selected}
     >
       <span className={modes.stageNum}>
-        {stage.world}-{stage.index + 1}
+        {t(stage.world)}
+        {t('-')}
+        {t(stage.index + 1)}
       </span>
-      <span className={modes.stageName}>{stage.name}</span>
-      {stage.boss && <span className={modes.bossBadge}>Boss</span>}
+      <span className={modes.stageName}>{t(stage.name)}</span>
+      {stage.boss && <span className={modes.bossBadge}>{t('Boss')}</span>}
       <StarRow mask={mask} className={modes.stars} on={modes.starOn} />
     </button>
   );
@@ -367,13 +384,20 @@ function StageDetail({ stage, hue, mask }: { stage: Stage; hue: number; mask: nu
     <div className={modes.detail} style={accent(hue)}>
       <div className={modes.detailHead}>
         <span className={modes.stageNum}>
-          {boss ? 'Boss · ' : ''}Stage {stage.world}-{stage.index + 1}
+          {t(boss ? 'Boss · ' : '')}
+          {t('Stage ')}
+          {t(stage.world)}
+          {t('-')}
+          {t(stage.index + 1)}
         </span>
-        <h3 className={modes.detailName}>{stage.name}</h3>
-        <p className={modes.detailBlurb}>{stage.blurb}</p>
+        <h3 className={modes.detailName}>{t(stage.name)}</h3>
+        <p className={modes.detailBlurb}>{t(stage.blurb)}</p>
         <p className={modes.detailBlurb}>
-          vs {bot.name} · first to {stage.winScore}
-          {boss ? ` · ${boss.spec.phases.length + 1} phases` : ''}
+          {t('vs ')}
+          {t(bot.name)}
+          {t(' · first to ')}
+          {t(stage.winScore)}
+          {t(boss ? msg(' · {0} phases', [t(boss.spec.phases.length + 1)]) : '')}
         </p>
       </div>
       <div className={modes.goals}>
@@ -383,7 +407,7 @@ function StageDetail({ stage, hue, mask }: { stage: Stage; hue: number; mask: nu
             className={mask & goal.bit ? `${modes.goal} ${modes.goalOn}` : modes.goal}
           >
             <StarIcon />
-            {goal.label}
+            {t(goal.label)}
           </span>
         ))}
       </div>

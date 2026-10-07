@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/vazirmatn/Vazirmatn-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #06080f;
   --ink: #eef2ff;
@@ -48,4 +56,33 @@ body {
 
 :focus:not(:focus-visible) {
   outline: none;
+}
+
+html[lang='fa'] {
+  --font: 'Vazirmatn', Tahoma, 'Segoe UI', Arial, sans-serif;
+}
+
+/* Persian joins need natural spacing, even in tightly tracked English labels. */
+html[lang='fa'] body,
+html[lang='fa'] button,
+html[lang='fa'] input,
+html[lang='fa'] textarea,
+html[lang='fa'] h1,
+html[lang='fa'] h2,
+html[lang='fa'] h3,
+html[lang='fa'] h4,
+html[lang='fa'] p,
+html[lang='fa'] span,
+html[lang='fa'] b,
+html[lang='fa'] strong,
+html[lang='fa'] small {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+kbd,
+input[type='email'],
+input[type='password'] {
+  direction: ltr;
+  unicode-bidi: isolate;
 }

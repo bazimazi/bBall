@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { activateDialog } from '../focus';
@@ -41,13 +42,13 @@ export function Dialog({
       className={className}
       role={role}
       aria-modal="true"
-      aria-label={labelledBy ? undefined : label}
+      aria-label={t(labelledBy ? undefined : label)}
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       tabIndex={-1}
       data-game-modal={gameShortcuts ? 'pause' : 'blocked'}
     >
-      {children}
+      {t(children)}
     </div>
   );
   return portal && typeof document !== 'undefined' ? createPortal(content, document.body) : content;

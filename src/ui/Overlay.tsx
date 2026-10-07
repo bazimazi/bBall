@@ -1,3 +1,4 @@
+import { t } from '../core/i18n/index';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Dialog } from './components/Dialog';
@@ -34,14 +35,14 @@ export function Overlay({
       <div className={styles.card}>
         {show && (
           <Dialog
-            label={label}
+            label={t(label)}
             labelledBy={labelledBy}
             describedBy={describedBy}
             role={role}
             onDismiss={onDismiss}
             gameShortcuts={gameShortcuts}
           >
-            {children}
+            {t(children)}
           </Dialog>
         )}
       </div>

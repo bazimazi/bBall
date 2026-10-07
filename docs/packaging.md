@@ -5,6 +5,14 @@ next to the API. Everywhere else it is the same build inside a
 [Tauri](https://tauri.app) shell: a native window, a system webview, and an
 installer per operating system.
 
+English and Persian use the same bundled client translations on web, desktop
+and mobile. Language is selected at first-time setup or in Settings and stored
+per device. Persian menus and canvas labels use the bundled Vazirmatn variable
+font, including its OFL license; no font service is required. Persian menus use
+right-to-left layout, with sound controls on the left, while the court and paddle
+controls retain their orientation. Include language switching, Persian name
+entry and mixed email/key labels in packaged-webview QA.
+
 **Reduced-motion policy:** web, desktop and mobile builds completely ignore
 operating-system and browser reduced-motion settings. Native wrappers must not
 read or forward those preferences to change animations, effects or timing.
@@ -13,6 +21,8 @@ Only explicit in-game settings control their supported effects. See the
 Choice-panel slide/fade transitions follow this policy in packaged webviews too.
 Menu disclosure expansion, collapse, content fades and chevron rotation follow
 the same policy on every platform.
+Workshop selection highlights follow the selected view, part, tuning, preset
+and contact-motion option in both LTR and RTL layouts, in Full and Calm.
 
 The endless-content expansion requires its matching API build and migration 6.
 Publish web/native assets alongside the updated server; an older server rejects

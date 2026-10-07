@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import type { ReactNode } from 'react';
 
 import styles from '../Overlay.module.css';
@@ -12,7 +13,7 @@ export function PanelButton({ onClick, children, variant = 'primary' }: PanelBut
   const className = variant === 'ghost' ? `${styles.button} ${styles.ghost}` : styles.button;
   return (
     <button type="button" className={className} onClick={onClick}>
-      {children}
+      {t(children)}
     </button>
   );
 }

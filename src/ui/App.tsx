@@ -1,3 +1,4 @@
+import { t } from '../core/i18n/index';
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { seriesComplete } from '../core/modes/sessions';
@@ -413,7 +414,7 @@ export function App() {
             <ResultScreen
               result={flow.result}
               summary={flow.summary}
-              label={snapshot.label}
+              label={t(snapshot.label)}
               onHelp={() => flow.go('help')}
               onTutorial={flow.startTutorial}
               onStar={(index) => engine?.chime(index)}
@@ -427,12 +428,12 @@ export function App() {
 
       <Overlay
         show={paused && !leaving}
-        label="Paused"
+        label={t('Paused')}
         onDismiss={() => engine?.resume()}
         gameShortcuts
       >
         <PausePanel
-          label={snapshot.label}
+          label={t(snapshot.label)}
           practiceLanding={snapshot.practiceLanding}
           onStep={snapshot.mode === 'practice' ? () => engine?.stepPractice() : undefined}
           resized={snapshot.pauseReason === 'resize'}
@@ -446,7 +447,7 @@ export function App() {
           onSettings={() => flow.go('settings')}
           onRestart={flow.replay}
           onQuit={flow.quitToMenu}
-          quitLabel={flow.workshopKit ? 'Back to Workshop' : 'Quit to menu'}
+          quitLabel={t(flow.workshopKit ? 'Back to Workshop' : 'Quit to menu')}
           versus={snapshot.mode === 'versus'}
           objective={(coarse && snapshot.objectiveTouch) || snapshot.objective}
           goals={snapshot.goals}
@@ -456,7 +457,7 @@ export function App() {
 
       <Overlay
         show={leaving}
-        label={isNativeShell ? 'Close bBall?' : 'Leave bBall?'}
+        label={t(isNativeShell ? 'Close bBall?' : 'Leave bBall?')}
         onDismiss={() => setLeaving(false)}
       >
         <ExitPanel

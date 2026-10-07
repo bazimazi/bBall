@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import screens from '../Screens.module.css';
@@ -79,16 +80,16 @@ export function DailyResultCopy({ text }: DailyResultCopyProps) {
         aria-busy={result.phase === 'copying'}
         onClick={() => void copy()}
       >
-        Copy result
+        {t('Copy result')}
       </button>
       <p id={statusId} role="status" aria-atomic="true" className={screens.note}>
-        {message}
+        {t(message)}
       </p>
       {manual && (
         <textarea
           ref={field}
           className={`${screens.input} ${styles.text}`}
-          aria-label="Daily result text"
+          aria-label={t('Daily result text')}
           aria-describedby={statusId}
           value={text}
           readOnly

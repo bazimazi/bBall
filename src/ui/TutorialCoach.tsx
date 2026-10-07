@@ -1,3 +1,4 @@
+import { t } from '../core/i18n/index';
 import type { GameSnapshot } from '../game/types';
 import { useCoarsePointer } from './hooks/useCoarsePointer';
 import styles from './TutorialCoach.module.css';
@@ -62,33 +63,37 @@ export function TutorialCoach({
         ? 'That was a centre return. Move into the outline to use the outer part.'
         : null;
   return (
-    <section className={styles.coach} aria-label="First-rally lesson">
+    <section className={styles.coach} aria-label={t('First-rally lesson')}>
       <div role="status" aria-live="polite" aria-atomic="true">
-        <h2>{title}</h2>
-        <p>{hint}</p>
-        {feedback && <p>{feedback}</p>}
+        <h2>{t(title)}</h2>
+        <p>{t(hint)}</p>
+        {feedback && <p>{t(feedback)}</p>}
       </div>
       <div className={styles.actions}>
         {complete ? (
           <>
             <button type="button" onClick={onPractice}>
-              Play with Rookie
+              {t('Play with Rookie')}
             </button>
             <button type="button" onClick={onRestart}>
-              Repeat lesson
+              {t('Repeat lesson')}
             </button>
           </>
         ) : cleared ? (
           <button type="button" onClick={onNext}>
-            {step === 'return' ? 'Try an angle' : 'Finish lesson'}
+            {t(step === 'return' ? 'Try an angle' : 'Finish lesson')}
           </button>
         ) : step !== 'move' && snapshot.status === 'serve' ? (
           <button type="button" onClick={onSend}>
-            Send ball <small>· {coarse ? 'Tap' : keyList(keyBindings, 'serve')}</small>
+            {t('Send ball ')}
+            <small>
+              {t('· ')}
+              {t(coarse ? 'Tap' : keyList(keyBindings, 'serve'))}
+            </small>
           </button>
         ) : null}
         <button type="button" className={styles.exit} onClick={onExit}>
-          {complete ? 'Back to guide' : 'Skip lesson'}
+          {t(complete ? 'Back to guide' : 'Skip lesson')}
         </button>
       </div>
     </section>

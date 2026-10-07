@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 /**
  * Small glyphs for the newer modes. Drawn in currentColor, so each one takes
  * its colour from wherever it sits.
@@ -129,7 +130,7 @@ export function StarRow({
   return (
     <span
       className={className}
-      aria-label={`${(mask & 1) + ((mask >> 1) & 1) + ((mask >> 2) & 1)} of 3 stars`}
+      aria-label={t(msg('{0} of 3 stars', [t((mask & 1) + ((mask >> 1) & 1) + ((mask >> 2) & 1))]))}
     >
       {[1, 2, 4].map((bit) => (
         <span key={bit} className={mask & bit ? on : undefined}>

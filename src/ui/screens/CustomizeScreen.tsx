@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import { Fragment } from 'react';
 
 import { achievementById } from '../../core/achievements/catalog';
@@ -32,15 +33,15 @@ export function CustomizeScreen({ profile, onBack }: CustomizeScreenProps) {
 
   return (
     <Screen
-      title="Customise"
-      subtitle={`${ownedCount} items unlocked · cosmetic only`}
+      title={t('Customise')}
+      subtitle={t(msg('{0} items unlocked · cosmetic only', [t(ownedCount)]))}
       onBack={onBack}
     >
       {EQUIP_SLOTS.map((slot) => (
         // A fragment, not a wrapper: the label and its grid sit directly in the
         // body's column and take its gap, like every other section label.
         <Fragment key={slot}>
-          <p className={styles.sectionLabel}>{SECTION_NAMES[slot as CosmeticKind]}</p>
+          <p className={styles.sectionLabel}>{t(SECTION_NAMES[slot as CosmeticKind])}</p>
           <div className={styles.swatchGrid}>
             {cosmeticsOfKind(slot as CosmeticKind).map((cosmetic) => {
               const have = owned.has(cosmetic.id);
@@ -65,10 +66,10 @@ export function CustomizeScreen({ profile, onBack }: CustomizeScreenProps) {
                       background: `linear-gradient(140deg, ${cosmetic.swatch[0]}, ${cosmetic.swatch[1]})`
                     }}
                   />
-                  <span className={styles.swatchName}>{cosmetic.name}</span>
+                  <span className={styles.swatchName}>{t(cosmetic.name)}</span>
                   {!have && (
                     <span className={styles.swatchLock}>
-                      {unlockLabel(cosmetic.unlock, requirement)}
+                      {t(unlockLabel(cosmetic.unlock, requirement))}
                     </span>
                   )}
                 </button>

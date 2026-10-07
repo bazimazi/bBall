@@ -1,3 +1,4 @@
+import { t, msg } from '../../core/i18n/index';
 import {
   BRANCH_COLUMNS,
   isUltimate,
@@ -96,18 +97,20 @@ export function TalentTree({
     <section
       className={styles.tree}
       style={{ '--branch': `${hue}` } as React.CSSProperties}
-      aria-label={`${branch.name} talents`}
+      aria-label={t(msg('{0} talents', [t(branch.name)]))}
     >
       <header className={styles.treeHead}>
         <span className={styles.treeCrest}>
           <TalentIcon id={branch.crest} />
         </span>
-        <span className={styles.treeName}>{branch.name}</span>
+        <span className={styles.treeName}>{t(branch.name)}</span>
         <span className={styles.treeCount}>
-          {spent} / {total}
+          {t(spent)}
+          {t(' / ')}
+          {t(total)}
         </span>
       </header>
-      <p className={styles.treeBlurb}>{branch.blurb}</p>
+      <p className={styles.treeBlurb}>{t(branch.blurb)}</p>
 
       <div className={styles.treeBody}>
         <div className={styles.grid} style={{ width: gridW, height: gridH }}>
@@ -131,14 +134,18 @@ export function TalentTree({
                 type="button"
                 className={tileClass(state, selected === talent.id)}
                 style={{ left: cellX(talent.column), top: cellY(talent.tier) }}
-                aria-label={`${talent.name}, rank ${state.rank} of ${talent.maxRank}`}
-                title={`${talent.name} · ${talent.blurb}`}
+                aria-label={t(
+                  msg('{0}, rank {1} of {2}', [t(talent.name), t(state.rank), t(talent.maxRank)])
+                )}
+                title={t(msg('{0} · {1}', [t(talent.name), t(talent.blurb)]))}
                 aria-pressed={selected === talent.id}
                 onClick={() => onPick(talent)}
               >
                 <TalentIcon id={talent.id} />
                 <span className={styles.rank}>
-                  {state.rank}/{talent.maxRank}
+                  {t(state.rank)}
+                  {t('/')}
+                  {t(talent.maxRank)}
                 </span>
                 {isUltimate(talent) && <span className={styles.crown} aria-hidden="true" />}
               </button>
@@ -148,7 +155,7 @@ export function TalentTree({
       </div>
 
       <button type="button" className={styles.treeReset} disabled={spent === 0} onClick={onReset}>
-        ✕ Reset
+        {t('✕ Reset')}
       </button>
     </section>
   );

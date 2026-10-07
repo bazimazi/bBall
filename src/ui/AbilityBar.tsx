@@ -1,3 +1,4 @@
+import { t, msg } from '../core/i18n/index';
 import { useEffect, useState, type CSSProperties, type PointerEvent } from 'react';
 
 import type { SkillSide } from '../core/settings/store';
@@ -115,7 +116,7 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
       type="button"
       className={classes.join(' ')}
       style={style}
-      aria-label={`${label(ability)}, shortcut ${keyList(keyBindings, action)}`}
+      aria-label={t(msg('{0}, shortcut {1}', [t(label(ability)), keyList(keyBindings, action)]))}
       aria-disabled={!ability.ready}
       onPointerDown={handleDown}
       onClick={(event) => {
@@ -165,8 +166,11 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
        */}
       {ability.active && ability.maxCharges > 0 && (
         <span className={styles.charges} aria-hidden="true">
-          {ability.charges}
-          <i className={styles.chargesOf}>/{ability.maxCharges}</i>
+          {t(ability.charges)}
+          <i className={styles.chargesOf}>
+            {t('/')}
+            {t(ability.maxCharges)}
+          </i>
         </span>
       )}
 
@@ -174,18 +178,20 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
           runs, and what is left of the cooldown once it is over. */}
       {ability.active && ability.duration > 0 ? (
         <span className={`${styles.timer} ${styles.timerActive}`} aria-hidden="true">
-          {shortSeconds(ability.remain)}s
+          {t(shortSeconds(ability.remain))}
+          {t('s')}
         </span>
       ) : (
         !ability.ready && (
           <span className={styles.timer} aria-hidden="true">
-            {ability.cooldownLeft}s
+            {t(ability.cooldownLeft)}
+            {t('s')}
           </span>
         )
       )}
 
       <span className={styles.key} aria-hidden="true">
-        {keyName(keyBindings[action][0]!)}
+        {t(keyName(keyBindings[action][0]!))}
       </span>
 
       {/* Keyed on a counter so firing twice in a row replays the ring rather

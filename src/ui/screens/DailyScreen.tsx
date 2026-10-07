@@ -1,3 +1,4 @@
+import { t, msg, locale } from '../../core/i18n/index';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
@@ -67,7 +68,14 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
   ];
 
   const stars = goals.map((goal) => (medals & goal.bit ? '★' : '☆')).join('');
-  const shareText = `bBall Daily ${today} · ${spec.title}\n${stars}${streak > 1 ? ` · streak ${streak}` : ''}`;
+  const shareText = t(
+    msg('bBall Daily {0} · {1}\n{2}{3}', [
+      t(today),
+      t(spec.title),
+      t(stars),
+      t(streak > 1 ? ` · streak ${streak}` : '')
+    ])
+  );
   const play = () => {
     const clock = new Date();
     if (dayKey(clock) !== today) {
@@ -81,8 +89,8 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
 
   return (
     <Screen
-      title="Daily"
-      subtitle={`New challenge in ${untilTomorrow(now)}`}
+      title={t('Daily')}
+      subtitle={t(msg('New challenge in {0}', [t(untilTomorrow(now))]))}
       onBack={onBack}
       footer={
         <>
@@ -95,13 +103,13 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
             }}
             onClick={play}
           >
-            {cleared ? 'Play again' : attempts > 0 ? 'Try again' : "Play today's challenge"}
+            {t(cleared ? 'Play again' : attempts > 0 ? 'Try again' : "Play today's challenge")}
           </button>
         </>
       }
     >
       <ChoiceGroup<'standard' | 'master'>
-        label="Challenge tier"
+        label={t('Challenge tier')}
         value={kind}
         onChange={setKind}
         options={[
@@ -112,16 +120,28 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
       <PaddleNotice profile={profile} policy="daily" dailyKey={key} />
       <div className={modes.stagger} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p role="status" aria-atomic="true" className={styles.note}>
-          {changed ? 'A new Daily challenge is ready. Review its goals, then play when ready.' : ''}
+          {t(
+            changed ? 'A new Daily challenge is ready. Review its goals, then play when ready.' : ''
+          )}
         </p>
         <div className={modes.detail} style={{ '--accent': 'hsl(28 95% 64%)' } as CSSProperties}>
           <div className={modes.detailHead}>
-            <span className={modes.stageNum}>{today}</span>
-            <h3 className={modes.detailName}>{spec.title}</h3>
-            <p className={modes.detailBlurb}>{spec.blurb}.</p>
+            <span className={modes.stageNum}>{t(today)}</span>
+            <h3 className={modes.detailName}>{t(spec.title)}</h3>
             <p className={modes.detailBlurb}>
-              vs {botProfile(spec.bot).name} · first to {spec.winScore}
-              {attempts > 0 ? ` · ${attempts} attempt${attempts > 1 ? 's' : ''} today` : ''}
+              {t(spec.blurb)}
+              {t('.')}
+            </p>
+            <p className={modes.detailBlurb}>
+              {t('vs ')}
+              {t(botProfile(spec.bot).name)}
+              {t(' · first to ')}
+              {t(spec.winScore)}
+              {t(
+                attempts > 0
+                  ? msg(' · {0} attempt{1} today', [t(attempts), t(attempts > 1 ? 's' : '')])
+                  : ''
+              )}
             </p>
           </div>
           <div className={modes.goals}>
@@ -131,7 +151,7 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
                 className={medals & goal.bit ? `${modes.goal} ${modes.goalOn}` : modes.goal}
               >
                 <StarIcon />
-                {goal.label}
+                {t(goal.label)}
               </span>
             ))}
           </div>
@@ -148,7 +168,7 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
               }
             }}
           >
-            <DailyResultCopy text={shareText} />
+            <DailyResultCopy text={t(shareText)} />
           </div>
         )}
 
@@ -161,20 +181,24 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
           </span>
           <span className={modes.streakText}>
             <span className={modes.streakCount}>
-              {streak} day{streak === 1 ? '' : 's'}
+              {t(streak)}
+              {t(' day')}
+              {t(streak === 1 ? '' : 's')}
             </span>
             <span className={styles.rowBlurb}>
-              {cleared
-                ? 'Streak kept for today'
-                : streak > 0
-                  ? 'Clear today to keep it going'
-                  : 'Clear today to start a streak'}
-              {record.bestStreak > 0 ? ` · best ${record.bestStreak}` : ''}
+              {t(
+                cleared
+                  ? 'Streak kept for today'
+                  : streak > 0
+                    ? 'Clear today to keep it going'
+                    : 'Clear today to start a streak'
+              )}
+              {t(record.bestStreak > 0 ? msg(' · best {0}', [t(record.bestStreak)]) : '')}
             </span>
           </span>
           <span
             className={modes.freezes}
-            title="Freezes cover a missed day. One banked every 7 days."
+            title={t('Freezes cover a missed day. One banked every 7 days.')}
           >
             {Array.from({ length: MAX_FREEZES }, (_, i) => (
               <span key={i} className={i < record.freezes ? undefined : modes.freezeEmpty}>
@@ -186,17 +210,21 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
 
         <QuestList profile={profile} day={today} />
 
-        <MenuDisclosure title="Daily archive" hint="Past 30 days · practice without XP or streaks">
+        <MenuDisclosure
+          title={t('Daily archive')}
+          hint={t('Past 30 days · practice without XP or streaks')}
+        >
           <GamePicker
-            label="Archive date"
-            placeholder="Choose a date"
+            label={t('Archive date')}
+            placeholder={t('Choose a date')}
             value={archive}
             onChange={setArchive}
             options={Array.from({ length: 31 }, (_, i) => {
               const date = new Date(now.getTime() - i * 86400000);
               return {
                 value: dayKey(date),
-                name: date.toLocaleDateString(undefined, {
+                name: date.toLocaleDateString(locale(), {
+                  calendar: 'gregory',
                   weekday: 'short',
                   month: 'short',
                   day: 'numeric'
@@ -215,14 +243,15 @@ export function DailyScreen({ profile, onPlay, onBack }: DailyScreenProps) {
             }
             onClick={() => onPlay(`a2-${archive}`)}
           >
-            Play archive
+            {t('Play archive')}
           </button>
           {archive && <PaddleNotice profile={profile} policy="daily" dailyKey={`a2-${archive}`} />}
         </MenuDisclosure>
 
         <p className={styles.note}>
-          Everyone plays the same court today. Clear it for a bonus and to grow your streak; every
-          seven days banks a freeze that covers a missed day.
+          {t(
+            'Everyone plays the same court today. Clear it for a bonus and to grow your streak; every seven days banks a freeze that covers a missed day.'
+          )}
         </p>
       </div>
     </Screen>

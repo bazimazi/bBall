@@ -1,4 +1,5 @@
 .hud {
+  direction: ltr;
   position: fixed;
   top: calc(var(--safe-t) + 10px);
   right: calc(var(--safe-r) + 10px);
@@ -7,6 +8,11 @@
   /* Above the overlay, so sound stays reachable from every screen. */
   z-index: 4;
   transition: opacity 0.25s ease;
+}
+
+:global(html[dir='rtl']) .hud {
+  right: auto;
+  left: calc(var(--safe-l) + 10px);
 }
 
 .button {

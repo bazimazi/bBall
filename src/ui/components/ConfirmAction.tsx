@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import { useId, useLayoutEffect, useRef } from 'react';
 import { Overlay } from '../Overlay';
 import { useBackHandler } from '../hooks/useBackHandler';
@@ -34,7 +35,7 @@ export function ConfirmAction({
   return (
     <Overlay
       show={show}
-      label={title}
+      label={t(title)}
       labelledBy={titleId}
       describedBy={descriptionId}
       role="alertdialog"
@@ -42,13 +43,13 @@ export function ConfirmAction({
     >
       <div className={styles.panel}>
         <h2 id={titleId} className={styles.heading}>
-          {title}
+          {t(title)}
         </h2>
         <p id={descriptionId} className={styles.explanation}>
-          {description}
+          {t(description)}
         </p>
         <button type="button" className={styles.button} onClick={onCancel}>
-          {cancelLabel}
+          {t(cancelLabel)}
         </button>
         <button
           type="button"
@@ -59,7 +60,7 @@ export function ConfirmAction({
             onConfirm();
           }}
         >
-          {confirmLabel}
+          {t(confirmLabel)}
         </button>
       </div>
     </Overlay>

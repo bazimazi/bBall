@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import type { OAuthProviderDto } from '../../../shared/protocol';
 import styles from '../Account.module.css';
 
@@ -59,7 +60,7 @@ function ProviderMark({ id, name }: { id: string; name: string }) {
 
   return (
     <span className={styles.markLetter} aria-hidden="true">
-      {name.slice(0, 1).toUpperCase()}
+      {t(name.slice(0, 1).toUpperCase())}
     </span>
   );
 }
@@ -74,7 +75,10 @@ export function ProviderButton({ provider, disabled, onClick }: ProviderButtonPr
       onClick={onClick}
     >
       <ProviderMark id={provider.id} name={provider.name} />
-      <span>Continue with {provider.name}</span>
+      <span>
+        {t('Continue with ')}
+        {t(provider.name)}
+      </span>
     </button>
   );
 }

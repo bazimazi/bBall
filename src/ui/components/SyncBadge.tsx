@@ -1,3 +1,4 @@
+import { t } from '../../core/i18n/index';
 import type { AccountState } from '../../core/account/store';
 import styles from '../Account.module.css';
 import { useLocalSave } from '../hooks/useLocalSave';
@@ -56,8 +57,13 @@ export function SyncBadge({ account, showGuest = false }: SyncBadgeProps) {
   return (
     <p className={styles.syncRow} role="status">
       <span className={tone} aria-hidden="true" />
-      <span className={styles.syncText}>{text}</span>
-      {account.pending > 0 && <span className={styles.pending}>{account.pending} queued</span>}
+      <span className={styles.syncText}>{t(text)}</span>
+      {account.pending > 0 && (
+        <span className={styles.pending}>
+          {t(account.pending)}
+          {t(' queued')}
+        </span>
+      )}
     </p>
   );
 }
