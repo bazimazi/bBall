@@ -39,6 +39,7 @@ it('older device settings retain preferences and pick up the new pacing defaults
     sfxVolume: 0.7,
     shake: 'off',
     skillSide: 'right',
+    matchInfoExpanded: false,
     haptics: false,
     replays: false,
     effects: 'full',
@@ -89,4 +90,8 @@ it('older device settings retain preferences and pick up the new pacing defaults
   assert.equal(JSON.parse(values.get('bball.settings')!).data.fullscreen, true);
   settingsStore.update({ fullscreen: 'yes' as unknown as boolean });
   assert.equal(settingsStore.getSnapshot().fullscreen, false);
+  settingsStore.update({ matchInfoExpanded: true });
+  assert.equal(JSON.parse(values.get('bball.settings')!).data.matchInfoExpanded, true);
+  settingsStore.update({ matchInfoExpanded: 'yes' as unknown as boolean });
+  assert.equal(settingsStore.getSnapshot().matchInfoExpanded, false);
 });

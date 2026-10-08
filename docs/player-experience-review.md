@@ -985,7 +985,10 @@ The twenty fixes and final evidence workflow have now been implemented:
   offers Rookie Practice with the selected ball pace and the player's own
   build restored.
 - **Score and goal clarity:** the HUD labels You/Bot or P1/P2, the numerical
-  score and winning target. Endless displays lives and best rally. Score and
+  score and winning target. The score strip starts compact; selecting it shows
+  or hides the target, equipment, rival skills and goals/rules. The choice is
+  saved on this device and works in English and Persian. Endless keeps lives
+  visible while best rally sits in the expandable details. Score and
   life changes have a separate polite announcement, while rally and goal
   counters have no live region. Journey and Daily counters include the current
   rally, and selecting Star goals pauses to show the complete objectives.

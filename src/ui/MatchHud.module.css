@@ -19,7 +19,47 @@
   right: calc(var(--safe-r) + 16px);
 }
 
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  text-align: start;
+  font: inherit;
+  text-shadow: inherit;
+  cursor: pointer;
+}
+
+.summary:hover {
+  color: var(--ink);
+  background: rgba(238, 242, 255, 0.05);
+}
+
+.summary:focus-visible {
+  outline: 2px solid var(--you);
+  outline-offset: 2px;
+}
+
+.chevron {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .score {
+  flex: 1;
+  min-width: 0;
   direction: ltr;
   display: flex;
   flex-wrap: wrap;
@@ -213,7 +253,7 @@
   }
 
   .score {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
   }
 

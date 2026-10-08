@@ -3484,33 +3484,79 @@ try {
     assert.equal(trialButtons.filter((b) => b.disabled).length, 2);
   });
   await check(
-    'match rules pointer activation releases focus; keyboard activation preserves it',
+    'match info collapses, retains scores and announcements, remembers the choice and preserves activation focus',
     async () => {
-      const [{ MatchHud }, { idleSnapshot }] = await Promise.all([
+      const [{ MatchHud }, { idleSnapshot }, { settingsStore }] = await Promise.all([
         vite.ssrLoadModule('/src/ui/MatchHud.tsx'),
-        vite.ssrLoadModule('/src/game/engine.ts')
+        vite.ssrLoadModule('/src/game/engine.ts'),
+        vite.ssrLoadModule('/src/core/settings/store.ts')
       ]);
+      const previous = settingsStore.getSnapshot();
       let opened = 0;
-      await mount(
+      const hud = (patch = {}) =>
         h(MatchHud, {
-          snapshot: { ...idleSnapshot(), canPause: true },
+          snapshot: { ...idleSnapshot(), canPause: true, scoreYou: 3, scoreBot: 2, ...patch },
           objective: 'Test match rules',
           onGoals: () => opened++
-        })
-      );
-      const rules = query('button');
-      rules.focus();
-      await act(() =>
-        rules.dispatchEvent(new win.MouseEvent('click', { detail: 1, bubbles: true }))
-      );
-      assert.equal(opened, 1);
-      assert.ok(
-        win.document.activeElement !== rules,
-        'pointer focus must not consume the next Space serve'
-      );
-      await click(rules);
-      assert.equal(opened, 2);
-      focused(rules);
+        });
+      try {
+        await act(() => settingsStore.update({ language: 'en', matchInfoExpanded: false }));
+        await mount(hud());
+        const toggle = query('button[aria-expanded]');
+        const details = win.document.getElementById(toggle.getAttribute('aria-controls'));
+        assert.ok(details.hidden);
+        assert.match(toggle.textContent, /You.*3.*Bot.*2/s);
+        assert.match(query('[role="status"]').textContent, /You 3, opponent 2/);
+        toggle.focus();
+        await act(() =>
+          toggle.dispatchEvent(new win.MouseEvent('click', { detail: 1, bubbles: true }))
+        );
+        assert.ok(!details.hidden);
+        assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+        assert.ok(
+          win.document.activeElement !== toggle,
+          'pointer toggle must release Space serve focus'
+        );
+        assert.equal(opened, 0, 'expanding details must not pause the match');
+        const rules = query('button[title="Test match rules"]');
+        rules.focus();
+        await act(() =>
+          rules.dispatchEvent(new win.MouseEvent('click', { detail: 1, bubbles: true }))
+        );
+        assert.equal(opened, 1);
+        assert.ok(
+          win.document.activeElement !== rules,
+          'pointer focus must not consume the next Space serve'
+        );
+        await click(rules);
+        assert.equal(opened, 2);
+        focused(rules);
+        await mount(hud());
+        assert.equal(query('button[aria-expanded]').getAttribute('aria-expanded'), 'true');
+        const remountedToggle = query('button[aria-expanded]');
+        await click(remountedToggle);
+        focused(remountedToggle);
+        assert.ok(
+          win.document.getElementById(remountedToggle.getAttribute('aria-controls')).hidden
+        );
+        await act(() => root.render(hud({ scoreYou: 4 })));
+        assert.match(query('[role="status"]').textContent, /You 4, opponent 2/);
+        await mount(hud({ maxLives: 3, lives: 2 }));
+        assert.match(query('button[aria-expanded]').textContent, /Lives.*2\/3/s);
+        assert.match(query('[role="status"]').textContent, /2 of 3 lives left/);
+        await act(() => settingsStore.update({ language: 'fa' }));
+        assert.equal(
+          query('button[aria-expanded]').getAttribute('aria-label'),
+          'نمایش اطلاعات مسابقه'
+        );
+        await click(query('button[aria-expanded]'));
+        assert.equal(
+          query('button[aria-expanded]').getAttribute('aria-label'),
+          'بستن اطلاعات مسابقه'
+        );
+      } finally {
+        await act(() => settingsStore.update(previous));
+      }
     }
   );
   await check(

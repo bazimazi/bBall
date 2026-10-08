@@ -196,6 +196,16 @@ try {
     for (const [name, state] of cases) {
       await render(name, state);
       await review(`${width}-${name}-${state}`);
+      if (name === 'match') {
+        const toggle = page.locator('[class*="_info_"] button[aria-expanded]');
+        assert.equal(await toggle.getAttribute('aria-label'), 'نمایش اطلاعات مسابقه');
+        assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+        await toggle.click();
+        assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+        await review(`${width}-${name}-${state}-expanded`);
+        await toggle.click();
+        assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+      }
       if ([390, 1280].includes(width) && state === 'fresh') {
         for (const control of await page.locator('button, input, summary').all()) {
           if (!(await control.isVisible()) || !(await control.isEnabled())) continue;

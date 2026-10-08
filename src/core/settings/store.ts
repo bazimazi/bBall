@@ -27,6 +27,8 @@ export interface DeviceSettings {
   language: Language;
   /** The screen edge the in-game skill buttons sit on. */
   skillSide: SkillSide;
+  /** Show the extra match HUD details beneath the always-visible score. */
+  matchInfoExpanded: boolean;
   /** 0..1. The soundtrack's own level, under the master mute. */
   musicVolume: number;
   /** 0..1. Hits, skills and everything else that is not the soundtrack. */
@@ -56,6 +58,7 @@ export interface DeviceSettings {
 export const DEFAULT_SETTINGS: DeviceSettings = {
   language: 'en',
   skillSide: 'left',
+  matchInfoExpanded: false,
   musicVolume: AUDIO_MIX.musicDefault,
   sfxVolume: AUDIO_MIX.effectsDefault,
   shake: 'full',
@@ -98,6 +101,10 @@ const SPEC: StoreSpec<DeviceSettings> = {
     return {
       language: source.language === 'fa' ? 'fa' : DEFAULT_SETTINGS.language,
       skillSide: source.skillSide === 'right' ? 'right' : DEFAULT_SETTINGS.skillSide,
+      matchInfoExpanded:
+        typeof source.matchInfoExpanded === 'boolean'
+          ? source.matchInfoExpanded
+          : DEFAULT_SETTINGS.matchInfoExpanded,
       musicVolume: unit(source.musicVolume, DEFAULT_SETTINGS.musicVolume),
       sfxVolume: unit(source.sfxVolume, DEFAULT_SETTINGS.sfxVolume),
       shake:

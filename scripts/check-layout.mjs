@@ -791,8 +791,20 @@ try {
     for (const state of ['rules', 'goals']) {
       await render('match', state);
       const info = page.locator('[class*="_info_"]');
+      const toggle = info.locator('button[aria-expanded]');
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+      const compactBox = await info.boundingBox();
+      assert.ok(compactBox.height <= 60, `${size}: collapsed match HUD must stay small`);
+      assert.equal(await page.getByRole('img').count(), 0, 'Collapsed rival skills are hidden');
+      await toggle.click();
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
       const box = await info.boundingBox();
-      assert.ok(box.height <= 170, `${size}: match HUD must stay compact (${box.height}px)`);
+      assert.ok(box.height > compactBox.height, 'Expanding reveals the match details');
+      // The disclosure header adds a 44px touch target above the existing details.
+      assert.ok(
+        box.height <= 196,
+        `${size}: expanded match HUD must stay compact (${box.height}px)`
+      );
       const pause = await page
         .getByRole('button', { name: 'Pause game', exact: true })
         .boundingBox();
@@ -808,6 +820,11 @@ try {
         'Every enemy skill retains a readable accessible label'
       );
       await layout(`${size}-match-${state}`);
+      await toggle.focus();
+      await page.keyboard.press('Enter');
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+      assert.equal(await toggle.evaluate((el) => el === document.activeElement), true);
+      await layout(`${size}-match-${state}-collapsed`);
     }
     console.log(
       `✓ ${size}: menu geometry, expanded controls, stage browsing, run maps and match HUD`
@@ -944,6 +961,9 @@ try {
     const mute = page.getByRole('button', { name: 'Mute sound', exact: true });
     if (await mute.count()) await mute.click();
     await page.waitForTimeout(1800);
+    const expandInfo = page.getByRole('button', { name: 'Expand match info', exact: true });
+    if (await expandInfo.count()) await expandInfo.click();
+    await page.getByRole('button', { name: 'Collapse match info', exact: true }).waitFor();
     await page.keyboard.press('Space');
     await page.getByText(/Impact stored/).waitFor();
     if (screenshots)
