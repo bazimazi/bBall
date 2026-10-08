@@ -25,11 +25,14 @@ export function useWorkshopMotion(key: string, order: number, assemble = false) 
     const interrupted =
       active.current?.playState === 'running' || active.current?.playState === 'paused';
     const current = interrupted ? getComputedStyle(node) : null;
+    const direction = getComputedStyle(node).direction === 'rtl' ? -1 : 1;
     const from = current
       ? { opacity: current.opacity, transform: current.transform }
       : {
           opacity: assemble ? 0.65 : 0,
-          transform: assemble ? 'scale(.96)' : `translateX(${order >= before.order ? 10 : -10}px)`
+          transform: assemble
+            ? 'scale(.96)'
+            : `translateX(${(order >= before.order ? 10 : -10) * direction}px)`
         };
     if (active.current) cancelAnimation(active.current);
     active.current = node.animate([from, { opacity: 1, transform: 'none' }], {

@@ -10,6 +10,18 @@ Translation coverage, generated descriptions, search, focus preservation and
 draft preservation have automated checks. Native webview and human translation
 review remain separate from browser and catalog checks.
 
+**Persian UI review, 7–8 October:** Playwright reviews every menu, onboarding,
+pause/exit panels, tutorial, gameplay HUD, expanded controls and choice dialogs
+at phone, narrow-phone, landscape and desktop sizes. RTL slider fills now agree
+with native thumbs and pointer/keyboard input; disclosure and picker arrows,
+progress origins, scorelines and numeric ratios respect their intended reading
+order. Workshop panel motion follows layout direction while ignoring all system
+motion preferences. The full review passed 190 screen/dialog checks and 568
+pointer-reachability checks across four viewport sizes. `npm run check:rtl`
+includes control reachability, real selection commits, dialog focus restoration,
+chapter keyboard navigation and mixed-script account fields. Browser checks do not replace native-webview,
+physical-device or live authentication-service testing.
+
 Reviewed on 3 October 2026; continued on 4–6 October 2026. This historical review covers the React and canvas game before the endless expansion,
 its shared physics and mode rules, input handling, first-run flow, menus,
 feedback, settings and regression coverage.

@@ -233,9 +233,11 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
               <span className={modes.tabName}>{t(item.name)}</span>
               <span className={modes.tabMeta}>
                 {unlocked ? <StarIcon /> : <LockIcon />}
-                {t(starsInWorld(journey, item))}
-                {t('/')}
-                {t(item.stages.length * 3)}
+                <bdi dir="ltr">
+                  {t(starsInWorld(journey, item))}
+                  {t('/')}
+                  {t(item.stages.length * 3)}
+                </bdi>
               </span>
             </button>
           );

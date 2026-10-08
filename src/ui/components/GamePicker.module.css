@@ -51,6 +51,10 @@
   color: var(--muted);
 }
 
+:global(html[dir='rtl']) .trigger svg {
+  transform: scaleX(-1);
+}
+
 .trigger:hover:not(:disabled) {
   border-color: rgba(79, 240, 214, 0.55);
   background: rgba(79, 240, 214, 0.07);

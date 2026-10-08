@@ -41,7 +41,9 @@ export function QuestList({ profile, title = "Today's quests", day = dayKey() }:
           <div key={id} className={complete ? `${styles.quest} ${styles.questDone}` : styles.quest}>
             <span>{t(quest.label)}</span>
             <span className={styles.questXp}>
-              {t(complete ? '✓' : msg('{0}/{1}', [t(progress), t(quest.target)]))}
+              <bdi dir="ltr">
+                {t(complete ? '✓' : msg('{0}/{1}', [t(progress), t(quest.target)]))}
+              </bdi>
               {t(' · ')}
               {t(QUEST_XP[quest.tier])}
               {t(' XP')}

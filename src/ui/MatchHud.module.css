@@ -114,7 +114,7 @@
 }
 
 .rules small {
-  margin-left: auto;
+  margin-inline-start: auto;
   color: var(--ink);
 }
 
@@ -159,7 +159,7 @@
 
 .enemyLabel {
   font-size: 9px;
-  margin-right: 2px;
+  margin-inline-end: 2px;
 }
 
 .enemySkill {

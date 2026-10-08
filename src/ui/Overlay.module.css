@@ -87,6 +87,7 @@
 
 /* Where the match stands, under its name. */
 .score {
+  direction: ltr;
   margin: -4px 0 4px;
   display: flex;
   justify-content: center;

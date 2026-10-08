@@ -230,9 +230,11 @@ export function ProfileScreen({
                   {t('Cycle ')}
                   {t(Math.floor(marks / MASTERY_CYCLE) + 1)}
                   {t(' · ')}
-                  {t(marks % MASTERY_CYCLE)}
-                  {t('/')}
-                  {t(MASTERY_CYCLE)}
+                  <bdi dir="ltr">
+                    {t(marks % MASTERY_CYCLE)}
+                    {t('/')}
+                    {t(MASTERY_CYCLE)}
+                  </bdi>
                 </small>
                 <progress
                   max={MASTERY_CYCLE}
@@ -258,9 +260,11 @@ export function ProfileScreen({
       <div className={styles.buttonRow}>
         <button type="button" className={styles.ghost} onClick={onAchievements}>
           {t('Achievements ')}
-          {t(earned)}
-          {t('/')}
-          {t(ACHIEVEMENTS.length)}
+          <bdi dir="ltr">
+            {t(earned)}
+            {t('/')}
+            {t(ACHIEVEMENTS.length)}
+          </bdi>
         </button>
         <button type="button" className={styles.ghost} onClick={onCustomize}>
           {t('Customise')}

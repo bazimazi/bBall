@@ -365,7 +365,7 @@ export function ResultScreen({
                   : 'Talent points waiting'
               )}
             </span>
-            <span style={{ marginLeft: 'auto' }}>
+            <span style={{ marginInlineStart: 'auto' }}>
               {t('Spend ')}
               {t(points)}
               {t(' ›')}
@@ -490,7 +490,7 @@ export function ResultScreen({
                 <span>{t('★')}</span>
                 <span>{t(achievement.name)}</span>
                 {achievement.xp > 0 && (
-                  <span style={{ marginLeft: 'auto' }}>
+                  <span style={{ marginInlineStart: 'auto' }}>
                     {t('+')}
                     {t(achievement.xp)}
                     {t(' XP')}

@@ -8,20 +8,23 @@ import styles from '../Screens.module.css';
 export function LanguageChoice() {
   const { language } = useSettings();
   return (
-    <div className={styles.segmented} role="group" aria-label={t('Language')}>
-      {LANGUAGES.map((choice) => (
-        <button
-          key={choice.id}
-          type="button"
-          lang={choice.id}
-          dir={choice.direction}
-          className={choice.id === language ? `${styles.ghost} ${styles.selected}` : styles.ghost}
-          aria-pressed={choice.id === language}
-          onClick={() => settingsStore.update({ language: choice.id })}
-        >
-          {choice.label}
-        </button>
-      ))}
-    </div>
+    <fieldset className={styles.choiceGroup}>
+      <legend className={styles.label}>{t('Which language would you prefer?')}</legend>
+      <div className={styles.segmented}>
+        {LANGUAGES.map((choice) => (
+          <button
+            key={choice.id}
+            type="button"
+            lang={choice.id}
+            dir={choice.direction}
+            className={choice.id === language ? `${styles.ghost} ${styles.selected}` : styles.ghost}
+            aria-pressed={choice.id === language}
+            onClick={() => settingsStore.update({ language: choice.id })}
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
   );
 }

@@ -254,7 +254,9 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
                 )}
               </span>
             </span>
-            <span className={styles.rowMeta}>{t(metaFor(mode, profile))}</span>
+            <span className={styles.rowMeta} dir={mode.id === 'challenge' ? 'ltr' : undefined}>
+              {t(metaFor(mode, profile))}
+            </span>
           </button>
         ))}
       </div>

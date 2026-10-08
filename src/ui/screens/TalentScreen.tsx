@@ -358,9 +358,11 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
                 </span>
                 <span className={styles.sheetRank}>
                   {t('Rank ')}
-                  {t(state.rank)}
-                  {t(' / ')}
-                  {t(selected.maxRank)}
+                  <bdi dir="ltr">
+                    {t(state.rank)}
+                    {t(' / ')}
+                    {t(selected.maxRank)}
+                  </bdi>
                   {isUltimate(selected) ? (
                     <span className={`${styles.activeTag} ${styles.ultimateTag}`}>
                       {t('ultimate')}

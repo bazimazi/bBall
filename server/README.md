@@ -12,6 +12,9 @@ and browser reduced-motion settings on every platform. Do not introduce preferen
 checks or animation overrides in shared code, client integration or test expectations.
 This includes the client's choice-panel entrance/exit and menu disclosure
 expand/collapse transitions.
+Workshop panel movement follows LTR/RTL navigation without consulting system
+motion preferences. Client RTL slider, progress and numeric-order corrections
+do not change server data or authoritative rules.
 See the [root README](../README.md) and [project instructions](../AGENTS.md).
 
 The game stays exactly what it was: a local simulation that runs at 120 Hz and

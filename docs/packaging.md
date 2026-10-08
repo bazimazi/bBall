@@ -23,6 +23,10 @@ Menu disclosure expansion, collapse, content fades and chevron rotation follow
 the same policy on every platform.
 Workshop selection highlights follow the selected view, part, tuning, preset
 and contact-motion option in both LTR and RTL layouts, in Full and Calm.
+Workshop panel motion follows the layout direction while continuing to ignore
+system/browser motion preferences. Use `npm run check:rtl` for browser checks of
+Persian pages, dialogs, slider input and keyboard navigation; repeat these in
+packaged webviews, including touch sliders and email/name composition.
 
 The endless-content expansion requires its matching API build and migration 6.
 Publish web/native assets alongside the updated server; an older server rejects

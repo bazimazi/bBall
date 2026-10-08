@@ -41,6 +41,7 @@
     "check:ui": "node scripts/check-ui.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:i18n:layout": "node scripts/check-i18n-layout.mjs",
+    "check:rtl": "node scripts/check-rtl.mjs",
     "check:layout": "node scripts/check-layout.mjs",
     "check:experience": "node scripts/check-experience.mjs",
     "soak": "node --import tsx scripts/sim.ts",

@@ -81,9 +81,11 @@ function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () =
           aria-label={t(msg('{0} of {1} stars', [t(stars), t(TOTAL_STARS)]))}
         >
           <StarIcon />
-          {t(stars)}
-          {t('/')}
-          {t(TOTAL_STARS)}
+          <bdi dir="ltr">
+            {t(stars)}
+            {t('/')}
+            {t(TOTAL_STARS)}
+          </bdi>
         </span>
       </span>
       <span className={`${modes.featureBar} ${modes.homeProgress}`}>

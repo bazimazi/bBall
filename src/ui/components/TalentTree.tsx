@@ -104,7 +104,7 @@ export function TalentTree({
           <TalentIcon id={branch.crest} />
         </span>
         <span className={styles.treeName}>{t(branch.name)}</span>
-        <span className={styles.treeCount}>
+        <span className={styles.treeCount} dir="ltr">
           {t(spent)}
           {t(' / ')}
           {t(total)}

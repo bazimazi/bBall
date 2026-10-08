@@ -73,6 +73,12 @@ use `t()` at display boundaries and `msg()` with numbered placeholders for
 interpolated UI messages. Keep IDs, saves and shared simulation data in their
 original form. Run `npm run check:i18n`, `npm run check:menus`,
 `npm run check:ui` and `npm run check:i18n:layout` when adding language content.
+`npm run check:rtl` reviews Persian pages, expanded controls and dialogs at phone,
+narrow-phone, landscape and desktop sizes, including pointer reachability,
+slider input, keyboard navigation and focus. Set `RTL_SCREENSHOTS` to a directory
+to save captures and review sheets. Sliders and progress bars fill from the RTL
+start edge; numeric ratios and scorelines preserve their order. Workshop panel
+motion follows the layout direction and still ignores all system motion preferences.
 
 Default controls:
 

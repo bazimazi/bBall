@@ -205,7 +205,8 @@
   gap: 3px;
   min-height: 54px;
   width: 100%;
-  padding: 12px 42px 12px 14px;
+  padding-block: 12px;
+  padding-inline: 14px 42px;
   border: 0;
   border-radius: inherit;
   background: transparent;
@@ -220,10 +221,10 @@
 .disclosureTrigger::after {
   content: '';
   position: absolute;
-  right: 18px;
+  inset-inline-end: 18px;
   width: 7px;
   height: 7px;
-  border-inline-end: 2px solid var(--muted);
+  border-right: 2px solid var(--muted);
   border-bottom: 2px solid var(--muted);
   transform: rotate(45deg);
   transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.25, 1);
@@ -773,7 +774,8 @@
 
 .xpFill {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset-block: 0;
+  inset-inline-start: 0;
   border-radius: 999px;
   background: var(--you);
   background: linear-gradient(90deg, color-mix(in srgb, var(--you) 60%, #ffffff), var(--you));
@@ -1178,6 +1180,7 @@ button.unlockRow {
 /* A track filled up to the value, and a thumb big enough for a thumb. */
 .range {
   --fill: 50%;
+  --fill-direction: 90deg;
   flex: 1 1 auto;
   min-width: 0;
   height: 6px;
@@ -1186,13 +1189,17 @@ button.unlockRow {
   appearance: none;
   -webkit-appearance: none;
   background: linear-gradient(
-    90deg,
+    var(--fill-direction),
     var(--you) 0,
     var(--you) var(--fill),
     rgba(238, 242, 255, 0.12) var(--fill)
   );
   cursor: pointer;
   touch-action: pan-y;
+}
+
+:global(html[dir='rtl']) .range {
+  --fill-direction: 270deg;
 }
 
 .range::-webkit-slider-thumb {

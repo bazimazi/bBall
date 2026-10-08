@@ -36,6 +36,12 @@ import { AccountScreen } from '/src/ui/screens/AccountScreen.tsx';
 import { ResultScreen } from '/src/ui/screens/ResultScreen.tsx';
 import { MatchHud } from '/src/ui/MatchHud.tsx';
 import { Hud } from '/src/ui/Hud.tsx';
+import { AbilityBar } from '/src/ui/AbilityBar.tsx';
+import { OnboardingScreen } from '/src/ui/screens/OnboardingScreen.tsx';
+import { Overlay } from '/src/ui/Overlay.tsx';
+import { PausePanel } from '/src/ui/panels/PausePanel.tsx';
+import { ExitPanel } from '/src/ui/panels/ExitPanel.tsx';
+import { TutorialCoach } from '/src/ui/TutorialCoach.tsx';
 const root = createRoot(document.getElementById('root'));
 let revision = 0;
 const noop = () => {};
@@ -44,7 +50,8 @@ const components = { home: HomeScreen, workshop: WorkshopScreen, modes: ModesScr
   run: GauntletScreen, draft: GauntletScreen, daily: DailyScreen,
   challenge: ChallengeScreen, tournament: TournamentScreen, profile: ProfileScreen, talents: TalentScreen,
   settings: SettingsScreen, customize: CustomizeScreen, achievements: AchievementsScreen,
-  help: HowToPlayScreen, demo: DemoScreen, account: AccountScreen, result: ResultScreen };
+  help: HowToPlayScreen, demo: DemoScreen, account: AccountScreen, result: ResultScreen,
+  onboarding: OnboardingScreen };
 window.layoutReview = {
   actions: [],
   async render(name, state = 'fresh') {
@@ -112,12 +119,18 @@ window.layoutReview = {
       onPick:(...args)=>window.layoutReview.actions.push(args), onPlay:noop, onBack:noop,
       onAbandon:noop, onModes:noop, onExitDemo:noop, onProfile:noop, onTalents:noop,
       onSettings:noop, onHelp:noop, onAccount:noop, onAchievements:noop, onCustomize:noop, onDemo:noop,
-      onWorkshop:noop, onBench:noop,
+      onWorkshop:noop, onBench:noop, onDone:noop,
       onPreview:noop, onMusicPreview:noop, onStopPreview:noop, onTutorial:noop, onPractice:noop, onExit:noop};
     if (name === 'result') Object.assign(props, {result, summary:applyMatchResult(profile,result),
-      label:'Layout review', primaryLabel:'Continue', secondaryLabel:'Menu', onPrimary:noop, onSecondary:noop});
-    root.render(name === 'match' ? h(Fragment,{key:++revision},
+      label:'Quick Match', primaryLabel:'Play again', secondaryLabel:'Menu', onPrimary:noop, onSecondary:noop});
+    root.render(['pause', 'exit'].includes(name) ? h(Overlay, {key:++revision,show:true,label:name==='pause'?'Paused':'Leave bBall?',onDismiss:noop},
+      name==='pause' ? h(PausePanel,{label:'Gold Cup · Final',score:{you:3,bot:2},goals:snapshot.goals,
+        enemyAbilities:snapshot.enemyAbilities,onResume:noop,onSettings:noop,onRestart:noop,onQuit:noop})
+        : h(ExitPanel,{native:false,onExit:noop,onCancel:noop})) : name==='tutorial' ? h(TutorialCoach,
+      {key:++revision,snapshot:{...snapshot,tutorialStep:state==='complete'?'complete':'move',tutorialCleared:false},
+        onSend:noop,onNext:noop,onPractice:noop,onRestart:noop,onExit:noop}) : name === 'match' ? h(Fragment,{key:++revision},
       h(MatchHud,{snapshot,objective:'Rally pressure: after 24 returns both paddles narrow, up to 40%',onGoals:noop}),
+      ...(state==='skills' ? [h(AbilityBar,{abilities:ABILITY_DEFS.slice(0,9).map(skill),show:true,side:'right',onUse:noop})] : []),
       h(Hud,{muted:false,canPause:true,onToggleMute:noop,onPause:noop})) : h(Fragment,{key:++revision},
       h(components[name],props),h(Hud,{muted:false,canPause:false,onToggleMute:noop,onPause:noop})));
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
