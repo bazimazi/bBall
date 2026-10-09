@@ -1,5 +1,32 @@
 # bBall player experience review
 
+**Picker alignment review, 9 October:** paired setup fields now share label,
+card and caption rows. Different caption lengths and wrapped labels or choice
+names no longer shift adjacent previews, titles or chevrons. Illustrated choice
+lists align selection marks with the title instead of centring them alongside
+the whole description. Browser regressions compare the actual element positions
+in Quick Match, More modes and other picker panels, including long court names
+and Persian layouts. Contract score and reach annotations sit below the board
+so they cannot obscure court hazards.
+
+**Quick Match setup previews, 9 October:** Court, Opponent school, Contract and
+Series now use the same illustrated pickers as More modes. School diagrams show
+example shot tactics on the selected court. Contract previews use the match rules
+for the score target and each side's paddle reach; school and series previews
+follow the selected contract. Short captions remain available to assistive
+technology, and the school explanation is shown once. Practice keeps its existing
+setup. Interaction and browser checks cover these controls in English and Persian.
+
+**Court and couch previews, 9 October:** More modes shows a board diagram for
+each selected rule and every choice in its rule pickers. Court diagrams use the
+actual hazard definitions; Versus previews reflect the selected mirrored layout,
+ball pace and paddle reach. Waves shows the first three generated courts with
+12-return markers, and series diagrams show the match wins needed. Short captions
+explain the diagrams, including the unchanged Open court when mirroring is chosen.
+English and Persian share the same court orientation. Interaction checks cover
+hazards, dependent previews and saved presets; browser checks cover expanded
+cards and all five comparison sheets at desktop, phone and landscape sizes.
+
 **Languages, 7 October:** English and Persian are available during first-time
 setup and in Settings. Persian translates menus, lessons, gameplay feedback,
 progression, equipment, account feedback and accessibility labels. Menus read

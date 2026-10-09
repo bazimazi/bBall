@@ -1,0 +1,184 @@
+.diagram {
+  direction: ltr;
+  color: var(--ink);
+}
+
+.surface {
+  fill: #080d18;
+  stroke: #38445f;
+  stroke-width: 8;
+}
+
+.midline {
+  fill: none;
+  stroke: #36405a;
+  stroke-width: 5;
+  stroke-dasharray: 18 22;
+}
+
+.you,
+.win {
+  color: var(--you);
+}
+
+.foe {
+  color: var(--bot);
+}
+
+.wind {
+  color: #85baff;
+  opacity: 0.7;
+}
+.well {
+  color: #b995ff;
+}
+.push {
+  color: #ffc478;
+}
+.aura {
+  fill: currentColor;
+  fill-opacity: 0.12;
+}
+
+.bumper {
+  fill: #352846;
+  stroke: #d2a6ff;
+  stroke-width: 8;
+}
+.rail {
+  fill: none;
+  stroke: #8be2ef;
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+.rail .cracks {
+  stroke: #142333;
+  stroke-width: 16;
+  stroke-dasharray: 4 38;
+}
+.gate {
+  color: #ffc478;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+.gate .opening {
+  stroke-width: 4;
+  stroke-dasharray: 10 14;
+  opacity: 0.5;
+}
+.zone {
+  fill: #6df2cf;
+  fill-opacity: 0.12;
+  stroke: #6df2cf;
+  stroke-width: 6;
+}
+.zone path {
+  fill: none;
+  stroke-width: 9;
+}
+.switch {
+  fill: #ffc478;
+  stroke: #ffc478;
+  stroke-width: 6;
+}
+.portal {
+  fill: #142c38;
+  stroke: #71e7ff;
+  stroke-width: 8;
+}
+.portalExit {
+  stroke: #ffc478;
+  fill: #392c1c;
+}
+.brick {
+  fill: #403123;
+  stroke: #ffc478;
+}
+
+.motionPath,
+.link {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 5;
+  stroke-dasharray: 10 14;
+  opacity: 0.55;
+}
+
+.bumper .motionPath {
+  stroke: #d2a6ff;
+}
+.portal .motionPath,
+.portal .link {
+  stroke: #71e7ff;
+}
+.switch .link {
+  stroke: #ffc478;
+}
+.fullReach {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 5;
+  stroke-dasharray: 9 7;
+  opacity: 0.6;
+}
+.ball {
+  color: #f2f6ff;
+}
+.ballTrail {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+.rally {
+  fill: none;
+  stroke: var(--you);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.badge rect {
+  fill: #1c2638;
+  stroke: #4c5f7d;
+  stroke-width: 1;
+}
+.badge text,
+.counter {
+  fill: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 750;
+  text-anchor: middle;
+}
+.win rect {
+  fill: color-mix(in srgb, var(--you) 16%, #0b1220);
+  stroke: currentColor;
+}
+.win path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.remaining rect {
+  fill: #121b2a;
+  stroke: #59637a;
+  stroke-dasharray: 3 3;
+}
+
+.tactic {
+  fill: none;
+  stroke: var(--bot);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tactic > circle:first-of-type,
+.scoreTarget circle {
+  fill: var(--bot);
+}

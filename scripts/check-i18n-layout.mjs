@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { fixture } from './layout-fixture.mjs';
+import { pickerLayoutProblems, couchPresetLayoutProblems } from './picker-layout.mjs';
 
 /* global document, window, innerWidth, getComputedStyle, CanvasRenderingContext2D, DOMMatrixReadOnly, requestAnimationFrame */
 const server = await createServer({
@@ -140,6 +141,86 @@ try {
       });
       assert.deepEqual(problems, [], `${name} at ${width}x${height}`);
       checks++;
+      if (name === 'modes' || name === 'quick') {
+        await page.locator('[data-disclosure] > button').click();
+        assert.deepEqual(
+          await page.evaluate(pickerLayoutProblems),
+          [],
+          `${name}: Persian expanded picker alignment`
+        );
+        const labels =
+          name === 'quick'
+            ? ['Court', 'Opponent school', 'Contract', 'Series']
+            : [
+                'Court for Endless and Versus',
+                'Endless format',
+                'Versus series',
+                'Versus rule',
+                'Versus court'
+              ];
+        for (const source of labels) {
+          const label = await page.evaluate(async (source) => {
+            const { t } = await import('/src/core/i18n/index.ts');
+            return t(source);
+          }, source);
+          await page.getByRole('button', { name: label, exact: true }).click();
+          assert.deepEqual(
+            await page.evaluate(pickerLayoutProblems),
+            [],
+            `${source}: Persian picker alignment`
+          );
+          const list = page.getByRole('listbox');
+          assert.equal(
+            await list.getByRole('option').count(),
+            await list.locator('[data-rule-preview]').count()
+          );
+          assert.doesNotMatch(await list.innerText(), /[a-z]/i, 'Rule captions are translated');
+          const issues = await list.evaluate((element) => {
+            const issues = [];
+            for (const preview of element.querySelectorAll('[data-rule-preview]')) {
+              const box = preview.getBoundingClientRect();
+              const parent = preview.parentElement.getBoundingClientRect();
+              if (box.width < 85 || box.height < 80) issues.push('Small rule diagram');
+              if (box.left < parent.left - 1 || box.right > parent.right + 1)
+                issues.push('Diagram escapes card');
+              if (getComputedStyle(preview).direction !== 'ltr')
+                issues.push('Court orientation changed in Persian');
+            }
+            for (const option of element.querySelectorAll('[role="option"]')) {
+              if (option.scrollWidth > option.clientWidth + 1) issues.push('Rule caption clips');
+            }
+            return issues;
+          });
+          assert.deepEqual(issues, [], `${source} at ${width}x${height} in Persian`);
+          checks++;
+          await page.keyboard.press('Escape');
+          await page.getByRole('dialog').waitFor({ state: 'detached' });
+        }
+        const courtLabel = await page.evaluate(
+          async (source) => {
+            const { t } = await import('/src/core/i18n/index.ts');
+            return t(source);
+          },
+          name === 'quick' ? 'Court' : 'Court for Endless and Versus'
+        );
+        await page.getByRole('button', { name: courtLabel, exact: true }).click();
+        await page.getByRole('listbox').locator('[data-value="deflector-ruins-4"]').click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        assert.deepEqual(
+          await page.evaluate(pickerLayoutProblems),
+          [],
+          `${name}: Persian wrapped picker copy`
+        );
+        if (name === 'modes') {
+          await page.locator('[data-couch-presets] summary').click();
+          assert.deepEqual(
+            await page.evaluate(couchPresetLayoutProblems),
+            [],
+            'Persian couch preset spacing'
+          );
+          checks++;
+        }
+      }
     }
   }
   let tabChecks = 0;

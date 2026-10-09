@@ -4,6 +4,7 @@ import { loadCouchPresets, saveCouchPresets } from '../../core/modes/couchPreset
 import { endlessRecordKey } from '../../core/modes/sessions';
 import { neutralKit } from '../../core/equipment/catalog';
 import { ARENA_PRESETS } from '../../core/modes/arenas';
+import { mirroredCourt } from '../../core/modes/couch';
 import type { MatchOptions } from '../../core/modes/types';
 import { botProfile } from '../../core/bots/levels';
 import { MODES, type ModeInfo } from '../../core/modes/catalog';
@@ -15,6 +16,7 @@ import { roundsFor, tierForLevel } from '../../core/tournament/bracket';
 import { Screen } from '../components/Screen';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { GamePicker } from '../components/GamePicker';
+import { CourtPreview, EndlessPreview, SeriesPreview } from '../components/RulePreview';
 import modes from '../Modes.module.css';
 import styles from '../Screens.module.css';
 
@@ -63,6 +65,8 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
   const [mirror, setMirror] = useState(false);
   const [duel, setDuel] = useState<'' | 'speed' | 'precision'>('');
   const [presets, setPresets] = useState(loadCouchPresets);
+  const arena = ARENA_PRESETS.find((court) => court.id === arenaId)?.arena;
+  const versusArena = mirror && arena ? mirroredCourt(arena) : arena;
   const couch: MatchOptions = {
     ...(arenaId ? { arenaId } : {}),
     ...(series > 1 ? { series } : {}),
@@ -91,14 +95,25 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
           ])
         )}
       >
+        <p className={styles.rowBlurb}>{t('Tap a rule to compare board previews.')}</p>
         <div className={styles.fieldGrid}>
           <GamePicker
             label={t('Court for Endless and Versus')}
             value={arenaId}
             onChange={setArenaId}
             options={[
-              { value: '', name: 'Open court', hint: 'The classic duel. No court hazards.' },
-              ...ARENA_PRESETS.map((c) => ({ value: c.id, name: c.name, hint: c.blurb }))
+              {
+                value: '',
+                name: 'Open court',
+                hint: 'The classic duel. No court hazards.',
+                preview: <CourtPreview />
+              },
+              ...ARENA_PRESETS.map((c) => ({
+                value: c.id,
+                name: c.name,
+                hint: c.blurb,
+                preview: <CourtPreview arena={c.arena} />
+              }))
             ]}
           />
           <GamePicker
@@ -106,11 +121,17 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             value={waves ? 'waves' : 'classic'}
             onChange={(value) => setWaves(value === 'waves')}
             options={[
-              { value: 'classic', name: 'Classic rally', hint: 'Keep one rally alive.' },
+              {
+                value: 'classic',
+                name: 'Classic rally',
+                hint: 'Keep one rally alive.',
+                preview: <EndlessPreview waves={false} arenaId={arenaId} arena={arena} />
+              },
               {
                 value: 'waves',
                 name: 'Waves',
-                hint: '12 returns per course. Courts change between waves.'
+                hint: '12 returns per course. Courts change between waves.',
+                preview: <EndlessPreview waves arenaId={arenaId} />
               }
             ]}
           />
@@ -139,9 +160,24 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             value={series}
             onChange={setSeries}
             options={[
-              { value: 1, name: 'Single match' },
-              { value: 3, name: 'Best of 3' },
-              { value: 5, name: 'Best of 5' }
+              {
+                value: 1,
+                name: 'Single match',
+                hint: 'One match decides the winner.',
+                preview: <SeriesPreview series={1} arena={versusArena} duel={duel || undefined} />
+              },
+              {
+                value: 3,
+                name: 'Best of 3',
+                hint: 'First to 2 match wins.',
+                preview: <SeriesPreview series={3} arena={versusArena} duel={duel || undefined} />
+              },
+              {
+                value: 5,
+                name: 'Best of 5',
+                hint: 'First to 3 match wins.',
+                preview: <SeriesPreview series={5} arena={versusArena} duel={duel || undefined} />
+              }
             ]}
           />
           <GamePicker<'' | 'speed' | 'precision'>
@@ -149,9 +185,24 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             value={duel}
             onChange={setDuel}
             options={[
-              { value: '', name: 'Standard', hint: 'Classic pace and paddle reach.' },
-              { value: 'speed', name: 'Fast ball', hint: 'More pace for both sides.' },
-              { value: 'precision', name: 'Precision', hint: 'Both paddles have 80% reach.' }
+              {
+                value: '',
+                name: 'Standard',
+                hint: 'Classic pace and paddle reach.',
+                preview: <CourtPreview arena={versusArena} />
+              },
+              {
+                value: 'speed',
+                name: 'Fast ball',
+                hint: '15% faster serves and top speed for both sides.',
+                preview: <CourtPreview arena={versusArena} duel="speed" />
+              },
+              {
+                value: 'precision',
+                name: 'Precision',
+                hint: 'Both paddles have 80% reach.',
+                preview: <CourtPreview arena={versusArena} duel="precision" />
+              }
             ]}
           />
           <GamePicker
@@ -159,11 +210,24 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
             value={mirror ? 'mirror' : 'original'}
             onChange={(value) => setMirror(value === 'mirror')}
             options={[
-              { value: 'original', name: 'Original layout' },
+              {
+                value: 'original',
+                name: 'Original layout',
+                hint: 'Keep the selected court as shown.',
+                preview: <CourtPreview arena={arena} duel={duel || undefined} />
+              },
               {
                 value: 'mirror',
                 name: 'Mirrored pairs',
-                hint: 'Symmetric courts with breakable rails.'
+                hint: arena
+                  ? 'Pair court hazards across the middle. Rails become breakable.'
+                  : 'Open court has no hazards to mirror. Choose a hazard court above.',
+                preview: (
+                  <CourtPreview
+                    arena={arena ? mirroredCourt(arena) : undefined}
+                    duel={duel || undefined}
+                  />
+                )
               }
             ]}
           />
@@ -171,7 +235,7 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
         <p className={styles.rowBlurb}>
           {t('Review these rules together. Versus earns no XP or records.')}
         </p>
-        <details>
+        <details data-couch-presets>
           <summary>{t('Four saved couch presets · this device')}</summary>
           {Array.from({ length: 4 }, (_, i) => (
             <div className={styles.presetRow} key={i}>

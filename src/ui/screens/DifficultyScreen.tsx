@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ARENA_PRESETS } from '../../core/modes/arenas';
 import { BOSSES, bossById } from '../../core/modes/bosses';
 import { PERSONALITIES, SCHOOL_SCOUT } from '../../core/modes/recipes';
+import { quickMatchRules } from '../../core/modes/rules';
 import type { MatchOptions } from '../../core/modes/types';
 import { botProfile, SELECTABLE_BOTS } from '../../core/bots/levels';
 import type { BotLevelId } from '../../core/bots/types';
@@ -11,6 +12,12 @@ import { Screen } from '../components/Screen';
 import { PaddleNotice } from '../components/PaddleNotice';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { GamePicker } from '../components/GamePicker';
+import {
+  ContractPreview,
+  CourtPreview,
+  SchoolPreview,
+  SeriesPreview
+} from '../components/RulePreview';
 import styles from '../Screens.module.css';
 import { PracticePaceChoice } from '../components/PracticePaceChoice';
 
@@ -55,6 +62,12 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
     ...(practice && bossId ? { bossId, bossPhase } : {})
   };
   const last = practice ? profile.preferences.lastPracticeBot : profile.preferences.lastBot;
+  const arena = ARENA_PRESETS.find((court) => court.id === arenaId)?.arena;
+  const setupRules = quickMatchRules(last, options);
+  const paddleScales = [
+    setupRules.modifiers.playerPaddleScale,
+    setupRules.modifiers.botPaddleScale
+  ] as const;
 
   return (
     <Screen
@@ -96,6 +109,11 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
               ])
         )}
       >
+        {!practice && (
+          <p className={styles.rowBlurb}>
+            {t('Tap a rule to compare board previews.')} {t('School previews show example shots.')}
+          </p>
+        )}
         {practice && (
           <div className={styles.fieldGrid}>
             <GamePicker
@@ -144,8 +162,18 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
               value={arenaId}
               onChange={setArenaId}
               options={[
-                { value: '', name: 'Open court', hint: 'The classic duel. No court hazards.' },
-                ...ARENA_PRESETS.map((c) => ({ value: c.id, name: c.name, hint: c.blurb }))
+                {
+                  value: '',
+                  name: 'Open court',
+                  hint: 'The classic duel. No court hazards.',
+                  preview: !practice ? <CourtPreview /> : undefined
+                },
+                ...ARENA_PRESETS.map((c) => ({
+                  value: c.id,
+                  name: c.name,
+                  hint: c.blurb,
+                  preview: !practice ? <CourtPreview arena={c.arena} /> : undefined
+                }))
               ]}
             />
           )}
@@ -156,11 +184,14 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
             options={PERSONALITIES.map((p) => ({
               value: p,
               name: p[0]!.toUpperCase() + p.slice(1),
-              hint: SCHOOL_SCOUT[p]
+              hint: SCHOOL_SCOUT[p],
+              preview: !practice ? (
+                <SchoolPreview school={p} arena={arena} paddleScales={paddleScales} />
+              ) : undefined
             }))}
           />
         </div>
-        <p className={styles.rowBlurb}>{t(SCHOOL_SCOUT[personality])}</p>
+        {practice && <p className={styles.rowBlurb}>{t(SCHOOL_SCOUT[personality])}</p>}
         <div className={styles.fieldGrid}>
           {!practice && (
             <GamePicker<'' | 'master' | 'mythic'>
@@ -168,9 +199,32 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
               value={contract}
               onChange={setContract}
               options={[
-                { value: '', name: 'Standard', hint: 'Your chosen opponent. First to 5.' },
-                { value: 'master', name: 'Master', hint: 'Legend · first to 7 · 90% paddle reach' },
-                { value: 'mythic', name: 'Mythic', hint: 'Legend · first to 9 · 80% paddle reach' }
+                {
+                  value: '',
+                  name: 'Standard',
+                  hint: 'Your chosen opponent. First to 5.',
+                  preview: <ContractPreview rules={quickMatchRules(last, { arenaId })} />
+                },
+                {
+                  value: 'master',
+                  name: 'Master',
+                  hint: 'Legend · first to 7 · 90% paddle reach',
+                  preview: (
+                    <ContractPreview
+                      rules={quickMatchRules(last, { arenaId, contract: 'master' })}
+                    />
+                  )
+                },
+                {
+                  value: 'mythic',
+                  name: 'Mythic',
+                  hint: 'Legend · first to 9 · 80% paddle reach',
+                  preview: (
+                    <ContractPreview
+                      rules={quickMatchRules(last, { arenaId, contract: 'mythic' })}
+                    />
+                  )
+                }
               ]}
             />
           )}
@@ -180,23 +234,28 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
               value={series}
               onChange={setSeries}
               options={[
-                { value: 1, name: 'Single match' },
-                { value: 3, name: 'Best of 3' },
-                { value: 5, name: 'Best of 5' }
+                {
+                  value: 1,
+                  name: 'Single match',
+                  hint: 'One match decides the winner.',
+                  preview: <SeriesPreview series={1} arena={arena} paddleScales={paddleScales} />
+                },
+                {
+                  value: 3,
+                  name: 'Best of 3',
+                  hint: 'First to 2 match wins.',
+                  preview: <SeriesPreview series={3} arena={arena} paddleScales={paddleScales} />
+                },
+                {
+                  value: 5,
+                  name: 'Best of 5',
+                  hint: 'First to 3 match wins.',
+                  preview: <SeriesPreview series={5} arena={arena} paddleScales={paddleScales} />
+                }
               ]}
             />
           )}
         </div>
-        {!practice && contract && (
-          <p className={styles.rowBlurb}>
-            {t('Legend opponent · first to ')}
-            {t(contract === 'mythic' ? 9 : 7)}
-            {t(' ·')}
-            {t(' ')}
-            {t(contract === 'mythic' ? '80%' : '90%')}
-            {t(' paddle reach')}
-          </p>
-        )}
       </MenuDisclosure>
       <p className={styles.sectionLabel}>
         {t(

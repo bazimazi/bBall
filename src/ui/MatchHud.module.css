@@ -1,6 +1,7 @@
 .info {
   position: fixed;
-  top: calc(var(--safe-t) + 14px);
+  /* Leave the upper paddle lane open for Player 2 in portrait Versus. */
+  top: calc(var(--safe-t) + 88px);
   left: calc(var(--safe-l) + 16px);
   z-index: 2;
   width: max-content;

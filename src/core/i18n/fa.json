@@ -2052,5 +2052,14 @@
   "Unlocks Perfect Guard: a {0} window. A ball arriving inside it is parried - returned charged, even if it would have cleared your paddle by up to {1} units. {2}s cooldown.": "دفاع بی‌نقص باز می‌شود: پنجرهٔ {0}. توپ در این بازه، حتی تا {1} واحد بیرون راکت، با برگشت شارژشده دفع می‌شود. بازیابی {2} ثانیه.",
   "A {0} window. A ball arriving inside it is parried - returned charged, even if it would have cleared your paddle by up to {1} units. {2}s cooldown.": "پنجرهٔ {0}. توپ در این بازه، حتی تا {1} واحد بیرون راکت، با برگشت شارژشده دفع می‌شود. بازیابی {2} ثانیه.",
   "rank": "رتبه",
-  "rank {0}": "رتبهٔ {0}"
+  "rank {0}": "رتبهٔ {0}",
+  "Tap a rule to compare board previews.": "برای مقایسهٔ نمای زمین‌ها، روی هر قانون بزنید.",
+  "School previews show example shots.": "نمای سبک حریف، نمونه‌هایی از مسیر ضربه‌ها را نشان می‌دهد.",
+  "One match decides the winner.": "برنده با یک مسابقه مشخص می‌شود.",
+  "First to 2 match wins.": "اولین بازیکن با ۲ برد مسابقه برنده می‌شود.",
+  "First to 3 match wins.": "اولین بازیکن با ۳ برد مسابقه برنده می‌شود.",
+  "15% faster serves and top speed for both sides.": "سرعت شروع و حداکثر سرعت توپ برای هر دو طرف ۱۵٪ بیشتر است.",
+  "Keep the selected court as shown.": "چیدمان زمین انتخاب‌شده را همان‌طور که نمایش داده شده نگه دارید.",
+  "Pair court hazards across the middle. Rails become breakable.": "موانع زمین در دو سوی خط میانی جفت می‌شوند. ریل‌ها شکستنی می‌شوند.",
+  "Open court has no hazards to mirror. Choose a hazard court above.": "زمین آزاد مانعی برای قرینه‌سازی ندارد. از بالا یک زمین دارای مانع انتخاب کنید."
 }

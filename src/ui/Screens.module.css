@@ -187,6 +187,18 @@
   min-width: 0;
 }
 
+/* Share label and control rows so wrapped copy cannot shift adjacent cards. */
+.fieldGrid > :global([data-picker]) {
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  align-content: normal;
+  row-gap: 8px;
+}
+
+.fieldGrid:has(> [data-picker] [data-rule-preview]) > :global([data-picker]) {
+  grid-row: span 3;
+}
+
 .fieldGrid > :only-child {
   grid-column: 1 / -1;
 }
@@ -475,6 +487,26 @@
 
 .preset > button {
   flex: 1;
+}
+
+.presetRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-block-start: 10px;
+}
+
+.presetRow > button {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 12px;
+  overflow-wrap: anywhere;
+}
+
+.presetRow > button:disabled {
+  color: var(--muted);
+  background: rgba(238, 242, 255, 0.03);
+  cursor: default;
 }
 
 .grid {

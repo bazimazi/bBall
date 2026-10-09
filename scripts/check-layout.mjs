@@ -9,6 +9,7 @@ import { createServer } from 'vite';
 // Real browser geometry, complementing check:ui's DOM interaction tests.
 // The fixture is served only by this checker; it never enters a game build.
 import { fixture } from './layout-fixture.mjs';
+import { pickerLayoutProblems, couchPresetLayoutProblems } from './picker-layout.mjs';
 
 const server = await createServer({
   logLevel: 'error',
@@ -118,6 +119,20 @@ try {
         if (r.top < -1 || r.bottom > innerHeight + 1)
           problems.push('Header/footer outside viewport');
       }
+      for (const preview of document.querySelectorAll('[data-rule-preview]')) {
+        if (!preview.getClientRects().length || preview.closest('[inert]')) continue;
+        const box = preview.getBoundingClientRect();
+        const parent = preview.parentElement.getBoundingClientRect();
+        if (box.width < 85 || box.height < 80) problems.push('Rule preview too small');
+        if (
+          box.left < parent.left - 1 ||
+          box.right > parent.right + 1 ||
+          box.bottom > parent.bottom + 1
+        )
+          problems.push('Rule preview escapes its card');
+        if (getComputedStyle(preview).direction !== 'ltr')
+          problems.push('Court orientation changed');
+      }
       for (const el of screen.querySelectorAll('[class*="_resultRow_"]')) {
         if (el.scrollWidth > el.clientWidth + 1)
           problems.push('Result row overflows: ' + el.textContent);
@@ -165,6 +180,12 @@ try {
       return problems;
     });
     assert.deepEqual(problems, [], label);
+    assert.deepEqual(await page.evaluate(pickerLayoutProblems), [], `${label}: picker alignment`);
+    assert.deepEqual(
+      await page.evaluate(couchPresetLayoutProblems),
+      [],
+      `${label}: couch preset spacing`
+    );
     checks++;
     if (screenshots)
       await page.screenshot({ path: join(screenshots, `${label}.png`), animations: 'disabled' });
@@ -542,6 +563,44 @@ try {
       if (['modes', 'quick', 'practice', 'profile', 'talents'].includes(name)) {
         await page.locator('[data-disclosure] > button').first().click();
         await layout(`${size}-${name}-expanded`);
+      }
+      if (name === 'modes' || name === 'quick') {
+        const labels =
+          name === 'quick'
+            ? ['Court', 'Opponent school', 'Contract', 'Series']
+            : [
+                'Court for Endless and Versus',
+                'Endless format',
+                'Versus series',
+                'Versus rule',
+                'Versus court'
+              ];
+        for (const label of labels) {
+          await page.getByRole('button', { name: label, exact: true }).click();
+          assert.equal(
+            await page.getByRole('option').count(),
+            await page.getByRole('option').locator('[data-rule-preview]').count()
+          );
+          await layout(`${size}-rules-${label.replaceAll(' ', '-').toLowerCase()}`);
+          await page.keyboard.press('Escape');
+          await page.getByRole('dialog').waitFor({ state: 'detached' });
+        }
+        await choose(
+          name === 'quick' ? 'Court' : 'Court for Endless and Versus',
+          'deflector-ruins-4'
+        );
+        if (name === 'quick') {
+          await choose('Opponent school', 'aggressor');
+          await choose('Contract', 'mythic');
+        } else {
+          await choose('Versus rule', 'precision');
+          await choose('Versus court', 'mirror');
+        }
+        await layout(`${size}-${name}-wrapped-picker-copy`);
+        if (name === 'modes') {
+          await page.locator('[data-couch-presets] summary').click();
+          await layout(`${size}-saved-couch-presets`);
+        }
       }
     }
     const disclosure = await disclosureMotion(size);

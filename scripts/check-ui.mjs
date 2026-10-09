@@ -3339,8 +3339,40 @@ try {
       onBack: noop
     };
     await mount(h(ExpansionDifficulty, { ...props, practice: false }));
+    const setupPreview = (label) =>
+      host.querySelector(`[data-picker="${label}"] button [data-rule-preview]`);
+    assert.equal(host.querySelectorAll('button > span > [data-rule-preview]').length, 4);
+    for (const [contract, score, player, foe] of [
+      ['master', 7, 0.9, 1.05],
+      ['mythic', 9, 0.8, 1.12],
+      ['', 5, 1, 1]
+    ]) {
+      await choose('Contract', contract);
+      assert.equal(setupPreview('Contract').getAttribute('data-win-score'), String(score));
+      for (const label of ['Contract', 'Opponent school', 'Series']) {
+        const paddles = setupPreview(label).querySelectorAll('[data-paddle]');
+        assert.equal(Number(paddles[0].getAttribute('height')), 108 * player);
+        assert.equal(Number(paddles[1].getAttribute('height')), 108 * foe);
+      }
+    }
     await choose('Contract', 'mythic');
     await choose('Court', 'gatehouse-1');
+    for (const label of ['Court', 'Contract', 'Opponent school', 'Series'])
+      assert.equal(setupPreview(label).querySelectorAll('[data-hazard="gate"]').length, 1);
+    const schoolPaths = new Set();
+    for (const school of ['anchor', 'aggressor', 'banker', 'curver', 'disruptor', 'opportunist']) {
+      await choose('Opponent school', school);
+      assert.equal(setupPreview('Opponent school').getAttribute('data-school'), school);
+      schoolPaths.add(
+        [...setupPreview('Opponent school').querySelectorAll(':scope > g path')]
+          .map((path) => path.getAttribute('d'))
+          .join('|')
+      );
+    }
+    assert.equal(schoolPaths.size, 6, 'Schools have distinct example tactics');
+    await choose('Series', 3);
+    assert.equal(setupPreview('Series').querySelectorAll('[data-series-game]').length, 3);
+    await choose('Series', 1);
     await choose('Opponent school', 'banker');
     await click([...host.querySelectorAll('button')].find((b) => b.textContent.includes('Legend')));
     assert.deepEqual(picked.at(-1), {
@@ -3348,6 +3380,7 @@ try {
       options: { personality: 'banker', arenaId: 'gatehouse-1', contract: 'mythic' }
     });
     await mount(h(ExpansionDifficulty, { ...props, practice: true }));
+    assert.equal(host.querySelectorAll('[data-rule-preview]').length, 0);
     await choose('Court', 'gatehouse-1');
     await choose('Boss drill', 'gatekeeper');
     await choose('Isolated phase', 2);
@@ -3443,14 +3476,71 @@ try {
           onBack: noop
         })
       );
-      await choose('Court for Endless', 'switchyard-1');
-      await choose('Endless format', 'waves');
-      await choose('Versus series', 5);
-      await choose('Versus rule', 'precision');
+      const previewFor = (label) =>
+        host.querySelector(`[data-picker="${label}"] button [data-rule-preview]`);
+      assert.equal(host.querySelectorAll('button > span > [data-rule-preview]').length, 5);
+      await click(host.querySelector('[data-disclosure] > button'));
+      await click(host.querySelector('[data-picker="Court for Endless and Versus"] button'));
+      const { ARENA_PRESETS } = await vite.ssrLoadModule('/src/core/modes/arenas.ts');
+      assert.equal(
+        win.document.querySelectorAll('[role="option"] [data-rule-preview]').length,
+        ARENA_PRESETS.length + 1
+      );
+      for (const [id, hazard] of [
+        ['post', 'bumper'],
+        ['crosswind', 'wind'],
+        ['well', 'well'],
+        ['bricks', 'bricks'],
+        ['wormhole', 'portal'],
+        ['bankworks-1', 'rail'],
+        ['gatehouse-1', 'gate'],
+        ['switchyard-1', 'switch'],
+        ['charge-circuit-1', 'zone']
+      ]) {
+        assert.ok(
+          win.document.querySelector(
+            `[role="option"][data-value="${id}"] [data-hazard="${hazard}"]`
+          ),
+          `${id} previews its hazard`
+        );
+      }
+      await key(query('[role="listbox"]'), 'Escape');
+      await act(() => new Promise((resolve) => win.setTimeout(resolve, 300)));
       await choose('Versus court', 'mirror');
+      assert.match(host.textContent, /Open court has no hazards to mirror/);
+      await choose('Versus court', 'original');
+      await choose('Court for Endless', 'switchyard-1');
+      assert.equal(previewFor('Versus court').querySelectorAll('[data-hazard="gate"]').length, 1);
+      await choose('Endless format', 'waves');
+      assert.equal(previewFor('Endless format').getAttribute('data-rule-preview'), 'waves');
+      assert.equal(previewFor('Endless format').querySelectorAll('text').length, 3);
+      await choose('Versus series', 5);
+      assert.equal(previewFor('Versus series').querySelectorAll('[data-series-game]').length, 5);
+      await choose('Versus rule', 'speed');
+      assert.equal(previewFor('Versus rule').getAttribute('data-duel'), 'speed');
+      assert.match(previewFor('Versus rule').textContent, /\+15%/);
+      await choose('Versus rule', 'precision');
+      assert.equal(
+        Number(previewFor('Versus rule').querySelector('[data-paddle]').getAttribute('height')),
+        108 * 0.8
+      );
+      await choose('Versus court', 'mirror');
+      for (const label of ['Versus court', 'Versus rule', 'Versus series']) {
+        assert.equal(
+          previewFor(label).querySelectorAll('[data-hazard="gate"]').length,
+          2,
+          `${label} reflects mirrored court`
+        );
+      }
+      assert.equal(
+        previewFor('Court for Endless and Versus').querySelectorAll('[data-hazard="gate"]').length,
+        1,
+        'Endless keeps the original court'
+      );
       await click(button('Save couch 1'));
       await choose('Versus series', 1);
       await click(button('Load couch 1'));
+      assert.equal(previewFor('Versus series').getAttribute('data-series'), '5');
       await click(
         [...host.querySelectorAll('button')].find((b) => b.textContent.startsWith('Versus'))
       );

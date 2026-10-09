@@ -1,5 +1,13 @@
 import { t, msg } from '../../core/i18n/index';
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode
+} from 'react';
 import { Dialog } from './Dialog';
 import { useBackHandler } from '../hooks/useBackHandler';
 import styles from './GamePicker.module.css';
@@ -13,6 +21,8 @@ export interface PickerOption<T extends string | number> {
   hint?: string;
   disabled?: boolean;
   tag?: string;
+  /** A board diagram, shown on the current choice and in the comparison sheet. */
+  preview?: ReactNode;
 }
 
 interface GamePickerProps<T extends string | number> {
@@ -54,26 +64,38 @@ export function GamePicker<T extends string | number>({
     if (next !== undefined) onChange(next);
   }
   const valueId = useId();
+  const hintId = useId();
   const selected = options.find((option) => option.value === value);
+  const illustrated = !!selected?.preview;
   return (
     <div className={styles.field} data-picker={label}>
       {!compact && <span className={styles.label}>{t(label)}</span>}
       <button
         type="button"
-        className={styles.trigger}
+        className={`${styles.trigger} ${illustrated ? styles.illustratedTrigger : ''}`}
         aria-label={t(label)}
-        aria-describedby={valueId}
+        aria-describedby={`${valueId}${illustrated && selected.hint ? ` ${hintId}` : ''}`}
         aria-haspopup="dialog"
         aria-expanded={phase === 'open' && !disabled}
         disabled={disabled}
         data-value={value}
         onClick={() => setPhase('open')}
       >
+        {illustrated && (
+          <span className={styles.selectedPreview} aria-hidden="true">
+            {selected.preview}
+          </span>
+        )}
         <span id={valueId}>{t(selected?.name ?? placeholder)}</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
+        <svg className={styles.chevron} viewBox="0 0 24 24" aria-hidden="true">
           <path d="m9 5 7 7-7 7" />
         </svg>
       </button>
+      {illustrated && selected.hint && (
+        <small id={hintId} className={styles.selectedHint}>
+          {t(selected.hint)}
+        </small>
+      )}
       {phase !== 'closed' && !disabled && (
         <PickerSheet
           label={t(label)}
@@ -256,6 +278,11 @@ function PickerSheet<T extends string | number>({
               data-cursor={option.value === active?.value}
               onClick={() => !option.disabled && requestClose(option.value)}
             >
+              {option.preview && (
+                <span className={styles.optionPreview} aria-hidden="true">
+                  {option.preview}
+                </span>
+              )}
               {option.tag && (
                 <span className={styles.tag} aria-hidden="true">
                   {t(option.tag)}

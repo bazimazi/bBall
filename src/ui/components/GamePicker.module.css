@@ -1,5 +1,6 @@
 .field {
   display: grid;
+  align-content: start;
   gap: 8px;
   min-width: 0;
 }
@@ -8,6 +9,7 @@
   color: var(--muted);
   font-size: 13px;
   font-weight: 650;
+  line-height: 18px;
 }
 
 .trigger {
@@ -38,7 +40,7 @@
   white-space: nowrap;
 }
 
-.trigger svg,
+.trigger .chevron,
 .close svg {
   width: 18px;
   height: 18px;
@@ -51,8 +53,61 @@
   color: var(--muted);
 }
 
-:global(html[dir='rtl']) .trigger svg {
+:global(html[dir='rtl']) .trigger .chevron {
   transform: scaleX(-1);
+}
+
+.illustratedTrigger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 84px auto;
+  align-content: start;
+  align-items: start;
+  padding: 8px 10px 10px;
+}
+
+.illustratedTrigger > span:not(.selectedPreview) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 18px;
+}
+
+.trigger > .selectedPreview {
+  grid-column: 1 / -1;
+  display: block;
+  width: 100%;
+  height: 84px;
+}
+
+.selectedHint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.optionPreview {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 104px;
+}
+
+.option:has(.optionPreview) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.option:has(.optionPreview) strong,
+.option:has(.optionPreview) .mark {
+  line-height: 20px;
+}
+
+.selectedPreview > svg,
+.optionPreview > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .trigger:hover:not(:disabled) {
