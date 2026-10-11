@@ -44,6 +44,7 @@
     "check:rtl": "node scripts/check-rtl.mjs",
     "check:layout": "node scripts/check-layout.mjs",
     "check:experience": "node scripts/check-experience.mjs",
+    "check:performance": "node scripts/check-performance.mjs",
     "soak": "node --import tsx scripts/sim.ts",
     "summarize:experience": "node --import tsx scripts/summarize-experience.ts"
   },

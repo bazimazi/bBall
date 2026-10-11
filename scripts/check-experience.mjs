@@ -358,7 +358,7 @@ await environment(true, async (fixture) => {
       assert.equal(report.attempts.length, 1);
       assert.equal(report.attempts[0].outcome, 'won');
       assert.equal(report.attempts[0].session.skillGroup, 'new');
-      assert.equal(report.attempts[0].contextAtStart.quality, 'high');
+      assert.equal(report.attempts[0].contextAtStart.quality, 'auto');
       engine.begin();
       engine.quit();
       engine.quit();

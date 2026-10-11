@@ -28,7 +28,7 @@ import { UltimateLayer } from './ultimateFx';
 const COURT_RADIUS = 26;
 const COMBO_DURATION = 1.3;
 /** How far a capstone's camera punch pushes the view in, at full strength. */
-const PUNCH_ZOOM = 0.045;
+const PUNCH_ZOOM = 0.025;
 
 /**
  * Canvas renderer. All drawing state lives here; the simulation never touches
@@ -108,7 +108,8 @@ export class Renderer {
     this.drawBackground(world);
     // Behind the court, so a capstone colours the page without ever sitting
     // between the player and the ball.
-    if (world.motion >= 0.5) this.ultimate.backdrop(ctx, world);
+    if (world.motion >= 0.5 && world.graphicsIntensity === 'high')
+      this.ultimate.backdrop(ctx, world);
 
     ctx.save();
     // The kick shoves the camera along the field's long axis, which is the
@@ -143,9 +144,10 @@ export class Renderer {
 
     // Over everything, and outside the punch: the wave has to cross the real
     // viewport, not a viewport that is itself being pushed around.
-    if (world.motion >= 0.5) this.ultimate.overlay(ctx, world);
+    if (world.motion >= 0.5 && world.graphicsIntensity === 'high')
+      this.ultimate.overlay(ctx, world);
 
-    if (fx.flash > 0.01 && world.motion >= 0.5) {
+    if (fx.flash > 0.01 && world.motion >= 0.5 && world.graphicsIntensity !== 'low') {
       // A capstone washes the viewport in its own colour; everything else
       // gets the plain white one it always had.
       const alpha = fx.flash * 0.28;
@@ -224,13 +226,13 @@ export class Renderer {
     this.drawForesight(world);
     drawArena(ctx, world, this.glow);
     this.drawRings(world);
-    if (world.motion >= 0.5) this.drawSpeedLines(world);
+    if (world.motion >= 0.5 && world.graphicsIntensity === 'high') this.drawSpeedLines(world);
     drawTrailStyled(ctx, world, ballHue(world), this.frameDt);
     // A replay shows the point, not the skills that were running at the end
     // of it - those belong to a moment that has already passed.
     const replaying = world.replay.active;
     if (!replaying) {
-      drawGhosts(ctx, world);
+      if (world.graphicsIntensity !== 'low') drawGhosts(ctx, world);
       drawDashStreak(ctx, world);
     }
     this.drawPaddle(world, world.player, 1);
@@ -598,7 +600,7 @@ export class Renderer {
   private drawGrid(world: World): void {
     const { ctx } = this;
     const { grid, theme, fx, view } = world;
-    if (theme.gridAlpha <= 0) return;
+    if (theme.gridAlpha <= 0 || world.graphicsIntensity === 'low') return;
     if (grid.cols === 0) grid.resize(view.w);
 
     const live = world.match.status === 'play' || world.match.status === 'serve';
@@ -654,6 +656,12 @@ export class Renderer {
     ctx.strokeStyle = hsla(hue, 80, 72, Math.min(0.4, alpha));
     ctx.lineWidth = 1;
     ctx.stroke(path);
+
+    // Balanced keeps a cached lattice and skips the three moving glow passes.
+    if (world.graphicsIntensity !== 'high') {
+      ctx.restore();
+      return;
+    }
 
     // The ball and both paddles light the floor around them: the same lines
     // again, stroked with a radial gradient so only the ones nearby catch it.

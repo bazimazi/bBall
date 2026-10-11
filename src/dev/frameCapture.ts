@@ -5,6 +5,8 @@ export interface FrameSample {
   /** Canvas command submission; excludes raster/compositing/presentation. */
   drawMs: number;
   steps: number;
+  /** Actual canvas density, including automatic changes during this capture. */
+  canvasDpr?: number;
   phase: string;
 }
 

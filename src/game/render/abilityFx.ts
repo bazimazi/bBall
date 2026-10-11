@@ -233,7 +233,12 @@ export function drawPlayerAura(ctx: CanvasRenderingContext2D, world: World): voi
     // ring must never hop inwards because another effect ran out.
     geom.pad = 6 + i * 5.5;
     outer = Math.max(outer, geom.pad);
-    skillLayer(ctx, world, id, def.hue, def.ultimate === true, geom);
+    if (world.graphicsIntensity === 'low') {
+      baseRing(ctx, world, def.hue, def.ultimate === true, geom);
+      if (id === 'perfect-guard') drawGuardBrackets(ctx, geom, def.hue, 0);
+    } else {
+      skillLayer(ctx, world, id, def.hue, def.ultimate === true, geom);
+    }
 
     if (live.maxCharges > 0) {
       drawChargePips(ctx, world, live.charges, live.maxCharges, def.hue, geom.pad);
@@ -275,7 +280,7 @@ function baseRing(
   ctx.strokeStyle = hsla(hue, 100, 62, 1);
   ctx.lineWidth = ultimate ? 3.5 : 3;
   ctx.shadowColor = hsla(hue, 100, 58, 0.9);
-  ctx.shadowBlur = 16 * world.motion;
+  ctx.shadowBlur = world.graphicsIntensity === 'high' ? 10 * world.motion : 0;
   roundRect(ctx, x - pad, y - pad - 3, w + pad * 2, h + pad * 2 + 6, w / 2 + pad);
   ctx.stroke();
   ctx.restore();
@@ -423,7 +428,8 @@ function drawCrackle(
   ctx.shadowColor = hsla(hue, 100, 60, 0.9);
   ctx.shadowBlur = 8 * world.motion;
 
-  for (let i = 0; i < count; i++) {
+  const detail = world.graphicsIntensity === 'high' ? count : Math.ceil(count / 2);
+  for (let i = 0; i < detail; i++) {
     const seed = bucket * 31 + i * 17;
     const a = y + ((jitter(seed) + 1) / 2) * h;
     const b = y + ((jitter(seed + 3.7) + 1) / 2) * h;
@@ -440,7 +446,12 @@ function drawCrackle(
  * of its own: unmistakable at a glance, and it leaves the paddle's silhouette
  * readable while the ball is on the way.
  */
-function drawGuardBrackets(ctx: CanvasRenderingContext2D, geom: Geom, hue: number): void {
+function drawGuardBrackets(
+  ctx: CanvasRenderingContext2D,
+  geom: Geom,
+  hue: number,
+  blur = 10
+): void {
   const { x, y, w, h, pad } = geom;
   ctx.save();
   ctx.globalAlpha = 0.9;
@@ -448,7 +459,7 @@ function drawGuardBrackets(ctx: CanvasRenderingContext2D, geom: Geom, hue: numbe
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
   ctx.shadowColor = hsla(hue, 100, 60, 0.8);
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = blur;
   ctx.beginPath();
   ctx.moveTo(x - pad - 4, y - 4);
   ctx.lineTo(x - pad - 4, y + h + 4);
@@ -610,7 +621,7 @@ function drawChargePips(
     if (i < charges) {
       ctx.fillStyle = hsla(hue, 100, 70, 0.95);
       ctx.shadowColor = hsla(hue, 100, 60, 0.9);
-      ctx.shadowBlur = 10 * world.motion;
+      ctx.shadowBlur = world.graphicsIntensity === 'high' ? 6 * world.motion : 0;
       ctx.fill();
     } else {
       ctx.shadowBlur = 0;
@@ -631,7 +642,14 @@ export function drawCasts(ctx: CanvasRenderingContext2D, world: World): void {
   ctx.lineCap = 'round';
   for (const cast of world.casts.items) {
     if (!cast.alive) continue;
-    drawCast(ctx, cast, clamp(cast.age / cast.life, 0, 1));
+    if (cast.kind === 'shockwave' && world.graphicsIntensity !== 'high') continue;
+    const t = clamp(cast.age / cast.life, 0, 1);
+    if (world.graphicsIntensity === 'low') {
+      if (cast.kind === 'echo-pulse') continue;
+      ring(ctx, cast.x, cast.y, 10 + t * 28, 2, cast.hue, (1 - t) * cast.strength);
+    } else {
+      drawCast(ctx, cast, t);
+    }
   }
   ctx.restore();
 }

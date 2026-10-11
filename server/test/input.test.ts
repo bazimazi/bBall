@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { it, type TestContext } from 'node:test';
-import { quickMatchRules, versusRules } from '../../src/core/modes/rules';
+import { practiceRules, quickMatchRules, versusRules } from '../../src/core/modes/rules';
 import { DEFAULT_BINDINGS } from '../../src/core/settings/controls';
 import { DEFAULT_SETTINGS, type DeviceSettings } from '../../src/core/settings/store';
 import { GameEngine } from '../../src/game/engine';
@@ -113,13 +113,122 @@ function harness(
   };
   const advance = (milliseconds: number) => {
     const now = (engine as unknown as { lastTime: number }).lastTime + milliseconds;
+    if (doc.hidden) {
+      assert.equal(frames.size, 0, 'hidden pages must not schedule game frames');
+      return;
+    }
     assert.ok(frames.size > 0);
     const pending = [...frames.values()];
     frames.clear();
     for (const callback of pending) callback(now);
   };
-  return { engine, world, win, doc, canvas, key, pointer, advance };
+  return { engine, world, win, doc, canvas, key, pointer, advance, frames };
 }
+
+it('automatic density adapts under sustained load without changing held input, effects or field geometry', (t) => {
+  const { engine, world, win, canvas, pointer, key, advance } = harness(
+    t,
+    true,
+    { ...DEFAULT_SETTINGS, autoServe: false, touchMode: 'relative' },
+    3
+  );
+  engine.play(versusRules());
+  assert.equal(world.view.dpr, 1.5);
+  const geometry = { ...world.view, dpr: 0 };
+  pointer('pointerdown', 1, toScreenX(world.view, 200, 200), toScreenY(world.view, 200, 200));
+  key('w');
+  for (let i = 0; i < 125; i++) advance(34);
+  assert.equal(world.view.dpr, 1);
+  assert.equal(canvas.width, win.innerWidth);
+  assert.deepEqual({ ...world.view, dpr: 0 }, geometry);
+  assert.equal(world.motion, 1);
+  assert.equal(world.camera, 1);
+  assert.equal(world.match.status, 'serve');
+  assert.ok(win.mediaQueries.every((query) => !query.includes('reduced-motion')));
+  const before = world.player.target;
+  pointer('pointermove', 1, toScreenX(world.view, 200, 220), toScreenY(world.view, 200, 220));
+  assert.ok(Math.abs(world.player.target - before - 20) < 1e-8);
+  const steered = world.player.target;
+  advance(16);
+  assert.ok(world.player.target < steered, 'adaptation must retain held keys');
+  engine.setPreferences({ ...DEFAULT_SETTINGS, canvasQuality: 'high', autoServe: false });
+  for (let i = 0; i < 125; i++) advance(34);
+  assert.equal(world.view.dpr, 2.5, 'explicit quality must not adapt');
+});
+
+it('frozen courts avoid repeated drawing but repaint settings, practice steps and geometry changes', (t) => {
+  const { engine, world, win, advance } = harness(t);
+  let draws = 0;
+  (engine as unknown as { renderer: { render: () => void } }).renderer.render = () => {
+    draws++;
+  };
+  engine.play(quickMatchRules('rookie'));
+  engine.pause();
+  advance(16);
+  const initial = draws;
+  for (let i = 0; i < 60; i++) advance(16);
+  assert.equal(draws, initial);
+  const frozen = JSON.stringify(world);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, canvasQuality: 'low' });
+  advance(16);
+  assert.equal(draws, initial + 1);
+  win.innerWidth = 900;
+  win.dispatchEvent(new Event('resize'));
+  advance(16);
+  advance(16);
+  assert.ok(draws > initial + 1);
+  assert.equal(world.match.status, 'paused');
+  assert.notEqual(JSON.stringify(world), frozen, 'resizing must refresh geometry');
+  engine.play(practiceRules('rookie'));
+  engine.serve();
+  advance(16);
+  engine.pause();
+  advance(16);
+  const practiceDraws = draws;
+  engine.stepPractice();
+  advance(16);
+  assert.equal(draws, practiceDraws + 1, 'deliberate practice steps must repaint');
+  advance(16);
+  assert.equal(draws, practiceDraws + 1);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, effects: 'calm' });
+  engine.quitToMenu();
+  advance(16);
+  const calmDraws = draws;
+  for (let i = 0; i < 60; i++) advance(16);
+  assert.equal(draws, calmDraws, 'Calm menu backdrop is static');
+  engine.setPreferences({ ...DEFAULT_SETTINGS, graphicsIntensity: 'low' });
+  advance(16);
+  const lowDraws = draws;
+  const menuBall = { ...world.ball };
+  for (let i = 0; i < 60; i++) advance(16);
+  assert.equal(
+    draws,
+    lowDraws,
+    'Low intensity avoids repeated menu rendering even in Full effects'
+  );
+  assert.deepEqual(world.ball, menuBall);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, graphicsIntensity: 'high' });
+  advance(16);
+  advance(16);
+  assert.ok(draws > lowDraws, 'High intensity restores the animated menu court');
+});
+
+it('visibility recovery schedules one frame and disposal cannot restart a hidden engine', (t) => {
+  const { engine, doc, frames, advance } = harness(t);
+  doc.hidden = true;
+  doc.dispatchEvent(new Event('visibilitychange'));
+  advance(1000);
+  assert.equal(frames.size, 0);
+  doc.hidden = false;
+  doc.dispatchEvent(new Event('visibilitychange'));
+  doc.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(frames.size, 1);
+  advance(16);
+  assert.equal(frames.size, 1);
+  engine.stop();
+  doc.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(frames.size, 0);
+});
 
 const CUSTOM_KEYS = {
   ...DEFAULT_BINDINGS,
@@ -618,6 +727,30 @@ it('canvas quality preserves the live world, both touch owners and held keys in 
         assert.equal(state(), before, 'only the backing pixel ratio changes');
         assert.equal(engine.getSnapshot(), snapshot);
       }
+      const gameplay = () =>
+        JSON.stringify({
+          ball: world.ball,
+          player: world.player,
+          bot: world.bot,
+          match: world.match,
+          talents: world.talents,
+          botTalents: world.botTalents,
+          tuning: world.tuning,
+          motion: world.motion,
+          camera: world.camera,
+          timeScale: world.fx.timeScale
+        });
+      const beforeGraphics = gameplay();
+      for (const graphicsIntensity of ['low', 'balanced', 'high'] as const) {
+        engine.setPreferences({ ...preferences, canvasQuality: 'high', graphicsIntensity });
+        assert.equal(world.graphicsIntensity, graphicsIntensity);
+        assert.equal(
+          gameplay(),
+          beforeGraphics,
+          'graphics budgets preserve match state and timing'
+        );
+        assert.equal(engine.getSnapshot(), snapshot);
+      }
       const playerTarget = world.player.target;
       const botTarget = world.bot.target;
       point('pointermove', 1, world.view.w * 0.8, 120);
@@ -821,6 +954,20 @@ it('system reduced motion is ignored at startup and on changes; explicit game se
   assert.equal(world.motion, 1);
   assert.equal(world.camera, 0.45);
   assert.deepEqual(world.tuning, tuning);
+  for (const graphicsIntensity of ['low', 'balanced', 'high'] as const) {
+    engine.setPreferences({ ...DEFAULT_SETTINGS, graphicsIntensity });
+    win.motion.matches = false;
+    win.motion.dispatchEvent(new Event('change'));
+    assert.equal(world.graphicsIntensity, graphicsIntensity);
+    assert.equal(world.motion, 1);
+    assert.equal(world.camera, 1);
+    win.motion.matches = true;
+    win.motion.dispatchEvent(new Event('change'));
+    assert.equal(world.graphicsIntensity, graphicsIntensity);
+    assert.equal(world.motion, 1);
+    assert.equal(world.camera, 1);
+  }
+  assert.ok(win.mediaQueries.every((query) => !query.includes('reduced-motion')));
 });
 
 it('the real frame clock resumes on time after slow motion and holds paused camera offsets', (t) => {

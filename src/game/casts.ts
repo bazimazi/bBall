@@ -185,34 +185,32 @@ export class GhostTrail {
 
 /** Seconds a capstone's name stays on screen, and of its viewport-wide wave. */
 export const ULTIMATE_BANNER = 1.1;
-export const ULTIMATE_BURST = 0.85;
+export const ULTIMATE_BURST = 0.65;
 
 /**
  * Everything a capstone does to the screen as a whole.
  *
  * The court-level animation is the skill's own; this is the part that is the
- * same for all five, and it is deliberately impossible to look away from:
+ * same for all five, with a restrained cast cue and a readable skill name:
  *
- *  - a wave of the skill's colour crossing the entire viewport from the
- *    paddle outwards, past the corners;
- *  - the backdrop and the rim of the page held in that colour for as long as
- *    the effect runs, so peripheral vision alone says one is up;
- *  - a camera punch, a beat of hit-stop and a tinted flash;
- *  - the skill's name under the centre circle.
+ *  - a shorter, softer wave and edge tint at High intensity;
+ *  - a smaller camera punch and tinted flash, subject to explicit controls;
+ *  - the skill's name under the centre circle at every intensity.
  *
- * Nothing else in the game may have any of them.
+ * Hit-stop and skill timing stay identical across graphics budgets.
  */
 export function ultimateCast(world: World, kind: CastKind, hue: number, name: string): void {
   const { fx, player, view, motion } = world;
 
-  world.casts.spawn(
-    'shockwave',
-    { x: player.x, y: player.y, hue, life: 0.75, size: view.w * 0.9 },
-    motion
-  );
-  world.casts.spawn(kind, { x: player.x, y: player.y, hue, life: 0.9, size: 150 }, motion);
+  if (world.graphicsIntensity === 'high')
+    world.casts.spawn(
+      'shockwave',
+      { x: player.x, y: player.y, hue, life: 0.55, size: view.w * 0.65 },
+      motion * 0.55
+    );
+  world.casts.spawn(kind, { x: player.x, y: player.y, hue, life: 0.65, size: 110 }, motion * 0.65);
 
-  fx.flash = Math.max(fx.flash, 0.55 * motion);
+  fx.flash = Math.max(fx.flash, 0.22 * motion);
   fx.flashHue = hue;
   fx.freeze = Math.max(fx.freeze, 0.07 * motion);
   fx.timeScale = motion > 0.5 ? 0.45 : 1;
@@ -226,7 +224,7 @@ export function ultimateCast(world: World, kind: CastKind, hue: number, name: st
   fx.burst = ULTIMATE_BURST;
   fx.burstX = player.x;
   fx.burstY = player.y;
-  fx.punch = motion;
+  fx.punch = motion * 0.65;
   fx.castId++;
 }
 
@@ -302,13 +300,18 @@ export function updateAbilityFx(world: World, dt: number): void {
 
   // Dash and Slipstream are the two skills that buy movement, so they are the
   // two that leave a trail behind the paddle.
-  if (runtime.dashFx > 0 || runtime.slipstream > 0) {
+  if (world.graphicsIntensity !== 'low' && (runtime.dashFx > 0 || runtime.slipstream > 0)) {
     world.ghosts.sample(dt, player.y, player.half);
   }
 
   fx.pulseTick += dt;
 
-  if (runtime.echo > 0 && fx.echoTick + ECHO_BEAT <= fx.pulseTick) {
+  const echoBeat = world.graphicsIntensity === 'high' ? ECHO_BEAT : ECHO_BEAT * 2;
+  if (
+    world.graphicsIntensity !== 'low' &&
+    runtime.echo > 0 &&
+    fx.echoTick + echoBeat <= fx.pulseTick
+  ) {
     fx.echoTick = fx.pulseTick;
     world.casts.spawn(
       'echo-pulse',
@@ -319,7 +322,8 @@ export function updateAbilityFx(world: World, dt: number): void {
 
   // Overload and Zenith are held states rather than moments, so they keep
   // shedding a little of themselves for as long as they are up.
-  if (fx.emberTick + EMBER_BEAT <= fx.pulseTick) {
+  const emberBeat = world.graphicsIntensity === 'high' ? EMBER_BEAT * 1.5 : EMBER_BEAT * 3;
+  if (world.graphicsIntensity !== 'low' && fx.emberTick + emberBeat <= fx.pulseTick) {
     fx.emberTick = fx.pulseTick;
     if (runtime.overload > 0) emberBurst(world, OVERLOAD_HUE, 1, 0.5);
     if (runtime.zenith > 0) emberBurst(world, ZENITH_HUE, -1, 0.45);

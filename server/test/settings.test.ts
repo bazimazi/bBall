@@ -43,7 +43,8 @@ it('older device settings retain preferences and pick up the new pacing defaults
     haptics: false,
     replays: false,
     effects: 'full',
-    canvasQuality: 'high',
+    graphicsIntensity: 'balanced',
+    canvasQuality: 'auto',
     fullscreen: false,
     autoServe: true,
     resumeCountdown: true,
@@ -85,8 +86,25 @@ it('older device settings retain preferences and pick up the new pacing defaults
   settingsStore.update({ canvasQuality: 'low' });
   assert.equal(JSON.parse(values.get('bball.settings')!).data.canvasQuality, 'low');
   settingsStore.update({ canvasQuality: 'invalid' as typeof DEFAULT_SETTINGS.canvasQuality });
-  assert.equal(settingsStore.getSnapshot().canvasQuality, 'high');
+  assert.equal(settingsStore.getSnapshot().canvasQuality, 'auto');
+  for (const canvasQuality of ['high', 'balanced', 'low', 'auto'] as const) {
+    settingsStore.update({ canvasQuality });
+    assert.equal(settingsStore.getSnapshot().canvasQuality, canvasQuality);
+    assert.equal(JSON.parse(values.get('bball.settings')!).data.canvasQuality, canvasQuality);
+  }
   settingsStore.update({ fullscreen: true });
+  for (const graphicsIntensity of ['high', 'balanced', 'low'] as const) {
+    settingsStore.update({ graphicsIntensity });
+    assert.equal(settingsStore.getSnapshot().graphicsIntensity, graphicsIntensity);
+    assert.equal(
+      JSON.parse(values.get('bball.settings')!).data.graphicsIntensity,
+      graphicsIntensity
+    );
+  }
+  settingsStore.update({
+    graphicsIntensity: 'invalid' as typeof DEFAULT_SETTINGS.graphicsIntensity
+  });
+  assert.equal(settingsStore.getSnapshot().graphicsIntensity, 'balanced');
   assert.equal(JSON.parse(values.get('bball.settings')!).data.fullscreen, true);
   settingsStore.update({ fullscreen: 'yes' as unknown as boolean });
   assert.equal(settingsStore.getSnapshot().fullscreen, false);

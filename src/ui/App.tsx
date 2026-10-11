@@ -267,7 +267,13 @@ export function App() {
         castId={snapshot.ultimateCastId}
         hue={snapshot.ultimateHue}
         active={snapshot.ultimateActive}
-        show={playing && !paused && snapshot.status !== 'resuming' && settings.effects !== 'calm'}
+        show={
+          playing &&
+          !paused &&
+          snapshot.status !== 'resuming' &&
+          settings.effects !== 'calm' &&
+          settings.graphicsIntensity === 'high'
+        }
       />
 
       {flow.screen === 'onboarding' && (

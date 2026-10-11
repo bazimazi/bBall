@@ -3,6 +3,7 @@ import { FIELD_H } from '../constants';
 import { hsla } from '../palette';
 import type { World } from '../world';
 import type { GlowCache } from './glow';
+import { GRAPHICS_BUDGETS } from './graphics';
 
 /**
  * The living part of an arena: what drifts, falls or flickers on its floor.
@@ -63,11 +64,12 @@ function frac(n: number): number {
 
 export class AmbientLayer {
   private kind: ArenaAmbient | null = null;
+  private density = 1;
   private motes: Mote[] = [];
 
   private seed(kind: ArenaAmbient): void {
     this.kind = kind;
-    this.motes = Array.from({ length: COUNTS[kind] }, () => ({
+    this.motes = Array.from({ length: Math.round(COUNTS[kind] * this.density) }, () => ({
       u: Math.random(),
       v: Math.random(),
       speed: 0.5 + Math.random(),
@@ -79,6 +81,12 @@ export class AmbientLayer {
   /** Draw the scene, in field space, inside the court's clip. */
   draw(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
     const kind = world.theme.ambient;
+    const density = GRAPHICS_BUDGETS[world.graphicsIntensity].ambient;
+    if (density === 0) return;
+    if (density !== this.density) {
+      this.density = density;
+      this.kind = null;
+    }
     if (kind !== this.kind) this.seed(kind);
     const { view, fx } = world;
 
@@ -96,7 +104,7 @@ export class AmbientLayer {
     switch (kind) {
       case 'stars':
         this.stars(ctx, U, V, t, lift, 1);
-        this.shootingStar(ctx, U, V, t);
+        if (world.graphicsIntensity === 'high') this.shootingStar(ctx, U, V, t);
         break;
       case 'motes':
         this.drift(ctx, glow, U, V, t, lift);
@@ -112,7 +120,7 @@ export class AmbientLayer {
         break;
       case 'storm':
         this.rain(ctx, U, V, t, lift, true);
-        this.lightning(ctx, U, V, t, world.motion);
+        if (world.graphicsIntensity === 'high') this.lightning(ctx, U, V, t, world.motion);
         break;
       case 'sparks':
         this.sparks(ctx, U, V, t, lift);

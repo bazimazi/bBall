@@ -38,6 +38,8 @@ import {
 } from './match';
 import type { SongId } from './music';
 import { Renderer } from './render/renderer';
+import { AdaptiveCanvasQuality } from './render/quality';
+import { applyGraphicsIntensity } from './render/graphics';
 import { rescaleArena } from './arena';
 import { wobble } from './effects';
 import { step } from './simulation';
@@ -150,6 +152,9 @@ export class GameEngine {
   private lastTime = 0;
   private accumulator = 0;
   private running = false;
+  private readonly quality = new AdaptiveCanvasQuality();
+  private drawDirty = true;
+  private drawnTime = -1;
   /** Menus can cover a paused court without handing their keys to the match. */
   private gameplayInputEnabled = true;
   private landingEstimate: string | null = null;
@@ -190,7 +195,7 @@ export class GameEngine {
 
     this.addListeners();
     this.lastTime = performance.now();
-    this.frameHandle = requestAnimationFrame(this.frame);
+    if (!document.hidden) this.frameHandle = requestAnimationFrame(this.frame);
     return () => this.stop();
   }
 
@@ -362,6 +367,7 @@ export class GameEngine {
     if (this.world.theme === theme) return;
     this.world.theme = theme;
     this.renderer.invalidate();
+    this.drawDirty = true;
   };
 
   /**
@@ -395,10 +401,14 @@ export class GameEngine {
     )
       this.clearInput();
     this.preferences = settings;
+    if (this.world.graphicsIntensity !== settings.graphicsIntensity)
+      applyGraphicsIntensity(this.world, settings.graphicsIntensity);
     if (qualityChanged && this.running) {
-      sizeCanvas(this.world.view, this.canvas, settings.canvasQuality);
+      this.quality.reset();
+      sizeCanvas(this.world.view, this.canvas, settings.canvasQuality, this.quality.ratio);
       this.renderer.invalidate();
     }
+    this.drawDirty = true;
     this.audio.setVolumes(settings.musicVolume, settings.sfxVolume);
     this.updateMotion();
     this.haptics = settings.haptics;
@@ -569,6 +579,7 @@ export class GameEngine {
       (key) => next[key] !== previous[key]
     );
     if (!changed) return;
+    this.drawDirty = true;
     this.snapshot = next;
     for (const listener of this.listeners) listener();
   }
@@ -578,7 +589,14 @@ export class GameEngine {
   private layout = (): void => {
     this.pauseForResize();
     const { w, scale, rotated, cx, cy } = this.world.view;
-    const k = layoutView(this.world.view, this.canvas, this.preferences?.canvasQuality ?? 'high');
+    const k = layoutView(
+      this.world.view,
+      this.canvas,
+      this.preferences?.canvasQuality ?? 'auto',
+      this.quality.ratio
+    );
+    this.quality.reset();
+    this.drawDirty = true;
     const view = this.world.view;
     // Only a changed input transform invalidates drags; viewport notifications
     // can arrive without changing the court (for example on browser chrome).
@@ -618,19 +636,37 @@ export class GameEngine {
   // ----------------------------------------------------------- main loop
 
   private frame = (now: number): void => {
+    this.frameHandle = 0;
+    if (!this.running || document.hidden) return;
     const observer = this.frameObserver;
     const startedAt = observer ? performance.now() : 0;
     this.frameHandle = requestAnimationFrame(this.frame);
     const { world } = this;
     const { fx, match } = world;
 
-    let dt = (now - this.lastTime) / 1000;
+    const intervalMs = now - this.lastTime;
+    let dt = intervalMs / 1000;
     this.lastTime = now;
     if (!isFinite(dt) || dt <= 0) dt = FIXED_DT;
     if (dt > MAX_FRAME_DT) dt = MAX_FRAME_DT; // tab was hidden or stalled
 
     // Ease slow-motion back to normal in real time.
     const held = match.status === 'paused' || match.status === 'resuming';
+    const still =
+      held ||
+      (match.status === 'menu' && (world.motion < 0.5 || world.graphicsIntensity === 'low'));
+    if (still) this.quality.reset();
+    else if (
+      (this.preferences?.canvasQuality ?? 'auto') === 'auto' &&
+      this.quality.sample(intervalMs)
+    ) {
+      const previousRatio = world.view.dpr;
+      sizeCanvas(world.view, this.canvas, 'auto', this.quality.ratio);
+      if (world.view.dpr !== previousRatio) {
+        this.renderer.invalidate();
+        this.drawDirty = true;
+      }
+    }
     if (!held) fx.timeScale += (1 - fx.timeScale) * Math.min(1, dt * 3);
     if (fx.timeScale > 0.999) fx.timeScale = 1;
 
@@ -643,11 +679,12 @@ export class GameEngine {
     this.audio.updateMusic(live, fx.heat, live && tension);
 
     // Countdown beats use real time, even if the point was paused in slow motion.
-    this.accumulator += dt * (held ? 1 : fx.timeScale);
+    this.accumulator +=
+      match.status === 'paused' || (still && !held) ? 0 : dt * (held ? 1 : fx.timeScale);
     let steps = 0;
-    while (this.accumulator >= FIXED_DT && steps < MAX_STEPS_PER_FRAME) {
+    while (this.accumulator + 1e-12 >= FIXED_DT && steps < MAX_STEPS_PER_FRAME) {
       step(world, FIXED_DT);
-      this.accumulator -= FIXED_DT;
+      this.accumulator = Math.max(0, this.accumulator - FIXED_DT);
       steps++;
     }
     if (steps >= MAX_STEPS_PER_FRAME) this.accumulator = 0;
@@ -688,14 +725,20 @@ export class GameEngine {
 
     this.publish();
     const drawAt = observer ? performance.now() : 0;
-    this.renderer.render(world);
+    const draw = !still || this.drawDirty || this.drawnTime !== fx.time;
+    if (draw) {
+      this.renderer.render(world);
+      this.drawDirty = false;
+      this.drawnTime = fx.time;
+    }
     if (observer) {
       try {
         observer({
           timestampMs: now,
           updateMs: drawAt - startedAt,
-          drawMs: performance.now() - drawAt,
+          drawMs: draw ? performance.now() - drawAt : 0,
           steps,
+          canvasDpr: world.view.dpr,
           phase: replayHolding(world) ? 'replay' : match.status
         });
       } catch (error) {
@@ -897,10 +940,15 @@ export class GameEngine {
     if (document.hidden) {
       this.pause();
       this.audio.suspend();
+      cancelAnimationFrame(this.frameHandle);
+      this.frameHandle = 0;
+      this.quality.reset();
     } else {
       this.lastTime = performance.now();
       this.accumulator = 0;
       if (this.world.match.status !== 'paused') this.audio.resume();
+      this.drawDirty = true;
+      if (this.running && !this.frameHandle) this.frameHandle = requestAnimationFrame(this.frame);
     }
   };
 

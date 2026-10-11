@@ -149,6 +149,7 @@ try {
   );
   assert.match(practice, /Relaxed/, 'Practice lost its ball pace choice.');
   for (const [canvasQuality, label] of [
+    ['auto', 'Auto'],
     ['high', 'High'],
     ['balanced', 'Balanced'],
     ['low', 'Low']
@@ -157,6 +158,19 @@ try {
     const html = await render(createElement(pages.SettingsScreen, props));
     const group = html.match(/<div[^>]*aria-label="Court image quality"[^>]*>(.*?)<\/div>/s)?.[1];
     assert.ok(group, 'Settings lost the court image quality choice.');
+    assert.match(group, new RegExp(`aria-pressed="true"[^>]*>${label}</button>`));
+    assert.equal((group.match(/aria-pressed="true"/g) ?? []).length, 1);
+  }
+  settingsStore.update(DEFAULT_SETTINGS);
+  for (const [graphicsIntensity, label] of [
+    ['low', 'Low'],
+    ['balanced', 'Balanced'],
+    ['high', 'High']
+  ]) {
+    settingsStore.update({ graphicsIntensity });
+    const html = await render(createElement(pages.SettingsScreen, props));
+    const group = html.match(/<div[^>]*aria-label="Graphics intensity"[^>]*>(.*?)<\/div>/s)?.[1];
+    assert.ok(group, 'Settings lost the graphics intensity choice.');
     assert.match(group, new RegExp(`aria-pressed="true"[^>]*>${label}</button>`));
     assert.equal((group.match(/aria-pressed="true"/g) ?? []).length, 1);
   }

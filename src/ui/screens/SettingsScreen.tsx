@@ -5,6 +5,7 @@ import {
   settingsStore,
   type DeviceSettings,
   type CanvasQuality,
+  type GraphicsIntensity,
   type EffectsLevel,
   type ShakeLevel,
   type TouchMode,
@@ -53,9 +54,16 @@ const EFFECTS: readonly Choice<EffectsLevel>[] = [
 ];
 
 const CANVAS_QUALITIES: readonly Choice<CanvasQuality>[] = [
+  { id: 'auto', label: 'Auto' },
   { id: 'high', label: 'High' },
   { id: 'balanced', label: 'Balanced' },
   { id: 'low', label: 'Low' }
+];
+
+const GRAPHICS_INTENSITIES: readonly Choice<GraphicsIntensity>[] = [
+  { id: 'low', label: 'Low' },
+  { id: 'balanced', label: 'Balanced' },
+  { id: 'high', label: 'High' }
 ];
 
 const SERVES: readonly Choice<boolean>[] = [
@@ -233,6 +241,19 @@ export function SettingsScreen({
         {t('The soundtrack follows the rally. Both previews respect the mute button.')}
       </p>
 
+      <p className={styles.sectionLabel}>{t('Graphics intensity')}</p>
+      <Segmented
+        label={t('Graphics intensity')}
+        choices={GRAPHICS_INTENSITIES}
+        value={settings.graphicsIntensity}
+        onChange={(graphicsIntensity) => set({ graphicsIntensity })}
+      />
+      <p className={styles.note}>
+        {t(
+          'Low keeps scenery still and reduces particles and layered effects for slower devices. Balanced uses fewer decorations; High adds the full detail. Gameplay cues and timing stay the same.'
+        )}
+      </p>
+
       <p className={styles.sectionLabel}>{t('Visual effects')}</p>
       <Segmented
         label={t('Visual effects')}
@@ -264,7 +285,7 @@ export function SettingsScreen({
       />
       <p className={styles.note}>
         {t(
-          'If rallies stutter, try Balanced or Low. The court looks softer on high-resolution screens; menu text, controls and game timing stay the same.'
+          'Auto adjusts court sharpness for smoother play. Choose High, Balanced or Low to fix it. Menu text, controls and game timing stay the same.'
         )}
       </p>
 

@@ -12,9 +12,38 @@ import {
   layoutView,
   screenToFieldX,
   screenToFieldY,
+  sizeCanvas,
   toScreenX,
   toScreenY
 } from '../../src/game/view';
+
+it('automatic resolution bounds fill cost while preserving geometry and input at every density', (t) => {
+  replaceGlobals(t, { window: { devicePixelRatio: 3 } });
+  for (const [vw, vh] of [
+    [390, 844],
+    [844, 390],
+    [1200, 800],
+    [3840, 2160]
+  ]) {
+    const view = { ...createView(), vw: vw!, vh: vh!, cx: vw! / 2, cy: vh! / 2 };
+    const canvas = { width: 0, height: 0, style: {} } as HTMLCanvasElement;
+    const geometry = { ...view, dpr: 0 };
+    for (const ratio of [1, 1.25, 1.5, 1.75, 2]) {
+      sizeCanvas(view, canvas, 'auto', ratio);
+      assert.ok(view.dpr >= 1 && view.dpr <= ratio);
+      assert.ok(canvas.width * canvas.height <= Math.max(2_003_000, vw! * vh!));
+      assert.deepEqual({ ...view, dpr: 0 }, geometry);
+      const x = view.w / 3,
+        y = 217;
+      assert.ok(
+        Math.abs(screenToFieldX(view, toScreenX(view, x, y), toScreenY(view, x, y)) - x) < 1e-8
+      );
+      assert.ok(
+        Math.abs(screenToFieldY(view, toScreenX(view, x, y), toScreenY(view, x, y)) - y) < 1e-8
+      );
+    }
+  }
+});
 
 function replaceGlobals(t: TestContext, replacements: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(replacements)) {

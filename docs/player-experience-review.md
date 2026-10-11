@@ -1,5 +1,43 @@
 # bBall player experience review
 
+**Graphics intensity update, 11 October:** Settings now offers Low, Balanced
+(default) and High independently of court quality, Full/Calm and shake. Balanced
+halves particle and scenery density, reduces confetti, keeps the lattice static
+and removes viewport ultimate layers. Low holds the menu court still, removes
+scenery, confetti, afterimages and floor lattice, and caps particles at 64 with
+simple cast rings and skill outlines. Guard brackets, charge pips, skill names,
+hazards, opponent warnings and cooldowns remain readable at every level.
+
+All ultimate casts have shorter, softer waves, fewer sparks and rays, and a
+smaller camera punch. The High chrome uses a faint steady veil and an opacity
+flare instead of animating a full-page blur. These are presentation budgets;
+physics, ability rules, hit-stop, input ownership and match timing retain their
+rules. Settings persist per device and old settings pick up Balanced. System
+and browser reduced-motion preferences remain completely ignored. Automated
+budget, timing, input and menu checks cannot establish physical-phone frame
+rates, thermal behavior or perceived readability; that device QA remains needed.
+
+**Mobile performance update, 10 October:** Court image quality now defaults to
+Auto when no quality choice is saved; existing High/Balanced/Low choices remain
+fixed. Auto starts at density 1.5, reduces it by 0.25 after two seconds with
+at least 60% slow intervals (over 22 ms), and recovers by 0.25 after ten healthy
+seconds (intervals at most 18 ms). Density stays between 1 and 2, with a
+two-million-backing-pixel target and a minimum density of 1. Interruptions and
+pauses reset the measurement window. Only backing resolution changes; field
+geometry, physics, touch ownership, Full/Calm and shake retain their rules.
+System/browser reduced-motion preferences remain completely ignored.
+
+Paused courts and Calm menu backdrops avoid repeated drawing; settings, themes,
+layout and practice steps still repaint them. Hidden pages stop the main loop
+and retain the explicit resume requirement. Skill buttons no longer blur the
+moving court, and their active halo pulses through opacity instead of repainting
+its shadow. Timing captures record actual `canvasDpr` per sample so Auto changes
+can be compared with frame delivery. Physical lower-end-phone, thermal and
+readability validation remains necessary; no universal FPS guarantee is claimed.
+CI now runs the controlled-load browser regression and bundle checks on each
+pull request. Unit regressions also cover sustained/severe load, slow recovery,
+interruptions, held input, paused practice repainting and visibility lifecycle.
+
 **Picker alignment review, 9 October:** paired setup fields now share label,
 card and caption rows. Different caption lengths and wrapped labels or choice
 names no longer shift adjacent previews, titles or chevrons. Illustrated choice
@@ -970,7 +1008,8 @@ on-device QA remain pending.
 
 ## Rendering workload measurements
 
-High preserves the previous default. Balanced and Low cap backing density at
+High preserves the original rendering density. Auto is now the default for
+settings without a saved quality choice. Balanced and Low cap backing density at
 1.5 and 1 respectively; High keeps its 2.5 cap. All choices use the device's
 actual ratio when it is below the cap, with the existing lower bound of 1.
 At a 1200 × 800 CSS-pixel viewport and device ratio 3, the real layout function
@@ -986,8 +1025,9 @@ The percentages apply to this capped density, not all devices. A ratio-1
 display has identical backing dimensions at all three qualities. Menu text is
 HTML and retains its density; canvas labels share the softer court rendering.
 Changing quality does not rescale the world, rebuild hazards or clear input
-ownership. It invalidates drawing caches after sizing the backing store. No
-automatic density adjustment, frame-rate cap or effect-strength change is added.
+ownership. It invalidates drawing caches after sizing the backing store. The
+10 October update adds automatic density adjustment; fixed choices keep these
+caps. No frame-rate cap or effect-strength change is added.
 The existing policy of ignoring system reduced motion remains in force.
 
 A fixed 600-frame sequence of glow calls uses two paddle colours, two comet-ball
@@ -1201,10 +1241,10 @@ lesson easy or the game more enjoyable.
 The code implementation stage is complete. The remaining decisions are validation
 tasks with an implemented [collection and decision workflow](player-experience-validation.md):
 
-| Decision                                     | Current status                                  | Evidence still needed                                                                                                                                             |
-| -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Early Journey transitions and bosses         | Trial capture/summary ready; tuning deferred    | Human attempts, quit reasons and observations across skill/input/build and narrow/wide courts. Six bot matches per case are insufficient.                         |
-| Startup, first menus and lower-end rendering | Timing capture ready; quality defaults retained | Cold/warm launches and repeated physical frame/input/readability checks under Full/Calm at High/Balanced/Low. Browser diagnostic timing is not perceived latency. |
+| Decision                                     | Current status                               | Evidence still needed                                                                                                                                                  |
+| -------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Early Journey transitions and bosses         | Trial capture/summary ready; tuning deferred | Human attempts, quit reasons and observations across skill/input/build and narrow/wide courts. Six bot matches per case are insufficient.                              |
+| Startup, first menus and lower-end rendering | Timing capture ready; Auto quality available | Cold/warm launches and repeated physical frame/input/readability checks under Full/Calm at Auto/High/Balanced/Low. Browser diagnostic timing is not perceived latency. |
 
 For the next playtest, include newcomers and returning players using a mouse,
 keyboard and touch in portrait and landscape. Observe the first three rallies,

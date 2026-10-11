@@ -1578,6 +1578,8 @@
   "Screen shake": "لرزش صفحه",
   "Camera movement stays off when Calm is active.": "وقتی حالت آرام فعال است، حرکت دوربین خاموش می‌ماند.",
   "Court image quality": "کیفیت تصویر زمین",
+  "Auto": "خودکار",
+  "Auto adjusts court sharpness for smoother play. Choose High, Balanced or Low to fix it. Menu text, controls and game timing stay the same.": "خودکار وضوح زمین را برای بازی روان‌تر تنظیم می‌کند. برای کیفیت ثابت، بالا، متعادل یا پایین را انتخاب کنید. متن منو، کنترل‌ها و زمان‌بندی بازی ثابت می‌مانند.",
   "If rallies stutter, try Balanced or Low. The court looks softer on high-resolution screens; menu text, controls and game timing stay the same.": "اگر رالی گیر می‌کند، متعادل یا پایین را امتحان کنید. زمین در نمایشگر پروضوح نرم‌تر دیده می‌شود؛ متن منو، کنترل و زمان‌بندی ثابت می‌مانند.",
   "Touch movement": "حرکت لمسی",
   "Follow finger places the paddle at your finger. Relative drag moves from its current position, so you can steer from a clear part of the court.": "دنبال‌کردن انگشت، راکت را روی انگشت قرار می‌دهد. کشیدن نسبی از جای فعلی حرکت می‌کند تا از جای خلوت زمین هدایت کنید.",
@@ -2061,5 +2063,7 @@
   "15% faster serves and top speed for both sides.": "سرعت شروع و حداکثر سرعت توپ برای هر دو طرف ۱۵٪ بیشتر است.",
   "Keep the selected court as shown.": "چیدمان زمین انتخاب‌شده را همان‌طور که نمایش داده شده نگه دارید.",
   "Pair court hazards across the middle. Rails become breakable.": "موانع زمین در دو سوی خط میانی جفت می‌شوند. ریل‌ها شکستنی می‌شوند.",
-  "Open court has no hazards to mirror. Choose a hazard court above.": "زمین آزاد مانعی برای قرینه‌سازی ندارد. از بالا یک زمین دارای مانع انتخاب کنید."
+  "Open court has no hazards to mirror. Choose a hazard court above.": "زمین آزاد مانعی برای قرینه‌سازی ندارد. از بالا یک زمین دارای مانع انتخاب کنید.",
+  "Graphics intensity": "شدت جلوه‌های گرافیکی",
+  "Low keeps scenery still and reduces particles and layered effects for slower devices. Balanced uses fewer decorations; High adds the full detail. Gameplay cues and timing stay the same.": "حالت کم، پس‌زمینه را ثابت نگه می‌دارد و ذرات و جلوه‌های چندلایه را برای دستگاه‌های ضعیف‌تر کاهش می‌دهد. حالت متعادل تزئینات کمتری دارد؛ حالت زیاد همهٔ جزئیات را نمایش می‌دهد. نشانه‌ها و زمان‌بندی بازی تغییری نمی‌کنند."
 }

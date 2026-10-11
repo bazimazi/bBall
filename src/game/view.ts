@@ -20,7 +20,8 @@ function safeInset(styles: CSSStyleDeclaration, name: string): number {
 export function layoutView(
   view: View,
   canvas: HTMLCanvasElement,
-  quality: CanvasQuality = 'high'
+  quality: CanvasQuality = 'auto',
+  automaticRatio = 1.5
 ): number {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -46,19 +47,30 @@ export function layoutView(
   view.cx = vw / 2;
   view.cy = vh / 2;
 
-  sizeCanvas(view, canvas, quality);
+  sizeCanvas(view, canvas, quality, automaticRatio);
   return view.w / previousW;
 }
 
 const PIXEL_RATIO_CAP: Readonly<Record<CanvasQuality, number>> = {
+  auto: 2,
   high: 2.5,
   balanced: 1.5,
   low: 1
 };
 
 /** Change only the backing store, leaving field geometry and CSS input coordinates intact. */
-export function sizeCanvas(view: View, canvas: HTMLCanvasElement, quality: CanvasQuality): void {
-  const dpr = clamp(window.devicePixelRatio || 1, 1, PIXEL_RATIO_CAP[quality]);
+export function sizeCanvas(
+  view: View,
+  canvas: HTMLCanvasElement,
+  quality: CanvasQuality,
+  automaticRatio = 1.5
+): void {
+  // Bound automatic fill cost on large/high-density screens as well as phones.
+  const cap =
+    quality === 'auto'
+      ? Math.min(automaticRatio, Math.sqrt(2_000_000 / Math.max(1, view.vw * view.vh)), 2)
+      : PIXEL_RATIO_CAP[quality];
+  const dpr = clamp(window.devicePixelRatio || 1, 1, Math.max(1, cap));
   const bw = Math.round(view.vw * dpr);
   const bh = Math.round(view.vh * dpr);
   view.dpr = dpr;

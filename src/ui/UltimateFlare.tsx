@@ -14,7 +14,7 @@ interface UltimateFlareProps {
 }
 
 /** Milliseconds the cast flare runs for. Matches `flareOut` in the stylesheet. */
-const FLARE_MS = 800;
+const FLARE_MS = 650;
 
 /**
  * A capstone, drawn on the page rather than on the court.
@@ -27,8 +27,8 @@ const FLARE_MS = 800;
  * Two pieces, and neither of them asks for attention:
  *
  *  - the flare: one rim flash at the moment of the cast;
- *  - the veil: the edge of the page held in the skill's colour, breathing
- *    slowly, for as long as the effect runs. Peripheral vision alone is
+ *  - the veil: a faint, steady edge tint for as long as the effect runs.
+ *    Peripheral vision alone is
  *    enough to know an ultimate is up.
  *
  * The flare is driven from state rather than rendered straight off `castId`,

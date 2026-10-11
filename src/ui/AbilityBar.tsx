@@ -89,7 +89,7 @@ interface AbilityButtonProps {
 function AbilityButton({ ability, onUse }: AbilityButtonProps) {
   const index = ability.slot;
   const burst = useBurst(ability.castId, ability.refreshId);
-  const { keyBindings } = useSettings();
+  const { keyBindings, graphicsIntensity } = useSettings();
   const action = skillAction(index);
 
   // Fire on pointerdown, not click: during a rally the difference between the
@@ -115,6 +115,7 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
     <button
       type="button"
       className={classes.join(' ')}
+      data-graphics={graphicsIntensity}
       style={style}
       aria-label={t(msg('{0}, shortcut {1}', [t(label(ability)), keyList(keyBindings, action)]))}
       aria-disabled={!ability.ready}

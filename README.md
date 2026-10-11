@@ -621,10 +621,30 @@ serve pacing, the resume countdown, Practice pace and court image quality. **Cal
 screen flashes, full-screen ultimate flares and animated menu backgrounds,
 with fewer particles. Rally speeds and hit rules stay the same.
 
-**Court image quality** offers High (the existing default), Balanced and Low.
-Try Balanced or Low if rallies stutter on a high-resolution screen: the court
-looks softer, while menu text, controls and simulation timing stay the same.
-The choice is independent of Full/Calm effects and stays on this device.
+**Graphics intensity** offers Low, Balanced (the default) and High, saved on this
+device separately from court sharpness, Full/Calm and shake. Balanced halves
+particles and scenery, reduces confetti and uses a static floor lattice. Low
+holds the menu court still, removes animated scenery, confetti, afterimages and
+screen-wide ultimate layers, and uses a smaller particle budget and simple skill
+outlines. Skill names, charge pips, guard cues, hazards and cooldowns stay visible;
+input, physics and match timing stay the same. For a slower phone, try Low
+intensity with Auto or Low court image quality. Ultimate casts also use softer,
+shorter flashes, fewer sparks and rays, and a smaller camera punch at every
+intensity. System/browser reduced-motion preferences remain completely ignored.
+
+**Court image quality** defaults to Auto for new or older settings without a
+quality choice. Auto starts at a pixel-density cap of 1.5, lowers it toward 1
+after sustained slow frames, and restores sharpness gradually up to 2. It also
+targets at most two million backing pixels, with a minimum density of 1.
+High, Balanced and Low fix the density caps at 2.5, 1.5 and 1; existing saved
+choices are preserved. Menu text, touch coordinates and simulation timing stay
+the same. Quality stays on this device and is independent of Full/Calm effects,
+screen shake and system reduced-motion preferences, which remain ignored.
+Paused courts are redrawn only when changed, and hidden pages stop the game loop.
+`npm run check:performance` verifies automatic density and frozen-court painting
+in a real browser with controlled CPU pressure in both phone orientations. It
+is a regression check, not a physical-phone FPS or thermal benchmark.
+CI runs this browser check and the bundle checks on every pull request.
 
 On mobile, **Settings → Fullscreen → On** hides system bars for more room to
 play. The choice stays on this device and defaults to Off. Android restores it

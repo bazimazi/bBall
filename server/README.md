@@ -17,6 +17,19 @@ motion preferences. Client RTL slider, progress and numeric-order corrections
 do not change server data or authoritative rules.
 See the [root README](../README.md) and [project instructions](../AGENTS.md).
 
+Client Court image quality now defaults to Auto when no choice is saved,
+adjusting canvas density after sustained slow frames. Saved High/Balanced/Low
+choices remain fixed. Paused courts repaint on changes, and hidden pages stop
+the client loop. These device-local changes do not affect the authoritative
+simulation or API/save payloads. Full/Calm and shake remain explicit controls;
+system/browser reduced-motion settings remain completely ignored.
+
+Client Graphics intensity is also device-local: Low, Balanced (default) or High.
+It budgets decorative particles, scenery, floor ripples and ultimate layers
+separately from court density, Full/Calm and shake. Ultimate presentation is
+softer at every level. Gameplay cues, timing, authoritative rules and API/profile
+formats stay unchanged; system/browser reduced-motion preferences remain ignored.
+
 The game stays exactly what it was: a local simulation that runs at 120 Hz and
 never waits for anything. This adds an account behind it, so a player's level,
 build and records follow them to another device - and so the numbers that

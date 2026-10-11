@@ -31,6 +31,7 @@ import type {
 } from './types';
 import { clamp } from './utils/math';
 import { createView, toScreenX } from './view';
+import type { GraphicsIntensity } from '../core/settings/store';
 
 /**
  * Every piece of mutable simulation state, in one place. Systems (physics, AI,
@@ -91,6 +92,8 @@ export interface World {
   demoBrain: BotBrain;
   /** Effect strength, 1 normally and 0.25 for the game's Calm effects setting. */
   motion: number;
+  /** Budget for decorative rendering; never used by gameplay rules. */
+  graphicsIntensity: GraphicsIntensity;
   /**
    * How far the camera may move - shake, kick and punch - from the player's
    * own setting. Applied where the camera is placed rather than where a
@@ -304,6 +307,7 @@ export function createWorld(audio: GameAudio, motion: number): World {
     botBrain: createBrain(rules.bot),
     demoBrain: createBrain(botProfile('amateur')),
     motion,
+    graphicsIntensity: 'high',
     camera: 1,
     replays: true,
     autoServe: true,

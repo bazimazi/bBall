@@ -19,7 +19,8 @@ export type SkillSide = 'left' | 'right';
 /** How hard the camera moves: the full shake, a gentle one, or none at all. */
 export type ShakeLevel = 'full' | 'gentle' | 'off';
 export type EffectsLevel = 'full' | 'calm';
-export type CanvasQuality = 'high' | 'balanced' | 'low';
+export type GraphicsIntensity = 'high' | 'balanced' | 'low';
+export type CanvasQuality = 'auto' | 'high' | 'balanced' | 'low';
 export type TouchMode = 'direct' | 'relative';
 
 export interface DeviceSettings {
@@ -40,6 +41,8 @@ export interface DeviceSettings {
   replays: boolean;
   /** Calm keeps local feedback but removes camera motion and screen flashes. */
   effects: EffectsLevel;
+  /** Decoration budget, independent of court sharpness and visual comfort. */
+  graphicsIntensity: GraphicsIntensity;
   /** Court pixel density; independent of effects, input and simulation timing. */
   canvasQuality: CanvasQuality;
   /** Hide mobile system bars; a browser re-enters on the next play gesture. */
@@ -65,7 +68,8 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
   haptics: true,
   replays: true,
   effects: 'full',
-  canvasQuality: 'high',
+  graphicsIntensity: 'balanced',
+  canvasQuality: 'auto',
   fullscreen: false,
   autoServe: true,
   resumeCountdown: true,
@@ -112,8 +116,14 @@ const SPEC: StoreSpec<DeviceSettings> = {
       haptics: typeof source.haptics === 'boolean' ? source.haptics : DEFAULT_SETTINGS.haptics,
       replays: typeof source.replays === 'boolean' ? source.replays : DEFAULT_SETTINGS.replays,
       effects: source.effects === 'calm' ? 'calm' : DEFAULT_SETTINGS.effects,
+      graphicsIntensity:
+        source.graphicsIntensity === 'high' || source.graphicsIntensity === 'low'
+          ? source.graphicsIntensity
+          : DEFAULT_SETTINGS.graphicsIntensity,
       canvasQuality:
-        source.canvasQuality === 'balanced' || source.canvasQuality === 'low'
+        source.canvasQuality === 'high' ||
+        source.canvasQuality === 'balanced' ||
+        source.canvasQuality === 'low'
           ? source.canvasQuality
           : DEFAULT_SETTINGS.canvasQuality,
       fullscreen:

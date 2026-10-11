@@ -125,7 +125,8 @@ caches or certify a cold navigation.
    Note loading/failure recovery and observed time to a usable control separately.
 2. Warm drawing caches, then capture enough time to include at least 30 seconds
    of **play** intervals. Repeat three runs per condition, comparing Full/Calm
-   at High/Balanced/Low. Export after each block. Keep changed or short captures
+   at Auto/High/Balanced/Low. Auto records actual `canvasDpr` per frame; compare
+   sharpness changes alongside intervals. Export after each block. Keep changed or short captures
    distinct; do not pool pause/menu time as active-rally performance.
 3. Repeat with dense skills/hazards and a deciding-point replay. Check ball,
    paddle, target and canvas-label readability at each quality in both orientations.

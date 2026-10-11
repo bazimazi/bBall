@@ -24,6 +24,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run check:bundle
+      - name: Install Chromium for mobile rendering regressions
+        run: npx playwright install --with-deps chromium
+      - run: npm run check:performance
 
   # Proves the Rust shell still compiles and that its capabilities still match
   # the config, without paying for a full bundle on every push. One platform is

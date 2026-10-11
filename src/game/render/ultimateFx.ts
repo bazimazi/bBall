@@ -32,14 +32,14 @@ import type { World } from '../world';
 /** How far past the furthest corner the wave travels before it is done. */
 const WAVE_OVERRUN = 1.08;
 /** Fraction of the wave's reach taken up by the band of light itself. */
-const WAVE_BAND = 0.22;
+const WAVE_BAND = 0.12;
 
 /** Peak alpha of the wash behind the court, and of the rim over it. */
-const BACKDROP_ALPHA = 0.5;
-const RIM_ALPHA = 0.17;
+const BACKDROP_ALPHA = 0.22;
+const RIM_ALPHA = 0.07;
 
 /** Radius, as a fraction of the half-diagonal, where the rim starts. */
-const RIM_INNER = 0.42;
+const RIM_INNER = 0.65;
 
 function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
@@ -166,7 +166,7 @@ export class UltimateLayer {
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = fade * fade * (0.45 + 0.55 * motion);
+    ctx.globalAlpha = fade * fade * 0.45 * (0.45 + 0.55 * motion);
 
     // The three stops have to stay strictly increasing however far the head
     // has travelled, or the gradient throws.
@@ -185,9 +185,9 @@ export class UltimateLayer {
     ctx.fillRect(0, 0, view.vw, view.vh);
 
     // The crest itself, so the wave has an edge rather than only a glow.
-    ctx.globalAlpha = fade * fade * 0.7 * motion;
+    ctx.globalAlpha = fade * fade * 0.3 * motion;
     ctx.strokeStyle = hsla(hue, 100, 82, 1);
-    ctx.lineWidth = 3 + fade * 5;
+    ctx.lineWidth = 2 + fade * 2;
     ctx.beginPath();
     ctx.arc(ox, oy, head, 0, Math.PI * 2);
     ctx.stroke();
@@ -214,14 +214,14 @@ export class UltimateLayer {
     const hue = world.fx.castHue;
     const spin = world.fx.castId * 0.37; // a different spoke pattern every cast
 
-    ctx.globalAlpha = k * k * 0.75 * world.motion;
+    ctx.globalAlpha = k * k * 0.35 * world.motion;
     ctx.strokeStyle = hsla(hue, 100, 78, 1);
     ctx.lineCap = 'butt';
-    for (let i = 0; i < 22; i++) {
-      const a = spin + (i * Math.PI * 2) / 22;
+    for (let i = 0; i < 10; i++) {
+      const a = spin + (i * Math.PI * 2) / 10;
       const from = reach * (0.18 + easeOut(t) * 0.75);
       const to = from + reach * 0.4 * k;
-      ctx.lineWidth = 2 + k * 5;
+      ctx.lineWidth = 1.5 + k * 2;
       ctx.beginPath();
       ctx.moveTo(ox + Math.cos(a) * from, oy + Math.sin(a) * from);
       ctx.lineTo(ox + Math.cos(a) * to, oy + Math.sin(a) * to);

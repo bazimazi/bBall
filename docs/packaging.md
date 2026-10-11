@@ -57,12 +57,30 @@ also ignore those preferences and run in both Full and Calm on every platform.
 The [Workshop report](validation/paddle-workshop-report.md) records automated
 coverage; browser screenshots do not establish native feel or performance.
 
-The explicit Court image quality setting uses the same High/Balanced/Low
-backing-density caps in web and native builds (2.5/1.5/1). It is stored on the
-device and independent of Full/Calm effects. Native wrappers should preserve
-the CSS viewport and pointer coordinates. Check court sharpness and frame times
-at all three qualities on physical devices; a successful asset build does not
-verify webview performance.
+Court image quality defaults to Auto when no choice has been saved. Web and
+native builds start Auto at density 1.5, lower it toward 1 after sustained slow
+frames and recover gradually toward 2, with a two-million-pixel target and a
+minimum density of 1. Saved High/Balanced/Low choices retain their fixed
+2.5/1.5/1 caps. Paused courts repaint on changes; hidden pages stop the loop.
+Quality is stored on the device and independent of Full/Calm effects and shake.
+System/browser reduced-motion settings remain completely ignored. Native
+wrappers should preserve CSS viewport and pointer coordinates. Check sharpness,
+frame times and thermal behavior at Auto and every fixed quality on physical
+devices; successful assets and throttled desktop tests do not verify webview
+performance.
+
+Settings also offers Graphics intensity: Low, Balanced (default) and High,
+stored per device independently of court quality, Full/Calm and shake. Balanced
+halves particle/scenery counts and removes moving floor glow passes and viewport
+ultimate layers. Low additionally holds the menu court still, removes scenery,
+confetti and afterimages, caps particles at 64 and simplifies skill casts and
+auras. Skill names, guard cues, charge pips, hazards and cooldowns remain visible.
+Ultimate waves, flashes, sparks and camera punches are softer at every level;
+the High chrome flare animates opacity instead of a growing box-shadow blur.
+Check changing intensity during a paused match, persistence after restart,
+both orientations, English/Persian layout, all five ultimates and sustained play
+on physical lower-end phones. Physics and timing must stay identical between
+levels. System/browser reduced-motion preferences remain completely ignored.
 
 The [experience validation guide](player-experience-validation.md) supplies a
 physical-device matrix and opt-in local timing/attempt capture. Browser test

@@ -109,8 +109,8 @@ export function step(world: World, dt: number): void {
     }
     return;
   }
-  // Calm effects keep the menu's background court still, too.
-  if (match.status === 'menu' && world.motion < 0.5) return;
+  // Explicit comfort and graphics controls can hold the menu court still.
+  if (match.status === 'menu' && (world.motion < 0.5 || world.graphicsIntensity === 'low')) return;
   if (
     match.status === 'serve' &&
     !world.tutorial &&

@@ -252,6 +252,7 @@ const CONFETTI_GRAVITY = 900;
  * towards the field's "bottom" would drift sideways across the glass.
  */
 export class ConfettiSystem {
+  density = 1;
   readonly items: Confetto[] = Array.from({ length: CONFETTI_MAX }, () => ({
     x: 0,
     y: 0,
@@ -271,7 +272,7 @@ export class ConfettiSystem {
 
   /** Burst `count` pieces from a screen point, fanned upwards. */
   burst(x: number, y: number, count: number, hues: readonly number[], power = 1): void {
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < Math.round(count * this.density); i++) {
       const piece = this.items[this.head]!;
       this.head = (this.head + 1) % CONFETTI_MAX;
       const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
@@ -337,6 +338,7 @@ const MAX_OFFSET = 26;
  * reports itself at rest and the renderer draws plain straight lines.
  */
 export class CourtGrid {
+  enabled = true;
   cols = 0;
   rows = 0;
   /** Displacement and velocity per point, row-major. */
@@ -372,7 +374,7 @@ export class CourtGrid {
 
   /** Push every point near (x, y) outwards, falling off with distance. */
   impulse(x: number, y: number, strength: number, radius = 150): void {
-    if (this.cols === 0 || strength <= 0) return;
+    if (!this.enabled || this.cols === 0 || strength <= 0) return;
     const sx = this.stepX;
     const sy = this.stepY;
     const inv = 1 / (radius * radius);

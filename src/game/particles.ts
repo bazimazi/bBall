@@ -20,13 +20,23 @@ export class ParticleSystem {
   }));
 
   private head = 0;
+  private density = 1;
+  private limit = PARTICLE_MAX;
+
+  /** Trim existing effects immediately when switching to a smaller budget. */
+  configure(density: number, limit: number): void {
+    this.density = density;
+    this.limit = Math.max(1, Math.min(PARTICLE_MAX, limit));
+    this.head %= this.limit;
+    for (let i = this.limit; i < this.items.length; i++) this.items[i]!.alive = false;
+  }
 
   /** `scale` folds in the game's effects setting. */
   emit(x: number, y: number, count: number, options: EmitOptions, scale = 1): void {
-    const n = Math.round(count * scale);
+    const n = Math.round(count * scale * this.density);
     for (let i = 0; i < n; i++) {
       const p = this.items[this.head]!;
-      this.head = (this.head + 1) % PARTICLE_MAX;
+      this.head = (this.head + 1) % this.limit;
       const angle =
         options.angle === undefined
           ? Math.random() * Math.PI * 2
@@ -59,10 +69,10 @@ export class ParticleSystem {
     color: string,
     scale = 1
   ): void {
-    const n = Math.round(count * scale);
+    const n = Math.round(count * scale * this.density);
     for (let i = 0; i < n; i++) {
       const p = this.items[this.head]!;
-      this.head = (this.head + 1) % PARTICLE_MAX;
+      this.head = (this.head + 1) % this.limit;
       const angle = Math.random() * Math.PI * 2;
       const reach = radius * (0.7 + Math.random() * 0.5);
       const span = life * (0.8 + Math.random() * 0.4);

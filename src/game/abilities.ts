@@ -138,8 +138,8 @@ function ultimateFlare(world: World, id: AbilityId, hue: number, name: string): 
   world.particles.emit(
     player.x,
     player.y,
-    34,
-    { speed: 340, life: 0.7, size: 4.2, color: hsla(hue, 100, 70, 0.95) },
+    18,
+    { speed: 260, life: 0.55, size: 3.2, color: hsla(hue, 100, 70, 0.85) },
     world.motion
   );
   world.audio.ultimate(id);

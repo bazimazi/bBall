@@ -1719,6 +1719,15 @@ try {
           await click(low);
           assert.equal(settingsStore.getSnapshot().canvasQuality, 'low');
           focused(low);
+          const intensity = query('[aria-label="Graphics intensity"] button:first-child');
+          await click(intensity);
+          assert.equal(settingsStore.getSnapshot().graphicsIntensity, 'low');
+          assert.equal(intensity.getAttribute('aria-pressed'), 'true');
+          assert.equal(
+            JSON.parse(win.localStorage.getItem('bball.settings')).data.graphicsIntensity,
+            'low'
+          );
+          focused(intensity);
           // Escape cancels remapping first, then a second Escape can leave Settings.
           if (exit === 'escape') {
             query('details').setAttribute('open', '');

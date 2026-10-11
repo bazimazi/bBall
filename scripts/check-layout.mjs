@@ -396,9 +396,11 @@ try {
               opacity: Number(style.opacity)
             };
           });
+          // Capture inertness before finish() can dismiss the dialog asynchronously.
+          const blocked = document.getElementById('root').hasAttribute('inert');
           if (interrupted) animation.currentTime = duration / 2;
           else animation.finish();
-          return { duration, frames };
+          return { duration, frames, blocked };
         },
         { marker, interrupted }
       );
@@ -497,11 +499,7 @@ try {
       'early dismissal continues from the visible position'
     );
     assert.ok(Math.abs(closing.frames[0].opacity - opening.frames[1].opacity) < 0.01);
-    assert.equal(
-      await page.locator('#root').getAttribute('inert'),
-      '',
-      'background stays blocked through exit'
-    );
+    assert.equal(closing.blocked, true, 'background stays blocked through exit');
     await page.getByRole('dialog').waitFor({ state: 'detached' });
     assert.equal(
       await tab('Compare return paths').evaluate((el) => el === document.activeElement),

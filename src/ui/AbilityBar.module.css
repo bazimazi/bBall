@@ -50,8 +50,7 @@
    * ball read straight through it; the ring and the glyph still do not.
    */
   background: rgba(8, 11, 20, 0.34);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  /* Avoid repeatedly blurring the moving court beneath every skill button. */
   color: var(--ink);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
   font-family: inherit;
@@ -98,6 +97,16 @@
   box-shadow:
     0 0 0 2.5px hsla(var(--hue), 100%, 66%, 0.95) inset,
     0 0 24px hsla(var(--hue), 100%, 60%, 0.55);
+}
+
+/* Rasterise the halo once; only its opacity breathes, leaving icons legible. */
+.active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 34px hsla(var(--hue), 100%, 64%, 0.8);
   animation: pulse 1.1s ease-in-out infinite;
 }
 
@@ -110,14 +119,10 @@
 @keyframes pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 0 2.5px hsla(var(--hue), 100%, 66%, 0.95) inset,
-      0 0 24px hsla(var(--hue), 100%, 60%, 0.55);
+    opacity: 0;
   }
   50% {
-    box-shadow:
-      0 0 0 2.5px hsla(var(--hue), 100%, 78%, 1) inset,
-      0 0 34px hsla(var(--hue), 100%, 64%, 0.8);
+    opacity: 1;
   }
 }
 
@@ -242,9 +247,9 @@
 /* A capstone's ring travels further and leaves gold behind it - the same
    "this one was expensive" the court-wide shockwave says. */
 .ultimate .burstCast {
-  border-width: 3px;
-  box-shadow: 0 0 18px hsla(var(--hue), 100%, 60%, 0.8);
-  animation-duration: 0.7s;
+  border-width: 2px;
+  box-shadow: 0 0 8px hsla(var(--hue), 100%, 60%, 0.4);
+  animation-duration: 0.55s;
   animation-name: burstUltimate;
 }
 
@@ -269,10 +274,27 @@
     border-color: hsl(var(--hue), 100%, 74%);
   }
   100% {
-    transform: scale(2.4);
+    transform: scale(1.7);
     opacity: 0;
     border-color: rgba(255, 202, 58, 0.6);
   }
+}
+
+/* Explicit device graphics budget; status rings and cooldowns remain visible. */
+.active[data-graphics='balanced']::before,
+.active[data-graphics='low']::before {
+  animation: none;
+  display: none;
+}
+
+.active[data-graphics='low'],
+.cooling.active[data-graphics='low'] {
+  box-shadow: 0 0 0 2px hsla(var(--hue), 100%, 66%, 0.95) inset;
+}
+
+[data-graphics='low'] .burstCast,
+[data-graphics='low'] .burstRefresh {
+  display: none;
 }
 
 @keyframes burstIn {
