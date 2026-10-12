@@ -1,12 +1,27 @@
 # bBall player experience review
 
+**Workshop and Lab clarity, 12 October:** the Lab now starts with a compact loot
+wallet and three sections: Upgrades, Builds, and Expert trials. Upgrade cards
+show one plain-language benefit; tapping opens a focused purchase sheet with
+exact costs, balances, shortages, and links to prerequisite upgrades. Opening or
+closing the sheet spends nothing; Unlock permanently is the explicit purchase.
+Earning rules remain available in one disclosure. Locked build/trial sections
+link to their required upgrade, and the first-clear reward is explained once.
+The Workshop shows material benefits in the selection cards, keeps response
+statistics in Material details, highlights Equip when ready, and removes the
+starter claim after it pays out. Claiming moves keyboard focus to Craft when available, otherwise Material details.
+Mobile and Persian checks cover purchase sheets, prerequisites, dismissal,
+crafting, equipment, saved builds, and reachable controls. These are interaction
+and layout checks; improved player comprehension still needs player observation.
+
 **Resonance Lab, 12 October:** ranked attempts now bank deterministic loot even
 on qualifying defeats. A repeating three-mode circuit offers a core without an
 Elite win or calendar gate. Seven permanent research choices add individual rank
 refunds, two/three pinned specializations, between-rally court switching, two
 situational skills and three optional expert trials. Existing build storage and
 full/branch resets remain free. Prices, missing quantities and prerequisites are
-visible; purchases and occupied-build overwrites require a second click.
+available in upgrade details; purchases require an explicit unlock action and
+occupied-build overwrites require a second click.
 
 English/Persian browser checks exercise purchases, named builds, actual rank
 refunds, pins, trial selection, reload persistence and the real game engine's

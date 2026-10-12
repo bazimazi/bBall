@@ -3825,10 +3825,15 @@ try {
             /Rubber/
           );
           assert.equal(button('Unlock at Contact craft').disabled, true);
-          await click(button('Compare selected kit'));
+          await click(button('Claim starter Marks'));
           assert.equal(profileStore.getSnapshot().progress.workshop.marks, 12);
-          focused(button('Compare selected kit'));
-          await click(button('Compare selected kit'));
+          focused(button('Craft · 12 Marks'));
+          assert.equal(
+            [...globalThis.document.querySelectorAll('button')].some(
+              (b) => b.textContent === 'Claim starter Marks'
+            ),
+            false
+          );
           assert.equal(profileStore.getSnapshot().progress.workshop.marks, 12);
           await click(button('Craft · 12 Marks'));
           await click(button('Equip paddle'));

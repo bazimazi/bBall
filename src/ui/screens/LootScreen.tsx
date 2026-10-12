@@ -7,7 +7,7 @@ import { hasResearch, lootBalance, specializationSlots } from '../../core/loot/s
 import { RESONANCE_TRIALS, trialOpen } from '../../core/loot/trials';
 import { specializationBuilds } from '../../core/loot/ops';
 import { Screen } from '../components/Screen';
-import { SaveNotice } from '../components/SaveNotice';
+import { Dialog } from '../components/Dialog';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { GamePicker } from '../components/GamePicker';
 import screens from '../Screens.module.css';
@@ -23,28 +23,32 @@ export function LootScreen({ profile, onBack, onTalents, onPlay }: LootScreenPro
   const state = profile.progress.loot,
     balance = lootBalance(state);
   const [notice, setNotice] = useState('');
-  const [pending, setPending] = useState<ResearchId | null>(null);
+  const [selected, setSelected] = useState<ResearchId | null>(null);
   const [tab, setTab] = useState<'research' | 'specializations' | 'trials'>('research');
+  const selectedEntry = RESEARCH.find((entry) => entry.id === selected);
+  const glyphs = { shards: '◇', threads: '⌁', cores: '◈' };
   return (
     <Screen
       title={t('Resonance Lab')}
-      subtitle={t('Turn every rally into new possibilities')}
+      subtitle={t('Play. Collect. Unlock forever.')}
       onBack={onBack}
     >
-      <SaveNotice />
       <div className={styles.wallet} aria-label={t('Loot inventory')}>
         {LOOT_ITEMS.map((item) => (
-          <div className={styles.resource} key={item}>
+          <div className={styles.resource} data-large={balance[item] >= 10000} key={item}>
             <span className={styles.glyph} aria-hidden="true">
-              {item === 'shards' ? '◇' : item === 'threads' ? '⌁' : '◈'}
+              {glyphs[item]}
             </span>
             <strong>{t(balance[item])}</strong>
             <span>{t(ITEM_INFO[item].name)}</span>
           </div>
         ))}
       </div>
-      <div className={styles.circuit}>
-        <div>
+      <MenuDisclosure
+        title={t('Where loot comes from')}
+        hint={t(msg('{0}/3 modes visited', [t(state.circuit.length)]))}
+      >
+        <div className={styles.circuitHead}>
           <strong>{t('Resonance Circuit')}</strong>
           <span>{t(msg('{0}/3 modes visited', [t(state.circuit.length)]))}</span>
         </div>
@@ -74,8 +78,7 @@ export function LootScreen({ profile, onBack, onTalents, onPlay }: LootScreenPro
                 'Choose any three: Quick Match, Journey, Challenges, Daily, Gauntlet, Endless or Tournament.'
               )}
         </p>
-      </div>
-      <MenuDisclosure title={t('Where loot comes from')} hint={t('Guaranteed rewards')}>
+
         {LOOT_ITEMS.map((item) => (
           <p className={screens.rowBlurb} key={item}>
             <b>{t(ITEM_INFO[item].name)}</b>
@@ -102,100 +105,77 @@ export function LootScreen({ profile, onBack, onTalents, onPlay }: LootScreenPro
             key={value}
             onClick={() => {
               setTab(value);
-              setPending(null);
+              setSelected(null);
             }}
           >
-            {t(
-              { research: 'Research', specializations: 'Specializations', trials: 'Expert trials' }[
-                value
-              ]
-            )}
+            {t({ research: 'Upgrades', specializations: 'Builds', trials: 'Expert trials' }[value])}
           </button>
         ))}
       </div>
-      <p className={screens.note} role="status">
+      <p className={styles.notice} role="status">
         {t(notice)}
       </p>
       {tab === 'research' && (
-        <div className={styles.research}>
-          {RESEARCH.map((entry) => {
-            const owned = hasResearch(state, entry.id),
-              missing = entry.requires.filter((id) => !hasResearch(state, id));
-            const affordable = LOOT_ITEMS.every((item) => balance[item] >= entry.cost[item]);
-            return (
-              <article key={entry.id} className={`${styles.card} ${owned ? styles.owned : ''}`}>
-                <div className={styles.cardHead}>
-                  <h3>{t(entry.name)}</h3>
-                  <span>{t(owned ? 'Unlocked' : entry.ability ? 'New skill' : 'Upgrade')}</span>
-                </div>
-                <p>{t(entry.blurb)}</p>
-                {!owned && (
-                  <>
-                    <div className={styles.cost}>
-                      {LOOT_ITEMS.filter((item) => entry.cost[item] > 0).map((item) => (
-                        <span key={item} data-short={balance[item] < entry.cost[item]}>
-                          {t(msg('{0} {1}', [t(entry.cost[item]), t(ITEM_INFO[item].name)]))}
-                          {balance[item] < entry.cost[item] && (
-                            <small>
-                              {t(msg('{0} more needed', [t(entry.cost[item] - balance[item])]))}
-                            </small>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                    {missing.length > 0 && (
-                      <p>
-                        {t(
-                          msg('Requires {0}', [
-                            missing
-                              .map((id) => t(RESEARCH.find((item) => item.id === id)!.name))
-                              .join(' · ')
-                          ])
-                        )}
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      className={screens.primary}
-                      disabled={!!missing.length || !affordable}
-                      onClick={() => {
-                        if (pending !== entry.id) {
-                          setPending(entry.id);
-                          return;
-                        }
-                        const ok = progression.lootAction({ type: 'research', id: entry.id });
-                        setPending(null);
-                        setNotice(
-                          ok
-                            ? msg('{0} unlocked', [t(entry.name)])
-                            : 'Resources changed. Review the cost and try again.'
-                        );
-                      }}
+        <>
+          <p className={styles.intro}>
+            {t('Spend match loot on permanent upgrades. Tap one to see what it does.')}
+          </p>
+          <div className={styles.research}>
+            {RESEARCH.map((entry) => {
+              const owned = hasResearch(state, entry.id);
+              const ready =
+                !owned &&
+                entry.requires.every((id) => hasResearch(state, id)) &&
+                LOOT_ITEMS.every((item) => balance[item] >= entry.cost[item]);
+              return (
+                <article key={entry.id} className={`${styles.tile} ${owned ? styles.owned : ''}`}>
+                  <button
+                    type="button"
+                    className={styles.tileButton}
+                    onClick={() => setSelected(entry.id)}
+                    aria-haspopup="dialog"
+                  >
+                    <span
+                      className={styles.emblem}
+                      data-kind={entry.ability ? 'skill' : 'upgrade'}
+                      aria-hidden="true"
                     >
-                      {t(pending === entry.id ? 'Confirm unlock' : 'Unlock permanently')}
-                    </button>
-                  </>
-                )}
-                {owned && entry.ability && (
-                  <button type="button" className={screens.ghost} onClick={onTalents}>
-                    {t('Equip in Talents')}
+                      <ResearchIcon id={entry.id} />
+                    </span>
+                    <span className={styles.tileCopy}>
+                      <h3>{t(entry.name)}</h3>
+                      <span>{t(SUMMARIES[entry.id])}</span>
+                      <small data-ready={ready}>
+                        {t(owned ? 'Unlocked' : ready ? 'Ready to unlock' : 'View upgrade')}
+                      </small>
+                    </span>
+                    <span className={styles.chevron} data-owned={owned} aria-hidden="true">
+                      {owned ? '✓' : '›'}
+                    </span>
                   </button>
-                )}
-              </article>
-            );
-          })}
-        </div>
+                </article>
+              );
+            })}
+          </div>
+        </>
       )}
       {tab === 'specializations' && (
         <div className={styles.card}>
           <h3>{t('Pinned specializations')}</h3>
           <p>
-            {t(
-              'Keep your free saved-build library. Pin two or three favorites here after researching specializations. Courtside Switch brings these builds to the pause panel between rallies.'
-            )}
+            {t('Choose saved talent builds to switch between. Create and edit them in Talents.')}
           </p>
           {specializationSlots(state) === 0 && (
-            <p>{t('Research Dual Specialization to pin your first two builds.')}</p>
+            <>
+              <p>{t('Research Dual Specialization to pin your first two builds.')}</p>
+              <button
+                type="button"
+                className={screens.primary}
+                onClick={() => setSelected('dual-spec')}
+              >
+                {t('View upgrade')}
+              </button>
+            </>
           )}
           {Array.from({ length: specializationSlots(state) }, (_, slot) => (
             <div key={slot} className={styles.pinned}>
@@ -244,7 +224,19 @@ export function LootScreen({ profile, onBack, onTalents, onPlay }: LootScreenPro
         </div>
       )}
       {tab === 'trials' && (
-        <div className={styles.research}>
+        <div className={styles.trials}>
+          <p className={styles.intro}>
+            {t('First clear bonus: 12 shards, 2 threads and 2 cores, plus normal match loot.')}
+          </p>
+          {!hasResearch(state, 'resonance-trials') && (
+            <button
+              type="button"
+              className={screens.ghost}
+              onClick={() => setSelected('resonance-trials')}
+            >
+              {t('Unlock expert trials')}
+            </button>
+          )}
           {RESONANCE_TRIALS.map((trial) => (
             <article key={trial.id} className={styles.card}>
               <h3>
@@ -252,9 +244,6 @@ export function LootScreen({ profile, onBack, onTalents, onPlay }: LootScreenPro
                 {profile.challenges[trial.id]?.cleared && ' ✓'}
               </h3>
               <p>{t(trial.blurb)}</p>
-              <p>
-                {t('First clear bonus: 12 shards, 2 threads and 2 cores, plus normal match loot.')}
-              </p>
               {!trialOpen(profile, trial.id) && <p>{t('Research Resonance Trials to enter.')}</p>}
               <button
                 type="button"
@@ -268,6 +257,155 @@ export function LootScreen({ profile, onBack, onTalents, onPlay }: LootScreenPro
           ))}
         </div>
       )}
+      {selectedEntry &&
+        (() => {
+          const entry = selectedEntry;
+          const owned = hasResearch(state, entry.id);
+          const missing = entry.requires.filter((id) => !hasResearch(state, id));
+          const affordable = LOOT_ITEMS.every((item) => balance[item] >= entry.cost[item]);
+          return (
+            <Dialog
+              key={entry.id}
+              label={t(entry.name)}
+              portal
+              className={styles.overlay}
+              onDismiss={() => setSelected(null)}
+            >
+              <article className={styles.sheet}>
+                <header className={styles.sheetHead}>
+                  <span className={styles.emblem} aria-hidden="true">
+                    <ResearchIcon id={entry.id} />
+                  </span>
+                  <h3 tabIndex={-1} data-dialog-initial>
+                    {t(entry.name)}
+                  </h3>
+                  <button
+                    type="button"
+                    className={screens.ghost}
+                    aria-label={t('Close details')}
+                    onClick={() => setSelected(null)}
+                  >
+                    ×
+                  </button>
+                </header>
+                <div className={styles.sheetBody}>
+                  <p>{t(entry.blurb)}</p>
+                  {!owned && (
+                    <>
+                      <p className={styles.permanent}>{t('One unlock. Free to use forever.')}</p>
+                      <div className={styles.cost}>
+                        {LOOT_ITEMS.filter((item) => entry.cost[item] > 0).map((item) => (
+                          <div key={item} data-short={balance[item] < entry.cost[item]}>
+                            <span aria-hidden="true">{glyphs[item]}</span>
+                            <span>
+                              <b>
+                                {t(entry.cost[item])} {t(ITEM_INFO[item].name)}
+                              </b>
+                              <small>
+                                {t(
+                                  balance[item] < entry.cost[item]
+                                    ? msg('{0} more needed', [t(entry.cost[item] - balance[item])])
+                                    : msg('You have {0}', [t(balance[item])])
+                                )}
+                              </small>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {missing.map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className={screens.ghost}
+                          onClick={() => setSelected(id)}
+                        >
+                          {t(
+                            msg('Requires {0}', [t(RESEARCH.find((item) => item.id === id)!.name)])
+                          )}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {owned && <p className={styles.permanent}>{t('Unlocked')}</p>}
+                </div>
+                <footer className={styles.sheetFooter}>
+                  {!owned ? (
+                    <button
+                      type="button"
+                      className={screens.primary}
+                      disabled={!!missing.length || !affordable}
+                      onClick={() => {
+                        const ok = progression.lootAction({ type: 'research', id: entry.id });
+                        setNotice(
+                          ok
+                            ? msg('{0} unlocked', [t(entry.name)])
+                            : 'Resources changed. Review the cost and try again.'
+                        );
+                        setSelected(null);
+                      }}
+                    >
+                      {t('Unlock permanently')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={screens.primary}
+                      onClick={() => {
+                        setSelected(null);
+                        if (entry.ability || entry.id === 'precision-refund') onTalents();
+                        else setTab(entry.id === 'resonance-trials' ? 'trials' : 'specializations');
+                      }}
+                    >
+                      {t(
+                        entry.ability
+                          ? 'Equip in Talents'
+                          : entry.id === 'precision-refund'
+                            ? 'Talents'
+                            : entry.id === 'resonance-trials'
+                              ? 'Expert trials'
+                              : 'Manage specializations'
+                      )}
+                    </button>
+                  )}
+                </footer>
+              </article>
+            </Dialog>
+          );
+        })()}
     </Screen>
+  );
+}
+
+const SUMMARIES: Record<ResearchId, string> = {
+  'precision-refund': 'Reset one talent at a time',
+  'dual-spec': 'Switch between two builds',
+  'triple-spec': 'Keep a third build ready',
+  'board-switch': 'Change builds between rallies',
+  'pulse-brake': 'Slow a fast incoming ball',
+  'phase-lens': 'Straighten a tricky incoming ball',
+  'resonance-trials': 'Take on three expert challenges'
+};
+function ResearchIcon({ id }: { id: ResearchId }) {
+  const paths: Record<ResearchId, string> = {
+    'precision-refund': 'M6 8a8 8 0 1 1-1 8M2 3v6h6M12 7v5l3 2',
+    'dual-spec': 'M3 5h11v13H3zM10 2h11v13M7 9h3M7 13h3',
+    'triple-spec': 'M2 8h10v14H2zM7 5h10v14M12 2h10v14',
+    'board-switch': 'M3 7h17l-4-4M21 17H4l4 4M20 7l-4 4M4 17l4-4',
+    'pulse-brake': 'M3 12h4l3-8 4 16 3-8h4',
+    'phase-lens': 'M3 5c9 0 9 14 18 14M3 12h18M10 3v18M14 3v18',
+    'resonance-trials':
+      'M8 3h8v7a4 4 0 0 1-8 0zM8 5H3v3a5 5 0 0 0 5 5M16 5h5v3a5 5 0 0 1-5 5M12 14v6M7 21h10'
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={paths[id]} />
+    </svg>
   );
 }

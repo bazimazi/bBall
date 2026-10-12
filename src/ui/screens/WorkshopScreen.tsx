@@ -1,5 +1,5 @@
 import { t, msg } from '../../core/i18n/index';
-import { useState, type CSSProperties } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   COMPONENTS,
   componentById,
@@ -127,6 +127,19 @@ function ContactDiagram({ kit, moving }: { kit: PaddleKit; moving: boolean }) {
 export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomize }: Props) {
   const w = profile.progress.workshop;
   const stage = workshopMilestone(w);
+  const craftButton = useRef<HTMLButtonElement>(null);
+  const materialDetailsButton = useRef<HTMLButtonElement>(null);
+  const claimedStarter = useRef(false);
+  useLayoutEffect(() => {
+    if (w.introduced && claimedStarter.current) {
+      const target =
+        craftButton.current && !craftButton.current.disabled
+          ? craftButton.current
+          : materialDetailsButton.current;
+      target?.focus();
+      claimedStarter.current = false;
+    }
+  }, [w.introduced]);
   const [selected, setSelected] = useState<PaddleKit>(() => kitOf(initialKit ?? w.equipped));
   const [view, setView] = useState<View>('Build');
   const [slot, setSlot] = useState<PartTab>('surface');
@@ -205,8 +218,12 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
     return ok;
   };
   const compare = () => {
+    claimedStarter.current = true;
     workshopAction({ type: 'compare', kit: { ...NEUTRAL_KIT } });
-    act({ type: 'compare', kit: selected }, 'Comparison recorded. Try both kits in Practice.');
+    act(
+      { type: 'compare', kit: selected },
+      'Starter Marks claimed. Spend them on available parts.'
+    );
   };
   const showcase = (
     <section
@@ -221,31 +238,10 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
         <span className={css.state}>
           {t(equipped ? 'Equipped' : owned ? 'Ready to equip' : 'Bench loan')}
         </span>
-        <h3>{t(playstyle(selected))}</h3>
-        <p>{t(kitName(selected))}</p>
-      </div>
-      <div className={css.readouts} aria-label={t('Paddle properties with current talents')}>
-        <span>
-          <b>
-            {t(Math.round((1 + reach) * 100))}
-            {t('%')}
-          </b>
-          {t(' Reach')}
-        </span>
-        <span>
-          <b>
-            {t(Math.round(grip * 100))}
-            {t('%')}
-          </b>
-          {t(' Moving grip')}
-        </span>
-        <span>
-          <b>
-            {t(selected.core === 'cork' || selected.core === 'memory-gel' ? 80 : 60)}
-            {t('%')}
-          </b>
-          {t(' Bonus damping')}
-        </span>
+        <h3>{t(componentById(selected.surface)!.name)}</h3>
+        <p>
+          {t(MATERIAL_HINTS[selected.core])} · {t(MATERIAL_HINTS[selected.surface])}
+        </p>
       </div>
     </section>
   );
@@ -258,7 +254,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
         <div className={css.footer}>
           <button
             type="button"
-            className={`${styles.ghost} ${css.equip}`}
+            className={`${owned && !equipped ? styles.primary : styles.ghost} ${css.equip}`}
             disabled={!owned || equipped}
             aria-label={t(
               equipped ? 'Equipped' : owned ? 'Equip paddle' : 'Craft and unlock parts to equip'
@@ -274,7 +270,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
           </button>
           <button
             type="button"
-            className={`${styles.primary} ${css.test}`}
+            className={`${owned && !equipped ? styles.ghost : styles.primary} ${css.test}`}
             aria-label={t('Try selected paddle · no rewards')}
             onClick={() => onBench(selected, 'routine')}
           >
@@ -316,16 +312,21 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
           {(view === 'Build' || view === 'Practice') && (
             <div className={css.buildSummary}>
               {t(showcase)}
-              {view === 'Build' && (
+              {view === 'Build' && !w.introduced && (
                 <div className={css.mission} data-workshop-comparison>
-                  <button type="button" className={styles.ghost} onClick={compare}>
-                    {t('Compare selected kit')}
+                  <button
+                    type="button"
+                    className={styles.ghost}
+                    disabled={
+                      selected.core === NEUTRAL_KIT.core && selected.surface === NEUTRAL_KIT.surface
+                    }
+                    onClick={compare}
+                  >
+                    {t('Claim starter Marks')}
                   </button>
                   <span>
-                    {t(w.introduced ? 'Free comparison' : '+12 starter Marks')}
-                    <small>
-                      {t(w.introduced ? 'Owned changes are free' : 'Change core or surface')}
-                    </small>
+                    {t('+12 starter Marks')}
+                    <small>{t('Change core or surface')}</small>
                   </span>
                 </div>
               )}
@@ -333,6 +334,9 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
           )}
           {view === 'Build' && (
             <section className={css.builder} aria-label={t('Assemble paddle')}>
+              <p className={css.buildHint}>
+                {t('Pick a part. Try it free. Equip your favorites.')}
+              </p>
               <div
                 className={`${css.slots} ${css.motionTabs}`}
                 style={tabPosition(
@@ -469,16 +473,13 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                         : msg('{0} · {1}/{2}', [t(SHORT[slot]), t(page + 1), t(pages)])
                     )}
                   </span>
-                  <span>
-                    {t(crafted)}
-                    {t('/11 crafted')}
-                  </span>
                 </div>
               </div>
               <div className={css.buildActions}>
                 <button
                   type="button"
                   className={styles.ghost}
+                  ref={materialDetailsButton}
                   onClick={() => setDetail('material')}
                 >
                   {t(slot === 'tuning' ? 'Tuning details' : 'Material details')}
@@ -486,6 +487,7 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                 {slot !== 'tuning' && !w.owned.includes(part.id) ? (
                   <button
                     type="button"
+                    ref={craftButton}
                     className={`${styles.ghost} ${css.craft}`}
                     style={accent(part.id)}
                     disabled={stage < part.milestone || w.marks < part.cost}
@@ -853,6 +855,33 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                   )}
                   <div className={css.propertyDetails}>
                     <h4>{t('Your paddle response')}</h4>
+                    <p>{t(playstyle(selected))}</p>
+                    <div
+                      className={css.readouts}
+                      aria-label={t('Paddle properties with current talents')}
+                    >
+                      <span>
+                        <b>
+                          {t(Math.round((1 + reach) * 100))}
+                          {t('%')}
+                        </b>
+                        {t(' Reach')}
+                      </span>
+                      <span>
+                        <b>
+                          {t(Math.round(grip * 100))}
+                          {t('%')}
+                        </b>
+                        {t(' Moving grip')}
+                      </span>
+                      <span>
+                        <b>
+                          {t(selected.core === 'cork' || selected.core === 'memory-gel' ? 80 : 60)}
+                          {t('%')}
+                        </b>
+                        {t(' Bonus damping')}
+                      </span>
+                    </div>
                     <p>
                       {t('Reach and moving grip include your talents.')}
                       {t(reach >= BALANCE.talents.maxLength ? ' Reach is capped.' : '')}

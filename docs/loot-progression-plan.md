@@ -52,7 +52,7 @@ Lifetime earnings are bounded at 1,000,000 of each item. The spendable wallet is
 
 ## Research catalog
 
-Research is a one-time purchase. All later uses are free. The Lab shows exact prices, missing quantities and prerequisites, and asks for a second click before spending.
+Research is a one-time purchase. All later uses are free. The Lab shows a short benefit on each upgrade card. Tapping opens a detail sheet with exact prices, missing quantities and prerequisite links; the separate Unlock permanently action spends the loot. Dismissing the sheet spends nothing.
 
 | Research              |  Shards | Threads | Cores | Prerequisite        | Result                                                                                                                                       |
 | --------------------- | ------: | ------: | ----: | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |

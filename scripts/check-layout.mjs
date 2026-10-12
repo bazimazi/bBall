@@ -523,7 +523,13 @@ try {
     checks++;
     return { forward, marker, paddle, opening };
   }
+  const requestedViewports = process.env.LAYOUT_VIEWPORTS?.split(',');
+  if (requestedViewports) {
+    for (const name of requestedViewports)
+      assert.ok(name in viewports, `Unknown viewport: ${name}`);
+  }
   for (const [size, viewport] of Object.entries(viewports)) {
+    if (requestedViewports && !requestedViewports.includes(size)) continue;
     await page.setViewportSize(viewport);
     for (const name of [
       'home',
@@ -993,7 +999,7 @@ try {
   await page.getByRole('button', { name: 'Skip', exact: true }).click();
   await page.getByRole('button', { name: 'Workshop', exact: true }).click();
   await page.getByRole('button', { name: 'Select Rubber', exact: true }).click();
-  await page.getByRole('button', { name: 'Compare selected kit', exact: true }).click();
+  await page.getByRole('button', { name: 'Claim starter Marks', exact: true }).click();
   await page.getByRole('button', { name: 'Craft · 12 Marks', exact: true }).click();
   await page.getByRole('button', { name: 'Equip paddle', exact: true }).click();
   await page.getByRole('button', { name: 'Back', exact: true }).click();

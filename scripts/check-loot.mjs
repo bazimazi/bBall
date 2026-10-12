@@ -120,12 +120,10 @@ try {
         }
         async function geometry(part) {
           await page.waitForFunction(() =>
-            [...document.querySelectorAll('section')].every((section) =>
-              section
-                .getAnimations({ subtree: true })
-                .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-                .every((animation) => animation.playState === 'finished')
-            )
+            document
+              .getAnimations()
+              .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+              .every((animation) => animation.playState === 'finished')
           );
           const issues = await page.evaluate(() => {
             const issues = [];
@@ -163,13 +161,46 @@ try {
             .getByRole('article')
             .filter({ has: page.getByRole('heading', { name: t(name), exact: true }) });
         async function buy(name) {
-          const purchase = card(name).getByRole('button');
-          await purchase.click();
-          assert.equal(await purchase.innerText(), t('Confirm unlock'));
-          await purchase.click();
+          await card(name).getByRole('button').click();
+          const dialog = page.getByRole('dialog', { name: t(name), exact: true });
+          await dialog.getByRole('button', { name: t('Unlock permanently'), exact: true }).click();
+          await dialog.waitFor({ state: 'detached' });
           await card(name).getByText(t('Unlocked'), { exact: true }).waitFor();
         }
-        assert.equal(await card('Triple Specialization').getByRole('button').isDisabled(), true);
+        await card('Triple Specialization').getByRole('button').click();
+        const locked = page.getByRole('dialog');
+        assert.equal(
+          await locked
+            .getByRole('button', { name: t('Unlock permanently'), exact: true })
+            .isDisabled(),
+          true
+        );
+        await geometry('upgrade-details');
+        const beforeReview = await page.evaluate(() => window.lootReview.balance());
+        await locked
+          .getByRole('button', {
+            name: t('Requires {0}').replace('{0}', t('Dual Specialization')),
+            exact: true
+          })
+          .click();
+        const prerequisite = page.getByRole('dialog', {
+          name: t('Dual Specialization'),
+          exact: true
+        });
+        await prerequisite.waitFor();
+        assert.equal(
+          await prerequisite.getByRole('heading').evaluate((el) => el === document.activeElement),
+          true
+        );
+        await page.keyboard.press('Escape');
+        await prerequisite.waitFor({ state: 'detached' });
+        assert.deepEqual(
+          await page.evaluate(() => window.lootReview.balance()),
+          beforeReview,
+          'Review and dismissal do not spend loot'
+        );
+        checks++;
+
         await geometry('research');
         await buy('Precision Refund');
         await buy('Dual Specialization');
@@ -251,7 +282,7 @@ try {
           ).talents.presets[1].equipped.includes('pulse-brake')
         );
         await render('lab');
-        await page.getByRole('button', { name: t('Specializations'), exact: true }).click();
+        await page.getByRole('button', { name: t('Builds'), exact: true }).click();
         for (const [slot, preset] of [
           [1, 0],
           [2, 1]
@@ -339,7 +370,7 @@ try {
   });
   await app.getByRole('button', { name: 'Resonance Lab · loot and upgrades', exact: true }).click();
   await app.getByRole('heading', { name: 'Resonance Lab', exact: true }).waitFor();
-  await app.getByRole('button', { name: 'Specializations', exact: true }).click();
+  await app.getByRole('button', { name: 'Builds', exact: true }).click();
   await app.getByRole('button', { name: 'Manage saved builds', exact: true }).click();
   await app.getByRole('heading', { name: 'Talents', exact: true }).waitFor();
   await app.getByRole('button', { name: 'Back', exact: true }).click();

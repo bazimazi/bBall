@@ -1188,3 +1188,95 @@
     font-size: 10px;
   }
 }
+
+/* Keep the paddle and its next action readable before exposing response statistics. */
+.buildHint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #b4c6dc;
+}
+.showcase .state {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 20px;
+  color: #b8f4df;
+  background: #91eace12;
+  font-size: 11px;
+}
+.showcase .identity p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #b5c8d9;
+}
+.material {
+  border-radius: 16px;
+}
+.material b {
+  font-size: 13px;
+}
+.material > span {
+  font-size: 11px;
+}
+.material small {
+  display: block;
+  font-size: 11px;
+}
+.pageInfo {
+  font-size: 11px;
+}
+.ownedHint {
+  font-size: 11px;
+}
+@media (min-height: 651px) and (max-width: 699px) {
+  .material {
+    min-height: 126px;
+    gap: 6px;
+  }
+  .material > svg {
+    width: 32px;
+    height: 32px;
+  }
+  .buildActions button {
+    font-size: 12px;
+  }
+  .builder {
+    gap: 10px;
+  }
+  .view {
+    gap: 14px;
+  }
+}
+@media (max-height: 650px) {
+  .buildHint {
+    font-size: 11px;
+  }
+  .showcase .identity p {
+    font-size: 10px;
+  }
+  .showcase .state {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  .material b {
+    font-size: 11px;
+  }
+  .material small {
+    font-size: 10px;
+  }
+  .material > span {
+    font-size: 10px;
+  }
+}
+
+@media (min-width: 700px) and (max-height: 450px) {
+  .screen .workshop,
+  .builder,
+  .buildSummary {
+    gap: 3px;
+  }
+  .buildHint,
+  .material small {
+    display: none;
+  }
+}
