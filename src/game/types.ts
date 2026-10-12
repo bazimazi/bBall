@@ -126,6 +126,8 @@ export interface AbilitySlot {
  * simulation - the UI reads a flattened view of it and nothing else.
  */
 export interface TalentRuntime {
+  benchedSlots: Partial<Record<AbilityId, AbilitySlot>>;
+  shieldDebt: number;
   tactics: Partial<Record<AbilityId, number>>;
   /** Returns since the last conceded point. Feeds Combo Drive family. */
   drive: number;
@@ -430,6 +432,9 @@ export interface GoalView {
 
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
+  specializations?: readonly string[];
+  canSwitchSpecialization?: boolean;
+  activeSpecialization?: number | null;
   paddleKit?: string;
   opponentKit?: string;
   materialCharge?: boolean;

@@ -29,6 +29,17 @@ Persian pages, dialogs, slider input and keyboard navigation; repeat these in
 packaged webviews, including touch sliders and email/name composition.
 
 The endless-content expansion requires its matching API build and migration 6.
+The Resonance Lab also requires its matching client/API release: older APIs
+cannot process `loot.action` or captured specialization evidence. Profile schema
+v5 migrates existing local/cloud JSON saves with an empty loot state; this change
+requires no additional SQLite migration. Verify loot banking, research, named
+presets, offline sync and serve-only court switching in packaged webviews.
+`npm run check:loot` covers browser versions at phone, narrow phone, landscape
+and desktop sizes in English/Persian. Repeat touch and keyboard checks on real
+devices. New skill effects and Lab/Pause transitions use explicit Full/Calm and
+shake controls; system/browser reduced-motion settings remain completely ignored.
+See the [research and implementation plan](loot-progression-plan.md).
+
 Publish web/native assets alongside the updated server; an older server rejects
 new formats and operations. Existing IDs, saves and legacy run paths remain
 supported. The [expansion report](validation/endless-progression-report.md) records

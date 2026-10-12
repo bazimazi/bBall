@@ -34,6 +34,7 @@ interface HomeScreenProps {
   onProfile: () => void;
   onTalents: () => void;
   onWorkshop?: () => void;
+  onLab?: () => void;
   onSettings: () => void;
   onHelp: () => void;
 }
@@ -191,6 +192,7 @@ export function HomeScreen({
   onProfile,
   onTalents,
   onWorkshop,
+  onLab,
   onSettings,
   onHelp
 }: HomeScreenProps) {
@@ -266,6 +268,9 @@ export function HomeScreen({
 
           <button type="button" className={styles.ghost} onClick={onModes}>
             {t('More modes')}
+          </button>
+          <button type="button" className={styles.ghost} onClick={onLab}>
+            {t('Resonance Lab · loot and upgrades')}
           </button>
           {profile.stats.matches >= HINT_MATCHES && (
             <button type="button" className={styles.ghost} onClick={onHelp}>

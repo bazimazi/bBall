@@ -1,4 +1,5 @@
 import { isStageId, type JourneyProgress } from '../campaign/journey';
+import { createLoot, cloneLoot, lootOf, licensedAbilities, type LootState } from '../loot/state';
 import { createWorkshop, cloneWorkshop, workshopOf } from '../equipment/workshop';
 import type { WorkshopState } from '../equipment/types';
 import { snapshotOf } from '../equipment/catalog';
@@ -27,6 +28,7 @@ import { MAX_RUN_DEPTH, RUN_HISTORY, RUN_FORMATS, type RunFormat } from '../run/
  * document, so a new mode adds a field here rather than a table there.
  */
 export interface ProgressState {
+  loot: LootState;
   workshop: WorkshopState;
   endlessRecords: Record<string, { rally: number; waves: number }>;
   mastery: Record<string, number>;
@@ -50,6 +52,7 @@ export interface ProgressState {
 
 export function createProgress(): ProgressState {
   return {
+    loot: createLoot(),
     workshop: createWorkshop(),
     endlessRecords: {},
     mastery: {},
@@ -69,7 +72,11 @@ export function createProgress(): ProgressState {
 
 export function cloneProgress(progress: ProgressState): ProgressState {
   return {
-    workshop: cloneWorkshop(progress.workshop ?? createWorkshop()),
+    loot: cloneLoot(progress.loot ?? createLoot()),
+    workshop: cloneWorkshop(
+      progress.workshop ?? createWorkshop(),
+      licensedAbilities(progress.loot ?? createLoot())
+    ),
     endlessRecords: Object.fromEntries(
       Object.entries(progress.endlessRecords ?? {}).map(([k, v]) => [k, { ...v }])
     ),
@@ -267,6 +274,7 @@ function bossesOf(value: unknown): Record<string, number> {
 /** Repair-first, like the rest of the profile: anything unreadable becomes its default. */
 export function progressOf(value: unknown): ProgressState {
   const source = bag(value);
+  const loot = lootOf(source.loot);
   let run = runOf(source.run);
   let lastRun = runOf(source.lastRun);
   // A finished run belongs in `lastRun`, never as the live one.
@@ -275,7 +283,8 @@ export function progressOf(value: unknown): ProgressState {
     run = null;
   }
   return {
-    workshop: workshopOf(source.workshop),
+    loot,
+    workshop: workshopOf(source.workshop, licensedAbilities(loot)),
     endlessRecords: Object.fromEntries(
       ['open', 'waves', ...ARENA_PRESETS.map((a) => a.id)]
         .filter((k) => bag(source.endlessRecords)[k] !== undefined)

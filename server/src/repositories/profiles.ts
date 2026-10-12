@@ -25,6 +25,7 @@ import { isModeId, MODES } from '../../../src/core/modes/catalog';
 import type { ModeId } from '../../../src/core/modes/types';
 import { createStats } from '../../../src/core/profile/defaults';
 import { progressOf } from '../../../src/core/profile/progress';
+import { licensedAbilities } from '../../../src/core/loot/state';
 import type { AvatarId, ChallengeRecord, PlayerProfile } from '../../../src/core/profile/types';
 import { AVATARS } from '../../../src/core/profile/types';
 import { levelOf } from '../../../src/core/progression/levels';
@@ -307,6 +308,8 @@ export function loadProfile(db: Db, userId: string): ServerProfile | null {
   } catch {
     progressData = {};
   }
+  const progress = progressOf(progressData);
+  talents.licensed = licensedAbilities(progress.loot);
 
   const profile: PlayerProfile = {
     id: row.user_id,
@@ -329,7 +332,7 @@ export function loadProfile(db: Db, userId: string): ServerProfile | null {
     daily: { day: row.daily_day, matches: row.daily_matches },
     // Repaired on the way in, like everything else: a document written by a
     // newer release, or truncated, still loads as the parts this one knows.
-    progress: progressOf(progressData),
+    progress,
     preferences: {
       lastBot: isBotLevelId(row.last_bot) ? row.last_bot : DEFAULT_BOT,
       lastPracticeBot: isBotLevelId(row.last_practice_bot) ? row.last_practice_bot : DEFAULT_BOT

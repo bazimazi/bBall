@@ -44,6 +44,8 @@ function emptySlots(): AbilitySlot[] {
 
 export function createRuntime(): TalentRuntime {
   return {
+    benchedSlots: {},
+    shieldDebt: 0,
     tactics: {},
     drive: 0,
     bestDrive: 0,
@@ -91,6 +93,8 @@ export function resetRuntime(world: World): void {
   const runtime = world.talents;
   const { effects, equipped } = world.loadout;
   runtime.tactics = {};
+  runtime.benchedSlots = {};
+  runtime.shieldDebt = 0;
 
   runtime.drive = 0;
   runtime.bestDrive = 0;
@@ -315,14 +319,58 @@ export function updateRuntime(world: World, dt: number): void {
     if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - recovery);
     if (slot.lockout > 0) slot.lockout = Math.max(0, slot.lockout - dt);
   }
+  for (const id in runtime.benchedSlots) {
+    const slot = runtime.benchedSlots[id as AbilityId]!;
+    if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - recovery);
+    if (slot.lockout > 0) slot.lockout = Math.max(0, slot.lockout - dt);
+  }
 
   if (runtime.shieldMax > 0 && runtime.shield < runtime.shieldMax) {
     runtime.shieldTimer -= dt;
     if (runtime.shieldTimer <= 0) {
-      runtime.shield++;
+      runtime.shieldDebt = Math.max(runtime.shieldDebt, runtime.shieldMax - runtime.shield) - 1;
+      runtime.shield = Math.max(0, runtime.shieldMax - runtime.shieldDebt);
       runtime.shieldTimer = effects.shieldRecharge;
     }
   }
+}
+
+/** Switch between rallies without resetting cooldowns, statistics or finite saves. */
+export function switchRuntime(world: World, loadout: ResolvedLoadout): boolean {
+  const { match, rules } = world;
+  if (
+    rules.fixedBuild ||
+    rules.versus ||
+    world.tutorial ||
+    !(match.status === 'serve' || (match.status === 'paused' && match.resumeTo === 'serve'))
+  )
+    return false;
+  const runtime = world.talents;
+  const ledger = { ...runtime.benchedSlots };
+  for (const slot of runtime.slots) if (slot.id) ledger[slot.id] = { ...slot };
+  const stats = { ...runtime.stats },
+    bestDrive = Math.max(runtime.bestDrive, runtime.drive);
+  const refunds = runtime.zenithRefunds;
+  const debt = Math.max(runtime.shieldDebt, runtime.shieldMax - runtime.shield);
+  const shieldTimer = runtime.shieldTimer;
+  world.loadout = loadout;
+  resetRuntime(world);
+  runtime.stats = stats;
+  runtime.bestDrive = bestDrive;
+  runtime.zenithRefunds = refunds;
+  runtime.secondChances = Math.max(0, loadout.effects.secondChances - stats.secondChances);
+  runtime.shieldDebt = debt;
+  runtime.shield = Math.max(0, runtime.shieldMax - debt);
+  runtime.shieldTimer = shieldTimer;
+  for (const slot of runtime.slots)
+    if (slot.id) {
+      const prior = ledger[slot.id];
+      if (prior) Object.assign(slot, prior);
+      delete ledger[slot.id];
+    }
+  runtime.benchedSlots = ledger;
+  growPaddle(world.player, playerLength(world));
+  return true;
 }
 
 /** Tempo: a return winds every cooldown back a notch - an ultimate by half as much. */
@@ -432,7 +480,11 @@ export function playerReturn(world: World, offset: number): ReturnMods {
     runtime.stats.perfectGuards++;
     if (effects.guardGrantsShield && !runtime.guardShielded && runtime.shieldMax > 0) {
       runtime.guardShielded = true;
-      runtime.shield = Math.min(runtime.shieldMax, runtime.shield + 1);
+      runtime.shieldDebt = Math.max(
+        0,
+        Math.max(runtime.shieldDebt, runtime.shieldMax - runtime.shield) - 1
+      );
+      runtime.shield = Math.max(0, runtime.shieldMax - runtime.shieldDebt);
     }
   }
 
@@ -660,6 +712,7 @@ export function tryShield(world: World): boolean {
     runtime.spareSave = 0;
   } else {
     const wasFull = runtime.shield === runtime.shieldMax;
+    runtime.shieldDebt = Math.max(runtime.shieldDebt, runtime.shieldMax - runtime.shield) + 1;
     runtime.shield--;
     if (wasFull) runtime.shieldTimer = effects.shieldRecharge;
   }

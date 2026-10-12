@@ -1,5 +1,7 @@
 import type { EquipmentSnapshot, MaterialStats, WorkshopAction } from '../src/core/equipment/types';
 import type { WorkshopReward } from '../src/core/equipment/workshop';
+import type { LootAction } from '../src/core/loot/ops';
+import type { LootReward } from '../src/core/loot/rewards';
 import type { TournamentFormat } from '../src/core/tournament/bracket';
 import type { RunAction } from '../src/core/run/ops';
 import type { MatchOptions } from '../src/core/modes/types';
@@ -250,6 +252,7 @@ export interface ModeStatsDto {
 }
 
 export interface TalentBuildDto {
+  readonly licensed?: AbilityId[];
   readonly presets?: (TalentPreset | null)[];
   readonly ranks: Partial<Record<TalentId, number>>;
   readonly equipped: readonly (AbilityId | null)[];
@@ -338,6 +341,7 @@ export interface UpdateProfileRequest {
  * evidence, and implausible evidence is rejected outright.
  */
 export interface MatchSubmissionDto {
+  readonly specializationsUsed?: readonly number[];
   readonly equipment?: EquipmentSnapshot | undefined;
   readonly material?: MaterialStats | undefined;
   waves?: number | undefined;
@@ -394,6 +398,7 @@ export interface XpLineDto {
 
 /** What the server actually granted. The client shows this, not its own sum. */
 export interface ProgressionSummaryDto {
+  readonly loot?: LootReward;
   readonly workshop?: WorkshopReward;
   readonly xpBefore: number;
   readonly xpAfter: number;
@@ -505,6 +510,7 @@ export interface ClaimResponse {
 }
 
 export type SyncOp =
+  | { readonly kind: 'loot.action'; readonly opId: string; readonly payload: LootAction }
   | {
       readonly kind: 'workshop.action';
       readonly opId: string;

@@ -131,7 +131,25 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     summary: (effects) =>
       `Clears other cooldowns, then ${effects.echoRecharge}x recharge for ${seconds(effects.echoSeconds)}`
   },
-  ...EXPANSION_ABILITIES
+  ...EXPANSION_ABILITIES,
+  {
+    id: 'pulse-brake',
+    name: 'Pulse Brake',
+    blurb: 'Slow an incoming ball by 28%',
+    talent: 'tempo',
+    hue: 312,
+    cooldown: () => 18,
+    summary: () => 'Incoming ball 28% slower · 18s cooldown'
+  },
+  {
+    id: 'phase-lens',
+    name: 'Phase Lens',
+    blurb: 'Straighten an incoming ball and clear its curve',
+    talent: 'foresight',
+    hue: 212,
+    cooldown: () => 22,
+    summary: () => 'Clean incoming angle · 22s cooldown'
+  }
 ];
 
 const BY_ID = new Map<string, AbilityDef>(ABILITY_DEFS.map((ability) => [ability.id, ability]));

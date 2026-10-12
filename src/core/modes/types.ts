@@ -265,6 +265,7 @@ export interface MatchRules {
 
 /** What a finished match reports back. Pure data - no engine references. */
 export interface MatchResult {
+  readonly specializationsUsed?: readonly number[];
   readonly equipment?: EquipmentSnapshot | undefined;
   readonly material?: MaterialStats | undefined;
   readonly waves?: number | undefined;

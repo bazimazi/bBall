@@ -16,6 +16,7 @@
  */
 
 import { z } from 'zod';
+import { RESEARCH_IDS } from '../../../src/core/loot/catalog';
 
 import { ABILITIES } from '../../../src/core/talents/types';
 import { BRANCHES } from '../../../src/core/talents/types';
@@ -278,6 +279,7 @@ export const matchSubmissionSchema = z
       .strict()
       .optional(),
     flicks: count(100_000).optional(),
+    specializationsUsed: z.array(z.number().int().min(0).max(2)).max(3).optional(),
     talent: talentMatchStatsSchema,
     playedAt: z.number().int().min(0)
   })
@@ -324,6 +326,29 @@ export const claimSchema = z.object({ save: localSaveSchema }).strict();
 const opId = clientIdSchema;
 
 export const syncOpSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('loot.action'),
+      opId,
+      payload: z.discriminatedUnion('type', [
+        z.object({ type: z.literal('research'), id: z.enum(RESEARCH_IDS) }).strict(),
+        z
+          .object({
+            type: z.literal('refund'),
+            talent: talentSchema,
+            expectedRank: z.number().int().min(1).max(10)
+          })
+          .strict(),
+        z
+          .object({
+            type: z.literal('pin'),
+            specialization: z.number().int().min(0).max(2),
+            preset: z.number().int().min(0).max(7).nullable()
+          })
+          .strict()
+      ])
+    })
+    .strict(),
   z.object({ kind: z.literal('workshop.action'), opId, payload: workshopActionSchema }).strict(),
   z.object({ kind: z.literal('match.prepare'), opId, payload: prepareMatchSchema }).strict(),
   z.object({ kind: z.literal('match'), opId, payload: matchSubmissionSchema }).strict(),

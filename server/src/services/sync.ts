@@ -54,6 +54,7 @@ import type { ServiceContext } from './context';
 import {
   abandonRun,
   applyWorkshopAction,
+  applyLootAction,
   prepareEquipmentMatch,
   abandonTournament,
   equipAbilitySlot,
@@ -239,6 +240,10 @@ export function claimLocalSave(
 
 function progressMoved(before: PlayerProfile, after: PlayerProfile): boolean {
   return (
+    after.progress.loot.unlocked.length > before.progress.loot.unlocked.length ||
+    after.progress.loot.earned.shards > before.progress.loot.earned.shards ||
+    after.progress.loot.earned.threads > before.progress.loot.earned.threads ||
+    after.progress.loot.earned.cores > before.progress.loot.earned.cores ||
     after.stats.matches > before.stats.matches ||
     after.stats.bestRally > before.stats.bestRally ||
     Object.keys(after.achievements).length > Object.keys(before.achievements).length ||
@@ -264,6 +269,9 @@ function applyOne(context: ServiceContext, userId: string, op: SyncOp): SyncOpRe
     switch (op.kind) {
       case 'workshop.action':
         applyWorkshopAction(context, userId, op.payload);
+        break;
+      case 'loot.action':
+        applyLootAction(context, userId, op.payload);
         break;
       case 'match.prepare':
         prepareEquipmentMatch(context, userId, op.payload);

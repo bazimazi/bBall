@@ -27,6 +27,8 @@ import { ChallengeScreen } from '/src/ui/screens/ChallengeScreen.tsx';
 import { TournamentScreen } from '/src/ui/screens/TournamentScreen.tsx';
 import { ProfileScreen } from '/src/ui/screens/ProfileScreen.tsx';
 import { TalentScreen } from '/src/ui/screens/TalentScreen.tsx';
+import { LootScreen } from '/src/ui/screens/LootScreen.tsx';
+import { RESEARCH_IDS } from '/src/core/loot/catalog.ts';
 import { SettingsScreen } from '/src/ui/screens/SettingsScreen.tsx';
 import { CustomizeScreen } from '/src/ui/screens/CustomizeScreen.tsx';
 import { AchievementsScreen } from '/src/ui/screens/AchievementsScreen.tsx';
@@ -45,7 +47,7 @@ import { TutorialCoach } from '/src/ui/TutorialCoach.tsx';
 const root = createRoot(document.getElementById('root'));
 let revision = 0;
 const noop = () => {};
-const components = { home: HomeScreen, workshop: WorkshopScreen, modes: ModesScreen, quick: DifficultyScreen,
+const components = { home: HomeScreen, lab: LootScreen, workshop: WorkshopScreen, modes: ModesScreen, quick: DifficultyScreen,
   practice: DifficultyScreen, journey: JourneyScreen, gauntlet: GauntletScreen,
   run: GauntletScreen, draft: GauntletScreen, daily: DailyScreen,
   challenge: ChallengeScreen, tournament: TournamentScreen, profile: ProfileScreen, talents: TalentScreen,
@@ -57,6 +59,7 @@ window.layoutReview = {
   async render(name, state = 'fresh') {
     const profile = state === 'fresh' ? createProfile() : createDemoProfile(100, createProfile());
     profile.onboarded = true;
+    if (name === 'lab' && state !== 'fresh') Object.assign(profile.progress.loot, { earned: { shards: 9999, threads: 9999, cores: 9999 }, unlocked: [...RESEARCH_IDS], circuit: ['campaign', 'quick'] });
     if (name === 'workshop' && state !== 'fresh') {
       Object.assign(profile.progress.workshop, {introduced:true, marks:9999,
         owned:COMPONENTS.map(c=>c.id), surfaces:['rubber','ceramic'], signatures:1234,

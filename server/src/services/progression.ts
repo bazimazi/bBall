@@ -1,4 +1,7 @@
 import type { TournamentFormat } from '../../../src/core/tournament/bracket';
+import { lootActionOn, specializationBuilds, type LootAction } from '../../../src/core/loot/ops';
+import { hasResearch } from '../../../src/core/loot/state';
+import { dailyIdentity } from '../../../src/core/daily/daily';
 import { workshopActionOn, withAttempt, ownsKit } from '../../../src/core/equipment/workshop';
 import { kitOf, sameKit, neutralKit } from '../../../src/core/equipment/catalog';
 import { fixedDailyKit } from '../../../src/core/equipment/policy';
@@ -250,6 +253,7 @@ export function recordMatch(
 function toSummary(applied: ReturnType<typeof applyMatchResult>): ProgressionSummaryDto {
   return {
     workshop: applied.workshop,
+    loot: applied.loot,
     xpBefore: applied.xpBefore,
     xpAfter: applied.xpAfter,
     xpAwarded: applied.award.total,
@@ -320,6 +324,21 @@ export function applyWorkshopAction(
   });
 }
 
+export function applyLootAction(
+  context: ServiceContext,
+  userId: string,
+  action: LootAction
+): ServerProfile {
+  return mutate(context, userId, undefined, (profile) => {
+    const next = lootActionOn(profile, action);
+    if (!next)
+      throw rejected(
+        'That research action is unavailable. Check resources, prerequisites and saved builds.'
+      );
+    return next;
+  });
+}
+
 export function prepareEquipmentMatch(
   context: ServiceContext,
   userId: string,
@@ -358,7 +377,15 @@ export function prepareEquipmentMatch(
       equipment: { ...e, attemptId: payload.id },
       identity: payload.identity,
       talents: profile.talents,
-      xp: profile.xp
+      xp: profile.xp,
+      ...(hasResearch(profile.progress.loot, 'board-switch') &&
+      !(
+        identity[0] === 'daily' &&
+        typeof identity[4] === 'string' &&
+        dailyIdentity(identity[4]).kind === 'master'
+      )
+        ? { specializations: specializationBuilds(profile).map((entry) => entry.talents) }
+        : {})
     });
   });
 }

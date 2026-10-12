@@ -766,3 +766,8 @@
   background: rgba(255, 202, 58, 0.1);
   color: #ffd76a;
 }
+
+.labLink,
+.buildPreset > button {
+  min-height: 44px;
+}

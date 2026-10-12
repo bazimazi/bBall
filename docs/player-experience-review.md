@@ -1,5 +1,23 @@
 # bBall player experience review
 
+**Resonance Lab, 12 October:** ranked attempts now bank deterministic loot even
+on qualifying defeats. A repeating three-mode circuit offers a core without an
+Elite win or calendar gate. Seven permanent research choices add individual rank
+refunds, two/three pinned specializations, between-rally court switching, two
+situational skills and three optional expert trials. Existing build storage and
+full/branch resets remain free. Prices, missing quantities and prerequisites are
+visible; purchases and occupied-build overwrites require a second click.
+
+English/Persian browser checks exercise purchases, named builds, actual rank
+refunds, pins, trial selection, reload persistence and the real game engine's
+serve-only switch. Cooldowns and spent defenses survive switching. The checks
+cover phone, narrow phone, landscape and desktop with both system motion values;
+new skill physics also matches across Full and Calm. System/browser reduced-motion
+settings remain completely ignored on web, desktop and mobile. Automated checks
+establish behavior, not enjoyment, ideal pricing or trial win rates. The
+[research and implementation plan](loot-progression-plan.md) records those
+remaining playtest questions and a reachable loss-only progression example.
+
 **Graphics intensity update, 11 October:** Settings now offers Low, Balanced
 (default) and High independently of court quality, Full/Calm and shake. Balanced
 halves particle and scenery density, reduces confetti, keeps the lattice static

@@ -1,4 +1,5 @@
 import { EXPANSION_COURTS } from './expansionCourts';
+import { RESONANCE_TRIALS } from '../loot/trials';
 import { recipe } from './recipes';
 import type { BotLevelId } from '../bots/types';
 import type { MatchModifiers, MatchObjective } from './types';
@@ -238,7 +239,7 @@ export function contractChallenge(index: number): Challenge {
 const BY_ID = new Map(CHALLENGES.map((item) => [item.id, item]));
 
 export function challengeById(id: string): Challenge | undefined {
-  const found = BY_ID.get(id);
+  const found = BY_ID.get(id) ?? RESONANCE_TRIALS.find((trial) => trial.id === id);
   if (found) return found;
   const match = /^contract-([1-9][0-9]{0,8})$/.exec(id);
   return match ? contractChallenge(Number(match[1])) : undefined;

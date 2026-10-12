@@ -1,6 +1,7 @@
 import { abilitySlotsForLevel, BALANCE, paddleSpeedForLevel } from '../balance/config';
 import { applyBoonEffects, type BoonRanks } from '../run/boons';
 import { TALENTS } from './catalog';
+import { RESEARCH_ABILITIES } from '../loot/catalog';
 import { applyExpansionTalents } from './expansion';
 import { branchSpend, dominantBranch } from './save';
 import type { BranchId } from './types';
@@ -347,7 +348,10 @@ function usableEquipped(save: TalentSave, slots: number): (AbilityId | null)[] {
   return save.equipped.map((id, index) => {
     if (!id || index >= slots) return null;
     const talent = TALENTS.find((entry) => entry.ability === id);
-    return talent && rankOf(save, talent.id) > 0 ? id : null;
+    return (talent && rankOf(save, talent.id) > 0) ||
+      (RESEARCH_ABILITIES.includes(id) && save.licensed?.includes(id))
+      ? id
+      : null;
   });
 }
 

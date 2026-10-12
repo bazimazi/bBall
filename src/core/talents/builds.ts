@@ -44,6 +44,7 @@ export function talentBuildOn(
   const preset = current.presets?.[slot];
   if (!preset) return null;
   let next = reconcile(createTalentSave(), level);
+  next.licensed = [...(current.licensed ?? [])];
   for (let pass = 0; pass < TALENTS.length; pass++) {
     let bought = false;
     for (const talent of TALENTS)

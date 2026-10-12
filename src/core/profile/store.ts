@@ -2,6 +2,7 @@ import type { TournamentFormat } from '../tournament/bracket';
 import { workshopActionOn, withAttempt } from '../equipment/workshop';
 import type { WorkshopAction, WorkshopAttempt } from '../equipment/types';
 import { talentBuildOn } from '../talents/builds';
+import { lootActionOn, type LootAction } from '../loot/ops';
 import type { CloudProfileDto } from '../../../shared/protocol';
 import type { BotLevelId } from '../bots/types';
 import type { Equipped } from '../cosmetics/catalog';
@@ -321,6 +322,13 @@ class ProfileStore {
   }
 
   // -------------------------------------------------------------- talents
+
+  lootAction(action: LootAction): boolean {
+    const next = lootActionOn(this.profile, action);
+    if (!next) return false;
+    this.commit(next);
+    return true;
+  }
 
   /**
    * Spend one point on `id`. Silently does nothing when the purchase is not

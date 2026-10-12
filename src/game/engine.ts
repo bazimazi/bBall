@@ -12,7 +12,7 @@ import {
   type KeyAction,
   type KeyBindings
 } from '../core/settings/controls';
-import type { ResolvedLoadout } from '../core/talents/effects';
+import { withBoons, type ResolvedLoadout } from '../core/talents/effects';
 import { abilityCooldown, abilityViews, activeUltimate, fireAbility } from './abilities';
 import { GameAudio } from './audio';
 import {
@@ -43,7 +43,7 @@ import { applyGraphicsIntensity } from './render/graphics';
 import { rescaleArena } from './arena';
 import { wobble } from './effects';
 import { step } from './simulation';
-import { playerKeySpeed, resetRuntime, rallyPressure } from './talents';
+import { playerKeySpeed, resetRuntime, rallyPressure, switchRuntime } from './talents';
 import { advanceTutorial, startTutorial } from './tutorial';
 import type { AbilityView, GameSnapshot, GoalView, Paddle, Side } from './types';
 import { clamp } from './utils/math';
@@ -167,6 +167,10 @@ export class GameEngine {
   private matchObserver: ((event: DiagnosticMatchEvent) => void) | null = null;
 
   private readonly canvas: HTMLCanvasElement;
+  private specializations: { name: string; loadout: ResolvedLoadout }[] = [];
+  private specializationNames: readonly string[] = [];
+  private activeSpecialization: number | null = null;
+  private switchPoint = -1;
 
   constructor(canvas: HTMLCanvasElement, theme: ResolvedTheme = DEFAULT_THEME) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -277,12 +281,19 @@ export class GameEngine {
   // ------------------------------------------------------------ commands
 
   /** Start a match under `rules`. Every mode goes through here. */
-  play = (rules: MatchRules): void => {
+  play = (
+    rules: MatchRules,
+    specializations: { name: string; loadout: ResolvedLoadout }[] = []
+  ): void => {
     this.noteDiagnosticMatch('abandoned');
     this.audio.unlock();
     this.clearInput();
     this.audio.startMusic(songFor(rules));
     startMatch(this.world, rules);
+    this.specializations = rules.fixedBuild || rules.versus ? [] : specializations.slice(0, 3);
+    this.specializationNames = this.specializations.map((entry) => entry.name);
+    this.activeSpecialization = null;
+    this.switchPoint = -1;
     this.publish();
     this.noteDiagnosticMatch('started');
   };
@@ -293,7 +304,7 @@ export class GameEngine {
       this.learn();
       return;
     }
-    this.play(this.world.rules);
+    this.play(this.world.rules, this.specializations);
   };
 
   learn = (): void => {
@@ -301,6 +312,10 @@ export class GameEngine {
     this.audio.unlock();
     this.clearInput();
     this.audio.startMusic(null);
+    this.specializations = [];
+    this.specializationNames = [];
+    this.activeSpecialization = null;
+    this.switchPoint = -1;
     startTutorial(this.world);
     this.publish();
   };
@@ -337,6 +352,34 @@ export class GameEngine {
   };
 
   serve = (): void => requestServe(this.world);
+
+  private canSwitchSpecialization(): boolean {
+    const { match } = this.world;
+    const point = match.score.you + match.score.bot + match.maxLives - match.lives;
+    return (
+      this.specializations.length > 0 &&
+      point !== this.switchPoint &&
+      (match.status === 'serve' || (match.status === 'paused' && match.resumeTo === 'serve')) &&
+      !this.world.tutorial
+    );
+  }
+
+  switchSpecialization = (index: number): boolean => {
+    if (!this.canSwitchSpecialization() || !Number.isInteger(index)) return false;
+    const next = this.specializations[index];
+    if (!next || this.activeSpecialization === index) return false;
+    const loadout = this.world.rules.boons
+      ? withBoons(next.loadout, this.world.rules.boons)
+      : next.loadout;
+    if (!switchRuntime(this.world, loadout)) return false;
+    const { match } = this.world;
+    this.switchPoint = match.score.you + match.score.bot + match.maxLives - match.lives;
+    this.activeSpecialization = index;
+    if (!this.world.specializationsUsed.includes(index)) this.world.specializationsUsed.push(index);
+    this.clearInput();
+    this.publish();
+    return true;
+  };
 
   /** The UI owns this switch. Mute remains available outside blocking dialogs. */
   setGameplayInputEnabled = (enabled: boolean): void => {
@@ -499,6 +542,9 @@ export class GameEngine {
 
     return {
       status,
+      specializations: this.specializationNames,
+      canSwitchSpecialization: this.canSwitchSpecialization(),
+      activeSpecialization: this.activeSpecialization,
       practiceLanding:
         status === 'paused' && rules.mode === 'practice' ? this.landingEstimate : null,
       pauseReason: status === 'paused' ? this.pauseReason : null,

@@ -1,4 +1,6 @@
 import { componentById } from '../../../src/core/equipment/catalog';
+import { LOOT_ITEMS, MAX_LOOT, RESEARCH } from '../../../src/core/loot/catalog';
+import { createLoot, lootOf, lootBalance, licensedAbilities } from '../../../src/core/loot/state';
 import { WORKSHOP_CONTRACTS, workshopOf } from '../../../src/core/equipment/workshop';
 /**
  * Carrying a guest save into an account.
@@ -44,6 +46,7 @@ import type { PlayerProfile } from '../../../src/core/profile/types';
 import { validateProfile } from '../../../src/core/profile/schema';
 import { levelOf } from '../../../src/core/progression/levels';
 import { reconcile } from '../../../src/core/talents/save';
+import { RESONANCE_TRIALS } from '../../../src/core/loot/trials';
 
 import { progressWeight } from './profile';
 
@@ -287,7 +290,10 @@ export function sanitizeClaim(payload: unknown): SanitizedClaim | null {
   stats.bestRally = clamp(stats.bestRally, stats.rallyHits + 1);
   stats.endlessBest = clamp(stats.endlessBest, stats.bestRally);
   stats.endlessRuns = clamp(stats.endlessRuns, maxMatches);
-  stats.challengesCleared = clamp(stats.challengesCleared, CHALLENGES.length);
+  stats.challengesCleared = clamp(
+    stats.challengesCleared,
+    CHALLENGES.length + RESONANCE_TRIALS.length
+  );
   stats.cupsPlayed = clamp(stats.cupsPlayed, maxMatches);
   stats.cupsWon = clamp(stats.cupsWon, stats.cupsPlayed);
   stats.bestCupRound = clamp(stats.bestCupRound, 7);
@@ -313,6 +319,25 @@ export function sanitizeClaim(payload: unknown): SanitizedClaim | null {
     stats,
     progress: sanitizeProgress(parsed.progress, stats.matches, stats.wins, stats.rallyHits)
   };
+
+  const lootAttempts = Math.min(
+    stats.matches + stats.endlessRuns,
+    Math.floor(stats.playSeconds / 15),
+    Math.floor(stats.rallyHits / 2)
+  );
+  const claimedLoot = profile.progress.loot;
+  for (const item of LOOT_ITEMS)
+    claimedLoot.earned[item] = Math.min(
+      claimedLoot.earned[item],
+      lootAttempts * { shards: 23, threads: 9, cores: 3 }[item]
+    );
+  claimedLoot.circuits = Math.min(claimedLoot.circuits, Math.floor(lootAttempts / 3));
+  if (!lootAttempts) {
+    claimedLoot.seenModes = [];
+    claimedLoot.circuit = [];
+  }
+  profile.progress.loot = lootOf(claimedLoot);
+  profile.talents.licensed = licensedAbilities(profile.progress.loot);
 
   const ceiling = maxSupportableXp(profile);
   if (profile.xp > ceiling) {
@@ -420,12 +445,40 @@ export function mergeProfiles(cloud: PlayerProfile, local: PlayerProfile): Playe
     progress: mergeProgress(cloud.progress, local.progress)
   };
 
+  merged.talents.licensed = licensedAbilities(merged.progress.loot);
+  merged.talents = reconcile(merged.talents, levelOf(merged.xp));
   return merged;
 }
 
 /** The better of two newer-mode records, field by field. Nothing is ever lost. */
 function mergeProgress(cloud: ProgressState, local: ProgressState): ProgressState {
   const merged = cloneProgress(cloud);
+  // Keep paid upgrades; take the better remaining wallet, never add wallets.
+  const a = cloud.loot ?? createLoot(),
+    b = local.loot ?? createLoot();
+  const balanceA = lootBalance(a),
+    balanceB = lootBalance(b);
+  const unlocked = [...new Set([...a.unlocked, ...b.unlocked])];
+  const earned = Object.fromEntries(
+    LOOT_ITEMS.map((item) => [
+      item,
+      Math.min(
+        MAX_LOOT,
+        Math.max(balanceA[item], balanceB[item]) +
+          RESEARCH.filter((entry) => unlocked.includes(entry.id)).reduce(
+            (sum, entry) => sum + entry.cost[item],
+            0
+          )
+      )
+    ])
+  );
+  merged.loot = lootOf({
+    ...a,
+    earned,
+    unlocked,
+    seenModes: [...new Set([...a.seenModes, ...b.seenModes])],
+    circuits: Math.max(a.circuits, b.circuits)
+  });
   const cloudWorkshop = merged.workshop;
   const localWorkshop = local.workshop;
   if (

@@ -1,4 +1,5 @@
 import { BALANCE } from '../balance/config';
+import type { AbilityId } from '../talents/types';
 import { atBoundary } from '../run/formats';
 import type { RunAdvance, RunSave } from '../run/run';
 import type { MatchResult } from '../modes/types';
@@ -101,7 +102,7 @@ export function ownsKit(w: WorkshopState, kit: PaddleKit): boolean {
     (kit.tuning === 'standard' || stage >= 2)
   );
 }
-export function workshopOf(value: unknown): WorkshopState {
+export function workshopOf(value: unknown, licensed: AbilityId[] = []): WorkshopState {
   const w = createWorkshop(),
     b = bag(value);
   w.introduced = b.introduced === true;
@@ -150,7 +151,16 @@ export function workshopOf(value: unknown): WorkshopState {
     w.attempts[id] = {
       equipment: { version: e.version, kit: kitOf(e.kit), attemptId: id },
       identity: a.identity.slice(0, 512),
-      talents: talentSaveOf(a.talents, levelOf(count(a.xp, Number.MAX_SAFE_INTEGER))),
+      talents: talentSaveOf(a.talents, levelOf(count(a.xp, Number.MAX_SAFE_INTEGER)), licensed),
+      ...(Array.isArray(a.specializations)
+        ? {
+            specializations: a.specializations
+              .slice(0, 3)
+              .map((save) =>
+                talentSaveOf(save, levelOf(count(a.xp, Number.MAX_SAFE_INTEGER)), licensed)
+              )
+          }
+        : {}),
       xp: count(a.xp, Number.MAX_SAFE_INTEGER)
     };
   }
@@ -165,8 +175,21 @@ export function workshopOf(value: unknown): WorkshopState {
   }
   return w;
 }
-export function cloneWorkshop(w: WorkshopState): WorkshopState {
-  return workshopOf(w);
+export function cloneWorkshop(w: WorkshopState, licensed: AbilityId[] = []): WorkshopState {
+  const next = workshopOf(w, licensed);
+  // Internal copies preserve the accepted starting builds; public validation derives licenses.
+  next.attempts = Object.fromEntries(
+    Object.entries(w.attempts).map(([id, a]) => [
+      id,
+      {
+        ...a,
+        equipment: { ...a.equipment, kit: { ...a.equipment.kit } },
+        talents: cloneTalentSave(a.talents),
+        ...(a.specializations ? { specializations: a.specializations.map(cloneTalentSave) } : {})
+      }
+    ])
+  );
+  return next;
 }
 export function workshopServiceRun(profile: PlayerProfile, kit: PaddleKit): RunSave | null {
   const run = profile.progress.run;
@@ -249,6 +272,9 @@ export function withAttempt(
   const w = cloneWorkshop(profile.progress.workshop);
   w.attempts[id] = {
     ...attempt,
+    ...(attempt.specializations
+      ? { specializations: attempt.specializations.map(cloneTalentSave) }
+      : {}),
     talents: cloneTalentSave(attempt.talents),
     equipment: { ...attempt.equipment, kit: { ...attempt.equipment.kit } }
   };

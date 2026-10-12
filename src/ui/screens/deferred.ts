@@ -1,6 +1,10 @@
 import { lazy } from 'react';
 import { loadMenu } from '../../dev/experienceBridge';
 
+export const LootScreen = lazy(() =>
+  loadMenu('Loot', () => import('./LootScreen').then((page) => ({ default: page.LootScreen })))
+);
+
 // Stable declarations: switching menus never recreates a lazy component.
 // Only opening a page requests its code and page-specific CSS.
 export const AccountScreen = lazy(() =>

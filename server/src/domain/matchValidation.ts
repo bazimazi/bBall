@@ -1,4 +1,6 @@
 import { ARENA_PRESETS, arenaPreset } from '../../../src/core/modes/arenas';
+import { trialOpen } from '../../../src/core/loot/trials';
+import type { TalentSave, TalentEffects } from '../../../src/core/talents/types';
 import { encounterIdentity, playerEquipment } from '../../../src/core/equipment/policy';
 import { sameKit, neutralKit } from '../../../src/core/equipment/catalog';
 import { masteryTags } from '../../../src/core/progression/mastery';
@@ -96,6 +98,8 @@ export type RejectionCode =
   | 'missing-equipment'
   | 'invalid-match-options'
   | 'locked-contract'
+  | 'locked-research'
+  | 'invalid-specialization'
   | 'invalid-court-events'
   | 'unknown-mode'
   | 'unknown-bot'
@@ -215,6 +219,8 @@ function resolveRules(
       )
         return reject('locked-contract', 'Complete the preceding contract first.');
       if (!challenge) return reject('unknown-challenge', 'That challenge does not exist.');
+      if (!trialOpen(profile, challenge.id))
+        return reject('locked-research', 'Research Resonance Trials to enter this challenge.');
       if (challenge.bot !== submission.botId) {
         return reject('bot-mode-mismatch', 'That challenge is not played against that opponent.');
       }
@@ -399,20 +405,48 @@ function checkRallyAndTime(submission: MatchSubmissionDto, rules: MatchRules): R
 function checkTalentUse(
   submission: MatchSubmissionDto,
   profile: PlayerProfile,
-  rules: MatchRules
+  rules: MatchRules,
+  specializations: TalentSave[] = []
 ): Rejection | null {
   const stats = submission.talent;
   const level = levelOf(profile.xp);
   // A Gauntlet match is played with the run's boons folded in - a Guard Wall
   // save is honest on a build that owns no Shield.
   const base = resolveLoadout(profile.talents, level);
-  const loadout = rules.fixedBuild
+  let loadout = rules.fixedBuild
     ? masterCardLoadout()
     : rules.boons
       ? withBoons(base, rules.boons)
       : base;
-  const equipped = loadout.equipped.filter((id): id is NonNullable<typeof id> => id !== null);
-  const owned = new Set(ownedAbilities(profile.talents));
+  const allowed = [
+    loadout,
+    ...specializations.map((save) => {
+      const build = resolveLoadout(save, level);
+      return rules.boons ? withBoons(build, rules.boons) : build;
+    })
+  ];
+  if (allowed.length > 1) {
+    const effects = { ...loadout.effects };
+    for (const key of Object.keys(effects) as (keyof TalentEffects)[]) {
+      if (typeof effects[key] !== 'number') continue;
+      const values = allowed.map((entry) => entry.effects[key] as number);
+      // Recharge periods take the fastest legal value; capacity takes the largest.
+      const periods = ['shieldRecharge', 'aegisCooldown', 'adrenalineEvery'];
+      const positive = values.filter((value) => value > 0);
+      const value =
+        periods.includes(key) && positive.length ? Math.min(...positive) : Math.max(...values);
+      Object.assign(effects, { [key]: value });
+    }
+    loadout = { ...loadout, effects, slots: Math.max(...allowed.map((entry) => entry.slots)) };
+  }
+  const equipped = [
+    ...new Set(
+      allowed
+        .flatMap((entry) => entry.equipped)
+        .filter((id): id is NonNullable<typeof id> => id !== null)
+    )
+  ];
+  const owned = new Set([profile.talents, ...specializations].flatMap(ownedAbilities));
 
   for (const [key, value] of Object.entries(stats)) {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
@@ -435,13 +469,13 @@ function checkTalentUse(
   // Overload's returns are critical by definition, and Hot Hand and Blitz
   // can make one too - "owns Critical Strike" used to be the whole test, and
   // it rejected every honest Overload match.
-  if (stats.crits > 0 && !canCrit(loadout.effects)) {
+  if (stats.crits > 0 && !allowed.some((entry) => canCrit(entry.effects))) {
     return reject('ability-not-owned', 'Nothing in that build can land a critical return.');
   }
   // Aegis and Adrenaline save balls as well as Shield does, and all three
   // are reported as one count.
   const aegisEquipped = equipped.includes('aegis');
-  if (stats.shieldSaves > 0 && !canSave(loadout.effects) && !aegisEquipped) {
+  if (stats.shieldSaves > 0 && !allowed.some((entry) => canSave(entry.effects)) && !aegisEquipped) {
     return reject('ability-not-owned', 'Nothing in that build can save a ball.');
   }
   if (stats.secondChances > 0 && loadout.effects.secondChances === 0) {
@@ -522,6 +556,7 @@ export function validateMatch(
   if ('ok' in rules) return rules;
 
   let buildProfile = context.profile;
+  let specializations: TalentSave[] = [];
   if (submission.equipment) {
     const e = submission.equipment;
     const attempt = e.attemptId
@@ -549,6 +584,20 @@ export function validateMatch(
     if (e.version !== 0 && e.version !== 1)
       return reject('unsupported-equipment', 'That equipment rules version is unsupported.');
     buildProfile = { ...context.profile, xp: attempt.xp, talents: attempt.talents };
+    const used = submission.specializationsUsed ?? [];
+    if (
+      used.length > 3 ||
+      new Set(used).size !== used.length ||
+      (rules.fixedBuild && used.length) ||
+      used.some(
+        (index) => !Number.isInteger(index) || index < 0 || !attempt.specializations?.[index]
+      )
+    )
+      return reject(
+        'invalid-specialization',
+        'That specialization was not prepared for this match.'
+      );
+    specializations = used.map((index) => attempt.specializations![index]!);
     for (const n of Object.values(submission.material ?? {}))
       if (!Number.isInteger(n) || n < 0 || n > submission.hits)
         return reject('invalid-material-stats', 'Material contacts cannot exceed paddle contacts.');
@@ -560,7 +609,9 @@ export function validateMatch(
       e.kit.insert !== 'copper'
     )
       return reject('invalid-material-stats', 'This paddle cannot store a charge.');
-  } else if (submission.material)
+  } else if (submission.specializationsUsed?.length)
+    return reject('invalid-specialization', 'Courtside switching requires a prepared match.');
+  else if (submission.material)
     return reject('missing-equipment', 'Material contacts require a starting paddle.');
   else if (rules.mode === 'run' || rules.mode === 'tournament') {
     const session = playerEquipment(context.profile, rules);
@@ -581,7 +632,7 @@ export function validateMatch(
   const rallyProblem = checkRallyAndTime(submission, rules);
   if (rallyProblem) return rallyProblem;
 
-  const talentProblem = checkTalentUse(submission, buildProfile, rules);
+  const talentProblem = checkTalentUse(submission, buildProfile, rules, specializations);
   if (talentProblem) return talentProblem;
 
   // The budget is the backstop the per-match checks cannot provide: each
@@ -651,6 +702,9 @@ export function validateMatch(
         ? submission.day
         : undefined,
     talent: { ...submission.talent },
+    ...(submission.specializationsUsed?.length
+      ? { specializationsUsed: [...submission.specializationsUsed] }
+      : {}),
     shutout: submission.shutout,
     comeback: submission.comeback,
     abandoned: submission.abandoned

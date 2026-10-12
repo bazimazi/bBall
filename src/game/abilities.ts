@@ -151,6 +151,38 @@ function fire(world: World, def: AbilityDef): void {
   const { id, hue, name } = def;
 
   switch (id) {
+    case 'pulse-brake': {
+      const speed = Math.max(BALANCE.ball.hardMin, world.ball.speed * 0.72);
+      const scale = speed / Math.max(1, world.ball.speed);
+      world.ball.speed = speed;
+      world.ball.vx *= scale;
+      world.ball.vy *= scale;
+      world.botTalents.surge *= scale;
+      world.casts.spawn(
+        'perfect-guard',
+        { x: world.ball.x, y: world.ball.y, hue, life: 0.4, size: 44 },
+        world.motion
+      );
+      world.audio.guard();
+      break;
+    }
+    case 'phase-lens': {
+      const sign = world.ball.vx < 0 ? -1 : 1;
+      const angle = Math.max(
+        -0.3,
+        Math.min(0.3, Math.atan2(world.ball.vy, Math.abs(world.ball.vx)))
+      );
+      world.ball.vx = sign * Math.cos(angle) * world.ball.speed;
+      world.ball.vy = Math.sin(angle) * world.ball.speed;
+      world.botTalents.swerveDir = 0;
+      world.casts.spawn(
+        'dash',
+        { x: world.ball.x, y: world.ball.y, hue, life: 0.45, size: 32 },
+        world.motion
+      );
+      world.audio.dash();
+      break;
+    }
     case 'redirect':
     case 'anchor':
     case 'breach':
@@ -229,6 +261,10 @@ export function fireAbility(world: World, slot: number): boolean {
 
   const def = abilityById(entry.id);
   if (!def) return false;
+  if (entry.id === 'pulse-brake' || entry.id === 'phase-lens') {
+    const incoming = world.player.side === 'you' ? world.ball.vx < 0 : world.ball.vx > 0;
+    if (status !== 'play' || !incoming) return false;
+  }
 
   const span = def.cooldown(world.loadout.effects);
   entry.cooldown = span;

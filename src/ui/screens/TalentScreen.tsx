@@ -1,4 +1,5 @@
 import { t, msg } from '../../core/i18n/index';
+import { hasResearch } from '../../core/loot/state';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 import { BALANCE, nextSlotLevel } from '../../core/balance/config';
@@ -19,6 +20,7 @@ import {
 import { branchSpend, resolveLoadout } from '../../core/talents/effects';
 import {
   ownedAbilities,
+  refundTalentRank,
   spentPoints,
   talentState,
   type TalentState
@@ -46,6 +48,7 @@ function lengthLabel(length: number): string {
 interface TalentScreenProps {
   profile: PlayerProfile;
   onBack: () => void;
+  onLab?: () => void;
 }
 
 /** Why a talent cannot be bought right now, in one short line. */
@@ -66,13 +69,16 @@ function blockText(state: TalentState): string | null {
   }
 }
 
-export function TalentScreen({ profile, onBack }: TalentScreenProps) {
+export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
   const level = levelOf(profile.xp);
   const save = profile.talents;
   const [open, setOpen] = useState<TalentId | null>(null);
   const [slot, setSlot] = useState<number | null>(null);
   const [confirmRespec, setConfirmRespec] = useState(false);
   const [bought, setBought] = useState<TalentId | null>(null);
+  const [buildNames, setBuildNames] = useState<Record<number, string>>({});
+  const [confirmSave, setConfirmSave] = useState<number | null>(null);
+  const [notice, setNotice] = useState('');
 
   const loadout = useMemo(() => resolveLoadout(save, level), [save, level]);
   const spend = useMemo(() => branchSpend(save), [save]);
@@ -133,6 +139,14 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
         </button>
       }
     >
+      {onLab && (
+        <button type="button" className={`${screens.ghost} ${styles.labLink}`} onClick={onLab}>
+          {t('Resonance Lab · loot and upgrades')}
+        </button>
+      )}
+      <p className={screens.note} role="status">
+        {t(notice)}
+      </p>
       <MenuDisclosure
         title={t('Saved builds')}
         hint={t(
@@ -148,15 +162,36 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
           )}
         </p>
         {Array.from({ length: buildSlots(level) }, (_, i) => (
-          <div key={i} className={screens.preset}>
-            <span>{t(save.presets?.[i]?.name ?? msg('Build {0} · empty', [t(i + 1)]))}</span>
+          <div key={i} className={`${screens.preset} ${styles.buildPreset}`}>
+            <input
+              className={screens.input}
+              maxLength={32}
+              aria-label={t(msg('Build {0} name', [t(i + 1)]))}
+              value={buildNames[i] ?? save.presets?.[i]?.name ?? msg('Build {0}', [t(i + 1)])}
+              onChange={(event) => {
+                setBuildNames((names) => ({ ...names, [i]: event.target.value }));
+                setConfirmSave(null);
+              }}
+            />
             <button
               type="button"
               className={screens.ghost}
               aria-label={t(msg('Save current talents to build {0}', [t(i + 1)]))}
-              onClick={() => progression.talentBuild(i, 'save', `Build ${i + 1}`)}
+              onClick={() => {
+                if (save.presets?.[i] && confirmSave !== i) {
+                  setConfirmSave(i);
+                  return;
+                }
+                const ok = progression.talentBuild(
+                  i,
+                  'save',
+                  buildNames[i] ?? save.presets?.[i]?.name ?? msg('Build {0}', [t(i + 1)])
+                );
+                setNotice(ok ? 'Build saved' : 'Could not save that build.');
+                setConfirmSave(null);
+              }}
             >
-              {t('Save current')}
+              {t(confirmSave === i ? 'Confirm overwrite' : 'Save current')}
             </button>
             <button
               type="button"
@@ -164,7 +199,11 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
               aria-label={t(msg('Load build {0}', [t(i + 1)]))}
               disabled={!save.presets?.[i]}
               onClick={() => {
-                progression.talentBuild(i, 'load');
+                setNotice(
+                  progression.talentBuild(i, 'load')
+                    ? 'Build loaded'
+                    : 'This build needs more talent points.'
+                );
                 setOpen(null);
                 setSlot(null);
                 setConfirmRespec(false);
@@ -422,6 +461,41 @@ export function TalentScreen({ profile, onBack }: TalentScreenProps) {
                   {t(state.cost > 1 ? 's' : '')}
                 </button>
                 {!state.canBuy && <p className={screens.note}>{t(blockText(state))}</p>}
+              </>
+            )}
+            {state.rank > 0 && (
+              <>
+                <button
+                  type="button"
+                  className={screens.ghost}
+                  disabled={
+                    !hasResearch(profile.progress.loot, 'precision-refund') ||
+                    !refundTalentRank(save, level, selected.id)
+                  }
+                  onClick={() => {
+                    if (
+                      progression.lootAction({
+                        type: 'refund',
+                        talent: selected.id,
+                        expectedRank: state.rank
+                      })
+                    ) {
+                      setNotice('Talent rank refunded');
+                      setBought(null);
+                    }
+                  }}
+                >
+                  {t('Refund one rank · free')}
+                </button>
+                <p className={screens.note}>
+                  {t(
+                    !hasResearch(profile.progress.loot, 'precision-refund')
+                      ? 'Unlock Precision Refund in the Resonance Lab.'
+                      : !refundTalentRank(save, level, selected.id)
+                        ? 'Other talents depend on this rank. Refund those first, or use the free branch reset.'
+                        : 'Returns only this rank’s point cost. Your other talents stay invested.'
+                  )}
+                </p>
               </>
             )}
             <button type="button" className={screens.ghost} onClick={() => setOpen(null)}>

@@ -112,6 +112,7 @@ try {
     onStopPreview: noop
   };
   const cases = [
+    ['LootScreen', 'lab'],
     ['AccountScreen', 'account'],
     ['AchievementsScreen', 'achievements'],
     ['ChallengeScreen', 'challenges'],
@@ -205,7 +206,7 @@ try {
   assert.match(pending, /aria-label="Back"/);
   assert.match(pending, /Opening Settings/);
   console.log(
-    'All 17 lazy menu pages, Practice and court quality choices render; pending menus offer Back.'
+    `All ${cases.length} lazy menu pages, Practice and court quality choices render; pending menus offer Back.`
   );
 } finally {
   await vite.close();

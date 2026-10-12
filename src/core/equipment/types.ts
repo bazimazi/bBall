@@ -30,6 +30,7 @@ export interface MaterialRuntime {
   stats: MaterialStats;
 }
 export interface WorkshopAttempt {
+  specializations?: TalentSave[];
   equipment: EquipmentSnapshot;
   identity: string;
   talents: TalentSave;

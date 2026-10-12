@@ -126,6 +126,7 @@ export function toCloudProfile(server: ServerProfile): CloudProfileDto {
     talentPoints: profile.talents.points,
 
     talents: {
+      ...(profile.talents.licensed ? { licensed: [...profile.talents.licensed] } : {}),
       ...(profile.talents.presets ? { presets: cloneTalentSave(profile.talents).presets! } : {}),
       ranks: { ...profile.talents.ranks },
       equipped: [...profile.talents.equipped],

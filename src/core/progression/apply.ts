@@ -1,4 +1,5 @@
 import { endlessRecordKey } from '../modes/sessions';
+import { applyLootReward, emptyLootReward, type LootReward } from '../loot/rewards';
 import { applyWorkshopReward, type WorkshopReward } from '../equipment/workshop';
 import { NEUTRAL_KIT } from '../equipment/types';
 import { neutralKit } from '../equipment/catalog';
@@ -21,6 +22,7 @@ import { levelFromXp, levelOf } from './levels';
 import { computeMatchXp, dayKey, EMPTY_AWARD, type XpAward, type XpLine } from './xp';
 
 export interface ProgressSummary {
+  readonly loot: LootReward;
   readonly workshop: WorkshopReward;
   readonly profile: PlayerProfile;
   readonly award: XpAward;
@@ -300,6 +302,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   const counts = result.ranked && !result.abandoned;
   if (!counts) {
     return {
+      loot: emptyLootReward(),
       workshop: { marks: 0, contracts: [] },
       profile: source,
       award: EMPTY_AWARD,
@@ -342,6 +345,12 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   });
   const modes = applyModes(profile, result);
   const workshop = applyWorkshopReward(profile, result, modes.run);
+  const loot = applyLootReward(
+    profile,
+    result,
+    challengeCleared || modes.dailyCleared,
+    modes.newStars
+  );
   const award = withExtraLines(base, modes.lines);
   profile.xp += award.total;
   profile.daily.matches += 1;
@@ -360,6 +369,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
 
   return {
     profile,
+    loot,
     workshop,
     award,
     xpBefore,

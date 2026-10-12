@@ -58,6 +58,7 @@ if (!reportOnly) {
     'GauntletScreen',
     'HowToPlayScreen',
     'JourneyScreen',
+    'LootScreen',
     'ModesScreen',
     'ProfileScreen',
     'ResultScreen',

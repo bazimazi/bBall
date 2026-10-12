@@ -538,6 +538,7 @@ try {
       'tournament',
       'profile',
       'talents',
+      'lab',
       'settings',
       'customize',
       'achievements',
@@ -743,7 +744,8 @@ try {
       ['run', 'committed'],
       ['draft', 'advanced'],
       ['tournament', 'active'],
-      ['talents', 'advanced']
+      ['talents', 'advanced'],
+      ['lab', 'advanced']
     ]) {
       await render(name, state);
       await layout(`${size}-${name}-${state}`);

@@ -26,6 +26,10 @@ interface PausePanelProps {
   objective?: string | null;
   goals?: readonly GoalView[];
   enemyAbilities?: readonly AbilityView[] | undefined;
+  specializations?: readonly string[] | undefined;
+  canSwitchSpecialization?: boolean | undefined;
+  activeSpecialization?: number | null | undefined;
+  onSwitchSpecialization?: (index: number) => void;
 }
 
 export function PausePanel({
@@ -43,7 +47,11 @@ export function PausePanel({
   versus = false,
   objective,
   goals = [],
-  enemyAbilities = []
+  enemyAbilities = [],
+  specializations = [],
+  canSwitchSpecialization = false,
+  activeSpecialization,
+  onSwitchSpecialization
 }: PausePanelProps) {
   return (
     <div className={styles.panel}>
@@ -85,6 +93,29 @@ export function PausePanel({
         </p>
       )}
       <GoalList goals={goals} />
+      {specializations.length > 0 && (
+        <div>
+          <p className={styles.tagline}>{t('Courtside specializations')}</p>
+          <p className={styles.tagline}>
+            {t(
+              canSwitchSpecialization
+                ? 'Choose one build before the next serve. Cooldowns and spent defenses carry over.'
+                : 'Switching opens between rallies, once per point.'
+            )}
+          </p>
+          {specializations.map((name, index) => (
+            <PanelButton
+              key={index}
+              variant="ghost"
+              disabled={!canSwitchSpecialization || activeSpecialization === index}
+              onClick={() => onSwitchSpecialization?.(index)}
+            >
+              {t(name)}
+              {activeSpecialization === index ? ' ✓' : ''}
+            </PanelButton>
+          ))}
+        </div>
+      )}
       {goals.length === 0 && objective && <p className={styles.tagline}>{t(objective)}</p>}
       {enemyAbilities.length > 0 && (
         <details className={styles.controls}>
@@ -123,7 +154,9 @@ export function PausePanel({
           </PanelButton>
         </>
       )}
-      <PanelButton onClick={onResume}>{t('Resume')}</PanelButton>
+      <PanelButton onClick={onResume} initialFocus>
+        {t('Resume')}
+      </PanelButton>
       <PanelButton variant="ghost" onClick={onSettings}>
         {t('Settings')}
       </PanelButton>

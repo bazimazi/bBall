@@ -159,6 +159,7 @@ try {
       'profile',
       'account',
       'talents',
+      'lab',
       'settings',
       'customize',
       'achievements',

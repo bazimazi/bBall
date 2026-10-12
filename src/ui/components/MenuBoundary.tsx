@@ -23,6 +23,7 @@ const TITLES: Record<MenuScreenId, string> = {
   settings: 'Settings',
   talents: 'Talents',
   workshop: 'Paddle Workshop',
+  lab: 'Resonance Lab',
   demo: 'Demo a level',
   result: 'Results'
 };

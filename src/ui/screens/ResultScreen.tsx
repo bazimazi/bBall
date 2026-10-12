@@ -1,4 +1,5 @@
 import { t, msg } from '../../core/i18n/index';
+import { ITEM_INFO, LOOT_ITEMS } from '../../core/loot/catalog';
 import { useEffect, useEffectEvent, useId, useState, type CSSProperties } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
@@ -33,6 +34,7 @@ interface ResultScreenProps {
   /** Offered only when there is something to spend. */
   onTalents: () => void;
   onWorkshop?: () => void;
+  onLab?: () => void;
   /** A star has just landed on the card - the engine plays its chime. */
   onStar?: (index: number) => void;
 }
@@ -171,6 +173,7 @@ export function ResultScreen({
   onTutorial,
   onTalents,
   onWorkshop,
+  onLab,
   onStar
 }: ResultScreenProps) {
   const heading = useScreenFocus();
@@ -480,6 +483,32 @@ export function ResultScreen({
                   : 'Practice · nothing recorded'
             )}
           </p>
+        )}
+
+        {summary?.loot && LOOT_ITEMS.some((item) => summary.loot.items[item] > 0) && (
+          <div className={styles.card}>
+            <p className={styles.sectionLabel}>{t('Loot banked')}</p>
+            {LOOT_ITEMS.filter((item) => summary.loot.items[item] > 0).map((item) => (
+              <p className={styles.xpLine} key={item}>
+                <span>{t(ITEM_INFO[item].name)}</span>
+                <strong>{t(msg('+{0}', [t(summary.loot.items[item])]))}</strong>
+              </p>
+            ))}
+            {summary.loot.circuitCompleted && (
+              <p className={styles.note}>
+                {t('Resonance Circuit completed · bonus core and threads included')}
+              </p>
+            )}
+            {summary.loot.discovery && (
+              <p className={styles.note}>{t('First mode visit · bonus threads included')}</p>
+            )}
+            {summary.loot.firstClear && (
+              <p className={styles.note}>{t('First clear · bonus loot included')}</p>
+            )}
+            <button type="button" className={styles.ghost} onClick={onLab}>
+              {t('Spend loot in the Resonance Lab')}
+            </button>
+          </div>
         )}
 
         {summary && summary.achievements.length > 0 && (

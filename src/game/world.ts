@@ -76,6 +76,9 @@ export interface World {
    * boons in, and a versus match plays with no build at all.
    */
   loadout: ResolvedLoadout;
+  /** Frozen at match start so cloud updates and switching cannot change mastery credit. */
+  startingBranch: ResolvedLoadout['branch'];
+  specializationsUsed: number[];
   /** The player's own resolved build, as React last handed it over. */
   baseLoadout: ResolvedLoadout;
   /** What that build is doing right now. Lives for one match. */
@@ -298,7 +301,9 @@ export function createWorld(audio: GameAudio, motion: number): World {
     rules,
     tuning: tuningFor(rules),
     loadout: DEFAULT_LOADOUT,
+    specializationsUsed: [],
     baseLoadout: DEFAULT_LOADOUT,
+    startingBranch: null,
     talents: createRuntime(),
     botLoadout: DEFAULT_LOADOUT,
     botTalents: createRuntime(),

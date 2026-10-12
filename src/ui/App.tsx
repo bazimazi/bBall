@@ -44,6 +44,7 @@ import {
   SettingsScreen,
   TalentScreen,
   WorkshopScreen,
+  LootScreen,
   TournamentScreen
 } from './screens/deferred';
 
@@ -260,6 +261,11 @@ export function App() {
         side={settings.skillSide}
         onUse={(slot) => engine?.useAbility(slot)}
       />
+      {playing && snapshot.status === 'serve' && (snapshot.specializations?.length ?? 0) > 0 && (
+        <button type="button" className="courtside-switch" onClick={() => engine?.pause()}>
+          {t('Change specialization')}
+        </button>
+      )}
 
       {/* Above the bar and the HUD, so a capstone reaches the whole page and
           not only the part of it the renderer owns. */}
@@ -291,6 +297,7 @@ export function App() {
           onProfile={() => flow.go('profile')}
           onTalents={() => flow.go('talents')}
           onWorkshop={() => flow.go('workshop')}
+          onLab={() => flow.go('lab')}
           onSettings={() => flow.go('settings')}
           onHelp={() => flow.go('help')}
         />
@@ -380,7 +387,17 @@ export function App() {
             />
           )}
 
-          {flow.screen === 'talents' && <TalentScreen profile={profile} onBack={flow.back} />}
+          {flow.screen === 'talents' && (
+            <TalentScreen profile={profile} onBack={flow.back} onLab={() => flow.go('lab')} />
+          )}
+          {flow.screen === 'lab' && (
+            <LootScreen
+              profile={profile}
+              onBack={flow.back}
+              onTalents={() => flow.go('talents')}
+              onPlay={flow.startChallenge}
+            />
+          )}
           {flow.screen === 'workshop' && (
             <WorkshopScreen
               profile={profile}
@@ -425,6 +442,7 @@ export function App() {
               onTutorial={flow.startTutorial}
               onStar={(index) => engine?.chime(index)}
               onTalents={() => flow.leaveResult('talents')}
+              onLab={() => flow.leaveResult('lab')}
               onWorkshop={() => flow.leaveResult('workshop')}
               {...resultActions(flow.result, flow)}
             />
@@ -458,6 +476,10 @@ export function App() {
           objective={(coarse && snapshot.objectiveTouch) || snapshot.objective}
           goals={snapshot.goals}
           enemyAbilities={snapshot.enemyAbilities}
+          specializations={snapshot.specializations}
+          canSwitchSpecialization={snapshot.canSwitchSpecialization}
+          activeSpecialization={snapshot.activeSpecialization}
+          onSwitchSpecialization={(index) => engine?.switchSpecialization(index)}
         />
       </Overlay>
 

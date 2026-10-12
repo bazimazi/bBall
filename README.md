@@ -384,6 +384,34 @@ and identity cues remain visible with muted sound and Calm effects. System and
 browser reduced-motion preferences remain completely ignored on all platforms.
 See the [implementation and validation report](docs/validation/paddle-workshop-report.md).
 
+### Resonance Lab
+
+Open **Resonance Lab** from Home, Talents or a ranked result. Ranked Quick,
+Journey, Challenge, Daily, Gauntlet, Endless and Tournament attempts bank Rally
+Shards, Tactic Threads and Resonance Cores, including defeats, after at least
+15 seconds and two player returns. Completing three different modes fills a
+**Resonance Circuit** for one core and two threads; it repeats without a daily
+limit. Elite/Legend wins, Endless waves and first clears provide other bonuses.
+
+Spend loot once to unlock individual rank refunds, two/three pinned
+specializations, court switching between rallies, **Pulse Brake**, **Phase
+Lens**, or three expert **Resonance Trials**. Existing full/branch resets and
+saved-build slots remain free. Name builds in Talents, pin them in the Lab,
+then use **Change specialization** or Pause before a serve. One switch is
+allowed per point; cooldowns and spent defenses carry over. Fixed Master Daily,
+Versus and tutorials retain their prescribed builds.
+
+Guests save locally; account research and loot use authoritative sync. Demo
+loot stays temporary. Upgrade the client and server together; profile v5
+migrates existing saves without a retroactive loot grant or new database table.
+Presentation follows Full/Calm and shake controls; system/browser reduced-motion
+settings remain completely ignored on web, desktop and mobile.
+
+See the [research, economy and implementation plan](docs/loot-progression-plan.md).
+Run `npm run check:loot` for real browser purchases, build management and court
+switching across English/Persian, phone/landscape/desktop and both system motion
+preference values. Set `LOOT_SCREENSHOTS` to save captures.
+
 ### Talents
 
 One point per level to level 50: 49 points against 64 talents. Free respec and

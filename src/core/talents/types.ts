@@ -26,7 +26,9 @@ export const ABILITIES = [
   'breach',
   'relay',
   'reserve',
-  'rebound'
+  'rebound',
+  'pulse-brake',
+  'phase-lens'
 ] as const;
 export type AbilityId = (typeof ABILITIES)[number];
 
@@ -174,6 +176,8 @@ export interface TalentPreset {
   equipped: (AbilityId | null)[];
 }
 export interface TalentSave {
+  /** Derived from paid research on the profile, never trusted from a raw save. */
+  licensed?: AbilityId[];
   presets?: (TalentPreset | null)[];
   /** Unspent points. Recomputed from level and spend on every load. */
   points: number;

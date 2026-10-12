@@ -125,6 +125,28 @@ function harness(
   return { engine, world, win, doc, canvas, key, pointer, advance, frames };
 }
 
+it('court switching allows one choice per point and clears previous builds in fixed play and tutorials', (t) => {
+  const { engine, world } = harness(t);
+  const builds = [
+    { name: 'Attack', loadout: world.baseLoadout },
+    { name: 'Control', loadout: world.baseLoadout }
+  ];
+  engine.play(quickMatchRules('elite'), builds);
+  assert.deepEqual(engine.getSnapshot().specializations, ['Attack', 'Control']);
+  assert.equal(engine.switchSpecialization(0), true);
+  assert.equal(engine.switchSpecialization(1), false);
+  world.match.score.you++;
+  engine.pause();
+  assert.equal(engine.switchSpecialization(1), true);
+  engine.play({ ...quickMatchRules('elite'), fixedBuild: true }, builds);
+  assert.deepEqual(engine.getSnapshot().specializations, []);
+  assert.equal(engine.switchSpecialization(0), false);
+  engine.play(quickMatchRules('elite'), builds);
+  engine.learn();
+  assert.deepEqual(engine.getSnapshot().specializations, []);
+  assert.equal(engine.switchSpecialization(0), false);
+});
+
 it('automatic density adapts under sustained load without changing held input, effects or field geometry', (t) => {
   const { engine, world, win, canvas, pointer, key, advance } = harness(
     t,

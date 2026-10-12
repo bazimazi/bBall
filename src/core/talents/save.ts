@@ -1,4 +1,5 @@
 import { BALANCE, abilitySlotsForLevel } from '../balance/config';
+import { RESEARCH_ABILITIES } from '../loot/catalog';
 import { isAbilityId } from './abilities';
 import { TALENTS, costOfRank, isTalentId, talentById, tierRequirement } from './catalog';
 import {
@@ -47,6 +48,7 @@ export function createTalentSave(): TalentSave {
 
 export function cloneTalentSave(save: TalentSave): TalentSave {
   return {
+    ...(save.licensed ? { licensed: [...save.licensed] } : {}),
     ...(save.presets
       ? {
           presets: save.presets.map((p) =>
@@ -161,7 +163,9 @@ export function reconcile(save: TalentSave, level: number): TalentSave {
   }
 
   const slots = BALANCE.talents.slots.max;
-  const owned = new Set<AbilityId>();
+  const owned = new Set<AbilityId>(
+    (next.licensed ?? []).filter((id) => RESEARCH_ABILITIES.includes(id))
+  );
   for (const talent of TALENTS) {
     if (talent.ability && rankOf(next, talent.id) > 0) owned.add(talent.ability);
   }
@@ -257,6 +261,7 @@ export function buyTalent(save: TalentSave, level: number, id: TalentId): Talent
 /** Refund the whole tree. Free, by design: builds are meant to be tried. */
 export function respec(save: TalentSave, level: number): TalentSave {
   const next = createTalentSave();
+  if (save.licensed) next.licensed = [...save.licensed];
   next.stats = { ...save.stats, respecs: save.stats.respecs + 1 };
   if (save.presets) next.presets = cloneTalentSave(save).presets!;
   return reconcile(next, level);
@@ -282,6 +287,20 @@ export function respecBranch(save: TalentSave, level: number, branch: BranchId):
   return reconcile(next, level);
 }
 
+/** Refund only the chosen rank. Refuse any change that would cascade into other ranks. */
+export function refundTalentRank(save: TalentSave, level: number, id: TalentId): TalentSave | null {
+  if (!talentById(id) || rankOf(save, id) <= 0) return null;
+  const next = cloneTalentSave(save);
+  const rank = rankOf(next, id) - 1;
+  if (rank > 0) next.ranks[id] = rank;
+  else delete next.ranks[id];
+  const repaired = reconcile(next, level);
+  if (TALENTS.some((talent) => rankOf(repaired, talent.id) !== rankOf(next, talent.id)))
+    return null;
+  repaired.stats.respecs++;
+  return repaired;
+}
+
 /**
  * Put `id` in `slot`, or clear it with `null`. Equipping something already
  * slotted elsewhere moves it rather than duplicating it.
@@ -298,7 +317,11 @@ export function equipAbility(
   const next = cloneTalentSave(save);
   if (id !== null) {
     const owner = TALENTS.find((talent) => talent.ability === id);
-    if (!owner || rankOf(next, owner.id) === 0) return null;
+    if (
+      (!owner || rankOf(next, owner.id) === 0) &&
+      !(RESEARCH_ABILITIES.includes(id) && next.licensed?.includes(id))
+    )
+      return null;
     const existing = next.equipped.indexOf(id);
     if (existing >= 0) next.equipped[existing] = next.equipped[slot] ?? null;
   }
@@ -308,7 +331,7 @@ export function equipAbility(
 
 /** Every ability the build owns, whether or not it is equipped. */
 export function ownedAbilities(save: TalentSave): AbilityId[] {
-  const owned: AbilityId[] = [];
+  const owned: AbilityId[] = (save.licensed ?? []).filter((id) => RESEARCH_ABILITIES.includes(id));
   for (const talent of TALENTS) {
     if (talent.ability && rankOf(save, talent.id) > 0) owned.push(talent.ability);
   }
@@ -354,9 +377,14 @@ function statsOf(value: unknown): TalentStats {
  * can be salvaged: an unknown talent id is dropped, a silly rank is clamped,
  * and the point total is recomputed rather than trusted.
  */
-export function talentSaveOf(value: unknown, level: number): TalentSave {
+export function talentSaveOf(
+  value: unknown,
+  level: number,
+  licensed: AbilityId[] = []
+): TalentSave {
   const source = bag(value);
   const save = createTalentSave();
+  if (licensed.length) save.licensed = [...licensed];
 
   for (const [id, rank] of Object.entries(bag(source.ranks))) {
     if (!isTalentId(id)) continue;

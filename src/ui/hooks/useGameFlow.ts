@@ -1,4 +1,8 @@
 import type { PaddleKit } from '../../core/equipment/types';
+import { specializationBuilds } from '../../core/loot/ops';
+import { hasResearch } from '../../core/loot/state';
+import { trialOpen } from '../../core/loot/trials';
+import { resolveLoadout } from '../../core/talents/effects';
 import { advanceSeries, seriesComplete, type MatchSeries } from '../../core/modes/sessions';
 import type { TournamentFormat } from '../../core/tournament/bracket';
 import type { MatchOptions } from '../../core/modes/types';
@@ -56,6 +60,7 @@ export type ScreenId =
   | 'help'
   | 'talents'
   | 'workshop'
+  | 'lab'
   | 'demo'
   | 'playing'
   | 'result';
@@ -165,7 +170,16 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       const prepared = progression.prepareMatch(rules);
       if (!prepared.options?.bench) setWorkshopKit(null);
       lastRules.current = prepared;
-      engine?.play(prepared);
+      const profile = profileStore.getSnapshot();
+      engine?.play(
+        prepared,
+        hasResearch(profile.progress.loot, 'board-switch')
+          ? specializationBuilds(profile).map((entry) => ({
+              name: entry.name,
+              loadout: resolveLoadout(entry.talents, levelOf(profile.xp))
+            }))
+          : []
+      );
       setScreen('playing');
     },
     [engine, setScreen]
@@ -224,6 +238,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const startChallenge = useCallback(
     (id: string) => {
+      if (!trialOpen(profileStore.getSnapshot(), id)) return;
       const rules = challengeRulesById(id);
       if (rules) play(rules);
     },

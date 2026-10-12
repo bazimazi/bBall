@@ -284,7 +284,10 @@ function buildResult(world: World, won: boolean, abandoned: boolean): MatchResul
           material: { ...world.player.material.stats }
         }
       : {}),
-    mastery: masteryTags(rules, world.loadout.branch ?? null),
+    mastery: masteryTags(rules, world.startingBranch ?? null),
+    ...(world.specializationsUsed.length
+      ? { specializationsUsed: [...world.specializationsUsed] }
+      : {}),
     ...(rules.options?.waves ? { waves: match.waveDepth } : {}),
     mode: rules.mode,
     ...(rules.options ? { options: { ...rules.options } } : {}),
@@ -519,6 +522,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   const { match, fx } = world;
   world.tutorial = null;
   world.rules = rules;
+  world.specializationsUsed = [];
   world.player.equipment = { ...(rules.equipment?.kit ?? NEUTRAL_KIT) };
   world.bot.equipment = { ...(rules.opponentEquipment ?? NEUTRAL_KIT) };
   world.player.material = materialRuntime();
@@ -533,6 +537,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
       : rules.boons
         ? withBoons(world.baseLoadout, rules.boons)
         : world.baseLoadout;
+  world.startingBranch = world.loadout.branch;
   applyPaddleSizes(world);
   setBrainProfile(world.botBrain, rules.bot);
   // Shields, charges and cooldowns all start a match full and cold.

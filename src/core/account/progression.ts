@@ -1,4 +1,6 @@
 import type { RunAction } from '../run/ops';
+import { specializationBuilds, type LootAction } from '../loot/ops';
+import { hasResearch } from '../loot/state';
 import type { WorkshopAction } from '../equipment/types';
 import { withEquipmentRules, rulesIdentity } from '../equipment/policy';
 import type { MatchRules } from '../modes/types';
@@ -59,6 +61,9 @@ function queue(op: SyncOp): void {
  */
 export function toSubmission(result: MatchResult, clientMatchId: string): MatchSubmissionDto {
   return {
+    ...(result.specializationsUsed?.length
+      ? { specializationsUsed: [...result.specializationsUsed] }
+      : {}),
     ...(result.equipment ? { equipment: result.equipment, material: result.material } : {}),
     clientMatchId,
     mode: result.mode,
@@ -123,6 +128,12 @@ export function buyTalent(id: TalentId): boolean {
     opId: newOpId('talent'),
     payload: { talentId: id, expectedRank: before }
   });
+  return true;
+}
+
+export function lootAction(action: LootAction): boolean {
+  if (!profileStore.lootAction(action)) return false;
+  queue({ kind: 'loot.action', opId: newOpId('loot'), payload: action });
   return true;
 }
 
@@ -244,7 +255,15 @@ export function prepareMatch(rules: MatchRules): MatchRules {
   const id = newOpId('attempt');
   const equipment = { ...resolved.equipment!, attemptId: id };
   const identity = rulesIdentity(resolved);
-  profileStore.prepareMatch(id, { equipment, identity, talents: profile.talents, xp: profile.xp });
+  profileStore.prepareMatch(id, {
+    equipment,
+    identity,
+    talents: profile.talents,
+    xp: profile.xp,
+    ...(hasResearch(profile.progress.loot, 'board-switch') && !rules.fixedBuild
+      ? { specializations: specializationBuilds(profile).map((entry) => entry.talents) }
+      : {})
+  });
   queue({ kind: 'match.prepare', opId: newOpId('prepare'), payload: { id, equipment, identity } });
   return { ...resolved, equipment };
 }

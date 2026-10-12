@@ -52,6 +52,27 @@ npm run server:test
 
 ## What the server owns
 
+**Resonance Lab:** the server derives deterministic loot from validated ranked
+results and owns research purchases, single-rank refunds and specialization pins
+through the shared `loot.action` sync operation. A repeating three-mode circuit
+provides cores even on qualifying defeats. Wallets derive from lifetime earnings
+minus permanent research costs; payloads cannot supply rewards. Normal operation
+deduplication and database transactions protect retries and competing purchases.
+
+Prepared attempts freeze legal pinned talent/skill builds alongside equipment.
+Results may name only those captured specialization indices. The server checks
+the permitted abilities and ceilings; the local engine enforces between-rally,
+once-per-point switching and preserves cooldowns and spent defenses. Mastery
+uses the starting branch. Trial access requires its research. Guest claims bound
+loot against supported play and merge wallets without summing them.
+
+Profile schema v5 stores this in the existing JSON aggregate, so this change
+needs no additional SQLite migration. Release the matching client and API
+together. Existing build storage and full/branch resets remain free. Lab and
+research skill presentation use only explicit Full/Calm/shake settings and
+completely ignore system/browser reduced-motion preferences on every platform.
+See the [design and research record](../docs/loot-progression-plan.md).
+
 Exactly one thing, and it is the whole design: **the client is never the
 authority for anything that can be gained.**
 

@@ -22,11 +22,12 @@ import {
 } from '../tournament/bracket';
 import { cleanName, createProfile, createStats } from './defaults';
 import { progressOf } from './progress';
+import { licensedAbilities } from '../loot/state';
 import { AVATARS, type AvatarId, type ChallengeRecord, type PlayerProfile } from './types';
 
 export const PROFILE_KEY = 'bball.profile';
-/** 1: original. 2: talents. 3: Journey, Daily, quests and Gauntlet. 4: Paddle Workshop. */
-export const PROFILE_VERSION = 4;
+/** 1: original. 2: talents. 3: modes. 4: Paddle Workshop. 5: Resonance Lab. */
+export const PROFILE_VERSION = 5;
 
 type Bag = Record<string, unknown>;
 
@@ -172,6 +173,7 @@ export function validateProfile(data: unknown): PlayerProfile | null {
   const preferences = bag(source.preferences);
 
   const xp = num(source.xp, 0);
+  const progress = progressOf(source.progress);
 
   const profile: PlayerProfile = {
     id: text(source.id, blank.id),
@@ -184,7 +186,7 @@ export function validateProfile(data: unknown): PlayerProfile | null {
     stats: statsOf(source.stats),
     // Points are always recomputed from level and spend, so a truncated,
     // stale or tampered-with build converges on an honest total.
-    talents: talentSaveOf(source.talents, levelOf(xp)),
+    talents: talentSaveOf(source.talents, levelOf(xp), licensedAbilities(progress.loot)),
     achievements: achievementsOf(source.achievements),
     unlocks: unlocksOf(source.unlocks),
     equipped: equippedOf(source.equipped),
@@ -195,7 +197,7 @@ export function validateProfile(data: unknown): PlayerProfile | null {
       day: text(bag(source.daily).day, dayKey()),
       matches: num(bag(source.daily).matches, 0)
     },
-    progress: progressOf(source.progress),
+    progress,
     preferences: {
       lastBot: isBotLevelId(preferences.lastBot) ? preferences.lastBot : DEFAULT_BOT,
       lastPracticeBot: isBotLevelId(preferences.lastPracticeBot)
@@ -232,6 +234,8 @@ function migrateProfile(data: unknown, from: number): unknown {
     case 2:
       return { ...source, progress: source.progress ?? null };
     case 3:
+      return { ...source, progress: source.progress ?? null };
+    case 4:
       return { ...source, progress: source.progress ?? null };
     default:
       return source;
