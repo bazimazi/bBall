@@ -1,5 +1,5 @@
 import { techniqueTarget } from '../core/modes/drills';
-import { FIELD_H } from './constants';
+import { BALL_R, FIELD_H } from './constants';
 import { createCourse } from './course';
 import type { World } from './world';
 
@@ -9,12 +9,14 @@ export function prepareTechnique(world: World): void {
   const { ball, arena } = world;
   arena.course = createCourse(arena.spec);
   arena.time = 0;
-  ball.x = world.view.w * 0.28;
+  ball.x = world.view.w / 2;
   ball.y = FIELD_H / 2;
   ball.px = ball.x;
   ball.py = ball.y;
   ball.owner = 'bot';
 }
+/** The ball touches the far court boundary when its centre reaches this line. */
+export const techniqueGoalX = (width: number): number => width - BALL_R;
 /** Every attempt begins with the same incoming ball and hazard clock. */
 export function feedTechnique(world: World): void {
   if (!world.rules.technique || world.rules.ranked) return;
@@ -33,7 +35,7 @@ export function techniqueOutcome(world: World): boolean | null {
     world.rules.ranked ||
     world.match.status !== 'play' ||
     world.ball.owner !== 'you' ||
-    world.ball.x < world.view.w * 0.8
+    world.ball.x < techniqueGoalX(world.view.w) - 1e-9
   )
     return null;
   const [low, high] = techniqueTarget(id, world.match.points);

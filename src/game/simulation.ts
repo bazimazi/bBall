@@ -206,7 +206,7 @@ export function step(world: World, dt: number): void {
       if (world.rules.versus) {
         bot.target = clamp(bot.target, bot.half, FIELD_H - bot.half);
         movePaddle(bot, dt, playerPaddleSpeed(world));
-      } else {
+      } else if (!world.rules.technique || world.rules.ranked) {
         bot.target = lerp(bot.target, FIELD_H / 2, Math.min(1, dt * 3));
         movePaddle(bot, dt, 600);
       }
@@ -223,7 +223,8 @@ export function step(world: World, dt: number): void {
       movePaddle(player, dt, playerPaddleSpeed(world));
       // Two players: the far paddle is a person too, at the same speed.
       if (world.rules.versus) movePaddle(bot, dt, playerPaddleSpeed(world));
-      else driveAi(world, bot, world.botBrain, dt);
+      else if (!world.rules.technique || world.rules.ranked)
+        driveAi(world, bot, world.botBrain, dt);
       stepBall(world, dt);
       const target = techniqueOutcome(world);
       if (target !== null) scorePoint(world, target ? 'you' : 'bot');

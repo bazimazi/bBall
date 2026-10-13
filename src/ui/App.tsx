@@ -281,6 +281,7 @@ export function App() {
         onPause={() => engine?.pause()}
         serving={playing && !snapshot.tutorialStep && snapshot.status === 'serve'}
         manualServe={!settings.autoServe}
+        technique={!!snapshot.technique}
         resumeIn={playing ? snapshot.resumeIn : 0}
         onServe={() => engine?.serve()}
       />
@@ -549,6 +550,7 @@ export function App() {
                 : 'Quit to menu'
           )}
           versus={snapshot.mode === 'versus'}
+          technique={!!snapshot.technique}
           objective={(coarse && snapshot.objectiveTouch) || snapshot.objective}
           goals={snapshot.goals}
           enemyAbilities={snapshot.enemyAbilities}

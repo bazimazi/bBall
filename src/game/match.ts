@@ -55,7 +55,7 @@ import {
 
 export function beginServe(world: World, dir: 1 | -1): void {
   const { match, botBrain, demoBrain } = world;
-  match.serveDir = world.rules.technique ? -1 : dir;
+  match.serveDir = world.rules.technique && !world.rules.ranked ? -1 : dir;
   match.serveTimer = SERVE_DELAY;
   match.serveRequested = false;
   match.status = 'serve';
@@ -254,7 +254,7 @@ export function celebrate(world: World): void {
   // The losing paddle dissolves into its own colour.
   const loser = won ? world.bot : world.player;
   const loserHue = hueOf(world, loser.side);
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < (world.rules.technique && !world.rules.ranked ? 0 : 9); i++) {
     const y = loser.y - loser.half + ((i + 0.5) / 9) * loser.half * 2;
     world.particles.emit(
       loser.x + (Math.random() - 0.5) * PADDLE_W,
@@ -364,6 +364,10 @@ function pointFx(
   breached: Side = won ? 'bot' : 'you'
 ): void {
   const { fx, ball, view, particles, audio } = world;
+  const soloDrill = !!world.rules.technique && !world.rules.ranked;
+  // A failed target can still reach the far end. Light the actual endpoint
+  // rather than pretending an opponent scored through the player's goal.
+  if (soloDrill) breached = ball.x >= view.w / 2 ? 'bot' : 'you';
   const far = breached === 'bot';
   fx.comboTimer = 0; // the rally is over - clear its banner
   fx.flash = won ? 0.5 : 0.35;
@@ -378,7 +382,15 @@ function pointFx(
   const y = clamp(ball.y, BALL_R, FIELD_H - BALL_R);
 
   // A serve that won the point untouched is an ace, and it says so.
-  if (world.match.rally === 0 && ball.owner === scorer) {
+  if (soloDrill) {
+    world.popups.spawn(
+      won ? 'Target hit' : 'Miss',
+      far ? view.w - 70 : 70,
+      y,
+      hueOf(world, scorer),
+      26
+    );
+  } else if (world.match.rally === 0 && ball.owner === scorer) {
     world.popups.spawn('ACE', far ? view.w - 70 : 70, y, hueOf(world, scorer), 26);
   }
   const hue = hueOf(world, scorer);
@@ -466,7 +478,7 @@ export function scorePoint(world: World, scorer: Side): void {
 
   match.score[scorer]++;
   match.points++;
-  sendOrb(world, scorer);
+  if (!world.rules.technique || world.rules.ranked) sendOrb(world, scorer);
   const phased = won && match.score.you < match.winScore && checkBossPhase(world);
   match.deficit = Math.max(match.deficit, match.score.bot - match.score.you);
 

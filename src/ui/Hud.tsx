@@ -15,6 +15,7 @@ interface HudProps {
   onPause: () => void;
   serving?: boolean;
   manualServe?: boolean;
+  technique?: boolean;
   resumeIn?: number;
   onServe?: () => void;
 }
@@ -58,6 +59,7 @@ export function Hud({
   onPause,
   serving,
   manualServe,
+  technique = false,
   resumeIn = 0,
   onServe
 }: HudProps) {
@@ -85,8 +87,16 @@ export function Hud({
         </div>
       )}
       {serving && onServe && (
-        <button type="button" className={styles.serve} onClick={onServe}>
-          {t(manualServe ? 'Serve when ready' : 'Serve now')}
+        <button type="button" className={styles.serve} data-technique={technique} onClick={onServe}>
+          {t(
+            technique
+              ? manualServe
+                ? 'Feed when ready'
+                : 'Feed now'
+              : manualServe
+                ? 'Serve when ready'
+                : 'Serve now'
+          )}
           <span>{t(coarse ? 'Tap' : keyList(keyBindings, 'serve'))}</span>
         </button>
       )}

@@ -19,6 +19,7 @@ export function stepPractice(world: World): boolean {
 export function practiceLanding(world: World): string | null {
   if (
     world.rules.mode !== 'practice' ||
+    !!world.rules.technique ||
     world.match.status !== 'paused' ||
     world.match.resumeTo !== 'play'
   )

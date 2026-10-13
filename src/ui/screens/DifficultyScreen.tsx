@@ -107,7 +107,7 @@ export function DifficultyScreen({
         >
           <p className={styles.rowBlurb}>
             {t(
-              'The dashed line is your target. Examples show a possible path; your actual shot uses normal court physics.'
+              'Solo drills have no opponent. Each ball feeds from the centre. Hit the green target at the far end: three targets before three misses. Examples show a possible shot.'
             )}
           </p>
           {TECHNIQUES.map((drill) => (
@@ -137,17 +137,17 @@ export function DifficultyScreen({
                 <path
                   d={
                     drill.id === 'bank'
-                      ? 'M84 50 L20 50 L125 26 L240 58'
+                      ? 'M150 50 L20 50 L125 26 L296 58'
                       : drill.id === 'gate'
-                        ? 'M84 50 L20 50 L240 50'
-                        : 'M84 50 L20 50 L240 25'
+                        ? 'M150 50 L20 50 L296 50'
+                        : 'M150 50 L20 50 L296 25'
                   }
                   fill="none"
                   stroke="currentColor"
                   strokeDasharray="5 4"
                 />
                 <path
-                  d={drill.id === 'placement' ? 'M240 12 V38' : 'M240 5 V95'}
+                  d={drill.id === 'placement' ? 'M296 12 V38' : 'M296 5 V95'}
                   stroke="#80ffca"
                   strokeWidth="4"
                 />

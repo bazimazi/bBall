@@ -6,7 +6,69 @@
         "height": 800
       },
       "id": "bank",
-      "outcome": "3 real aimed targets"
+      "entry": "Short sessions",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 486.5284974093264,
+        "y": 300
+      },
+      "width": 973.0569948186528,
+      "goal": [
+        {
+          "x": 962.0569948186528,
+          "y": 18,
+          "screenX": 1251.8466666666666,
+          "screenY": 37.160000000000025
+        },
+        {
+          "x": 962.0569948186528,
+          "y": 582,
+          "screenX": 1251.8466666666666,
+          "screenY": 762.8399999999999
+        }
+      ],
+      "screenshot": "1280-bank-route-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 961.0248256744993,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 241.57205727753433,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 958.0535041910824,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 241.57205727753433,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 961.0248256744993,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 241.57205727753433,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        }
+      ]
     },
     {
       "viewport": {
@@ -14,6 +76,77 @@
         "height": 800
       },
       "id": "bank",
+      "entry": "Practice",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 486.5284974093264,
+        "y": 300
+      },
+      "width": 973.0569948186528,
+      "goal": [
+        {
+          "x": 962.0569948186528,
+          "y": 18,
+          "screenX": 1251.8466666666666,
+          "screenY": 37.160000000000025
+        },
+        {
+          "x": 962.0569948186528,
+          "y": 582,
+          "screenX": 1251.8466666666666,
+          "screenY": 762.8399999999999
+        }
+      ],
+      "screenshot": "1280-bank-practice-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 961.0248256744993,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 241.57205727753433,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 958.0535041910824,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 241.57205727753433,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 961.0248256744993,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 241.57205727753433,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "bank",
+      "entry": "Practice replay",
       "outcome": "3 real missed feeds, clean replay"
     },
     {
@@ -22,7 +155,69 @@
         "height": 800
       },
       "id": "gate",
-      "outcome": "3 real aimed targets"
+      "entry": "Short sessions",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 486.5284974093264,
+        "y": 300
+      },
+      "width": 973.0569948186528,
+      "goal": [
+        {
+          "x": 962.0569948186528,
+          "y": 18,
+          "screenX": 1251.8466666666666,
+          "screenY": 37.160000000000025
+        },
+        {
+          "x": 962.0569948186528,
+          "y": 582,
+          "screenX": 1251.8466666666666,
+          "screenY": 762.8399999999999
+        }
+      ],
+      "screenshot": "1280-gate-route-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 959.2165422589253,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 560.8677520131819,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 959.2165422589253,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 560.8677520131819,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 959.2165422589253,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 560.8677520131819,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        }
+      ]
     },
     {
       "viewport": {
@@ -30,6 +225,77 @@
         "height": 800
       },
       "id": "gate",
+      "entry": "Practice",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 486.5284974093264,
+        "y": 300
+      },
+      "width": 973.0569948186528,
+      "goal": [
+        {
+          "x": 962.0569948186528,
+          "y": 18,
+          "screenX": 1251.8466666666666,
+          "screenY": 37.160000000000025
+        },
+        {
+          "x": 962.0569948186528,
+          "y": 582,
+          "screenX": 1251.8466666666666,
+          "screenY": 762.8399999999999
+        }
+      ],
+      "screenshot": "1280-gate-practice-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 959.2165422589253,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 560.8677520131819,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 956.1790986199089,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 560.8677520131819,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 959.2165422589253,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 560.8677520131819,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "gate",
+      "entry": "Practice replay",
       "outcome": "3 real missed feeds, clean replay"
     },
     {
@@ -38,7 +304,69 @@
         "height": 800
       },
       "id": "placement",
-      "outcome": "3 real aimed targets"
+      "entry": "Short sessions",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 486.5284974093264,
+        "y": 300
+      },
+      "width": 973.0569948186528,
+      "goal": [
+        {
+          "x": 962.0569948186528,
+          "y": 72,
+          "screenX": 1251.8466666666666,
+          "screenY": 106.63999999999999
+        },
+        {
+          "x": 962.0569948186528,
+          "y": 228,
+          "screenX": 1251.8466666666666,
+          "screenY": 307.36
+        }
+      ],
+      "screenshot": "1280-placement-route-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 959.990046144116,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 120.94142444260719,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 960.4282998875146,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 380.92394700513637,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 959.990046144116,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 120.94142444260719,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        }
+      ]
     },
     {
       "viewport": {
@@ -46,6 +374,77 @@
         "height": 800
       },
       "id": "placement",
+      "entry": "Practice",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 486.5284974093264,
+        "y": 300
+      },
+      "width": 973.0569948186528,
+      "goal": [
+        {
+          "x": 962.0569948186528,
+          "y": 72,
+          "screenX": 1251.8466666666666,
+          "screenY": 106.63999999999999
+        },
+        {
+          "x": 962.0569948186528,
+          "y": 228,
+          "screenX": 1251.8466666666666,
+          "screenY": 307.36
+        }
+      ],
+      "screenshot": "1280-placement-practice-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 959.990046144116,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 120.94142444260719,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 960.4282998875146,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 380.92394700513637,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 959.990046144116,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 120.94142444260719,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "placement",
+      "entry": "Practice replay",
       "outcome": "3 real missed feeds, clean replay"
     },
     {
@@ -54,7 +453,69 @@
         "height": 844
       },
       "id": "bank",
-      "outcome": "3 real aimed targets"
+      "entry": "Short sessions",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 645,
+        "y": 300
+      },
+      "width": 1290,
+      "goal": [
+        {
+          "x": 1279,
+          "y": 18,
+          "screenX": 24.859999999999985,
+          "screenY": 39.48666666666662
+        },
+        {
+          "x": 1279,
+          "y": 582,
+          "screenX": 365.14,
+          "screenY": 39.48666666666662
+        }
+      ],
+      "screenshot": "390-bank-route-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 1278.7848607745432,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 446.39125244725045,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 1276.696156264202,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 446.39125244725045,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 1278.7848607745432,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 446.39125244725045,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        }
+      ]
     },
     {
       "viewport": {
@@ -62,6 +523,77 @@
         "height": 844
       },
       "id": "bank",
+      "entry": "Practice",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 645,
+        "y": 300
+      },
+      "width": 1290,
+      "goal": [
+        {
+          "x": 1279,
+          "y": 18,
+          "screenX": 24.859999999999985,
+          "screenY": 39.48666666666662
+        },
+        {
+          "x": 1279,
+          "y": 582,
+          "screenX": 365.14,
+          "screenY": 39.48666666666662
+        }
+      ],
+      "screenshot": "390-bank-practice-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 1278.7848607745432,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 446.39125244725045,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 1278.7848607745432,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 446.39125244725045,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 1278.7848607745432,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 446.39125244725045,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "bank",
+      "entry": "Practice replay",
       "outcome": "3 real missed feeds, clean replay"
     },
     {
@@ -70,7 +602,69 @@
         "height": 844
       },
       "id": "gate",
-      "outcome": "3 real aimed targets"
+      "entry": "Short sessions",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 645,
+        "y": 300
+      },
+      "width": 1290,
+      "goal": [
+        {
+          "x": 1279,
+          "y": 18,
+          "screenX": 24.859999999999985,
+          "screenY": 39.48666666666662
+        },
+        {
+          "x": 1279,
+          "y": 582,
+          "screenX": 365.14,
+          "screenY": 39.48666666666662
+        }
+      ],
+      "screenshot": "390-gate-route-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 1278.136533632233,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 349.77670461560325,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 1278.136533632233,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 349.77670461560325,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 1278.136533632233,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 349.77670461560325,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        }
+      ]
     },
     {
       "viewport": {
@@ -78,6 +672,77 @@
         "height": 844
       },
       "id": "gate",
+      "entry": "Practice",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 645,
+        "y": 300
+      },
+      "width": 1290,
+      "goal": [
+        {
+          "x": 1279,
+          "y": 18,
+          "screenX": 24.859999999999985,
+          "screenY": 39.48666666666662
+        },
+        {
+          "x": 1279,
+          "y": 582,
+          "screenX": 365.14,
+          "screenY": 39.48666666666662
+        }
+      ],
+      "screenshot": "390-gate-practice-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 1278.136533632233,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 349.77670461560325,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 1278.136533632233,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 349.77670461560325,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 1275.9454381470455,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 349.77670461560325,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "gate",
+      "entry": "Practice replay",
       "outcome": "3 real missed feeds, clean replay"
     },
     {
@@ -86,7 +751,69 @@
         "height": 844
       },
       "id": "placement",
-      "outcome": "3 real aimed targets"
+      "entry": "Short sessions",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 645,
+        "y": 300
+      },
+      "width": 1290,
+      "goal": [
+        {
+          "x": 1279,
+          "y": 72,
+          "screenX": 57.44,
+          "screenY": 39.48666666666662
+        },
+        {
+          "x": 1279,
+          "y": 228,
+          "screenX": 151.56,
+          "screenY": 39.48666666666662
+        }
+      ],
+      "screenshot": "390-placement-route-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 1278.9017546858795,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 193.8166495701085,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 1275.752381161073,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 466.10874755275046,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 1276.5658308474847,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 193.8166495701085,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        }
+      ]
     },
     {
       "viewport": {
@@ -94,8 +821,251 @@
         "height": 844
       },
       "id": "placement",
+      "entry": "Practice",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 645,
+        "y": 300
+      },
+      "width": 1290,
+      "goal": [
+        {
+          "x": 1279,
+          "y": 72,
+          "screenX": 57.44,
+          "screenY": 39.48666666666662
+        },
+        {
+          "x": 1279,
+          "y": 228,
+          "screenX": 151.56,
+          "screenY": 39.48666666666662
+        }
+      ],
+      "screenshot": "390-placement-practice-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 1278.9017546858795,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 193.8166495701085,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 1275.752381161073,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 466.10874755275046,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 1276.5658308474847,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 193.8166495701085,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "placement",
+      "entry": "Practice replay",
       "outcome": "3 real missed feeds, clean replay"
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "placement",
+      "entry": "Short sessions",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 486.5284974093264,
+        "y": 300
+      },
+      "width": 973.0569948186528,
+      "goal": [
+        {
+          "x": 962.0569948186528,
+          "y": 72,
+          "screenX": 1251.8466666666666,
+          "screenY": 106.63999999999999
+        },
+        {
+          "x": 962.0569948186528,
+          "y": 228,
+          "screenX": 1251.8466666666666,
+          "screenY": 307.36
+        }
+      ],
+      "screenshot": "1280-placement-route-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 959.990046144116,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 120.94142444260719,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 957.7270813079328,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 380.92394700513637,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 957.9013416236181,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 962.0569948186528,
+            "y": 120.94142444260719,
+            "owner": "you",
+            "won": true,
+            "width": 973.0569948186528,
+            "goalX": 962.0569948186528
+          }
+        }
+      ],
+      "finishedTarget": [
+        {
+          "x": 962.0569948186528,
+          "y": 72,
+          "screenX": 1251.8466423072389,
+          "screenY": 106.64000797271729
+        },
+        {
+          "x": 962.0569948186528,
+          "y": 228,
+          "screenX": 1251.8466423072389,
+          "screenY": 307.3600025177002
+        }
+      ],
+      "run": "Final target-band follow-up"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "placement",
+      "entry": "Short sessions",
+      "outcome": "3 real aimed targets",
+      "ball": {
+        "x": 645,
+        "y": 300
+      },
+      "width": 1290,
+      "goal": [
+        {
+          "x": 1279,
+          "y": 72,
+          "screenX": 57.44,
+          "screenY": 39.48666666666662
+        },
+        {
+          "x": 1279,
+          "y": 228,
+          "screenX": 151.56,
+          "screenY": 39.48666666666662
+        }
+      ],
+      "screenshot": "390-placement-route-serve.png",
+      "shots": [
+        {
+          "scoreYou": 0,
+          "farthestVisibleX": 1278.9017546858795,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 193.8166495701085,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 1,
+          "farthestVisibleX": 1277.841085671414,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 466.10874755275046,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        },
+        {
+          "scoreYou": 2,
+          "farthestVisibleX": 1278.9017546858795,
+          "liveBeyondOldTarget": true,
+          "endpoint": {
+            "x": 1279,
+            "y": 193.8166495701085,
+            "owner": "you",
+            "won": true,
+            "width": 1290,
+            "goalX": 1279
+          }
+        }
+      ],
+      "finishedTarget": [
+        {
+          "x": 1279,
+          "y": 72,
+          "screenX": 57.4399952888489,
+          "screenY": 39.486653566360474
+        },
+        {
+          "x": 1279,
+          "y": 228,
+          "screenX": 151.5599985122681,
+          "screenY": 39.486653566360474
+        }
+      ],
+      "run": "Final target-band follow-up"
     }
   ],
-  "errors": []
+  "errors": [],
+  "validatedAt": "2026-10-14",
+  "methodology": "Actual app UI entries, real pointer aiming and keyboard feeds. Original renderer remains active and is observed for paddle/goal/endpoint geometry; no scores or results are injected."
 }

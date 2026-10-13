@@ -90,6 +90,23 @@
   font-weight: 500;
 }
 
+@media (orientation: portrait) {
+  .serve[data-technique='true'] {
+    top: calc(var(--safe-t) + 88px);
+    right: calc(var(--safe-r) + 16px);
+    bottom: auto;
+    left: auto;
+    max-width: calc(50vw - 32px);
+    padding: 9px 12px;
+    transform: none;
+  }
+
+  :global(html[dir='rtl']) .serve[data-technique='true'] {
+    right: auto;
+    left: calc(var(--safe-l) + 16px);
+  }
+}
+
 .countdown {
   position: fixed;
   top: 50%;

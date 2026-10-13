@@ -79,6 +79,21 @@
   min-width: 0;
 }
 
+.info[data-technique='true'] .score > span {
+  flex: none;
+}
+
+@media (orientation: landscape) {
+  .info[data-technique='true'] {
+    left: calc(var(--safe-l) + 128px);
+  }
+
+  :global(html[dir='rtl']) .info[data-technique='true'] {
+    left: auto;
+    right: calc(var(--safe-r) + 128px);
+  }
+}
+
 .score b {
   flex-shrink: 0;
   padding-left: 3px;

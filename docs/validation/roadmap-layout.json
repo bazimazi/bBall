@@ -629,7 +629,548 @@
       "height": 1024,
       "name": "match",
       "state": "shared"
+    },
+    {
+      "language": "en",
+      "width": 1280,
+      "height": 800,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 563.3515625,
+          "y": 724,
+          "width": 153.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 1280,
+      "height": 800,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 563.3515625,
+          "y": 724,
+          "width": 153.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 1280,
+      "height": 800,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 563.3515625,
+          "y": 724,
+          "width": 153.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 1280,
+      "height": 800,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 550.4375,
+          "y": 719,
+          "width": 179.125,
+          "height": 61
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 1280,
+      "height": 800,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 550.4375,
+          "y": 719,
+          "width": 179.125,
+          "height": 61
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 1280,
+      "height": 800,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 550.4375,
+          "y": 719,
+          "width": 179.125,
+          "height": 61
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 390,
+      "height": 844,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 236.703125,
+          "y": 88,
+          "width": 137.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 390,
+      "height": 844,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 236.703125,
+          "y": 88,
+          "width": 137.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 390,
+      "height": 844,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 236.703125,
+          "y": 88,
+          "width": 137.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 390,
+      "height": 844,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 163,
+          "height": 83
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 390,
+      "height": 844,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 163,
+          "height": 69
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 390,
+      "height": 844,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 163,
+          "height": 83
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 320,
+      "height": 568,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 176,
+          "y": 88,
+          "width": 128,
+          "height": 75
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 320,
+      "height": 568,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 176,
+          "y": 88,
+          "width": 128,
+          "height": 75
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 320,
+      "height": 568,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 176,
+          "y": 88,
+          "width": 128,
+          "height": 75
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 320,
+      "height": 568,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 128,
+          "height": 83
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 320,
+      "height": 568,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 128,
+          "height": 83
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 320,
+      "height": 568,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 128,
+          "height": 83
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 844,
+      "height": 390,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 345.3515625,
+          "y": 314,
+          "width": 153.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 844,
+      "height": 390,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 345.3515625,
+          "y": 314,
+          "width": 153.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 844,
+      "height": 390,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 345.3515625,
+          "y": 314,
+          "width": 153.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 844,
+      "height": 390,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 332.4375,
+          "y": 309,
+          "width": 179.125,
+          "height": 61
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 844,
+      "height": 390,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 332.4375,
+          "y": 309,
+          "width": 179.125,
+          "height": 61
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 844,
+      "height": 390,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 332.4375,
+          "y": 309,
+          "width": 179.125,
+          "height": 61
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 768,
+      "height": 1024,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 614.703125,
+          "y": 88,
+          "width": 137.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 768,
+      "height": 1024,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 614.703125,
+          "y": 88,
+          "width": 137.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "en",
+      "width": 768,
+      "height": 1024,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 614.703125,
+          "y": 88,
+          "width": 137.296875,
+          "height": 56
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 768,
+      "height": 1024,
+      "name": "live-short-session",
+      "route": 0,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 163.125,
+          "height": 61
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 768,
+      "height": 1024,
+      "name": "live-short-session",
+      "route": 1,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 163.125,
+          "height": 61
+        },
+        "centred": true
+      }
+    },
+    {
+      "language": "fa",
+      "width": 768,
+      "height": 1024,
+      "name": "live-short-session",
+      "route": 2,
+      "layout": {
+        "overlaps": [],
+        "hudOverlapsPlayer": false,
+        "button": {
+          "x": 16,
+          "y": 88,
+          "width": 163.125,
+          "height": 61
+        },
+        "centred": true
+      }
     }
   ],
-  "errors": []
+  "errors": [],
+  "validatedAt": "2026-10-14"
 }

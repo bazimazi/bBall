@@ -502,6 +502,13 @@ on the device between matches; an unfinished match restarts after app closure.
 Contextual practice returns to its original result while that session remains
 open. No new native capability or permission is needed.
 
+Technique drills now feed from the court centre and use a solo far-end goal.
+Check that portrait Feed controls and landscape Targets/Misses leave the entire
+player paddle lane visible and usable, including after rotation, in English and
+Persian. Target crossings and missed-target effects should land at the visible
+court end. The `check:browser:drills` and `check:roadmap` regressions check these
+conditions in Chromium; repeat them on physical webviews.
+
 System and browser reduced-motion preferences remain completely ignored on web,
 desktop and mobile. Boss guard timing and target resolution use simulation time;
 Full/Calm and screen-shake controls remain independent of system preferences.

@@ -1,6 +1,7 @@
 import type { PaddleKit, MaterialRuntime } from '../core/equipment/types';
 import type { BotProfile } from '../core/bots/types';
 import type { MatchResult, ModeId } from '../core/modes/types';
+import type { TechniqueId } from '../core/modes/drills';
 import type { AbilityId, TalentId, TalentMatchStats } from '../core/talents/types';
 
 export type Side = 'you' | 'bot';
@@ -436,6 +437,7 @@ export interface GoalView {
 
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
+  readonly technique?: TechniqueId;
   readonly sharedReturns?: number;
   readonly bossCue?: string | null;
   specializations?: readonly string[];

@@ -19,15 +19,21 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
   const detailsId = useId();
   const toggleLabel = t(matchInfoExpanded ? 'Collapse match info' : 'Expand match info');
   const versus = snapshot.mode === 'versus';
-  const you = versus ? 'P1' : 'You';
-  const bot = versus ? 'P2' : (snapshot.opponentName ?? 'Bot');
+  const technique = !!snapshot.technique;
+  const you = technique ? 'Targets' : versus ? 'P1' : 'You';
+  const bot = technique ? 'Misses' : versus ? 'P2' : (snapshot.opponentName ?? 'Bot');
   const shortName = bot.split(' · ')[0];
   const lives = snapshot.maxLives > 0;
   const announcement = lives
     ? `${snapshot.lives} of ${snapshot.maxLives} lives left`
-    : `${versus ? 'Player 1' : 'You'} ${snapshot.scoreYou}, ${versus ? 'Player 2' : 'opponent'} ${snapshot.scoreBot}. First to ${snapshot.winScore}.`;
+    : technique
+      ? msg('{0} targets, {1} misses. Three targets before three misses.', [
+          t(snapshot.scoreYou),
+          t(snapshot.scoreBot)
+        ])
+      : `${versus ? 'Player 1' : 'You'} ${snapshot.scoreYou}, ${versus ? 'Player 2' : 'opponent'} ${snapshot.scoreBot}. First to ${snapshot.winScore}.`;
   return (
-    <div className={styles.info}>
+    <div className={styles.info} data-technique={technique}>
       <button
         className={styles.summary}
         type="button"
@@ -73,15 +79,20 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
       {snapshot.sharedReturns !== undefined && (
         <p className={styles.objective}>{t(msg('{0}/30 returns', [t(snapshot.sharedReturns)]))}</p>
       )}
+      {technique && (
+        <p className={styles.objective}>{t('Solo drill · 3 targets before 3 misses')}</p>
+      )}
       {snapshot.bossCue && <p className={styles.objective}>{t(snapshot.bossCue)}</p>}
       <div id={detailsId} hidden={!matchInfoExpanded}>
-        <p className={styles.target}>
-          {t(
-            lives
-              ? msg('Best rally {0}', [t(snapshot.bestThisMatch)])
-              : msg('First to {0}', [t(snapshot.winScore)])
-          )}
-        </p>
+        {!technique && (
+          <p className={styles.target}>
+            {t(
+              lives
+                ? msg('Best rally {0}', [t(snapshot.bestThisMatch)])
+                : msg('First to {0}', [t(snapshot.winScore)])
+            )}
+          </p>
+        )}
         {!!snapshot.rallyPressure && (
           <p
             className={styles.objective}
@@ -96,17 +107,19 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
           <p
             className={`${styles.objective} ${styles.equipment}`}
             title={t(
-              msg('Your paddle: {0}. Rival: {1}', [
-                t(snapshot.paddleKit),
-                t(snapshot.opponentKit ?? 'Neutral paddle')
-              ])
+              technique
+                ? msg('Your paddle: {0}', [t(snapshot.paddleKit)])
+                : msg('Your paddle: {0}. Rival: {1}', [
+                    t(snapshot.paddleKit),
+                    t(snapshot.opponentKit ?? 'Neutral paddle')
+                  ])
             )}
           >
             {t(snapshot.materialCharge ? 'Impact stored ◇ · ' : '')}
             {t(snapshot.paddleKit)}
           </p>
         )}
-        {!versus && !!snapshot.enemyAbilities?.length && (
+        {!versus && !technique && !!snapshot.enemyAbilities?.length && (
           <div className={styles.enemy} role="group" aria-label={t('Opponent skills')}>
             <span className={styles.enemyLabel}>{t('Rival')}</span>
             {snapshot.enemyAbilities.map((skill) => (

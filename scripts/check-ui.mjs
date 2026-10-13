@@ -2244,7 +2244,11 @@ try {
             version: 1,
             displayName: 'New account'
           };
-          assert.equal(live.rules.ranked, true, 'the interrupted route step awards normal match XP');
+          assert.equal(
+            live.rules.ranked,
+            true,
+            'the interrupted route step awards normal match XP'
+          );
           await act(() => {
             Object.assign(live.match, { status: 'over', winner: 'you' });
             live.match.score.you = live.rules.winScore;
@@ -2438,6 +2442,64 @@ try {
       assert.equal(label.parentElement.firstElementChild.textContent, expected);
     }
   });
+
+  await check(
+    'solo drills use feed controls, target scores and technique-specific guidance',
+    async () => {
+      const [{ Hud }, { TECHNIQUES }] = await Promise.all([
+        vite.ssrLoadModule('/src/ui/Hud.tsx'),
+        vite.ssrLoadModule('/src/core/modes/drills.ts')
+      ]);
+      await mount(
+        h(Hud, {
+          muted: true,
+          canPause: true,
+          onToggleMute: noop,
+          onPause: noop,
+          serving: true,
+          manualServe: true,
+          technique: true,
+          onServe: noop
+        })
+      );
+      assert.ok(host.textContent.includes('Feed when ready'));
+      assert.ok(!host.textContent.includes('Serve when ready'));
+      assert.equal(query('button[data-technique]').getAttribute('data-technique'), 'true');
+      await mount(
+        h(PausePanel, {
+          label: 'Placement drill',
+          score: { you: 1, bot: 2 },
+          technique: true,
+          objective: 'Three targets before three misses · identical feeds · no rewards',
+          onResume: noop,
+          onSettings: noop,
+          onRestart: noop,
+          onQuit: noop
+        })
+      );
+      assert.equal(query('p[aria-label]').getAttribute('aria-label'), 'Targets 1, Misses 2');
+      assert.ok(host.textContent.includes('Targets : Misses'));
+      for (const drill of TECHNIQUES) {
+        await mount(
+          resultPage({
+            ...quickResult,
+            mode: 'practice',
+            ranked: false,
+            technique: drill.id,
+            won: false,
+            scoreYou: 0,
+            scoreBot: 3,
+            hits: 0
+          })
+        );
+        assert.equal(query('h2').textContent, 'Keep practising');
+        assert.ok(host.textContent.includes(drill.hint));
+        assert.ok(host.textContent.includes('Solo drill · 3 targets before 3 misses'));
+        assert.ok(!host.textContent.includes('Start with one return'));
+        assert.ok(!host.textContent.includes('Bot wins'));
+      }
+    }
+  );
 
   await check(
     'progress-loss confirmation names its consequence, keeps focus on Cancel and executes once',
@@ -3893,6 +3955,14 @@ try {
         );
         await act(() => root.render(hud({ scoreYou: 4 })));
         assert.match(query('[role="status"]').textContent, /You 4, opponent 2/);
+        await mount(hud({ mode: 'practice', technique: 'placement', winScore: 3 }));
+        assert.match(query('button[aria-expanded]').textContent, /Targets.*3.*Misses.*2/s);
+        assert.match(query('[role="status"]').textContent, /3 targets, 2 misses/);
+        const soloGoal = [...host.querySelectorAll('p')].find((node) =>
+          node.textContent.startsWith('Solo drill')
+        );
+        assert.ok(soloGoal && !soloGoal.closest('[hidden]'), 'solo goal must stay visible');
+        assert.ok(!host.textContent.includes('First to 3'), 'drills must not pose as duels');
         await mount(hud({ maxLives: 3, lives: 2 }));
         assert.match(query('button[aria-expanded]').textContent, /Lives.*2\/3/s);
         assert.match(query('[role="status"]').textContent, /2 of 3 lives left/);

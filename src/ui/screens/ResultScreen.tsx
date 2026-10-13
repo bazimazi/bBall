@@ -196,7 +196,8 @@ export function ResultScreen({
   const points = summary?.talentPointsAvailable ?? 0;
   const gained = summary?.talentPoints ?? 0;
   const goals = goalsOf(result);
-  const coaching = coachingFor(result, goals ?? []);
+  const coaching = result.technique ? null : coachingFor(result, goals ?? []);
+  const technique = TECHNIQUES.find((drill) => drill.id === result.technique);
   const good = result.mode === 'challenge' ? result.objectiveMet : result.won;
   const run = summary?.run;
 
@@ -292,6 +293,12 @@ export function ResultScreen({
         )}
 
         {coaching && <ResultCoaching coaching={coaching} onTutorial={onTutorial} onHelp={onHelp} />}
+        {technique && (
+          <div className={styles.card}>
+            <h3>{t('Solo drill · 3 targets before 3 misses')}</h3>
+            <p>{t(technique.hint)}</p>
+          </div>
+        )}
 
         {result.sharedCode && (
           <div className={styles.card}>
@@ -548,9 +555,11 @@ export function ResultScreen({
             {t(
               result.mode === 'versus'
                 ? 'Two-player matches are just for fun'
-                : result.ranked
-                  ? 'No XP from this one'
-                  : 'Practice · nothing recorded'
+                : result.technique
+                  ? 'Solo drill · no rewards'
+                  : result.ranked
+                    ? 'No XP from this one'
+                    : 'Practice · nothing recorded'
             )}
           </p>
         )}

@@ -1170,5 +1170,6 @@
     }
   ],
   "errors": [],
-  "methodology": "Actual Chromium app. UI input smoke tests use browser pointer/keyboard/touch; catalogue variants launch through internal flow commands. Catalogue runs intentionally lose, checking finite physics, canonical rules and result publishing, not every successful objective. Longer completions use automated paddle input and accelerated production engine frames with canvas drawing suspended. No scores/results are injected. Successful progression and genuine aimed shots have separate suites."
+  "methodology": "Actual Chromium app. UI input smoke tests use browser pointer/keyboard/touch; catalogue variants launch through internal flow commands. Catalogue runs intentionally lose, checking finite physics, canonical rules and result publishing, not every successful objective. Longer completions use automated paddle input and accelerated production engine frames with canvas drawing suspended. No scores/results are injected. Successful progression and genuine aimed shots have separate suites.",
+  "validatedAt": "2026-10-14"
 }

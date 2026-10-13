@@ -1,4 +1,5 @@
 import { techniqueTarget } from '../../core/modes/drills';
+import { techniqueGoalX } from '../technique';
 import { t as translateText, locale } from '../../core/i18n';
 import type { ResolvedTheme } from '../../core/cosmetics/theme';
 import { tracePath } from '../ai';
@@ -223,20 +224,25 @@ export class Renderer {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    if (world.match.status !== 'menu' && !world.tutorial) this.drawPips(world);
+    const soloDrill = !!world.rules.technique && !world.rules.ranked;
+    if (world.match.status !== 'menu' && !world.tutorial && !soloDrill) this.drawPips(world);
 
     this.drawShieldWall(world);
     this.drawBastion(world);
     this.drawForesight(world);
-    if (world.rules.technique) {
-      const [low, high] = techniqueTarget(world.rules.technique, world.match.points);
+    if (soloDrill && world.rules.technique) {
+      const attempt = Math.max(0, world.match.points - Number(world.match.status === 'over'));
+      const [low, high] = techniqueTarget(world.rules.technique, attempt);
+      const goalX = techniqueGoalX(world.view.w);
       ctx.save();
+      ctx.fillStyle = 'rgba(128,255,202,0.16)';
+      ctx.fillRect(goalX - 24, low * FIELD_H, 24, (high - low) * FIELD_H);
       ctx.strokeStyle = '#80ffca';
       ctx.lineWidth = 5;
       ctx.setLineDash([10, 6]);
       ctx.beginPath();
-      ctx.moveTo(world.view.w * 0.8, low * FIELD_H);
-      ctx.lineTo(world.view.w * 0.8, high * FIELD_H);
+      ctx.moveTo(goalX, low * FIELD_H);
+      ctx.lineTo(goalX, high * FIELD_H);
       ctx.stroke();
       ctx.restore();
     }
@@ -252,7 +258,7 @@ export class Renderer {
       drawDashStreak(ctx, world);
     }
     this.drawPaddle(world, world.player, 1);
-    this.drawPaddle(world, world.bot, -1);
+    if (!soloDrill) this.drawPaddle(world, world.bot, -1);
     this.drawLessonTarget(world);
     if (!replaying) {
       drawPlayerAura(ctx, world);
@@ -366,7 +372,10 @@ export class Renderer {
     const { match, fx } = world;
     // Paddles keep their identity colour at all times - only the ball runs hot.
     const hue = hueOf(world, paddle.side);
-    const over = match.status === 'over' && match.winner !== null;
+    const over =
+      match.status === 'over' &&
+      match.winner !== null &&
+      (!world.rules.technique || world.rules.ranked);
     let alpha = 1;
     if (over && fx.celebrated) {
       if (paddle.side === match.winner) {
@@ -903,10 +912,15 @@ export class Renderer {
 
     drawUltimateBanner(ctx, world, cx, cy, s, this.font);
     this.drawBanner(world, cx, cy, s);
-    drawVersusCard(ctx, world, cx, cy, s, this.font);
+    if (!world.rules.technique || world.rules.ranked)
+      drawVersusCard(ctx, world, cx, cy, s, this.font);
     this.drawPopups(world);
 
-    if (match.status === 'serve' && isMatchPoint(world)) {
+    if (
+      match.status === 'serve' &&
+      isMatchPoint(world) &&
+      (!world.rules.technique || world.rules.ranked)
+    ) {
       ctx.save();
       ctx.globalAlpha = 0.5 + 0.3 * Math.sin(fx.time * 6);
       ctx.font = `750 ${(20 * s).toFixed(1)}px ${this.font}`;

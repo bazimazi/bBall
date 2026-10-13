@@ -953,11 +953,13 @@ explicit visual-effects and screen-shake controls affect their supported effects
 The gameplay roadmap now includes:
 
 - **Practice → Technique drills:** bank shots, gate timing and alternating
-  placement targets, with example paths and repeatable neutral feeds. These
-  are also available from ranked solo results and return to that result.
+  placement targets, with example paths and repeatable neutral feeds from the
+  court centre. Solo drills use one paddle, a far-end goal and Targets/Misses.
+  These are also available from ranked solo results and return to that result.
 - **Gatekeeper, Architect and Duelist:** distinct phase courts and visible
   guard/recovery cues. Aim wide while the opponent's reach recovers.
 - **More modes → Short sessions:** three curated routes of three encounters.
+  Each starts with a solo drill, then continues into ordinary duels or challenges.
   Progress resumes between matches on this device; ordinary rewards stay
   unchanged, Practice pays nothing, and routes add no bonus currency.
 - **Gauntlet route previews:** the whole act's encounters and credit tradeoffs,

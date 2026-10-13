@@ -6,6 +6,12 @@ research, rewards, onboarding, results, and the client/server rule boundary.
 It combines source inspection, regression tests and seeded engine simulations.
 There were no human playtests or physical-device measurements in this session.
 
+**Correction, 14 October:** real Short sessions play reproduced off-centre feeds
+and points awarded before the visible opponent. Solo drills now use a centred
+feed, one paddle, exact far-boundary target scoring and clear Targets/Misses.
+Controls clear the paddle lane in both orientations. See the
+[playthrough correction and stronger regressions](#short-sessions-correction-14-october).
+
 **First continuation, 13 October:** contextual encounter rehearsal was implemented. Completed
 ranked solo duels offer **Practise this encounter** on their result card. It opens
 a repeatable, unranked, first-to-three rehearsal of that court and opponent,
@@ -312,3 +318,53 @@ Vite still reports the existing advisory for the main chunk over 500 kB.
 Reports are retained under `docs/validation/browser-*.json`; screenshots and
 working logs stay under `.temp/` and ignored `artifacts-browser-*.log` files.
 Run the six `check:browser:*` commands above and `npm run check:layout` to reproduce.
+
+## Short sessions correction, 14 October
+
+Real pointer play through **More modes → Short sessions** reproduced the reported
+problem on desktop and portrait phone. The first encounter of each route used a
+drill that fed the ball from 28% of the court and awarded a target at 80%, while
+still showing and driving a normal opponent. The opponent could never reach that
+scoring line. The earlier tests established that shots could satisfy this rule;
+they did not catch that its presentation looked like broken duel physics.
+
+The solo drill now has one player paddle, a feed from the court centre and a
+green target at the actual far boundary. The ball remains visible and live
+through the former scoring position. Physics stops at the exact goal crossing
+so target-band judgments use the crossing position rather than a later overshot
+position. Miss feedback flashes the endpoint the ball reached. The final
+placement target remains displayed during the result celebration.
+
+Targets/Misses and Feed labels explain the solo task. Drill results give the
+technique's instructions, and later route encounters use ordinary duels or
+challenges. Portrait Feed controls and landscape drill HUD now clear the entire
+player paddle lane; score labels also remain fully visible on small screens.
+Example diagrams match the centred feed and far target. System/browser
+reduced-motion settings remain completely ignored; explicit Full/Calm and shake
+controls continue to govern presentation.
+
+Validation now checks the reported behavior directly:
+
+- **18 real-input flows / 54 attempts** cover the first step of all three Short
+  sessions, standalone drills, successful targets, replay and three missed feeds
+  at 1280×800 and 390×844. Canvas observations call the original renderer and
+  verify the centre feed, visible travel beyond 80%, exact far-goal stroke and
+  award endpoint, one paddle, Targets/Misses and persisted next-step progress.
+  Two additional fresh-browser placement runs verify the final target band.
+- **30 actual-app geometry checks** cover all three route openings in English
+  and Persian at desktop, phone, narrow phone, landscape and tablet sizes. Feed
+  controls clear the complete paddle lane, centre ball, both placement bands,
+  HUD and global controls; the drill HUD also clears the player lane.
+- All three complete routes, saved-step resume, replay and later encounter wins
+  pass in the **9-flow progression suite**. The wider **292-flow gameplay suite**
+  also passes. These longer probes retain the documented automated-input scope.
+- **522 engine/server tests** pass, including new centre/retry, former-midfield,
+  absent-opponent, exact-crossing and correct-feedback regressions. **79 mounted
+  UI checks**, translations, web/server typechecks, web build and lint pass.
+
+Reproduce with `npm run check:browser:drills`, `npm run check:roadmap` and
+`npm run check:browser:progression`. Updated reports are in
+[browser-drills.json](validation/browser-drills.json),
+[roadmap-layout.json](validation/roadmap-layout.json) and
+[browser-progression.json](validation/browser-progression.json). Working
+screenshots are under `.temp/drill-gameplay/` and `.temp/roadmap-layout/`.

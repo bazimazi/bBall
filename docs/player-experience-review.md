@@ -1,5 +1,17 @@
 # bBall player experience review
 
+**Short sessions correction, 14 October:** real pointer play reproduced a
+misleading drill layout: feeds started at 28% of the court, and returns were
+scored at 80% before the visible opponent could reach them. Drills now feed from
+the centre into one player paddle and score at the visible far court boundary.
+Targets/Misses, Feed controls and technique guidance describe the solo task;
+regular encounters still use duels. Exact crossing checks remove overshoot
+errors, missed targets flash their actual endpoint, and portrait Feed/landscape
+score controls clear the paddle's movement lane. Real Short sessions playthrough
+and geometry regressions now check these details. System/browser reduced-motion
+settings remain completely ignored; explicit Full/Calm and shake settings still
+control presentation. See the [correction and validation](balance-and-expansion-review.md#short-sessions-correction-14-october).
+
 **Browser regression follow-up, 13 October:** the actual app now has Playwright
 suites for menu/settings interactions, all mode results, successful progression,
 real aimed drills, authored boss phases and isolated local account integration.

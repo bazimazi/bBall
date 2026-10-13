@@ -5,6 +5,7 @@ import { applyArenaForces, bossReturned, collideArena, playerReturned } from './
 import { abilityById } from '../core/talents/abilities';
 import { BALL_R, COMBO_STEPS, FIELD_H, PADDLE_W } from './constants';
 import { scorePoint } from './match';
+import { techniqueGoalX } from './technique';
 import { hsla } from './palette';
 import {
   bankBall,
@@ -352,15 +353,28 @@ function advanceBall(world: World, dt: number): void {
     const paddle = dir > 0 ? world.player : world.bot;
     const face = paddle.x + dir * (PADDLE_W / 2 + BALL_R);
     const ahead = dir > 0 ? ball.x >= face : ball.x <= face;
-    const paddleTime = ahead && paddle !== missed && vx !== 0 ? (face - ball.x) / vx : Infinity;
+    const solo = !!world.rules.technique && !world.rules.ranked;
+    const paddleTime =
+      ahead && paddle !== missed && vx !== 0 && !(solo && paddle.side === 'bot')
+        ? (face - ball.x) / vx
+        : Infinity;
+    const goalTime =
+      solo && vx > 0 && ball.owner === 'you'
+        ? Math.max(0, (techniqueGoalX(world.view.w) - ball.x) / vx)
+        : Infinity;
     const wall = vy < 0 ? BALL_R : FIELD_H - BALL_R;
     const wallTime = vy !== 0 ? Math.max(0, (wall - ball.y) / vy) : Infinity;
-    const time = Math.min(remaining, paddleTime, wallTime);
+    const time = Math.min(remaining, paddleTime, wallTime, goalTime);
     ball.x += vx * time;
     ball.y += vy * time;
     remaining -= time;
 
-    if (wallTime <= paddleTime && wallTime <= time) {
+    // Stop exactly at the visible goal. The drill judges this crossing after
+    // court physics; evaluating an overshot position would change edge results.
+    if (goalTime <= time) {
+      ball.x = techniqueGoalX(world.view.w);
+      break;
+    } else if (wallTime <= paddleTime && wallTime <= time) {
       ball.y = wall;
       ball.vy = -ball.vy;
       onWallBounce(world);
@@ -442,7 +456,7 @@ export function stepBall(world: World, dt: number): void {
   // ...but either paddle can also slide sideways into a ball moving away from
   // it, so both get an overlap rescue once the ball is known to be in bounds.
   resolveOverlap(world, world.player);
-  resolveOverlap(world, world.bot);
+  if (!world.rules.technique || world.rules.ranked) resolveOverlap(world, world.bot);
 
   // A Shield charge catches the ball at the player's line, before the point
   // is ever awarded - so a save keeps the rally alive rather than undoing it.

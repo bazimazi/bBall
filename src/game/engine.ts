@@ -602,6 +602,7 @@ export class GameEngine {
         this.world.tutorial?.step !== 'complete' &&
         (status === 'play' || status === 'serve' || status === 'resuming'),
       ...(rules.sharedCode ? { sharedReturns: match.hits } : {}),
+      ...(!rules.ranked && rules.technique ? { technique: rules.technique } : {}),
       bossCue: bossCue(this.world),
       objective: rules.sharedCode
         ? `Shared target · ${match.hits}/30 · Returns`

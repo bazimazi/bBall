@@ -25,6 +25,11 @@ export function RoutesScreen({
           'Complete each step to continue. Practice pays no rewards; ordinary matches keep their usual rewards. Progress stays on this device. Unfinished matches restart.'
         )}
       </p>
+      <p className={styles.note}>
+        {t(
+          'Each route starts with a solo target drill, followed by two encounters. The drill has no opponent: three targets before three misses.'
+        )}
+      </p>
       <div className={styles.stack}>
         {SESSION_ROUTES.map((route) => {
           const progress = saved.find((item) => item.id === route.id);
