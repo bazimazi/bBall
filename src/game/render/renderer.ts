@@ -1,3 +1,4 @@
+import { techniqueTarget } from '../../core/modes/drills';
 import { t as translateText, locale } from '../../core/i18n';
 import type { ResolvedTheme } from '../../core/cosmetics/theme';
 import { tracePath } from '../ai';
@@ -227,6 +228,18 @@ export class Renderer {
     this.drawShieldWall(world);
     this.drawBastion(world);
     this.drawForesight(world);
+    if (world.rules.technique) {
+      const [low, high] = techniqueTarget(world.rules.technique, world.match.points);
+      ctx.save();
+      ctx.strokeStyle = '#80ffca';
+      ctx.lineWidth = 5;
+      ctx.setLineDash([10, 6]);
+      ctx.beginPath();
+      ctx.moveTo(world.view.w * 0.8, low * FIELD_H);
+      ctx.lineTo(world.view.w * 0.8, high * FIELD_H);
+      ctx.stroke();
+      ctx.restore();
+    }
     drawArena(ctx, world, this.glow);
     this.drawRings(world);
     if (world.motion >= 0.5 && world.graphicsIntensity === 'high') this.drawSpeedLines(world);

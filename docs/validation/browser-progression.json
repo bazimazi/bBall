@@ -1,0 +1,41 @@
+{
+  "checks": [
+    {
+      "name": "Short session placement: real drill, wins, persisted resume, completion and replay",
+      "passed": true
+    },
+    {
+      "name": "Short session banks: real drill, wins, persisted resume, completion and replay",
+      "passed": true
+    },
+    {
+      "name": "Short session timing: real drill, wins, persisted resume, completion and replay",
+      "passed": true
+    },
+    {
+      "name": "Gauntlet Sprint: real wins, draft pick, next act route preview and committed encounter",
+      "passed": true
+    },
+    {
+      "name": "Classic Bronze tournament: three actual wins, next rounds, trophy and new cup",
+      "passed": true
+    },
+    {
+      "name": "Shared challenge: 30 genuine returns, target result and no progression",
+      "passed": true
+    },
+    {
+      "name": "Endless Waves: 12 real returns advance the first wave without losing a life",
+      "passed": true
+    },
+    {
+      "name": "Encounter rehearsal: actual winning build survives level-up and same-account sync",
+      "passed": true
+    },
+    {
+      "name": "Profile switch cancels the old ranked court and rehearsal without transferring rewards",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

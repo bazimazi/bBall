@@ -180,13 +180,23 @@ export function encounterFor(save: RunSave, stage = save.stage): Encounter {
     const act = actIndex(save, stage);
     const band = Math.min(
       4,
-      Math.floor(save.pressure / 10) + Math.floor(act / 3) + (save.route === 'risk' ? 1 : 0)
+      Math.floor(save.pressure / 10) +
+        Math.min(2, act) +
+        Math.floor(Math.max(0, act - 2) / 3) +
+        (save.route === 'risk' ? 1 : 0)
     );
     const r = recipe(save.seed, stage + (save.route === 'risk' ? 7 : 0), band);
     const bossStage = (stage - (save.actOffset ?? 0)) % actLength(save) === actLength(save) - 1;
-    const boss = bossStage
-      ? EXPANSION_BOSS_IDS[(act + save.pressure) % EXPANSION_BOSS_IDS.length]!
-      : null;
+    // Early bosses teach one mechanic and finish at most one rank above the
+    // act's ordinary opponents. Expansion bosses finish at Legend and belong
+    // after the player has reached Elite, not in an Amateur opening act.
+    const boss = !bossStage
+      ? null
+      : band === 0
+        ? 'colossus'
+        : band === 1
+          ? pickOne(seeded('run-boss', save.seed, act), ['orbiter', 'tempest', 'singularity'])
+          : EXPANSION_BOSS_IDS[(act + save.pressure) % EXPANSION_BOSS_IDS.length]!;
     const definition = boss ? bossById(boss) : undefined;
     const order = ['rookie', 'amateur', 'pro', 'elite', 'legend'];
     const bot =

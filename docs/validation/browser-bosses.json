@@ -1,0 +1,242 @@
+{
+  "checks": [
+    {
+      "id": "gatekeeper",
+      "isolated": {
+        "id": "gatekeeper",
+        "phases": 0
+      },
+      "paused": true,
+      "live": {
+        "status": "over",
+        "phases": [
+          {
+            "phase": 0,
+            "score": {
+              "you": 0,
+              "bot": 0
+            },
+            "arena": {
+              "gates": [
+                {
+                  "x": 0.58,
+                  "center": 0.5,
+                  "gap": 0.34,
+                  "period": 5.5,
+                  "amplitude": 0.1
+                }
+              ]
+            },
+            "rank": 3
+          },
+          {
+            "phase": 1,
+            "score": {
+              "you": 2,
+              "bot": 0
+            },
+            "arena": {
+              "gates": [
+                {
+                  "x": 0.58,
+                  "center": 0.3,
+                  "gap": 0.34,
+                  "period": 5.5,
+                  "amplitude": 0.1
+                }
+              ]
+            },
+            "rank": 4
+          },
+          {
+            "phase": 2,
+            "score": {
+              "you": 4,
+              "bot": 0
+            },
+            "arena": {
+              "gates": [
+                {
+                  "x": 0.58,
+                  "center": 0.7,
+                  "gap": 0.34,
+                  "period": 5.5,
+                  "amplitude": 0.1
+                }
+              ]
+            },
+            "rank": 4
+          }
+        ],
+        "beats": [
+          "guard",
+          "recovery",
+          "windup"
+        ],
+        "reach": {
+          "guard": 1,
+          "recovery": 0.68
+        },
+        "winner": "you"
+      }
+    },
+    {
+      "id": "architect",
+      "isolated": {
+        "id": "architect",
+        "phases": 0
+      },
+      "paused": true,
+      "live": {
+        "status": "over",
+        "phases": [
+          {
+            "phase": 0,
+            "score": {
+              "you": 0,
+              "bot": 0
+            },
+            "arena": {
+              "rails": [
+                {
+                  "ax": 0.38,
+                  "ay": 0.24,
+                  "bx": 0.68,
+                  "by": 0.42
+                }
+              ]
+            },
+            "rank": 3
+          },
+          {
+            "phase": 1,
+            "score": {
+              "you": 2,
+              "bot": 0
+            },
+            "arena": {
+              "rails": [
+                {
+                  "ax": 0.38,
+                  "ay": 0.76,
+                  "bx": 0.68,
+                  "by": 0.58
+                }
+              ]
+            },
+            "rank": 4
+          },
+          {
+            "phase": 2,
+            "score": {
+              "you": 4,
+              "bot": 0
+            },
+            "arena": {
+              "rails": [
+                {
+                  "ax": 0.38,
+                  "ay": 0.24,
+                  "bx": 0.68,
+                  "by": 0.42
+                },
+                {
+                  "ax": 0.38,
+                  "ay": 0.76,
+                  "bx": 0.68,
+                  "by": 0.58
+                }
+              ]
+            },
+            "rank": 4
+          }
+        ],
+        "beats": [
+          "guard",
+          "recovery",
+          "windup"
+        ],
+        "reach": {
+          "guard": 1,
+          "recovery": 0.7
+        },
+        "winner": "you"
+      }
+    },
+    {
+      "id": "duelist",
+      "isolated": {
+        "id": "duelist",
+        "phases": 0
+      },
+      "paused": true,
+      "live": {
+        "status": "over",
+        "phases": [
+          {
+            "phase": 0,
+            "score": {
+              "you": 0,
+              "bot": 0
+            },
+            "arena": {
+              "bumpers": [
+                {
+                  "x": 0.6,
+                  "y": 0.5,
+                  "r": 28
+                }
+              ]
+            },
+            "rank": 3
+          },
+          {
+            "phase": 1,
+            "score": {
+              "you": 2,
+              "bot": 0
+            },
+            "arena": {
+              "bumpers": [
+                {
+                  "x": 0.6,
+                  "y": 0.7,
+                  "r": 28
+                }
+              ]
+            },
+            "rank": 4
+          },
+          {
+            "phase": 2,
+            "score": {
+              "you": 4,
+              "bot": 0
+            },
+            "arena": {
+              "bumpers": [
+                {
+                  "x": 0.6,
+                  "y": 0.3,
+                  "r": 28
+                }
+              ]
+            },
+            "rank": 4
+          }
+        ],
+        "beats": [
+          "guard",
+          "recovery",
+          "windup"
+        ],
+        "reach": {
+          "guard": 1,
+          "recovery": 0.66
+        },
+        "winner": "you"
+      }
+    }
+  ],
+  "errors": []
+}

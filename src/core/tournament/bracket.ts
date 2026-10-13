@@ -128,7 +128,10 @@ export function createTournament(
 
 export function opponentFor(save: TournamentSave, round = save.round): BotLevelId {
   const tier = tierById(save.tier);
-  return tier.opponents[Math.min(round, tier.opponents.length - 1)]!;
+  // Spread the opening, middle and closing opponents over the full bracket.
+  // A seven-match cup should not spend its last five matches against the finalist.
+  const index = Math.floor((round * tier.opponents.length) / roundsFor(save).length);
+  return tier.opponents[Math.max(0, Math.min(index, tier.opponents.length - 1))]!;
 }
 
 export function roundFor(round: number): TournamentRound {

@@ -1,3 +1,4 @@
+import { routePreview } from '../../core/run/routePreview';
 import { t, msg } from '../../core/i18n/index';
 import { SCHOOL_SCOUT } from '../../core/modes/recipes';
 import { weeklySeed } from '../../core/daily/daily';
@@ -126,7 +127,7 @@ function StartView({
   const records = profile.progress.runRecords;
   const unlocked = pressureUnlocked(records);
   const [pressure, setPressure] = useState(0);
-  const [format, setFormat] = useState<RunFormat>('expedition');
+  const [format, setFormat] = useState<RunFormat>('sprint');
   const last = profile.progress.lastRun;
 
   return (
@@ -577,6 +578,11 @@ function RunView({
       {run.version === 2 && !run.attempt && atBoundary(run) && (
         <div className={modes.routeChoices}>
           <p className={styles.sectionLabel}>{t('Next route')}</p>
+          <p className={styles.rowBlurb}>
+            {t(
+              'Risk raises the opponent band up to Legend. Both routes draft after wins except the final clear, which gives no credits. Wallet cap: nine. Encounters lock on start.'
+            )}
+          </p>
           {(['safe', 'risk'] as const).map((route) => (
             <button
               type="button"
@@ -586,7 +592,39 @@ function RunView({
               onClick={() => runAction(route)}
             >
               <span>{t(route === 'safe' ? 'Steady route' : 'Risk route')}</span>
-              <small>{t(encounterFor({ ...run, route }).courtName ?? 'Open court')}</small>
+              <small>
+                {t(
+                  route === 'safe'
+                    ? 'Steady opponents · 1 credit per win'
+                    : 'Alternate courts · 2 credits per win'
+                )}
+              </small>
+              <span>{t('Act preview')}</span>
+              {routePreview(run, route).encounters.map((encounter) => (
+                <small key={encounter.stage}>
+                  {t(encounter.stage + 1)}
+                  {t(' · ')}
+                  {t(
+                    encounter.boss
+                      ? (bossById(encounter.boss)?.spec.name ?? 'Boss')
+                      : botProfile(encounter.bot).name
+                  )}
+                  {t(' · ')}
+                  {t(
+                    encounter.boss
+                      ? (bossById(encounter.boss)?.spec.title ?? 'Boss')
+                      : (encounter.courtName ?? 'Open court')
+                  )}
+                </small>
+              ))}
+              <small>
+                {t(
+                  msg('Up to {0} credits this act · {1} free wallet spaces', [
+                    t(routePreview(run, route).maximumCredits),
+                    t(routePreview(run, route).creditRoom)
+                  ])
+                )}
+              </small>
             </button>
           ))}
         </div>

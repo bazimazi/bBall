@@ -14,6 +14,8 @@ import { EMPTY_MATCH_STATS } from '/src/core/talents/types.ts';
 import { applyMatchResult } from '/src/core/progression/apply.ts';
 import { dayKey } from '/src/core/progression/xp.ts';
 import { idleSnapshot } from '/src/game/engine.ts';
+import { RoutesScreen } from '/src/ui/screens/RoutesScreen.tsx';
+import { SharedChallengeScreen } from '/src/ui/screens/SharedChallengeScreen.tsx';
 import { HomeScreen } from '/src/ui/screens/HomeScreen.tsx';
 import { ModesScreen } from '/src/ui/screens/ModesScreen.tsx';
 import { WorkshopScreen } from '/src/ui/screens/WorkshopScreen.tsx';
@@ -47,7 +49,7 @@ import { TutorialCoach } from '/src/ui/TutorialCoach.tsx';
 const root = createRoot(document.getElementById('root'));
 let revision = 0;
 const noop = () => {};
-const components = { home: HomeScreen, lab: LootScreen, workshop: WorkshopScreen, modes: ModesScreen, quick: DifficultyScreen,
+const components = { routes: RoutesScreen, shared: SharedChallengeScreen, home: HomeScreen, lab: LootScreen, workshop: WorkshopScreen, modes: ModesScreen, quick: DifficultyScreen,
   practice: DifficultyScreen, journey: JourneyScreen, gauntlet: GauntletScreen,
   run: GauntletScreen, draft: GauntletScreen, daily: DailyScreen,
   challenge: ChallengeScreen, tournament: TournamentScreen, profile: ProfileScreen, talents: TalentScreen,
@@ -93,6 +95,7 @@ window.layoutReview = {
       objectiveMet:true, objective:null, talent:EMPTY_MATCH_STATS, flicks:3,
       shutout:false, comeback:false, abandoned:false, day:dayKey(new Date())};
     if (name === 'result') {
+      if (state === 'shared') Object.assign(result, {mode:'endless',ranked:false,sharedCode:'BB1-ROADMAP',fieldWidth:750,hits:30,won:true});
       if (state === 'journey') Object.assign(result, {mode:'campaign', stageId:JOURNEY[5].stages[0].id});
       if (state === 'daily') Object.assign(result, {mode:'daily', dailyKey:'m2-' + result.day});
       if (state === 'waves') Object.assign(result, {mode:'endless', waves:12, scoreYou:0, scoreBot:0});
@@ -109,6 +112,8 @@ window.layoutReview = {
       progress:i === 0 ? 1 : .4, castId:0, refreshId:0, ultimate:!!def.ultimate,
       remain:0, duration:0, charges:0, maxCharges:0});
     const snapshot = {...idleSnapshot(), mode:state === 'goals' ? 'campaign' : 'quick',
+      sharedReturns:state === 'shared' ? 12 : undefined,
+      bossCue:state === 'boss' ? 'Guard open · aim for an edge' : null,
       scoreYou:3, scoreBot:2, winScore:5, canPause:true, opponentName:'Legend · opportunist',
       rallyPressure:40, enemyAbilities:ABILITY_DEFS.slice(0,4).map(skill),
       paddleKit:'Memory gel · Split surface · Extended frame · Grip tuning',
@@ -117,7 +122,7 @@ window.layoutReview = {
         {id:'rails',label:'Land 6 rail banks',progress:'4 / 6 rail banks',state:'reached'},
         {id:'margin',label:'Win by two points',progress:'1 / 2 points',state:'active'}] : []};
     window.layoutReview.actions = [];
-    const props = {profile, account:{status:'guest',pending:0}, demoLevel:null,
+    const props = {profile, profileId:profile.id, onTechnique:noop, onRoutes:noop, onShared:noop, account:{status:'guest',pending:0}, demoLevel:null,
       practice:name === 'practice', onStart:(...args)=>window.layoutReview.actions.push(args),
       onPick:(...args)=>window.layoutReview.actions.push(args), onPlay:noop, onBack:noop,
       onAbandon:noop, onModes:noop, onExitDemo:noop, onProfile:noop, onTalents:noop,
@@ -125,7 +130,8 @@ window.layoutReview = {
       onWorkshop:noop, onBench:noop, onDone:noop,
       onPreview:noop, onMusicPreview:noop, onStopPreview:noop, onTutorial:noop, onPractice:noop, onExit:noop};
     if (name === 'result') Object.assign(props, {result, summary:applyMatchResult(profile,result),
-      label:'Quick Match', primaryLabel:'Play again', secondaryLabel:'Menu', onPrimary:noop, onSecondary:noop});
+      label:'Quick Match', primaryLabel:'Play again', secondaryLabel:'Menu', onPrimary:noop, onSecondary:noop,
+      onPracticeEncounter: result.mode === 'endless' ? undefined : noop, onTechnique:noop});
     root.render(['pause', 'exit'].includes(name) ? h(Overlay, {key:++revision,show:true,label:name==='pause'?'Paused':'Leave bBall?',onDismiss:noop},
       name==='pause' ? h(PausePanel,{label:'Gold Cup · Final',score:{you:3,bot:2},goals:snapshot.goals,
         enemyAbilities:snapshot.enemyAbilities,onResume:noop,onSettings:noop,onRestart:noop,onQuit:noop})

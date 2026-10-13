@@ -1,7 +1,7 @@
 import { mirroredCourt } from './couch';
 import { arenaPreset } from './arenas';
 import { recipe } from './recipes';
-import { waveRecipe } from './sessions';
+import { waveModifiers } from './sessions';
 import { actLength } from '../run/formats';
 import { botProfile } from '../bots/levels';
 import { BALANCE } from '../balance/config';
@@ -79,7 +79,13 @@ export function practiceRules(
   const relaxed = pace === 'relaxed';
   const scales = BALANCE.practice.relaxed;
   const boss = options?.bossId ? bossById(options.bossId) : undefined;
-  const phase = options?.bossPhase ? boss?.spec.phases[options.bossPhase - 1] : undefined;
+  const selectedPhases = boss?.spec.phases.slice(0, Math.max(0, options?.bossPhase ?? 0)) ?? [];
+  const phase = selectedPhases.length
+    ? (Object.assign({}, ...selectedPhases) as (typeof selectedPhases)[number])
+    : undefined;
+  let phaseBot = boss?.bot ?? bot;
+  for (const item of selectedPhases)
+    if (item.bot && botProfile(item.bot).rank > botProfile(phaseBot).rank) phaseBot = item.bot;
   const court = phase?.arena ?? boss?.modifiers.arena;
   const practiceOptions = optionModifiers(options);
   const practiceMods = {
@@ -94,8 +100,9 @@ export function practiceRules(
   };
   return {
     mode: 'practice',
+    ...(boss ? { practiceBallRank: botProfile(boss.bot).rank } : {}),
     bot: {
-      ...botProfile(phase?.bot ?? boss?.bot ?? bot),
+      ...botProfile(phaseBot),
       ...(options?.personality ? { personality: options.personality } : {})
     },
     ...(options ? { options } : {}),
@@ -138,7 +145,7 @@ export function endlessRules(options?: MatchOptions): MatchRules {
       maxSpeedScale: 1.5,
       speedPerHitScale: 1.35,
       ...optionModifiers(options),
-      ...(options?.waves ? { arena: waveRecipe(options, 0).modifiers.arena } : {})
+      ...(options?.waves ? waveModifiers(options, 0) : {})
     }),
     ranked: true,
     label: options?.waves ? 'Endless · Wave 1' : 'Endless',

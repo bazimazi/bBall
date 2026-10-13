@@ -254,14 +254,17 @@ function createFx(): FxState {
 /**
  * Difficulty, resolved.
  *
- * Two inputs and no others: the opponent's rank, and the mode's modifiers.
- * A stronger opponent means a faster ball - never a slower paddle, and never
- * a change to anything the player has earned.
+ * Uses the opponent's rank and the mode's modifiers. Isolated boss practice
+ * retains the encounter's opening rank for ball tuning, just as live phases do.
+ * A stronger starting opponent means a faster ball - never a slower paddle,
+ * and never a change to anything the player has earned.
  */
 export function tuningFor(rules: MatchRules): Tuning {
   const m = rules.modifiers;
   const { ball } = BALANCE;
-  const rank = rankScale(rules.bot.rank);
+  const rank = rankScale(
+    rules.mode === 'practice' ? (rules.practiceBallRank ?? rules.bot.rank) : rules.bot.rank
+  );
   const growth = 1 + (ball.growth - 1) * rank.growth * m.speedPerHitScale;
 
   return {

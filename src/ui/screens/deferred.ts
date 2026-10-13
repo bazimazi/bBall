@@ -5,6 +5,17 @@ export const LootScreen = lazy(() =>
   loadMenu('Loot', () => import('./LootScreen').then((page) => ({ default: page.LootScreen })))
 );
 
+export const RoutesScreen = lazy(() =>
+  loadMenu('Routes', () =>
+    import('./RoutesScreen').then((page) => ({ default: page.RoutesScreen }))
+  )
+);
+export const SharedChallengeScreen = lazy(() =>
+  loadMenu('SharedChallenge', () =>
+    import('./SharedChallengeScreen').then((page) => ({ default: page.SharedChallengeScreen }))
+  )
+);
+
 // Stable declarations: switching menus never recreates a lazy component.
 // Only opening a page requests its code and page-specific CSS.
 export const AccountScreen = lazy(() =>

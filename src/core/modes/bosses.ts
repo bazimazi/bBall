@@ -1,3 +1,4 @@
+import { AUTHORED_BOSSES } from './authoredBosses';
 import type { BotLevelId } from '../bots/types';
 import type { BossSpec, MatchModifiers } from './types';
 import { EXPANSION_COURTS } from './expansionCourts';
@@ -153,6 +154,8 @@ export const LEGACY_BOSSES: readonly BossDef[] = [
 export const BOSSES: readonly BossDef[] = [
   ...LEGACY_BOSSES,
   ...EXPANSION_BOSS_IDS.map((id, i): BossDef => {
+    const authored = AUTHORED_BOSSES.find((b) => b.spec.id === id);
+    if (authored) return authored;
     const court = EXPANSION_COURTS[(i * 7) % EXPANSION_COURTS.length]!;
     return {
       spec: {

@@ -1,0 +1,1174 @@
+{
+  "checks": [
+    {
+      "name": "Quick Match: UI launch, pointer, keyboard, pause/resume, loss and retry",
+      "passed": true
+    },
+    {
+      "name": "Quick rookie: completed result and encounter rehearsal return",
+      "passed": true
+    },
+    {
+      "name": "Quick amateur: completed result and encounter rehearsal return",
+      "passed": true
+    },
+    {
+      "name": "Quick pro: completed result and encounter rehearsal return",
+      "passed": true
+    },
+    {
+      "name": "Quick elite: completed result and encounter rehearsal return",
+      "passed": true
+    },
+    {
+      "name": "Quick legend: completed result and encounter rehearsal return",
+      "passed": true
+    },
+    {
+      "name": "Quick master contract: score, modifiers and result",
+      "passed": true
+    },
+    {
+      "name": "Quick mythic contract: score, modifiers and result",
+      "passed": true
+    },
+    {
+      "name": "Quick best-of-three: three completed games and series replay",
+      "passed": true
+    },
+    {
+      "name": "Practice normal: pause, frame-step, restart and no rewards",
+      "passed": true
+    },
+    {
+      "name": "Practice relaxed: pause, frame-step, restart and no rewards",
+      "passed": true
+    },
+    {
+      "name": "Technique bank: three misses, retry, no progression",
+      "passed": true
+    },
+    {
+      "name": "Technique gate: three misses, retry, no progression",
+      "passed": true
+    },
+    {
+      "name": "Technique placement: three misses, retry, no progression",
+      "passed": true
+    },
+    {
+      "name": "Daily 2026-10-13: completion, replay and practice restoration",
+      "passed": true
+    },
+    {
+      "name": "Daily m2-2026-10-13: completion, replay and practice restoration",
+      "passed": true
+    },
+    {
+      "name": "Daily 2026-10-12: completion, replay and practice restoration",
+      "passed": true
+    },
+    {
+      "name": "Journey opening: natural win, stars, next-stage result action",
+      "passed": true
+    },
+    {
+      "name": "Court post: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court twin-posts: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court carousel: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court crosswind: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court well: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court bricks: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court slalom: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court wormhole: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court switchback: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court jetstream: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court heartbeat: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court storm-gates: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court rift-tide: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court storm-forge: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court bankworks-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court gatehouse-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court switchyard-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court charge-circuit-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court phase-crossing-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court deflector-ruins-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court crosswind-lock-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court siege-relay-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court storm-circuit-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court rail-slalom-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court rift-bank-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court pulse-forge-1: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court bankworks-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court gatehouse-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court switchyard-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court charge-circuit-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court phase-crossing-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court deflector-ruins-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court crosswind-lock-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court siege-relay-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court storm-circuit-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court rail-slalom-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court rift-bank-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court pulse-forge-2: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court bankworks-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court gatehouse-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court switchyard-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court charge-circuit-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court phase-crossing-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court deflector-ruins-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court crosswind-lock-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court siege-relay-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court storm-circuit-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court rail-slalom-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court rift-bank-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court pulse-forge-3: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court bankworks-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court gatehouse-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court switchyard-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court charge-circuit-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court phase-crossing-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court deflector-ruins-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court crosswind-lock-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court siege-relay-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court storm-circuit-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Court rail-slalom-4: selected geometry and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill colossus phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill colossus phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill colossus phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill orbiter phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill orbiter phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill orbiter phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill tempest phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill tempest phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill tempest phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill bastion phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill bastion phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill bastion phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill singularity phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill singularity phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill singularity phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill trickster phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill trickster phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill trickster phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill apex phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill apex phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill apex phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill gatekeeper phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill gatekeeper phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill gatekeeper phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill architect phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill architect phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill architect phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill duelist phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill duelist phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill duelist phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill sovereign phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill sovereign phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill sovereign phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill railwarden phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill railwarden phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill railwarden phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill stormcaller phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill stormcaller phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill stormcaller phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill switchmaster phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill switchmaster phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill switchmaster phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill breacher phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill breacher phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill breacher phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill pulsekeeper phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill pulsekeeper phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill pulsekeeper phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill conductor phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill conductor phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill conductor phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill anchorite phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill anchorite phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill anchorite phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill firebrand phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill firebrand phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill firebrand phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill banker phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill banker phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill banker phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill curator phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill curator phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill curator phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill disruptor phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill disruptor phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill disruptor phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill riftkeeper phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill riftkeeper phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill riftkeeper phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill ruinlord phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill ruinlord phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill ruinlord phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill fracture phase 0: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill fracture phase 1: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Boss drill fracture phase 2: selected rules and completed loss",
+      "passed": true
+    },
+    {
+      "name": "Tournament classic: real round result, loss and return",
+      "passed": true
+    },
+    {
+      "name": "Tournament marathon: real round result, loss and return",
+      "passed": true
+    },
+    {
+      "name": "Tournament ladder: real round result, loss and return",
+      "passed": true
+    },
+    {
+      "name": "Gauntlet sprint: completion, heart loss and rematch state",
+      "passed": true
+    },
+    {
+      "name": "Gauntlet expedition: completion, heart loss and rematch state",
+      "passed": true
+    },
+    {
+      "name": "Gauntlet endless: completion, heart loss and rematch state",
+      "passed": true
+    },
+    {
+      "name": "Challenge switchback: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge jetstream: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge heartbeat: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge storm-gates: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge rift-tide: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge storm-forge: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge needle: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge overdrive: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge long-rally: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge melting: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge comeback: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge flawless: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge wormholes: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge blitz: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-1: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-2: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-3: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-4: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-5: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-6: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-7: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-8: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-9: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-10: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-11: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-12: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-13: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-14: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-15: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-16: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-17: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-18: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-19: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-20: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-21: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-22: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-23: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-24: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-25: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-26: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-27: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-28: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-29: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-30: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-31: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-32: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-33: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-34: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-35: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-36: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-37: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-38: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-39: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-40: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-41: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-42: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-43: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-44: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-45: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-46: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-47: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-48: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-49: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-50: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-51: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-52: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-53: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-54: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-55: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-56: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-57: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-58: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-59: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-60: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-61: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-62: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-63: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-64: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-65: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-66: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-67: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-68: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-69: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-70: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-71: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-72: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-73: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-74: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-75: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-76: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-77: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-78: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-79: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-80: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-81: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-82: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-83: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-84: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-85: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-86: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-87: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-88: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-89: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-90: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-91: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-92: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-93: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-94: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-95: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-96: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-97: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-98: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-99: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-100: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-101: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-102: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-103: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-104: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-105: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge c2-106: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Challenge contract-1: completed loss and objective result",
+      "passed": true
+    },
+    {
+      "name": "Endless classic: life exhaustion and replay",
+      "passed": true
+    },
+    {
+      "name": "Endless waves: life exhaustion and replay",
+      "passed": true
+    },
+    {
+      "name": "Versus standard: both sides, mirrored court and results",
+      "passed": true
+    },
+    {
+      "name": "Versus speed: both sides, mirrored court and results",
+      "passed": true
+    },
+    {
+      "name": "Versus precision: both sides, mirrored court and results",
+      "passed": true
+    },
+    {
+      "name": "Shared BB1-FRIENDS: neutral rules, life exhaustion, copy text and replay",
+      "passed": true
+    },
+    {
+      "name": "Shared BB1-ROADMAP: neutral rules, life exhaustion, copy text and replay",
+      "passed": true
+    },
+    {
+      "name": "Route placement: failed step, retry, saved cursor and reload",
+      "passed": true
+    },
+    {
+      "name": "Route banks: failed step, retry, saved cursor and reload",
+      "passed": true
+    },
+    {
+      "name": "Route timing: failed step, retry, saved cursor and reload",
+      "passed": true
+    },
+    {
+      "name": "Phone touch, relative drag, simultaneous Versus controls and orientation pause",
+      "passed": true
+    },
+    {
+      "name": "System reduced-motion setting has no effect on game motion",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "methodology": "Actual Chromium app. UI input smoke tests use browser pointer/keyboard/touch; catalogue variants launch through internal flow commands. Catalogue runs intentionally lose, checking finite physics, canonical rules and result publishing, not every successful objective. Longer completions use automated paddle input and accelerated production engine frames with canvas drawing suspended. No scores/results are injected. Successful progression and genuine aimed shots have separate suites."
+}

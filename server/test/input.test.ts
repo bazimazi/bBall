@@ -1282,7 +1282,7 @@ it('the completed lesson stays live through blur and hidden pages', (t) => {
 it('replaying a boss or wave match starts from its opening rules, not its last phase', (t) => {
   const { engine, world } = harness(t);
   for (const rules of [
-    runRules({ ...createRun('boss', 0, 1, 'endless'), stage: 5 }),
+    runRules({ ...createRun('boss', 0, 1, 'endless'), stage: 17 }),
     endlessRules({ waves: true })
   ]) {
     engine.play(rules);

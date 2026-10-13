@@ -1,0 +1,101 @@
+{
+  "checks": [
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "bank",
+      "outcome": "3 real aimed targets"
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "bank",
+      "outcome": "3 real missed feeds, clean replay"
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "gate",
+      "outcome": "3 real aimed targets"
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "gate",
+      "outcome": "3 real missed feeds, clean replay"
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "placement",
+      "outcome": "3 real aimed targets"
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "id": "placement",
+      "outcome": "3 real missed feeds, clean replay"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "bank",
+      "outcome": "3 real aimed targets"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "bank",
+      "outcome": "3 real missed feeds, clean replay"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "gate",
+      "outcome": "3 real aimed targets"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "gate",
+      "outcome": "3 real missed feeds, clean replay"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "placement",
+      "outcome": "3 real aimed targets"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "id": "placement",
+      "outcome": "3 real missed feeds, clean replay"
+    }
+  ],
+  "errors": []
+}

@@ -950,8 +950,51 @@ explicit visual-effects and screen-shake controls affect their supported effects
 
 ### Validating player experience
 
+The gameplay roadmap now includes:
+
+- **Practice → Technique drills:** bank shots, gate timing and alternating
+  placement targets, with example paths and repeatable neutral feeds. These
+  are also available from ranked solo results and return to that result.
+- **Gatekeeper, Architect and Duelist:** distinct phase courts and visible
+  guard/recovery cues. Aim wide while the opponent's reach recovers.
+- **More modes → Short sessions:** three curated routes of three encounters.
+  Progress resumes between matches on this device; ordinary rewards stay
+  unchanged, Practice pays nothing, and routes add no bonus currency.
+- **Gauntlet route previews:** the whole act's encounters and credit tradeoffs,
+  including wallet capacity and the final-clear exception.
+- **More modes → Shared rally challenge:** enter the same BB1- code as a friend
+  and aim for 30 returns before three misses with a neutral paddle/build.
+  Results include a copyable score/build/width summary; compare the same game
+  version and field width. No online score verification or matchmaking is added.
+
+Boss rhythms, target cues and new menus completely ignore system/browser
+reduced-motion settings on every platform. Full/Calm and shake remain explicit
+in-game controls. Run `npm run check:roadmap` for the focused browser checks.
+
+The deeper Playwright regressions run the actual app: `npm run check:browser:pages`
+covers menu navigation, settings, Workshop and language/device layouts;
+`npm run check:browser:gameplay` completes matches across every court, boss phase
+and challenge; `npm run check:browser:drills` aims real shots on desktop and phone;
+`npm run check:browser:bosses` checks boss rhythm and live phases;
+`npm run check:browser:progression` checks successful routes, cups and Gauntlet
+progression; `npm run check:browser:account` uses an isolated in-memory local
+backend for account flows. Long gameplay runs use automated paddle input and
+accelerated production engine frames, without injecting scores or results.
+Browser reports and screenshots are written under `.temp/`.
+
+After a ranked solo duel, **Practise this encounter** opens a first-to-three,
+unranked rehearsal of its court and opponent, including the boss phase reached.
+Use **Back to result** from Pause or the practice result to return to the original
+result and retry or continue. Rehearsals keep equipment and the resolved talent
+build actually played, including run boons and switched specializations, earn no
+rewards and do not spend run hearts or advance cups or series. This temporary
+return lasts until you leave the result or reload the game.
+
 The [experience review](docs/player-experience-review.md) records the implemented
-plan and its evidence. The [validation guide](docs/player-experience-validation.md)
+plan and its evidence. The [mode balance and extension review](docs/balance-and-expansion-review.md)
+covers all nine modes, the latest rule fixes and prioritised gameplay additions.
+Use `npm run soak -- 1 pro --group modes` for a representative check of every mode.
+The [validation guide](docs/player-experience-validation.md)
 provides the remaining human playtest and physical-device protocol. Bot results
 and bundle bytes do not establish enjoyment or perceived responsiveness.
 

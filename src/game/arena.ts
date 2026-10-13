@@ -276,6 +276,10 @@ export function updateArena(world: World, dt: number): void {
   if (!arena.spec) return;
   const live = world.match.status === 'play' || world.match.status === 'serve';
   if (!live) return;
+  // Technique feeds use the same opening on every attempt. Keep that opening
+  // visible throughout preparation instead of showing a moving gate which
+  // would jump back to its initial position when the feed launches.
+  if (world.rules.technique && !world.rules.ranked && world.match.status === 'serve') return;
 
   arena.time += dt * arena.intensity;
   if (arena.bumpers.length > 0) placeBumpers(world);

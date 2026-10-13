@@ -1,5 +1,49 @@
 # bBall player experience review
 
+**Browser regression follow-up, 13 October:** the actual app now has Playwright
+suites for menu/settings interactions, all mode results, successful progression,
+real aimed drills, authored boss phases and isolated local account integration.
+This pass fixed a gate drill that jumped at serve, rehearsal builds that changed
+after rewards or specialization switching, stale matches surviving a profile
+change, incoming account links opening the exit prompt, and partial Demo level
+parsing. Rehearsals retain the resolved build actually played, including boons once.
+See the [validation scope and results](balance-and-expansion-review.md#actual-app-playwright-follow-up).
+System/browser reduced-motion preferences still have no effect; explicit in-game
+presentation settings remain independent. Automated results do not measure human
+enjoyment or replace physical webview testing.
+
+**Roadmap implementation, 13 October:** all five items in the
+[balance and extension review](balance-and-expansion-review.md) are now implemented
+in this workspace: three repeatable technique drills, three authored boss
+rhythms, three resumable short-session routes, full Gauntlet act/reward previews,
+and shared seeded rally targets with build/score summaries. Tests cover real
+shot achievability, reward isolation, route persistence and early returns;
+English/Persian browser checks cover the new controls and narrow layouts.
+System/browser reduced-motion preferences remain completely ignored on web,
+desktop and mobile. Boss timing is simulation-driven; Full/Calm and shake remain
+explicit presentation controls. Human learning and enjoyment are still unmeasured.
+
+**Contextual practice, 13 October:** ranked solo duel results now offer a
+three-point rehearsal of their court and opponent. Bosses stay in the phase
+reached, and the original equipment, run boons and fixed Daily build carry into
+the rehearsal. Back returns to the original result without awarding progress,
+spending run hearts or advancing a series or cup. Isolated boss Practice also
+uses the encounter's base ball tuning. English/Persian controls, engine rules,
+progression isolation and result restoration have regression coverage. Authored
+shot drills were completed in the roadmap continuation; human learning outcomes
+remain follow-up work; see the
+[extension review](balance-and-expansion-review.md).
+
+**Mode balance review, 13 October:** reviewed all nine modes and the shared
+progression, equipment, research and gameplay systems. Early Gauntlet bosses
+now follow their act's opponent strength, Sprint is the initial run format,
+long cups spread difficulty over their full bracket, Wave court penalties no
+longer leak into later waves, Daily stars stay distinct, and mirrored central
+gates have symmetric switch access. The
+[balance and extension review](balance-and-expansion-review.md) records the
+mode-by-mode findings, remaining gaps, proposed features and validation limits.
+These are rule and stability improvements; human enjoyment remains to be tested.
+
 **Workshop and Lab clarity, 12 October:** the Lab now starts with a compact loot
 wallet and three sections: Upgrades, Builds, and Expert trials. Upgrade cards
 show one plain-language benefit; tapping opens a focused purchase sheet with

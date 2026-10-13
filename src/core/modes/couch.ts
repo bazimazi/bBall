@@ -23,7 +23,9 @@ export function mirroredCourt(arena: ArenaSpec): ArenaSpec {
     ...(switches
       ? {
           switches: switches.flatMap((s) =>
-            gate?.x === 0.5 ? [s] : [s, { ...s, x: 1 - s.x, gate: 1 }]
+            gate?.x === 0.5 && s.x === 0.5
+              ? [s]
+              : [s, { ...s, x: 1 - s.x, gate: gate?.x === 0.5 ? 0 : 1 }]
           )
         }
       : {}),

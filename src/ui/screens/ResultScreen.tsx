@@ -1,3 +1,6 @@
+import { TECHNIQUES, type TechniqueId } from '../../core/modes/drills';
+import { MenuDisclosure } from '../components/MenuDisclosure';
+import { sharedResultText } from '../../core/modes/sharedChallenge';
 import { t, msg } from '../../core/i18n/index';
 import { ITEM_INFO, LOOT_ITEMS } from '../../core/loot/catalog';
 import { useEffect, useEffectEvent, useId, useState, type CSSProperties } from 'react';
@@ -35,11 +38,15 @@ interface ResultScreenProps {
   onTalents: () => void;
   onWorkshop?: () => void;
   onLab?: () => void;
+  onTechnique?: ((id: TechniqueId) => void) | undefined;
+  onPracticeEncounter?: (() => void) | undefined;
   /** A star has just landed on the card - the engine plays its chime. */
   onStar?: (index: number) => void;
 }
 
 function title(result: MatchResult, summary: ProgressSummary | null): string {
+  if (result.technique) return result.won ? 'Drill complete' : 'Keep practising';
+  if (result.sharedCode) return result.won ? 'Target reached' : 'Challenge over';
   if (result.mode === 'versus') return result.won ? 'Player 1 wins' : 'Player 2 wins';
   if (result.mode === 'endless') return 'Run over';
   if (result.mode === 'challenge') return result.objectiveMet ? 'Challenge clear' : 'Not quite';
@@ -57,6 +64,8 @@ function title(result: MatchResult, summary: ProgressSummary | null): string {
 }
 
 function opponent(result: MatchResult): string {
+  if (result.sharedCode) return 'Returns';
+  if (result.technique) return 'Targets : Misses';
   if (result.mode === 'endless') return 'Longest rally';
   if (result.mode === 'versus') return 'Player 1 : Player 2';
   if (result.bossId) return `vs ${bossById(result.bossId)?.spec.name ?? 'the boss'}`;
@@ -175,6 +184,8 @@ export function ResultScreen({
   onTalents,
   onWorkshop,
   onLab,
+  onTechnique,
+  onPracticeEncounter,
   onStar
 }: ResultScreenProps) {
   const heading = useScreenFocus();
@@ -206,7 +217,9 @@ export function ResultScreen({
           </h2>
           {endless ? (
             <p className={styles.scoreLine}>
-              <span className={styles.scoreYou}>{t(result.bestRally)}</span>
+              <span className={styles.scoreYou}>
+                {t(result.sharedCode ? result.hits : result.bestRally)}
+              </span>
             </p>
           ) : (
             <p className={styles.scoreLine}>
@@ -279,6 +292,56 @@ export function ResultScreen({
         )}
 
         {coaching && <ResultCoaching coaching={coaching} onTutorial={onTutorial} onHelp={onHelp} />}
+
+        {result.sharedCode && (
+          <div className={styles.card}>
+            <h3>{t('Share this challenge')}</h3>
+            <p>
+              {t(
+                'Copy the code and score below. A friend can enter the code in Shared rally challenge.'
+              )}
+            </p>
+            <textarea
+              aria-label={t('Challenge summary')}
+              readOnly
+              rows={5}
+              style={{ width: '100%', boxSizing: 'border-box' }}
+              dir="ltr"
+              value={sharedResultText(result.sharedCode, result)}
+              onFocus={(event) => event.target.select()}
+            />
+          </div>
+        )}
+        {onPracticeEncounter && (
+          <div className={styles.card}>
+            <h3>{t('Practise this encounter')}</h3>
+            <p>
+              {t(
+                'Rehearse this court and opponent without rewards or penalties. Bosses use the phase you reached. Return to this result when ready.'
+              )}
+            </p>
+            <button type="button" className={styles.ghost} onClick={onPracticeEncounter}>
+              {t('Start three-point practice')}
+            </button>
+            {onTechnique && (
+              <MenuDisclosure
+                title={t('Technique drills')}
+                hint={t('Three targets · repeatable feeds · neutral build')}
+              >
+                {TECHNIQUES.map((drill) => (
+                  <button
+                    key={drill.id}
+                    type="button"
+                    className={styles.ghost}
+                    onClick={() => onTechnique(drill.id)}
+                  >
+                    {t(drill.name)}
+                  </button>
+                ))}
+              </MenuDisclosure>
+            )}
+          </div>
+        )}
 
         {result.objective && result.mode === 'challenge' && (
           <div

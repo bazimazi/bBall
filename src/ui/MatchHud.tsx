@@ -70,6 +70,10 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
       <span className={styles.sr} role="status" aria-live="polite" aria-atomic="true">
         {t(announcement)}
       </span>
+      {snapshot.sharedReturns !== undefined && (
+        <p className={styles.objective}>{t(msg('{0}/30 returns', [t(snapshot.sharedReturns)]))}</p>
+      )}
+      {snapshot.bossCue && <p className={styles.objective}>{t(snapshot.bossCue)}</p>}
       <div id={detailsId} hidden={!matchInfoExpanded}>
         <p className={styles.target}>
           {t(

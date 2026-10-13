@@ -2063,6 +2063,259 @@ try {
       ...extra
     });
   const dailyResult = { ...quickResult, mode: 'daily', dailyKey: dayKey() };
+  await check(
+    'practice, resumable routes and shared challenges preserve results and isolate progression',
+    async () => {
+      await withUiFrames(async () => {
+        const [{ useGameFlow }, { idleSnapshot }, { profileStore }] = await Promise.all(
+          ['/src/ui/hooks/useGameFlow.ts', '/src/game/engine.ts', '/src/core/profile/store.ts'].map(
+            (path) => vite.ssrLoadModule(path)
+          )
+        );
+        const live = createWorld(new Proxy({}, { get: () => () => 0 }), 0);
+        let flow, publish;
+        const snapshot = () => ({
+          ...idleSnapshot(),
+          mode: live.rules.mode,
+          label: live.rules.label,
+          status: live.match.status,
+          result: live.match.result,
+          resultId: live.match.resultId
+        });
+        const engine = {
+          capturePracticeLoadout: () => ({
+            ...live.loadout,
+            effects: { ...live.loadout.effects },
+            equipped: [...live.loadout.equipped],
+            synergies: [...live.loadout.synergies]
+          }),
+          play: (rules) => {
+            startMatch(live, rules);
+            publish(snapshot());
+          },
+          quitToMenu: () => publish({ ...idleSnapshot(), resultId: live.match.resultId })
+        };
+        const finish = async (won) =>
+          act(() => {
+            Object.assign(live.match, {
+              status: 'over',
+              winner: won ? 'you' : 'bot',
+              hits: 12,
+              elapsed: 45
+            });
+            live.match.score.you = won ? live.rules.winScore : 1;
+            live.match.score.bot = won ? 1 : live.rules.winScore;
+            publishResult(live);
+            publish(snapshot());
+          });
+        function Fixture() {
+          const [state, setState] = useState(idleSnapshot());
+          publish = setState;
+          flow = useGameFlow(engine, state);
+          if (flow.screen === 'result')
+            return resultPage(flow.result, flow.summary, {
+              label: flow.resultLabel,
+              onTechnique: flow.canPractiseEncounter ? flow.startTechnique : undefined,
+              onPracticeEncounter: flow.canPractiseEncounter
+                ? flow.startEncounterPractice
+                : undefined,
+              secondaryLabel: flow.practisingEncounter ? 'Back to result' : 'Menu',
+              onSecondary: flow.practisingEncounter ? flow.quitToMenu : noop
+            });
+          return h(
+            'button',
+            { onClick: flow.quitToMenu },
+            flow.practisingEncounter ? 'Back to result' : 'Quit to menu'
+          );
+        }
+        profileStore.startDemo(20);
+        try {
+          await mount(h(Fixture));
+          await act(() => flow.startRun(0, 'sprint'));
+          const encounterBuild = {
+            ...live.loadout,
+            level: 20,
+            paddleSpeed: 700,
+            effects: { ...live.loadout.effects, length: 0.12, shieldCharges: 1 }
+          };
+          live.loadout = encounterBuild;
+          await finish(false);
+          live.baseLoadout = { ...live.baseLoadout, level: 21, paddleSpeed: 900 };
+          const origin = flow.result,
+            summary = flow.summary,
+            label = flow.resultLabel;
+          const afterLoss = JSON.stringify(profileStore.getSnapshot());
+          assert.equal(profileStore.getSnapshot().progress.run.hearts, 2);
+          await click(button('Start three-point practice'));
+          assert.equal(live.rules.mode, 'practice');
+          assert.equal(live.rules.runStage, undefined);
+          assert.equal(live.rules.winScore, 3);
+          assert.deepEqual(live.loadout, encounterBuild, 'rehearsal uses the completed build');
+          await act(() => flow.replay());
+          assert.equal(live.rules.ranked, false);
+          assert.deepEqual(
+            live.loadout,
+            encounterBuild,
+            'rehearsal retry keeps the completed build'
+          );
+          await finish(true);
+          assert.equal(flow.summary, null);
+          assert.equal(flow.canPractiseEncounter, false);
+          assert.equal(JSON.stringify(profileStore.getSnapshot()), afterLoss);
+          await click(button('Back to result'));
+          assert.equal(flow.result, origin);
+          assert.equal(flow.summary, summary);
+          assert.equal(flow.resultLabel, label);
+          assert.equal(JSON.stringify(profileStore.getSnapshot()), afterLoss);
+          await click(button('Start three-point practice'));
+          await click(button('Back to result'));
+          await act(() => flow.replay());
+          assert.equal(live.rules.mode, 'run');
+          assert.ok(
+            profileStore.getSnapshot().progress.run.attempt,
+            'ranked retry recommits the encounter'
+          );
+          assert.equal(profileStore.getSnapshot().progress.run.hearts, 2);
+
+          await act(() => flow.startQuick('rookie', { series: 3 }));
+          await finish(true);
+          assert.equal(flow.series.games, 1);
+          const series = { ...flow.series };
+          await click(button('Start three-point practice'));
+          await finish(true);
+          assert.deepEqual(flow.series, series);
+          await click(button('Back to result'));
+          assert.deepEqual(flow.series, series);
+          await click(button('Start three-point practice'));
+          await act(() => flow.startQuick('amateur'));
+          await click(button('Quit to menu'));
+          assert.equal(flow.screen, 'home', 'a new match clears the rehearsal return');
+          assert.equal(flow.practisingEncounter, false);
+          await act(() => flow.startRoute('placement'));
+          assert.equal(live.rules.technique, 'placement');
+          await finish(false);
+          assert.equal(flow.routeResult.step, 0);
+          assert.equal(flow.routeResult.attempts, 1);
+          await act(() => flow.startRoute('placement'));
+          await finish(true);
+          assert.equal(flow.routeResult.step, 1);
+          await act(() => flow.startRoute('placement'));
+          assert.equal(live.rules.mode, 'quick');
+          assert.equal(live.rules.bot.id, 'amateur');
+          await finish(true);
+          assert.equal(flow.routeResult.step, 2);
+          const routeOrigin = flow.result;
+          const beforeDrill = JSON.stringify(profileStore.getSnapshot());
+          await click(
+            [...host.querySelectorAll('button')].find((button) =>
+              button.textContent.startsWith('Technique drills')
+            )
+          );
+          await click(button('Bank-shot drill'));
+          assert.equal(live.rules.technique, 'bank');
+          await finish(true);
+          assert.equal(flow.routeResult.step, 2, 'targeted practice cannot complete a route step');
+          await click(button('Back to result'));
+          assert.equal(flow.result, routeOrigin);
+          assert.equal(JSON.stringify(profileStore.getSnapshot()), beforeDrill);
+          await act(() => flow.leaveResult('routes'));
+          await mount(h(Fixture));
+          await act(() => flow.startRoute('placement'));
+          assert.equal(live.rules.bot.id, 'pro', 'remount resumes the saved next step');
+          await finish(true);
+          assert.equal(flow.routeResult.step, 3);
+          assert.equal(flow.routeResult.completions, 1);
+          await act(() => flow.startRoute('placement'));
+          await finish(true);
+          assert.equal(flow.routeResult.replays, 1);
+          await act(() => flow.startShared('BB1-TEST'));
+          assert.equal(live.rules.sharedCode, 'BB1-TEST');
+          const beforeShared = JSON.stringify(profileStore.getSnapshot());
+          await finish(false);
+          assert.equal(flow.routeResult, null);
+          assert.equal(JSON.stringify(profileStore.getSnapshot()), beforeShared);
+          assert.ok(host.querySelector('textarea').value.includes('BB1-TEST'));
+
+          await act(() => flow.startRoute('placement'));
+          const cloud = {
+            ...createProfile(),
+            userId: 'ui-match-owner-account',
+            saveId: 'ui-match-owner-save',
+            version: 1,
+            displayName: 'New account'
+          };
+          assert.equal(live.rules.ranked, true, 'the interrupted route step awards normal match XP');
+          await act(() => {
+            Object.assign(live.match, { status: 'over', winner: 'you' });
+            live.match.score.you = live.rules.winScore;
+            publishResult(live);
+            const oldResult = snapshot();
+            profileStore.signIn(cloud);
+            publish(oldResult);
+          });
+          assert.equal(flow.screen, 'home', 'profile switch drops the previous court');
+          assert.equal(flow.routeResult, null);
+          assert.equal(flow.result, null);
+          assert.equal(
+            profileStore.getSnapshot().xp,
+            cloud.xp,
+            'old results cannot reward a new account'
+          );
+          await act(() => flow.startQuick('rookie'));
+          await finish(true);
+          await click(button('Start three-point practice'));
+          await act(() => profileStore.signOut());
+          assert.equal(flow.screen, 'home', 'sign-out drops the previous rehearsal return');
+          assert.equal(flow.practisingEncounter, false);
+          assert.equal(flow.result, null);
+        } finally {
+          await act(() => root.render(null));
+          profileStore.signOut();
+          profileStore.endDemo();
+        }
+      });
+    }
+  );
+  await check(
+    'short routes persist per profile and repair invalid progress without touching rewards',
+    async () => {
+      const { saveRoute, loadRoutes, clearDemoRoutes } = await vite.ssrLoadModule(
+        '/src/core/modes/routes.ts'
+      );
+      const { RoutesScreen } = await vite.ssrLoadModule('/src/ui/screens/RoutesScreen.tsx');
+      const progress = { id: 'placement', step: 1, attempts: 2, completions: 0, replays: 0 };
+      saveRoute('route-storage-test', progress);
+      assert.deepEqual(loadRoutes('route-storage-test'), [progress]);
+      assert.deepEqual(loadRoutes('route-other-profile'), []);
+      let picked;
+      await mount(
+        h(RoutesScreen, {
+          profileId: 'route-storage-test',
+          onStart: (id) => (picked = id),
+          onBack: noop
+        })
+      );
+      await click(button('Resume route'));
+      assert.equal(picked, 'placement');
+      win.localStorage.setItem(
+        'bball.routes.route-storage-test',
+        JSON.stringify({
+          v: 1,
+          data: [
+            { ...progress, step: 999, attempts: -9 },
+            { id: 'unknown', step: 1 }
+          ]
+        })
+      );
+      assert.equal(loadRoutes('route-storage-test')[0].step, 3);
+      assert.equal(loadRoutes('route-storage-test')[0].attempts, 0);
+      assert.equal(loadRoutes('route-storage-test').length, 1);
+      saveRoute('demo:transient-route', progress);
+      assert.equal(win.localStorage.getItem('bball.routes.demo:transient-route'), null);
+      clearDemoRoutes();
+      assert.deepEqual(loadRoutes('demo:transient-route'), []);
+    }
+  );
   const starSummary = { ...applyMatchResult(createProfile(), dailyResult), stars: 5 };
   const litStars = () => host.querySelectorAll('span[class*="bigStarOn"]').length;
 

@@ -1,3 +1,4 @@
+import { bossCue } from './bossRhythm';
 import { stepPractice, practiceLanding } from './practice';
 import { kitName } from '../core/equipment/catalog';
 import { combatant } from './combatant';
@@ -239,6 +240,17 @@ export class GameEngine {
 
   getSnapshot = (): GameSnapshot => this.snapshot;
 
+  /** Capture the build actually used, including a switched specialization and run boons. */
+  capturePracticeLoadout = (): ResolvedLoadout => {
+    const { loadout } = this.world;
+    return {
+      ...loadout,
+      effects: { ...loadout.effects },
+      equipped: [...loadout.equipped],
+      synergies: [...loadout.synergies]
+    };
+  };
+
   /** Read only when the local profiling tool requests comparison context. */
   getDiagnostics() {
     const { view, rules, loadout } = this.world;
@@ -306,7 +318,14 @@ export class GameEngine {
     this.audio.startMusic(songFor(rules));
     this.startRules = rules;
     startMatch(this.world, rules);
-    this.specializations = rules.fixedBuild || rules.versus ? [] : specializations.slice(0, 3);
+    this.specializations =
+      rules.fixedBuild ||
+      (rules.mode === 'practice' && !rules.ranked && rules.practiceLoadout) ||
+      rules.versus ||
+      rules.technique ||
+      (rules.neutralBuild && !rules.ranked)
+        ? []
+        : specializations.slice(0, 3);
     this.specializationNames = this.specializations.map((entry) => entry.name);
     this.activeSpecialization = null;
     this.switchPoint = -1;
@@ -582,11 +601,15 @@ export class GameEngine {
       canPause:
         this.world.tutorial?.step !== 'complete' &&
         (status === 'play' || status === 'serve' || status === 'resuming'),
-      objective: rules.options?.waves
-        ? `Wave ${match.waveDepth + 1} · ${match.hits - match.waveHits}/12 returns · ${match.lives} lives`
-        : rules.versus
-          ? `P1: ${keyList(this.bindings, 'up')} / ${keyList(this.bindings, 'down')} · P2: ${keyList(this.bindings, 'p2Up')} / ${keyList(this.bindings, 'p2Down')}`
-          : (rules.objective?.label ?? null),
+      ...(rules.sharedCode ? { sharedReturns: match.hits } : {}),
+      bossCue: bossCue(this.world),
+      objective: rules.sharedCode
+        ? `Shared target · ${match.hits}/30 · Returns`
+        : rules.options?.waves
+          ? `Wave ${match.waveDepth + 1} · ${match.hits - match.waveHits}/12 returns · ${match.lives} lives`
+          : rules.versus
+            ? `P1: ${keyList(this.bindings, 'up')} / ${keyList(this.bindings, 'down')} · P2: ${keyList(this.bindings, 'p2Up')} / ${keyList(this.bindings, 'p2Down')}`
+            : (rules.objective?.label ?? null),
       objectiveTouch: rules.objective?.touchLabel ?? null,
       goals: this.goalView(),
       tutorialStep: this.world.tutorial?.step ?? null,

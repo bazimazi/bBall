@@ -494,6 +494,25 @@ The one thing the shell does that is not a plugin is `exit_app`, a command in
 list; this one exists because a packaged build can honour "close the app" and a
 browser tab cannot.
 
+## Gameplay roadmap checks
+
+The new technique drills, authored boss cues, short-session menus and shared-code
+controls use the same client on every platform. Short-session progress is saved
+on the device between matches; an unfinished match restarts after app closure.
+Contextual practice returns to its original result while that session remains
+open. No new native capability or permission is needed.
+
+System and browser reduced-motion preferences remain completely ignored on web,
+desktop and mobile. Boss guard timing and target resolution use simulation time;
+Full/Calm and screen-shake controls remain independent of system preferences.
+Run `npm run check:roadmap` for browser layouts and code-entry checks, plus the
+actual-app `check:browser:pages`, `check:browser:gameplay`,
+`check:browser:drills`, `check:browser:bosses`, `check:browser:progression` and
+`check:browser:account` suites. These cover browser interactions and production
+simulation; packaged device validation still needs physical webviews. Then repeat
+input, pause/Back and persisted-route checks in packaged webviews. Desktop/mobile
+binaries and physical-device behavior were not verified in this roadmap pass.
+
 ## The back button
 
 Android's system back and a browser's back button arrive the same way, so they

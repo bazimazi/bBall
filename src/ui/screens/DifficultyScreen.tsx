@@ -1,11 +1,12 @@
+import { TECHNIQUES, type TechniqueId } from '../../core/modes/drills';
 import { t, msg } from '../../core/i18n/index';
 import { useState } from 'react';
 import { ARENA_PRESETS } from '../../core/modes/arenas';
 import { BOSSES, bossById } from '../../core/modes/bosses';
 import { PERSONALITIES, SCHOOL_SCOUT } from '../../core/modes/recipes';
-import { quickMatchRules } from '../../core/modes/rules';
+import { quickMatchRules, practiceRules } from '../../core/modes/rules';
 import type { MatchOptions } from '../../core/modes/types';
-import { botProfile, SELECTABLE_BOTS } from '../../core/bots/levels';
+import { SELECTABLE_BOTS } from '../../core/bots/levels';
 import type { BotLevelId } from '../../core/bots/types';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
@@ -27,6 +28,7 @@ interface DifficultyScreenProps {
   practice: boolean;
   onPick: (bot: BotLevelId, options?: MatchOptions) => void;
   onBack: () => void;
+  onTechnique?: (id: TechniqueId) => void;
 }
 
 function RankDots({ rank }: { rank: number }) {
@@ -43,7 +45,13 @@ function RankDots({ rank }: { rank: number }) {
 }
 
 /** One tap per bot: picking a difficulty starts the match straight away. */
-export function DifficultyScreen({ profile, practice, onPick, onBack }: DifficultyScreenProps) {
+export function DifficultyScreen({
+  profile,
+  practice,
+  onPick,
+  onBack,
+  onTechnique
+}: DifficultyScreenProps) {
   const [series, setSeries] = useState<1 | 3 | 5>(1);
   const [arenaId, setArenaId] = useState('');
   const [personality, setPersonality] = useState<(typeof PERSONALITIES)[number]>('opportunist');
@@ -52,7 +60,6 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
   const [bossPhase, setBossPhase] = useState(0);
   const drill = practice && bossId ? bossById(bossId) : undefined;
   const phase = bossPhase > 0 ? drill?.spec.phases[bossPhase - 1] : undefined;
-  const drillBot = drill ? botProfile(phase?.bot ?? drill.bot) : undefined;
   const school = personality[0]!.toUpperCase() + personality.slice(1);
   const options: MatchOptions = {
     personality,
@@ -61,6 +68,7 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
     ...(!practice && contract ? { contract } : {}),
     ...(practice && bossId ? { bossId, bossPhase } : {})
   };
+  const drillBot = drill ? practiceRules(drill.bot, 'normal', options).bot : undefined;
   const last = practice ? profile.preferences.lastPracticeBot : profile.preferences.lastBot;
   const arena = ARENA_PRESETS.find((court) => court.id === arenaId)?.arena;
   const setupRules = quickMatchRules(last, options);
@@ -92,6 +100,65 @@ export function DifficultyScreen({ profile, practice, onPick, onBack }: Difficul
     >
       <PaddleNotice profile={profile} />
       {practice && <PracticePaceChoice />}
+      {practice && onTechnique && (
+        <MenuDisclosure
+          title={t('Technique drills')}
+          hint={t('Three targets · repeatable feeds · neutral build')}
+        >
+          <p className={styles.rowBlurb}>
+            {t(
+              'The dashed line is your target. Examples show a possible path; your actual shot uses normal court physics.'
+            )}
+          </p>
+          {TECHNIQUES.map((drill) => (
+            <div key={drill.id} className={styles.card}>
+              <h3>{t(drill.name)}</h3>
+              <p>{t(drill.hint)}</p>
+              <svg
+                viewBox="0 0 300 100"
+                width="100%"
+                height="100"
+                role="img"
+                aria-label={t(drill.name)}
+              >
+                <rect
+                  x="2"
+                  y="2"
+                  width="296"
+                  height="96"
+                  rx="8"
+                  fill="none"
+                  stroke="currentColor"
+                />
+                {drill.id === 'bank' && <path d="M90 22 H192" stroke="orange" strokeWidth="4" />}
+                {drill.id === 'gate' && (
+                  <path d="M165 2 V34 M165 66 V98" stroke="orange" strokeWidth="4" />
+                )}
+                <path
+                  d={
+                    drill.id === 'bank'
+                      ? 'M84 50 L20 50 L125 26 L240 58'
+                      : drill.id === 'gate'
+                        ? 'M84 50 L20 50 L240 50'
+                        : 'M84 50 L20 50 L240 25'
+                  }
+                  fill="none"
+                  stroke="currentColor"
+                  strokeDasharray="5 4"
+                />
+                <path
+                  d={drill.id === 'placement' ? 'M240 12 V38' : 'M240 5 V95'}
+                  stroke="#80ffca"
+                  strokeWidth="4"
+                />
+              </svg>
+              <button type="button" className={styles.ghost} onClick={() => onTechnique(drill.id)}>
+                {t(drill.name)}
+              </button>
+            </div>
+          ))}
+        </MenuDisclosure>
+      )}
       <MenuDisclosure
         title={t(practice ? 'Practice setup' : 'Match setup')}
         hint={t(

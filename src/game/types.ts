@@ -436,6 +436,8 @@ export interface GoalView {
 
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
+  readonly sharedReturns?: number;
+  readonly bossCue?: string | null;
   specializations?: readonly string[];
   canSwitchSpecialization?: boolean;
   activeSpecialization?: number | null;

@@ -1,0 +1,90 @@
+{
+  "checks": [
+    {
+      "configuration": "en-desktop",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "demo-enter-and-exit-keeps-guest"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "demo-enter-and-exit-keeps-guest"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "demo-enter-and-exit-keeps-guest"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "demo-enter-and-exit-keeps-guest"
+    }
+  ],
+  "pages": [
+    {
+      "configuration": "en-desktop",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "home"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "level 50 talents"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "home"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "level 50 talents"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "home"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "level 50 talents"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "home"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "level 50 talents"
+    }
+  ],
+  "failures": [],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "requests": []
+}

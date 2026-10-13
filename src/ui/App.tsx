@@ -28,6 +28,8 @@ import { HomeScreen } from './screens/HomeScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { MenuBoundary } from './components/MenuBoundary';
 import {
+  RoutesScreen,
+  SharedChallengeScreen,
   AccountScreen,
   AchievementsScreen,
   ChallengeScreen,
@@ -57,7 +59,38 @@ interface ResultActions {
 
 /** What "next" means depends on the mode the player just finished. */
 function resultActions(result: MatchResult, flow: GameFlow): ResultActions {
+  if (flow.practisingEncounter)
+    return {
+      primaryLabel: 'Practise again',
+      onPrimary: flow.replay,
+      secondaryLabel: 'Back to result',
+      onSecondary: flow.quitToMenu
+    };
+  if (flow.routeResult) {
+    const route = flow.routeResult;
+    return {
+      primaryLabel: route.step === 3 ? 'Route complete' : 'Continue route',
+      onPrimary:
+        route.step === 3 ? () => flow.leaveResult('routes') : () => flow.startRoute(route.id),
+      secondaryLabel: 'Short sessions',
+      onSecondary: () => flow.leaveResult('routes')
+    };
+  }
   const menu = { secondaryLabel: 'Menu', onSecondary: () => flow.leaveResult('home') };
+  if (result.technique)
+    return {
+      primaryLabel: 'Practise again',
+      onPrimary: flow.replay,
+      secondaryLabel: 'Practice',
+      onSecondary: () => flow.leaveResult('practice')
+    };
+  if (result.sharedCode)
+    return {
+      primaryLabel: 'Replay challenge',
+      onPrimary: flow.replay,
+      secondaryLabel: 'Shared rally challenge',
+      onSecondary: () => flow.leaveResult('shared')
+    };
   if (result.options?.bench)
     return {
       primaryLabel: 'Try again',
@@ -220,7 +253,8 @@ export function App() {
     // The match behind a result card is over, so the screens that started it
     // are not somewhere to go back to.
     if (flow.screen === 'result') {
-      flow.leaveResult(flow.result?.options?.bench ? 'workshop' : 'home');
+      if (flow.practisingEncounter) flow.quitToMenu();
+      else flow.leaveResult(flow.result?.options?.bench ? 'workshop' : 'home');
       return;
     }
     if (flow.canGoBack) flow.back();
@@ -325,9 +359,26 @@ export function App() {
           onBack={goBack}
         >
           {flow.screen === 'modes' && (
-            <ModesScreen profile={profile} onPick={flow.pickMode} onBack={flow.back} />
+            <ModesScreen
+              profile={profile}
+              onPick={flow.pickMode}
+              onBack={flow.back}
+              onRoutes={() => flow.go('routes')}
+              onShared={() => flow.go('shared')}
+            />
           )}
 
+          {flow.screen === 'routes' && (
+            <RoutesScreen
+              key={(demoLevel === null ? '' : 'demo:') + profile.id}
+              profileId={(demoLevel === null ? '' : 'demo:') + profile.id}
+              onStart={flow.startRoute}
+              onBack={flow.back}
+            />
+          )}
+          {flow.screen === 'shared' && (
+            <SharedChallengeScreen onStart={flow.startShared} onBack={flow.back} />
+          )}
           {flow.screen === 'help' && (
             <HowToPlayScreen
               onTutorial={flow.startTutorial}
@@ -340,6 +391,7 @@ export function App() {
             <DifficultyScreen
               profile={profile}
               practice={flow.screen === 'practice'}
+              onTechnique={flow.startTechnique}
               onPick={flow.screen === 'practice' ? flow.startPractice : flow.startQuick}
               onBack={flow.back}
             />
@@ -451,7 +503,11 @@ export function App() {
             <ResultScreen
               result={flow.result}
               summary={flow.summary}
-              label={t(snapshot.label)}
+              label={t(flow.resultLabel)}
+              onTechnique={flow.canPractiseEncounter ? flow.startTechnique : undefined}
+              onPracticeEncounter={
+                flow.canPractiseEncounter ? flow.startEncounterPractice : undefined
+              }
               onHelp={() => flow.go('help')}
               onTutorial={flow.startTutorial}
               onStar={(index) => engine?.chime(index)}
@@ -485,7 +541,13 @@ export function App() {
           onSettings={() => flow.go('settings')}
           onRestart={flow.replay}
           onQuit={flow.quitToMenu}
-          quitLabel={t(flow.workshopKit ? 'Back to Workshop' : 'Quit to menu')}
+          quitLabel={t(
+            flow.practisingEncounter
+              ? 'Back to result'
+              : flow.workshopKit
+                ? 'Back to Workshop'
+                : 'Quit to menu'
+          )}
           versus={snapshot.mode === 'versus'}
           objective={(coarse && snapshot.objectiveTouch) || snapshot.objective}
           goals={snapshot.goals}

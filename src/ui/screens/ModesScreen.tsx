@@ -24,6 +24,8 @@ interface ModesScreenProps {
   profile: PlayerProfile;
   onPick: (mode: ModeId, options?: MatchOptions) => void;
   onBack: () => void;
+  onRoutes?: () => void;
+  onShared?: () => void;
 }
 
 /** The modes Home already has a card for, so this list skips them. */
@@ -58,7 +60,7 @@ function metaFor(mode: ModeInfo, profile: PlayerProfile): string {
  * Every mode Home does not feature, one row each. Home stays down to a Play
  * button and a couple of cards; the rest of the game lives one tap away here.
  */
-export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
+export function ModesScreen({ profile, onPick, onBack, onRoutes, onShared }: ModesScreenProps) {
   const [arenaId, setArenaId] = useState('');
   const [waves, setWaves] = useState(false);
   const [series, setSeries] = useState<1 | 3 | 5>(1);
@@ -85,6 +87,22 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
       subtitle={t('Quick games, cups and couch play')}
       onBack={onBack}
     >
+      {onRoutes && (
+        <button type="button" className={styles.row} onClick={onRoutes}>
+          <span className={styles.rowText}>
+            <span className={styles.rowTitle}>{t('Short sessions')}</span>
+            <span className={styles.rowBlurb}>{t('Three encounters · save between matches')}</span>
+          </span>
+        </button>
+      )}
+      {onShared && (
+        <button type="button" className={styles.row} onClick={onShared}>
+          <span className={styles.rowText}>
+            <span className={styles.rowTitle}>{t('Shared rally challenge')}</span>
+            <span className={styles.rowBlurb}>{t('Same code · same court · neutral build')}</span>
+          </span>
+        </button>
+      )}
       <MenuDisclosure
         title={t('Court & couch rules')}
         hint={t(

@@ -8,6 +8,8 @@ export type MenuScreenId = Exclude<ScreenId, 'home' | 'onboarding' | 'playing'>;
 
 /** Each screen's own heading, so a loading or failed menu reads as the same place. */
 const TITLES: Record<MenuScreenId, string> = {
+  routes: 'Short sessions',
+  shared: 'Shared rally challenge',
   modes: 'More modes',
   help: 'How to play',
   quick: 'Quick Match',

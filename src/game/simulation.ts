@@ -1,8 +1,10 @@
+import { updateBossRhythm } from './bossRhythm';
 import { updateArena } from './arena';
 import { updateAbilityFx } from './casts';
 import { FIELD_H } from './constants';
 import { driveAi } from './ai';
-import { advanceWave, celebrate, launchBall } from './match';
+import { techniqueOutcome } from './technique';
+import { advanceWave, celebrate, launchBall, scorePoint, endMatch } from './match';
 import { hsla } from './palette';
 import { movePaddle, stepBall } from './physics';
 import { playerPaddleSpeed, updateRuntime } from './talents';
@@ -176,6 +178,7 @@ export function step(world: World, dt: number): void {
     return;
   }
   updateArena(world, dt);
+  updateBossRhythm(world);
 
   switch (match.status) {
     case 'menu': {
@@ -222,7 +225,16 @@ export function step(world: World, dt: number): void {
       if (world.rules.versus) movePaddle(bot, dt, playerPaddleSpeed(world));
       else driveAi(world, bot, world.botBrain, dt);
       stepBall(world, dt);
+      const target = techniqueOutcome(world);
+      if (target !== null) scorePoint(world, target ? 'you' : 'bot');
       advanceWave(world);
+      if (
+        world.rules.sharedCode &&
+        !world.rules.ranked &&
+        match.status === 'play' &&
+        match.hits >= 30
+      )
+        endMatch(world, true);
       // The point may have just ended the match; only a live one is taped.
       if (match.status === 'play') {
         world.replay.record(world);

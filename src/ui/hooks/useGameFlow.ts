@@ -1,8 +1,20 @@
+import {
+  clearDemoRoutes,
+  advanceRoute,
+  loadRoutes,
+  saveRoute,
+  resumeRoute,
+  routeById,
+  type RouteId,
+  type RouteProgress
+} from '../../core/modes/routes';
+import { sharedChallengeRules } from '../../core/modes/sharedChallenge';
+import { techniqueRules, type TechniqueId } from '../../core/modes/drills';
 import type { PaddleKit } from '../../core/equipment/types';
 import { specializationBuilds } from '../../core/loot/ops';
 import { hasResearch } from '../../core/loot/state';
 import { trialOpen } from '../../core/loot/trials';
-import { resolveLoadout } from '../../core/talents/effects';
+import { resolveLoadout, type ResolvedLoadout } from '../../core/talents/effects';
 import { advanceSeries, seriesComplete, type MatchSeries } from '../../core/modes/sessions';
 import type { TournamentFormat } from '../../core/tournament/bracket';
 import type { MatchOptions } from '../../core/modes/types';
@@ -40,8 +52,11 @@ import type { GameEngine } from '../../game/engine';
 import type { GameSnapshot } from '../../game/types';
 import { settingsStore } from '../../core/settings/store';
 import { enterPreferredFullscreen } from '../../core/platform/fullscreen';
+import { encounterPracticeRules } from '../../core/modes/encounterPractice';
 
 export type ScreenId =
+  | 'routes'
+  | 'shared'
   | 'onboarding'
   | 'home'
   | 'modes'
@@ -77,11 +92,19 @@ export interface GameFlow {
   canGoBack: boolean;
   /** The finished match being shown on the result screen. */
   result: MatchResult | null;
+  resultLabel: string;
+  canPractiseEncounter: boolean;
+  practisingEncounter: boolean;
+  startEncounterPractice: () => void;
   series: MatchSeries | null;
   summary: ProgressSummary | null;
   pickMode: (mode: ModeId, options?: MatchOptions) => void;
   startQuick: (bot: BotLevelId, options?: MatchOptions) => void;
   startPractice: (bot: BotLevelId, options?: MatchOptions) => void;
+  routeResult: RouteProgress | null;
+  startRoute: (id: RouteId) => void;
+  startShared: (code: string) => void;
+  startTechnique: (id: TechniqueId) => void;
   startBench: (kit: PaddleKit, serve: 'routine' | 'attack' | 'edge') => void;
   /** Trial kit restored when returning from Workshop practice. */
   workshopKit: PaddleKit | null;
@@ -105,6 +128,8 @@ export interface GameFlow {
   leaveResult: (screen: ScreenId) => void;
 }
 
+const profileKey = () =>
+  `${profileStore.getDemoLevel() === null ? '' : 'demo:'}${profileStore.getSnapshot().id}`;
 const onboardingComplete = () => profileStore.getSnapshot().onboarded;
 
 /**
@@ -120,6 +145,7 @@ const onboardingComplete = () => profileStore.getSnapshot().onboarded;
  * the honest next step.
  */
 export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): GameFlow {
+  const owner = useSyncExternalStore(profileStore.subscribe, profileKey, profileKey);
   const onboarded = useSyncExternalStore(
     profileStore.subscribe,
     onboardingComplete,
@@ -153,17 +179,77 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     if (screen === 'workshop') setWorkshopKit(null);
     setStack((current) => (current.length > 1 ? current.slice(0, -1) : current));
   }, [screen]);
+  const [routeResult, setRouteResult] = useState<RouteProgress | null>(null);
+  const routeMatch = useRef<{ profileId: string; progress: RouteProgress } | null>(null);
   const [series, setSeries] = useState<MatchSeries | null>(null);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [summary, setSummary] = useState<ProgressSummary | null>(null);
+  const [resultLabel, setResultLabel] = useState('');
+  const [practisingEncounter, setPractisingEncounter] = useState(false);
+  const [canPractiseEncounter, setCanPractiseEncounter] = useState(false);
+  const practiceReturn = useRef<{
+    profileId: string;
+    rules: MatchRules;
+    result: MatchResult;
+    summary: ProgressSummary | null;
+    label: string;
+    series: MatchSeries | null;
+    loadout: ResolvedLoadout | null;
+  } | null>(null);
   const handled = useRef(0);
   const lastRules = useRef<MatchRules | null>(null);
+  const matchOwner = useRef<string | null>(null);
+  const encounterLoadout = useRef<ResolvedLoadout | null>(null);
+  const previousOwner = useRef(owner);
+
+  // An account restore can finish while a court or result is open. Its save
+  // cannot inherit the old player's attempt, return card or route cursor.
+  useEffect(() => {
+    if (previousOwner.current === owner) return;
+    previousOwner.current = owner;
+    if (matchOwner.current === owner) return;
+    if (!lastRules.current && !practiceReturn.current && !routeMatch.current) return;
+    engine?.quitToMenu();
+    lastRules.current = null;
+    matchOwner.current = null;
+    encounterLoadout.current = null;
+    practiceReturn.current = null;
+    routeMatch.current = null;
+    setPractisingEncounter(false);
+    setCanPractiseEncounter(false);
+    setRouteResult(null);
+    setWorkshopKit(null);
+    setSeries(null);
+    setResult(null);
+    setSummary(null);
+    setStack((current) => (current.includes('account') ? ['home', 'account'] : ['home']));
+  }, [engine, owner]);
 
   const processFinished = useEffectEvent((finished: MatchResult) => {
+    // Check the live store as well as the subscription: a sign-in and a final
+    // engine snapshot can arrive in the same React batch.
+    if (matchOwner.current !== profileKey()) return;
+    if (!practiceReturn.current)
+      encounterLoadout.current = engine?.capturePracticeLoadout?.() ?? null;
     setResult(finished);
+    setResultLabel(snapshot.label);
+    setCanPractiseEncounter(
+      !!(
+        lastRules.current &&
+        !practiceReturn.current &&
+        encounterPracticeRules(lastRules.current, finished)
+      )
+    );
     if (finished.options?.series && finished.options.series > 1)
       setSeries((current) => (current ? advanceSeries(current, finished.won) : null));
-    setSummary(progression.recordMatch(finished));
+    setSummary(practiceReturn.current ? null : progression.recordMatch(finished));
+    const route = routeMatch.current;
+    if (!practiceReturn.current && route && route.profileId === profileKey() && lastRules.current) {
+      const progress = advanceRoute(route.progress, lastRules.current, finished);
+      saveRoute(route.profileId, progress);
+      setRouteResult(progress);
+      routeMatch.current = null;
+    }
     replace('result');
   });
   // Synchronize the external engine's completed attempt exactly once.
@@ -175,11 +261,19 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   }, [snapshot.result, snapshot.resultId]);
 
   const play = useCallback(
-    (rules: MatchRules) => {
+    (rules: MatchRules, rehearsal = false) => {
+      setCanPractiseEncounter(false);
+      if (!rehearsal) {
+        routeMatch.current = null;
+        setRouteResult(null);
+        practiceReturn.current = null;
+        setPractisingEncounter(false);
+      }
       enterPreferredFullscreen();
       const prepared = progression.prepareMatch(rules);
       if (!prepared.options?.bench) setWorkshopKit(null);
       lastRules.current = prepared;
+      matchOwner.current = profileKey();
       const profile = profileStore.getSnapshot();
       engine?.play(
         prepared,
@@ -194,6 +288,52 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     },
     [engine, setScreen]
   );
+
+  const startRoute = useCallback(
+    (id: RouteId) => {
+      if (!engine) return;
+      const route = routeById(id);
+      if (!route) return;
+      const profileId = profileKey();
+      const progress = resumeRoute(
+        id,
+        loadRoutes(profileId).find((item) => item.id === id)
+      );
+      saveRoute(profileId, progress);
+      setSeries(null);
+      play(route.steps[progress.step]!.rules());
+      routeMatch.current = { profileId, progress };
+    },
+    [engine, play]
+  );
+  const startShared = useCallback(
+    (code: string) => {
+      const rules = sharedChallengeRules(code);
+      if (rules) {
+        setSeries(null);
+        play(rules);
+      }
+    },
+    [play]
+  );
+
+  const startEncounterPractice = useCallback(() => {
+    const source = lastRules.current;
+    if (!engine || screen !== 'result' || !source || !result || practiceReturn.current) return;
+    const rules = encounterPracticeRules(source, result, encounterLoadout.current);
+    if (!rules) return;
+    practiceReturn.current = {
+      profileId: profileKey(),
+      rules: source,
+      result,
+      summary,
+      label: resultLabel,
+      series,
+      loadout: encounterLoadout.current
+    };
+    setPractisingEncounter(true);
+    play(rules, true);
+  }, [engine, screen, result, summary, resultLabel, series, play]);
 
   const startQuick = useCallback(
     (bot: BotLevelId, options?: MatchOptions) => {
@@ -216,9 +356,44 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     [play]
   );
 
+  const startTechnique = useCallback(
+    (id: TechniqueId) => {
+      const source = lastRules.current;
+      const rehearsal = !!(
+        engine &&
+        screen === 'result' &&
+        result &&
+        source &&
+        !practiceReturn.current &&
+        encounterPracticeRules(source, result)
+      );
+      if (rehearsal && source && result) {
+        practiceReturn.current = {
+          profileId: profileKey(),
+          rules: source,
+          result,
+          summary,
+          label: resultLabel,
+          series,
+          loadout: encounterLoadout.current
+        };
+        setPractisingEncounter(true);
+      }
+      setSeries(null);
+      play(techniqueRules(id), rehearsal);
+    },
+    [engine, screen, result, summary, resultLabel, series, play]
+  );
+
   const startTutorial = useCallback(() => {
+    routeMatch.current = null;
+    setRouteResult(null);
+    practiceReturn.current = null;
+    setPractisingEncounter(false);
     enterPreferredFullscreen();
     lastRules.current = null;
+    matchOwner.current = profileKey();
+    encounterLoadout.current = null;
     setWorkshopKit(null);
     engine?.learn();
     setScreen('playing');
@@ -309,8 +484,15 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       // A demo swaps the whole profile out, so any match in flight belongs to
       // the save being parked and is dropped rather than carried over.
       engine?.quitToMenu();
+      practiceReturn.current = null;
+      setPractisingEncounter(false);
       lastRules.current = null;
+      matchOwner.current = null;
+      encounterLoadout.current = null;
       setWorkshopKit(null);
+      routeMatch.current = null;
+      setRouteResult(null);
+      clearDemoRoutes();
       profileStore.startDemo(level);
       setResult(null);
       setSummary(null);
@@ -321,8 +503,15 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const exitDemo = useCallback(() => {
     engine?.quitToMenu();
+    practiceReturn.current = null;
+    setPractisingEncounter(false);
     lastRules.current = null;
+    matchOwner.current = null;
+    encounterLoadout.current = null;
     setWorkshopKit(null);
+    routeMatch.current = null;
+    setRouteResult(null);
+    clearDemoRoutes();
     profileStore.endDemo();
     setResult(null);
     setSummary(null);
@@ -370,9 +559,30 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   );
 
   const quitToMenu = useCallback(() => {
+    const origin = practiceReturn.current;
+    if (origin) {
+      engine?.quitToMenu();
+      practiceReturn.current = null;
+      setPractisingEncounter(false);
+      if (origin.profileId === profileKey()) {
+        lastRules.current = origin.rules;
+        encounterLoadout.current = origin.loadout;
+        setResult(origin.result);
+        setSummary(origin.summary);
+        setResultLabel(origin.label);
+        setSeries(origin.series);
+        setCanPractiseEncounter(true);
+        setStack(['home', 'result']);
+        return;
+      }
+    }
+    routeMatch.current = null;
+    setRouteResult(null);
     const bench = !!lastRules.current?.options?.bench;
     engine?.quitToMenu();
     lastRules.current = null;
+    matchOwner.current = null;
+    encounterLoadout.current = null;
     setSeries(null);
     setResult(null);
     setSummary(null);
@@ -388,7 +598,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   }, [engine]);
 
   const replay = useCallback(() => {
-    if (snapshot.mode === 'run') {
+    if ((lastRules.current?.mode ?? snapshot.mode) === 'run') {
       const run = profileStore.getSnapshot().progress.run;
       if (run?.version === 2) {
         if (run.attempt && !progression.runAction('restart')) return;
@@ -407,10 +617,13 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
         return;
       }
     }
-    if (series && seriesComplete(series)) setSeries({ ...series, games: 0, you: 0, foe: 0 });
+    if (!practiceReturn.current && series && seriesComplete(series))
+      setSeries({ ...series, games: 0, you: 0, foe: 0 });
     enterPreferredFullscreen();
-    if (lastRules.current) play(lastRules.current);
+    const route = routeMatch.current;
+    if (lastRules.current) play(lastRules.current, !!practiceReturn.current);
     else engine?.replay();
+    routeMatch.current = route;
     replace('playing');
   }, [engine, replace, snapshot.mode, playRun, series, play]);
 
@@ -423,9 +636,15 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
    */
   const leaveResult = useCallback(
     (next: ScreenId) => {
+      routeMatch.current = null;
+      setRouteResult(null);
       engine?.quitToMenu();
+      practiceReturn.current = null;
+      setPractisingEncounter(false);
       if (next !== 'workshop' || !lastRules.current?.options?.bench) setWorkshopKit(null);
       lastRules.current = null;
+      matchOwner.current = null;
+      encounterLoadout.current = null;
       setSeries(null);
       setStack(next === 'home' ? ['home'] : ['home', next]);
     },
@@ -439,11 +658,19 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     back,
     canGoBack: stack.length > 1,
     result,
+    resultLabel,
+    practisingEncounter,
+    canPractiseEncounter,
+    startEncounterPractice,
     series,
     summary,
     pickMode,
     startQuick,
     startPractice,
+    routeResult,
+    startRoute,
+    startShared,
+    startTechnique,
     startBench,
     workshopKit,
     startTutorial,

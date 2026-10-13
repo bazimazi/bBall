@@ -1,4 +1,6 @@
-import { waveRecipe } from '../core/modes/sessions';
+import { updateBossRhythm } from './bossRhythm';
+import { feedTechnique, prepareTechnique } from './technique';
+import { waveModifiers, waveRecipe } from '../core/modes/sessions';
 import { BALANCE } from '../core/balance/config';
 import { NEUTRAL_KIT, materialRuntime } from '../core/equipment/types';
 import { kitName } from '../core/equipment/catalog';
@@ -53,7 +55,7 @@ import {
 
 export function beginServe(world: World, dir: 1 | -1): void {
   const { match, botBrain, demoBrain } = world;
-  match.serveDir = dir;
+  match.serveDir = world.rules.technique ? -1 : dir;
   match.serveTimer = SERVE_DELAY;
   match.serveRequested = false;
   match.status = 'serve';
@@ -63,6 +65,7 @@ export function beginServe(world: World, dir: 1 | -1): void {
   // Every caller has already noted it against the match's best.
   match.rally = 0;
   centreBall(world);
+  prepareTechnique(world);
   resetRally(world);
   resetRally(combatant(world, 'bot'));
   for (const paddle of [world.player, world.bot]) {
@@ -186,6 +189,7 @@ export function launchBall(world: World): void {
         : 0;
   }
 
+  feedTechnique(world);
   if (match.status !== 'menu') world.audio.serve();
   match.status = 'play';
   // Intro cards should never cover the opening return after a quick serve.
@@ -199,8 +203,9 @@ export function launchBall(world: World): void {
  * wound back and shown again, and only then does the celebration start. The
  * result itself is published a beat after that.
  */
-function endMatch(world: World, won: boolean): void {
+export function endMatch(world: World, won: boolean): void {
   const { match, fx } = world;
+  match.bestThisMatch = Math.max(match.bestThisMatch, match.rally);
   match.winner = won ? 'you' : 'bot';
   match.status = 'over';
   match.overTimer = 1.1;
@@ -294,6 +299,10 @@ function buildResult(world: World, won: boolean, abandoned: boolean): MatchResul
       ? { specializationsUsed: [...world.specializationsUsed] }
       : {}),
     ...(rules.options?.waves ? { waves: match.waveDepth } : {}),
+    ...(!rules.ranked && rules.sharedCode
+      ? { sharedCode: rules.sharedCode, fieldWidth: Math.round(world.view.w) }
+      : {}),
+    ...(!rules.ranked && rules.technique ? { technique: rules.technique } : {}),
     mode: rules.mode,
     ...(rules.options ? { options: { ...rules.options } } : {}),
     ranked: rules.ranked,
@@ -484,12 +493,7 @@ export function advanceWave(world: World): boolean {
   const next = waveRecipe(world.rules.options, match.waveDepth);
   world.rules = {
     ...world.rules,
-    modifiers: {
-      ...world.rules.modifiers,
-      ...next.modifiers,
-      maxSpeedScale: 1.5,
-      speedPerHitScale: 1.35
-    },
+    modifiers: waveModifiers(world.rules.options, match.waveDepth),
     label: `Endless · Wave ${match.waveDepth + 1}`
   };
   world.tuning = tuningFor(world.rules);
@@ -549,13 +553,16 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   world.tuning = tuningFor(rules);
   // The build this match is played with: none at all in a two-player match,
   // the run's boons folded in for a Gauntlet one, the player's own otherwise.
-  world.loadout = rules.fixedBuild
-    ? masterCardLoadout()
-    : rules.versus
-      ? DEFAULT_LOADOUT
-      : rules.boons
-        ? withBoons(world.baseLoadout, rules.boons)
-        : world.baseLoadout;
+  world.loadout =
+    rules.mode === 'practice' && !rules.ranked && rules.practiceLoadout
+      ? rules.practiceLoadout
+      : rules.fixedBuild
+        ? masterCardLoadout()
+        : rules.versus || rules.technique || (rules.neutralBuild && !rules.ranked)
+          ? DEFAULT_LOADOUT
+          : rules.boons
+            ? withBoons(world.baseLoadout, rules.boons)
+            : world.baseLoadout;
   world.startingBranch = world.loadout.branch;
   applyPaddleSizes(world);
   setBrainProfile(world.botBrain, rules.bot);
@@ -597,6 +604,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   world.particles.clear();
   clearAbilityFx(world);
   setupArena(world);
+  updateBossRhythm(world);
   beginServe(world, world.random() < 0.5 ? 1 : -1);
   introBanner(world);
 }
