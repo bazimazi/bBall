@@ -19,6 +19,7 @@ import { Screen } from '../components/Screen';
 import { PaddleNotice } from '../components/PaddleNotice';
 import { ChoiceGroup } from '../components/ChoiceGroup';
 import { ConfirmAction } from '../components/ConfirmAction';
+import { useSettings } from '../hooks/useSettings';
 import styles from '../Screens.module.css';
 
 interface TournamentScreenProps {
@@ -153,6 +154,7 @@ export function TournamentScreen({
   onBack
 }: TournamentScreenProps) {
   const level = levelOf(profile.xp);
+  const { language } = useSettings();
   const [format, setFormat] = useState<TournamentFormat>('classic');
   const [tier, setTier] = useState(() => tierForLevel(level).id);
   const active = profile.tournament;
@@ -226,7 +228,10 @@ export function TournamentScreen({
               <span className={styles.rowText}>
                 <span className={styles.rowTitle}>{t(item.name)}</span>
                 <span className={styles.rowBlurb}>
-                  {t(item.opponents.map((id) => botProfile(id).name).join(' → '))}
+                  {/* The order of play reads with the text, so the arrow turns with it. */}
+                  {item.opponents
+                    .map((id) => t(botProfile(id).name))
+                    .join(language === 'fa' ? ' ← ' : ' → ')}
                 </span>
               </span>
               <span className={styles.rowMeta}>

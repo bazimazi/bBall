@@ -489,11 +489,22 @@ const BASE_ARENAS: readonly ArenaCosmetic[] = [
   }
 ];
 
+/**
+ * The earned accents' hues, by index (Circuit 1-13, then Mastery 50-550).
+ * They began as `(35 + i * 47) % 360`, nudged by at most 18 degrees so every
+ * one sits at least 8 degrees from every other accent, legacy ones included -
+ * an earned colour should never read as one the player already had. Ids stay
+ * tied to the index, so only the shade of an equipped accent moves.
+ */
+const EARNED_ACCENT_HUES = [
+  32, 82, 129, 179, 223, 276, 317, 2, 62, 104, 145, 192, 239, 286, 338, 10, 70, 114, 161, 210, 255,
+  302, 349, 54
+] as const;
+
 export const ACCENTS: readonly AccentCosmetic[] = [
   ...LEGACY_ACCENTS,
-  ...Array.from({ length: 24 }, (_, i): AccentCosmetic => {
-    const hue = (35 + i * 47) % 360,
-      css = `hsl(${hue} 90% 66%)`;
+  ...EARNED_ACCENT_HUES.map((hue, i): AccentCosmetic => {
+    const css = `hsl(${hue} 90% 66%)`;
     const milestones = [
       'journey-w10',
       'journey-w15',

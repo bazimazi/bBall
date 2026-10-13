@@ -113,6 +113,18 @@ function Segmented<T extends string | boolean>({
   );
 }
 
+/** The keys a range input answers by changing its value. */
+const SLIDER_KEYS = new Set([
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ArrowDown',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown'
+]);
+
 /** A 0..1 level as a 0..100 slider, its value printed beside it. */
 function Level({
   label,
@@ -139,7 +151,10 @@ function Level({
         style={{ '--fill': `${percent}%` } as CSSProperties}
         onChange={(event) => onChange(Number(event.target.value) / 100)}
         onPointerUp={onCommit}
-        onKeyUp={onCommit}
+        // Only keys that move the slider preview it: Tab landing here does not.
+        onKeyUp={(event) => {
+          if (SLIDER_KEYS.has(event.key)) onCommit?.();
+        }}
       />
       <span className={styles.sliderValue}>
         {t(percent === 0 ? 'Off' : msg('{0}%', [t(percent)]))}

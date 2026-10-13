@@ -81,8 +81,10 @@
     border-color 0.18s ease;
 }
 
-.feature:hover {
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+@media (hover: hover) {
+  .feature:hover {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  }
 }
 
 .feature:active {
@@ -840,8 +842,10 @@
   animation-delay: 180ms;
 }
 
-.boon:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .boon:hover {
+    border-color: var(--accent);
+  }
 }
 
 .boon:active {
@@ -1102,9 +1106,11 @@ button.resultRow {
   cursor: pointer;
 }
 
-.homeUtility:hover {
-  background: var(--card);
-  color: var(--ink);
+@media (hover: hover) {
+  .homeUtility:hover {
+    background: var(--card);
+    color: var(--ink);
+  }
 }
 
 .homeUtility svg {

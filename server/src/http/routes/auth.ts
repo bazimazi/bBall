@@ -7,9 +7,13 @@
  * for callers that have no cookie jar at all - a native shell, a test, a
  * future mobile build - which would otherwise be unable to hold a session.
  *
- * Every response on this router is deliberately uninformative about which
- * accounts exist. Registration with a taken address, sign-in with an unknown
- * one and a reset for nobody all look the same from outside.
+ * Sign-in and password reset are deliberately uninformative about which
+ * accounts exist: a wrong password and an unknown address get the same
+ * answer, and a reset for nobody is accepted like any other. Registration is
+ * the exception, and an honest one - a taken address is refused as taken,
+ * because the alternative is a sign-up that appears to work and an account
+ * the player can never reach. The tight rate limit on this router is what
+ * keeps that answer from being a cheap way to test addresses in bulk.
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -20,7 +24,6 @@ import type {
   MeResponse,
   RefreshResponse
 } from '../../../../shared/protocol';
-import type { AppConfig } from '../../config/env';
 import { unauthenticated } from '../../domain/errors';
 import { toCloudProfile } from '../../domain/profile';
 import { loadProfile } from '../../repositories/profiles';
@@ -56,21 +59,10 @@ import {
   makeRequireAuth,
   principalOf,
   REFRESH_COOKIE,
-  REFRESH_COOKIE_PATH,
+  refreshCookieOptions,
   requestMeta
 } from '../plugins/auth';
 import { authRateLimit } from '../plugins/security';
-
-function cookieOptions(config: AppConfig, maxAgeSeconds: number) {
-  return {
-    httpOnly: true,
-    secure: config.http.cookieSecure,
-    sameSite: config.http.cookieSameSite,
-    path: REFRESH_COOKIE_PATH,
-    maxAge: maxAgeSeconds,
-    ...(config.http.cookieDomain ? { domain: config.http.cookieDomain } : {})
-  } as const;
-}
 
 export function registerAuthRoutes(app: FastifyInstance, context: ServiceContext): void {
   const requireAuth = makeRequireAuth(context);
@@ -103,7 +95,7 @@ export function registerAuthRoutes(app: FastifyInstance, context: ServiceContext
     void reply.setCookie(
       REFRESH_COOKIE,
       created.tokens.refreshToken,
-      cookieOptions(context.config, ttl)
+      refreshCookieOptions(context.config, ttl)
     );
 
     const payload: AuthResponse = {
@@ -122,7 +114,7 @@ export function registerAuthRoutes(app: FastifyInstance, context: ServiceContext
     void reply.setCookie(
       REFRESH_COOKIE,
       result.tokens.refreshToken,
-      cookieOptions(context.config, ttl)
+      refreshCookieOptions(context.config, ttl)
     );
 
     const payload: AuthResponse = {
@@ -139,7 +131,11 @@ export function registerAuthRoutes(app: FastifyInstance, context: ServiceContext
     if (!token) throw unauthenticated('no refresh token supplied');
 
     const tokens = refresh(context, token, requestMeta(request));
-    void reply.setCookie(REFRESH_COOKIE, tokens.refreshToken, cookieOptions(context.config, ttl));
+    void reply.setCookie(
+      REFRESH_COOKIE,
+      tokens.refreshToken,
+      refreshCookieOptions(context.config, ttl)
+    );
 
     const payload: RefreshResponse = { tokens };
     return reply.send(payload);
@@ -148,13 +144,13 @@ export function registerAuthRoutes(app: FastifyInstance, context: ServiceContext
   app.post('/v1/auth/logout', async (request, reply) => {
     const input = parse(refreshSchema, request.body ?? {});
     logout(context, input.refreshToken ?? request.cookies[REFRESH_COOKIE]);
-    void reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    void reply.clearCookie(REFRESH_COOKIE, refreshCookieOptions(context.config));
     return reply.code(204).send();
   });
 
   app.post('/v1/auth/logout-all', { preHandler: requireAuth }, async (request, reply) => {
     const revoked = logoutEverywhere(context, principalOf(request).userId);
-    void reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    void reply.clearCookie(REFRESH_COOKIE, refreshCookieOptions(context.config));
     return reply.send({ revoked });
   });
 
@@ -188,7 +184,7 @@ export function registerAuthRoutes(app: FastifyInstance, context: ServiceContext
   app.post('/v1/auth/password/reset', { config: limited }, async (request, reply) => {
     const input = parse(resetPasswordSchema, request.body);
     await resetPassword(context, input.token, input.password);
-    void reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    void reply.clearCookie(REFRESH_COOKIE, refreshCookieOptions(context.config));
     return reply.code(204).send();
   });
 
@@ -198,7 +194,7 @@ export function registerAuthRoutes(app: FastifyInstance, context: ServiceContext
     async (request, reply) => {
       const input = parse(changePasswordSchema, request.body);
       await changePassword(context, principalOf(request), input.currentPassword, input.newPassword);
-      void reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+      void reply.clearCookie(REFRESH_COOKIE, refreshCookieOptions(context.config));
       return reply.code(204).send();
     }
   );
@@ -206,7 +202,7 @@ export function registerAuthRoutes(app: FastifyInstance, context: ServiceContext
   app.delete('/v1/me', { preHandler: requireAuth, config: limited }, async (request, reply) => {
     const input = parse(deleteAccountSchema, request.body);
     await deleteAccount(context, principalOf(request), input.password);
-    void reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    void reply.clearCookie(REFRESH_COOKIE, refreshCookieOptions(context.config));
     return reply.code(204).send();
   });
 

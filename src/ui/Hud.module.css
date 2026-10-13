@@ -33,9 +33,11 @@
     transform 0.12s ease;
 }
 
-.button:hover {
-  opacity: 0.9;
-  background: rgba(238, 242, 255, 0.07);
+@media (hover: hover) {
+  .button:hover {
+    opacity: 0.9;
+    background: rgba(238, 242, 255, 0.07);
+  }
 }
 
 .button:active {

@@ -43,6 +43,8 @@ export const HEADER_PROTOCOL = 'x-bball-protocol';
 export const HEADER_IDEMPOTENCY = 'idempotency-key';
 /** Header echoed on every response so a player can quote it in a report. */
 export const HEADER_REQUEST_ID = 'x-request-id';
+/** Header carrying the sync device id on pull and push. Advisory only. */
+export const HEADER_DEVICE = 'x-bball-device';
 
 // --------------------------------------------------------------- errors
 
@@ -98,7 +100,11 @@ export interface UserDto {
   readonly email: string;
   readonly emailVerified: boolean;
   readonly createdAt: number;
-  /** Identity providers linked to this account. 'password' is always one. */
+  /**
+   * Identity providers linked to this account: 'password' when it has one,
+   * plus each social sign-in. An account made through a provider may have no
+   * 'password' entry at all.
+   */
   readonly providers: readonly string[];
 }
 
@@ -454,6 +460,8 @@ export interface EquipCosmeticRequest {
 
 export interface StartTournamentRequest {
   readonly tier: number;
+  /** Omitted for the tier's default cup format. */
+  readonly format?: TournamentFormat | undefined;
   readonly baseVersion?: number | undefined;
 }
 

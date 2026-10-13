@@ -36,6 +36,7 @@ import {
   STAGES,
   stageOpen,
   stageById,
+  starXp,
   totalStars,
   type JourneyProgress
 } from '../../../src/core/campaign/journey';
@@ -77,8 +78,12 @@ export const CLAIM_LIMITS = {
   secondsPerMatch: 8,
   /** Returns a player could make per second of play, generously. */
   hitsPerSecond: 4,
-  /** The most a Journey star can pay: the last world's rate. */
-  xpPerStar: 110,
+  /**
+   * The most a Journey star can pay: the client's own rate at the highest
+   * world it pays for (`applyMatchResult` caps the world at 30), so an
+   * expansion world's stars are never undercounted.
+   */
+  xpPerStar: starXp(30),
   /** A daily clear with a full streak and both goals. */
   xpPerDailyClear: 300,
   /** A day of quests, all three and the bonus. */
@@ -290,10 +295,6 @@ export function sanitizeClaim(payload: unknown): SanitizedClaim | null {
   stats.bestRally = clamp(stats.bestRally, stats.rallyHits + 1);
   stats.endlessBest = clamp(stats.endlessBest, stats.bestRally);
   stats.endlessRuns = clamp(stats.endlessRuns, maxMatches);
-  stats.challengesCleared = clamp(
-    stats.challengesCleared,
-    CHALLENGES.length + RESONANCE_TRIALS.length
-  );
   stats.cupsPlayed = clamp(stats.cupsPlayed, maxMatches);
   stats.cupsWon = clamp(stats.cupsWon, stats.cupsPlayed);
   stats.bestCupRound = clamp(stats.bestCupRound, 7);
@@ -314,10 +315,24 @@ export function sanitizeClaim(payload: unknown): SanitizedClaim | null {
     }
   }
 
+  const progress = sanitizeProgress(parsed.progress, stats.matches, stats.wins, stats.rallyHits);
+  // First clears come from the fixed catalog, the Resonance trials and the
+  // contract series - each contract's first clear counts once, and the
+  // series is already trimmed to the wins above. None of them happens
+  // without a match.
+  stats.challengesCleared = clamp(
+    stats.challengesCleared,
+    Math.min(stats.matches, CHALLENGES.length + RESONANCE_TRIALS.length + progress.contracts)
+  );
+
   const profile: PlayerProfile = {
     ...parsed,
     stats,
-    progress: sanitizeProgress(parsed.progress, stats.matches, stats.wins, stats.rallyHits)
+    progress,
+    // A cup in progress is never imported, for the same reason as a run: its
+    // tier, format and rounds were never checked by anything, and they would
+    // gate the next match the server accepts. Starting a cup costs nothing.
+    tournament: null
   };
 
   const lootAttempts = Math.min(
@@ -438,9 +453,9 @@ export function mergeProfiles(cloud: PlayerProfile, local: PlayerProfile): Playe
       { ...(localWins ? local.talents : cloud.talents), stats: talentStats },
       levelOf(xp)
     ),
-    // A cup in progress cannot be merged; the cloud's live run wins, and the
-    // local one is kept as history rather than dropped.
-    tournament: cloud.tournament ?? (localWins ? local.tournament : null),
+    // A cup in progress cannot be merged, and an unchecked one is never
+    // imported: the cloud's live cup, if any, is the only one there is.
+    tournament: cloud.tournament,
     lastTournament: cloud.lastTournament ?? local.lastTournament,
     progress: mergeProgress(cloud.progress, local.progress)
   };

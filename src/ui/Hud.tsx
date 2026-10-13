@@ -66,11 +66,9 @@ export function Hud({
   return (
     <>
       <div className={styles.hud}>
-        <IconButton
-          label={t(muted ? 'Unmute sound' : 'Mute sound')}
-          pressed={muted}
-          onClick={onToggleMute}
-        >
+        {/* A toggle keeps one name and reports its state as pressed; a name
+            that also flipped would read as "Unmute sound, pressed". */}
+        <IconButton label={t('Mute sound')} pressed={muted} onClick={onToggleMute}>
           <SoundIcon muted={muted} />
         </IconButton>
 

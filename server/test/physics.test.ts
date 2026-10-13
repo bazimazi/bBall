@@ -290,3 +290,74 @@ it('a slowed incoming ball gives its outgoing return the full remaining clock ti
   const remaining = FIXED_DT - 1 / (600 * 0.8);
   assert.ok(Math.abs(world.ball.x - (face + world.ball.speed * remaining)) < 1e-6);
 });
+
+it('a Shield or Bastion save leaves through the paddle standing on the ball line', () => {
+  for (const save of ['shield', 'bastion'] as const) {
+    const world = createWorld(silent, 0);
+    world.view.w = 1000;
+    placePaddles(world);
+    world.match.status = 'play';
+    const y = save === 'bastion' ? 30 : 300;
+    if (save === 'shield') {
+      world.talents.shield = 1;
+      world.talents.shieldMax = 1;
+    } else {
+      world.loadout = { ...world.loadout, effects: { ...world.loadout.effects, bastion: 40 } };
+    }
+    Object.assign(world.ball, { x: 5, px: 12, y, py: y, vx: -700, vy: 0, speed: 700 });
+    world.ball.owner = 'bot';
+    world.player.y = Math.max(world.player.half, y);
+    world.player.target = world.player.y;
+    for (let i = 0; i < 30; i++) stepBall(world, FIXED_DT);
+    assert.equal(world.match.status, 'play', `${save} keeps the rally alive`);
+    assert.deepEqual(world.match.score, { you: 0, bot: 0 });
+    assert.ok(world.ball.vx > 0, `${save} sends the ball back into court`);
+    assert.ok(world.ball.x > world.player.x + PADDLE_W / 2 + BALL_R);
+  }
+});
+
+it('a paddle arriving late on a missed ball never turns it back into court', () => {
+  for (const side of ['you', 'bot'] as const) {
+    // Centre inside the paddle's thickness, and just past the contact plane.
+    for (const depth of [0, PADDLE_W / 2 + BALL_R / 2]) {
+      const world = createWorld(silent, 0);
+      world.view.w = 1000;
+      placePaddles(world);
+      world.match.status = 'play';
+      world.match.winScore = 5;
+      const paddle = side === 'you' ? world.player : world.bot;
+      const court = side === 'you' ? 1 : -1;
+      const x = paddle.x + court * depth;
+      Object.assign(world.ball, { x, px: x, y: 300, py: 300, vx: -court * 600, vy: 0 });
+      world.ball.speed = 600;
+      world.ball.owner = side === 'you' ? 'bot' : 'you';
+      // A teleport (a late Dash, say) puts the paddle right on the ball.
+      paddle.y = 300;
+      paddle.target = 300;
+      paddle.vy = 0;
+      stepBall(world, FIXED_DT);
+      assert.ok(court * world.ball.vx < 0, `${side} at ${depth}: the miss stays a miss`);
+      for (let i = 0; i < 40 && world.match.status === 'play'; i++) stepBall(world, FIXED_DT);
+      assert.equal(world.match.rally, 0);
+      assert.equal(world.match.score[side === 'you' ? 'bot' : 'you'], 1);
+    }
+  }
+});
+
+it('a paddle sliding into a ball it has just returned still pushes it on its way', () => {
+  for (const side of ['you', 'bot'] as const) {
+    const world = createWorld(silent, 0);
+    world.view.w = 1000;
+    placePaddles(world);
+    world.match.status = 'play';
+    const paddle = side === 'you' ? world.player : world.bot;
+    const court = side === 'you' ? 1 : -1;
+    const x = paddle.x + court * (PADDLE_W / 2 + 2);
+    Object.assign(world.ball, { x, px: x, y: 300, py: 300, vx: court * 600, vy: 0, speed: 600 });
+    paddle.y = 300;
+    paddle.target = 300;
+    stepBall(world, FIXED_DT);
+    assert.ok(court * world.ball.vx > 0);
+    assert.ok(court * (world.ball.x - paddle.x) >= PADDLE_W / 2 + BALL_R);
+  }
+});

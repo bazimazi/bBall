@@ -160,9 +160,19 @@ export function App() {
   const account = useAccount();
   const settings = useSettings();
   const coarse = useCoarsePointer();
-  const openAccount = useCallback(() => flow.go('account'), [flow]);
+  // `go` is stable while `flow` itself is new every render; depending on the
+  // whole object would re-run the account-link listener on every frame.
+  const { go } = flow;
+  const openAccount = useCallback(() => go('account'), [go]);
   const accountLink = useAccountLink(openAccount);
+  const { clear: clearAccountLink } = accountLink;
   const [leaving, setLeaving] = useState(false);
+
+  // A reset link is for the account screen that opened for it; leaving that
+  // screen drops it, so a later visit starts on the ordinary sign-in form.
+  useEffect(() => {
+    if (flow.screen !== 'account') clearAccountLink();
+  }, [flow.screen, clearAccountLink]);
 
   // Keep the React chrome on the same accent as the court.
   useEffect(() => {
@@ -198,7 +208,11 @@ export function App() {
     if (playing) {
       // Back out of a match the way the pause button does, so a stray press
       // never costs a game: pause first, and quit only from the pause menu.
+      // A finished lesson goes where its own button does, and a match past its
+      // last point is left to publish its result rather than being thrown away.
       if (paused) flow.quitToMenu();
+      else if (snapshot.tutorialStep === 'complete') flow.leaveResult('help');
+      else if (snapshot.status === 'over') return;
       else if (snapshot.canPause) engine?.pause();
       else flow.quitToMenu();
       return;
@@ -211,7 +225,7 @@ export function App() {
     }
     if (flow.canGoBack) flow.back();
     else setLeaving(true);
-  }, [engine, flow, paused, playing, snapshot.canPause]);
+  }, [engine, flow, paused, playing, snapshot.canPause, snapshot.status, snapshot.tutorialStep]);
 
   useBackHandler(!leaving, goBack);
   useBackHandler(leaving, () => setLeaving(false));

@@ -28,6 +28,7 @@ import type {
   TalentConfigResponse,
   UpdateProfileRequest
 } from '../../../shared/protocol';
+import { HEADER_DEVICE } from '../../../shared/protocol';
 import type { AbilityId, BranchId, TalentId } from '../talents/types';
 import type { Equipped } from '../cosmetics/catalog';
 import { request } from './client';
@@ -227,20 +228,23 @@ export const api = {
 
   // ---------------------------------------------------------------- sync
   pull(deviceId: string): Promise<SyncPullResponse> {
-    return request('/v1/sync/pull', { headers: { 'x-bball-device': deviceId } });
+    return request('/v1/sync/pull', { headers: { [HEADER_DEVICE]: deviceId } });
   },
 
-  push(
-    baseVersion: number,
-    ops: readonly SyncOp[],
-    deviceId: string,
-    idempotencyKey: string
-  ): Promise<SyncPushResponse> {
+  /**
+   * Drain part of the outbox.
+   *
+   * The idempotency key is the request's own, generated once and shared by
+   * that request's retries, so a lost response is answered from the stored
+   * copy. A later flush is a new request with a new key even when it carries
+   * the same operations: the server de-duplicates those by `opId` already,
+   * and a replayed response would hide an operation it had asked to see again.
+   */
+  push(baseVersion: number, ops: readonly SyncOp[], deviceId: string): Promise<SyncPushResponse> {
     return request('/v1/sync/push', {
       method: 'POST',
       body: { baseVersion, ops },
-      headers: { 'x-bball-device': deviceId },
-      idempotencyKey
+      headers: { [HEADER_DEVICE]: deviceId }
     });
   },
 

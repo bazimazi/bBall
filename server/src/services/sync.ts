@@ -262,7 +262,7 @@ function applyOne(context: ServiceContext, userId: string, op: SyncOp): SyncOpRe
   // why a match op is allowed through to it rather than short-circuiting here.
   if (op.kind !== 'match') {
     const seen = findAppliedOp(context.db, userId, op.opId);
-    if (seen) return { opId: op.opId, kind: op.kind, status: 'duplicate' };
+    if (seen) return replayed(op, seen.result_json);
   }
 
   try {
@@ -341,10 +341,21 @@ function applyOne(context: ServiceContext, userId: string, op: SyncOp): SyncOpRe
   } catch (error) {
     if (isAppError(error)) {
       // A rejected operation is still *resolved*: recording it stops the
-      // client retrying something that will never succeed. A conflict is not
-      // recorded, because it may well succeed on the next attempt.
+      // client retrying something that will never succeed, and a replay of it
+      // is told the same thing again. Every other refusal - a CONFLICT among
+      // them - is left unrecorded, so the same op id is judged afresh against
+      // whatever the profile is by then. The client treats those as final and
+      // drops them; only INTERNAL (below) and VERSION_CONFLICT, a write that
+      // raced another, are ones it keeps queued to send again.
       if (error.code === 'REJECTED' || error.code === 'NOT_FOUND') {
-        markOpApplied(context.db, userId, op.opId, op.kind, { rejected: error.code }, now);
+        markOpApplied(
+          context.db,
+          userId,
+          op.opId,
+          op.kind,
+          { rejected: error.code, reason: error.message },
+          now
+        );
       }
       return {
         opId: op.opId,
@@ -356,6 +367,33 @@ function applyOne(context: ServiceContext, userId: string, op: SyncOp): SyncOpRe
     }
     throw error;
   }
+}
+
+/**
+ * The answer for an operation the log has already seen.
+ *
+ * An applied one is a duplicate. A recorded refusal is reported as the
+ * refusal it was, so a client whose first response was lost still learns
+ * that the change did not land, instead of being told it had.
+ */
+function replayed(op: SyncOp, resultJson: string): SyncOpResult {
+  let recorded: { rejected?: unknown; reason?: unknown } = {};
+  try {
+    recorded = JSON.parse(resultJson) as typeof recorded;
+  } catch {
+    /* an unreadable record is still a record that the op was seen */
+  }
+  if (recorded.rejected === 'REJECTED' || recorded.rejected === 'NOT_FOUND') {
+    return {
+      opId: op.opId,
+      kind: op.kind,
+      status: 'rejected',
+      reason:
+        typeof recorded.reason === 'string' ? recorded.reason : 'That change was not accepted.',
+      code: recorded.rejected
+    };
+  }
+  return { opId: op.opId, kind: op.kind, status: 'duplicate' };
 }
 
 /**
@@ -381,7 +419,8 @@ export function pushOperations(
       results.push(applyOne(context, userId, op));
     } catch (error) {
       // An unexpected failure stops this operation, not the batch: the rest of
-      // the queue is still worth applying, and the client will retry this one.
+      // the queue is still worth applying. Nothing is recorded, and the client
+      // keeps an INTERNAL result queued and sends it again.
       context.log.error(
         { userId, opId: op.opId, kind: op.kind, err: error },
         'sync: operation failed'

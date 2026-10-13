@@ -45,9 +45,9 @@ const schema = z.object({
   HOST: z.string().default('127.0.0.1'),
   PORT: int(0, 65535).default(8787),
 
-  /** SQLite file, or ':memory:' for an ephemeral database. */
+  /** SQLite file, or ':memory:' for an ephemeral database (refused in production). */
   DATABASE_FILE: z.string().default('./data/bball.db'),
-  /** Seconds a busy writer waits for the lock before giving up. */
+  /** Milliseconds a busy writer waits for the lock before giving up. */
   DATABASE_BUSY_TIMEOUT_MS: int(0, 60_000).default(5000),
 
   /** HMAC key for access tokens. Required in production. */

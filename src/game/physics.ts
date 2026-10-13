@@ -284,9 +284,20 @@ function releaseFx(world: World, mods: ReturnMods, contactY: number, dir: 1 | -1
   }
 }
 
-/** Circle-vs-rectangle rescue so the ball can never end up inside a paddle. */
+/**
+ * Circle-vs-rectangle rescue so the ball can never end up inside a paddle.
+ *
+ * It only ever moves the ball; it never turns it round. A ball still heading
+ * for this paddle's goal has already passed the contact plane, so it is a
+ * miss - flipping it back into court would be a free return nobody counted.
+ */
 function resolveOverlap(world: World, paddle: Paddle): void {
   const { ball } = world;
+  const court = paddle.side === 'you' ? 1 : -1;
+  const leaving = ball.vx * court > 0;
+  // Shield and Bastion release the ball from the goal line behind this
+  // paddle, already on its way out: let it pass rather than send it home.
+  if (leaving && (ball.x - paddle.x) * court < 0) return;
   const left = paddle.x - PADDLE_W / 2;
   const right = paddle.x + PADDLE_W / 2;
   const top = paddle.y - paddle.half;
@@ -304,11 +315,16 @@ function resolveOverlap(world: World, paddle: Paddle): void {
 
   // Prefer shoving the ball off the paddle's end, but only when that leaves it
   // inside the walls - otherwise eject sideways so it can never be re-trapped.
-  if (Math.abs(dy) > Math.abs(dx) && newY >= BALL_R && newY <= FIELD_H - BALL_R) {
+  // A missed ball clipping a corner slides off the end even when the corner
+  // is nearer its side: the face would send it back into court.
+  const endward = Math.abs(dy) > Math.abs(dx) || (!leaving && dy !== 0);
+  if (endward && newY >= BALL_R && newY <= FIELD_H - BALL_R) {
     ball.y = newY;
     ball.vy = Math.abs(ball.vy) * Math.sign(dy);
   } else {
-    const sx = dx !== 0 ? Math.sign(dx) : paddle.side === 'you' ? 1 : -1;
+    // Out the way it was already travelling: in front of the paddle when it
+    // is leaving, behind it when it is a miss.
+    const sx = leaving ? court : -court;
     ball.x = (sx > 0 ? right : left) + sx * BALL_R;
     ball.vx = Math.abs(ball.vx) * sx;
   }

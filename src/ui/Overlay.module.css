@@ -139,8 +139,10 @@
     background 0.18s ease;
 }
 
-.button:hover {
-  filter: brightness(1.06);
+@media (hover: hover) {
+  .button:hover {
+    filter: brightness(1.06);
+  }
 }
 
 .button:active {
@@ -157,9 +159,11 @@
   border: 1px solid var(--edge);
 }
 
-.ghost:hover {
-  color: var(--ink);
-  background: rgba(238, 242, 255, 0.06);
+@media (hover: hover) {
+  .ghost:hover {
+    color: var(--ink);
+    background: rgba(238, 242, 255, 0.06);
+  }
 }
 
 .danger {

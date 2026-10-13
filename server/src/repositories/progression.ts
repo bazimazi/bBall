@@ -91,17 +91,21 @@ export function insertMatch(db: Db, input: RecordMatchInput, now = Date.now()): 
 }
 
 /**
- * Seconds of play already submitted inside a window.
+ * Seconds of play recorded as played inside a window, inclusive at both ends.
  *
  * The anti-cheat budget: a player cannot have played ninety minutes of
- * matches in the last hour, however the submissions are shaped.
+ * matches in one hour, however the submissions are shaped. Counted on
+ * `played_at`, which the service stores as the bounded time it believed
+ * (`budgetTime`), so offline play synced later lands in the hours it was
+ * actually played in.
  */
-export function playedSecondsSince(db: Db, userId: string, since: number): number {
+export function playedSecondsBetween(db: Db, userId: string, from: number, to: number): number {
   const row = db
     .prepare(
-      'SELECT COALESCE(SUM(seconds), 0) AS total FROM matches WHERE user_id = ? AND recorded_at >= ?'
+      `SELECT COALESCE(SUM(seconds), 0) AS total FROM matches
+        WHERE user_id = ? AND played_at >= ? AND played_at <= ?`
     )
-    .get(userId, since) as { total: number };
+    .get(userId, from, to) as { total: number };
   return row.total;
 }
 
@@ -208,10 +212,22 @@ export interface IdempotencyRow {
   expires_at: number;
 }
 
-export function findIdempotent(db: Db, userId: string, key: string): IdempotencyRow | null {
+/**
+ * A stored response that is still replayable.
+ *
+ * The expiry is checked here rather than left to the hourly sweep: a row the
+ * sweep has not reached yet is past its promise, and answering from it would
+ * stretch a day's replay window to whenever housekeeping next runs.
+ */
+export function findIdempotent(
+  db: Db,
+  userId: string,
+  key: string,
+  now = Date.now()
+): IdempotencyRow | null {
   const row = db
-    .prepare('SELECT * FROM idempotency_keys WHERE user_id = ? AND key = ?')
-    .get(userId, key) as IdempotencyRow | undefined;
+    .prepare('SELECT * FROM idempotency_keys WHERE user_id = ? AND key = ? AND expires_at > ?')
+    .get(userId, key, now) as IdempotencyRow | undefined;
   return row ?? null;
 }
 
@@ -226,8 +242,12 @@ export function saveIdempotent(
        (user_id, key, endpoint, request_hash, status_code, response_json, created_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (user_id, key) DO UPDATE SET
+       endpoint = excluded.endpoint,
+       request_hash = excluded.request_hash,
        status_code = excluded.status_code,
-       response_json = excluded.response_json`
+       response_json = excluded.response_json,
+       created_at = excluded.created_at,
+       expires_at = excluded.expires_at`
   ).run(
     row.user_id,
     row.key,
@@ -238,6 +258,18 @@ export function saveIdempotent(
     now,
     now + ttlSeconds * 1000
   );
+}
+
+/**
+ * Forget every stored response for an account.
+ *
+ * The one table with no foreign key to `users` - a stored response is keyed
+ * by caller, not owned by an account row - so deleting an account has to
+ * remove these explicitly, or replayable copies of its profile would outlive
+ * it for a day.
+ */
+export function deleteIdempotentForUser(db: Db, userId: string): number {
+  return db.prepare('DELETE FROM idempotency_keys WHERE user_id = ?').run(userId).changes;
 }
 
 // --------------------------------------------------------- claimed saves

@@ -4,7 +4,7 @@ import { BALL_R, FIELD_H } from './constants';
 import type { Side, Vec2 } from './types';
 import type { World } from './world';
 import { combatant } from './combatant';
-import { applyTempo } from './talents';
+import { recoverCooldowns } from './talents';
 
 export interface CourseState {
   time: number;
@@ -214,8 +214,10 @@ export function collideCourse(world: World): void {
     course.openUntil[s.gate] = arena.time + 3;
     events.switches++;
     if (actor.player.equipment.insert === 'copper') actor.player.material.switchCharge = true;
+    // Relay: a switch hit is not a return, so it carries no tempo of its
+    // own - just two seconds off every other skill.
     if ((actor.talents.tactics.relay ?? 0) > 0) {
-      applyTempo(actor, 2);
+      recoverCooldowns(actor, 2, 'relay');
       actor.talents.tactics.relay = 0;
     }
   }

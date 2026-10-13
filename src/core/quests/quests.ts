@@ -1,5 +1,6 @@
 import type { MatchResult } from '../modes/types';
 import { seeded } from '../util/random';
+import { daysBetween } from '../daily/daily';
 
 /**
  * Daily quests: three small goals a day - one easy, one medium, one hard -
@@ -211,6 +212,9 @@ export function applyQuests(
   day: string,
   context: QuestContext
 ): QuestOutcome {
+  // An older day's match must not roll today's quests back to a fresh set.
+  if (source && daysBetween(source.day, day) < 0)
+    return { state: source, completed: [], bonus: false, xp: 0 };
   const base = questStateFor(source, day);
   const state: QuestState = {
     ...base,

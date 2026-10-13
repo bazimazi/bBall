@@ -53,12 +53,13 @@ function avatarOf(value: unknown): AvatarId {
   return AVATARS.includes(value as AvatarId) ? (value as AvatarId) : 'orb';
 }
 
-function equippedOf(value: unknown): Equipped {
+/** Only what this profile owns can stay equipped; anything else falls back. */
+function equippedOf(value: unknown, unlocks: readonly string[]): Equipped {
   const source = bag(value);
   const result = { ...DEFAULT_EQUIPPED } as Equipped;
   for (const slot of EQUIP_SLOTS) {
     const id = source[slot];
-    if (typeof id !== 'string') continue;
+    if (typeof id !== 'string' || !unlocks.includes(id)) continue;
     const cosmetic = cosmeticById(id);
     if (cosmetic && cosmetic.kind === slot) result[slot] = id;
   }
@@ -174,6 +175,7 @@ export function validateProfile(data: unknown): PlayerProfile | null {
 
   const xp = num(source.xp, 0);
   const progress = progressOf(source.progress);
+  const unlocks = unlocksOf(source.unlocks);
 
   const profile: PlayerProfile = {
     id: text(source.id, blank.id),
@@ -188,8 +190,8 @@ export function validateProfile(data: unknown): PlayerProfile | null {
     // stale or tampered-with build converges on an honest total.
     talents: talentSaveOf(source.talents, levelOf(xp), licensedAbilities(progress.loot)),
     achievements: achievementsOf(source.achievements),
-    unlocks: unlocksOf(source.unlocks),
-    equipped: equippedOf(source.equipped),
+    unlocks,
+    equipped: equippedOf(source.equipped, unlocks),
     challenges: challengesOf(source.challenges),
     tournament: tournamentOf(source.tournament),
     lastTournament: tournamentOf(source.lastTournament),

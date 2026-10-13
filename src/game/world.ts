@@ -182,6 +182,7 @@ function createMatch(rules: MatchRules): MatchState {
     serveTimer: 0,
     serveRequested: false,
     serveDir: 1,
+    serves: 0,
     rally: 0,
     bestThisMatch: 0,
     points: 0,
@@ -361,6 +362,8 @@ export function centreBall(world: World): void {
   ball.vx = 0;
   ball.vy = 0;
   ball.squash = 0;
+  // A heavy return's heft belongs to its own point, not the next serve.
+  ball.heft = 0;
   world.trail.length = 0;
 }
 

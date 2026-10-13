@@ -239,10 +239,12 @@ function applyTournament(profile: PlayerProfile, result: MatchResult): Tournamen
     won: result.won
   });
   const roundIndex = result.tournamentRound ?? profile.tournament.round;
-  const reached = result.won
-    ? Math.min(roundsFor(profile.tournament).length, roundIndex + 2)
-    : roundIndex + 1;
-  profile.stats.bestCupRound = Math.max(profile.stats.bestCupRound, reached);
+  const length = roundsFor(profile.tournament).length;
+  const reached = result.won ? Math.min(length, roundIndex + 2) : roundIndex + 1;
+  // Recorded on the classic three-round scale (3 = a final), so a long
+  // marathon or ladder bracket cannot count its third round as the final.
+  const scaled = reached >= length ? 3 : Math.min(2, reached);
+  profile.stats.bestCupRound = Math.max(profile.stats.bestCupRound, scaled);
 
   if (next.champion) {
     profile.stats.cupsWon += 1;

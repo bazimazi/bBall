@@ -18,7 +18,7 @@ export async function toggleFullscreen(): Promise<void> {
 }
 
 /**
- * Bind F11, and Escape as the way out.
+ * Bind F11, and an unclaimed Escape as the way out.
  *
  * Returns a function that unbinds, so this composes with anything that later
  * wants to own the keyboard.
@@ -32,15 +32,20 @@ export function installWindowShortcuts(): () => void {
       void toggleFullscreen();
       return;
     }
-    // Escape leaves full screen and does nothing otherwise, which matches
-    // every other full-screen application and costs the game nothing: it
-    // never uses Escape while a match is running.
+    // Escape leaves full screen, as in every other full-screen application -
+    // but only when nothing else wanted it. The game pauses on Escape and
+    // dialogs close on it, and each of those claims the key with
+    // preventDefault. This listener is bound before any of theirs, so it
+    // looks once the whole dispatch has finished.
     if (event.key === 'Escape') {
-      void (async () => {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const window = getCurrentWindow();
-        if (await window.isFullscreen()) await window.setFullscreen(false);
-      })();
+      window.setTimeout(() => {
+        if (event.defaultPrevented) return;
+        void (async () => {
+          const { getCurrentWindow } = await import('@tauri-apps/api/window');
+          const current = getCurrentWindow();
+          if (await current.isFullscreen()) await current.setFullscreen(false);
+        })();
+      }, 0);
     }
   };
 

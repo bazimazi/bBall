@@ -282,7 +282,8 @@ function boostLength(world: World): number {
  *
  * Cooldowns run faster while the player is in flow, which is the whole point
  * of the talent - but `BALANCE.talents.minCooldownMul` already floored the
- * cooldowns themselves, and every slot keeps a real-time lockout, so the two
+ * cooldowns themselves, and every slot keeps a lockout that only the plain
+ * simulation clock winds down, so the two
  * together still cannot produce an ability that is permanently available.
  */
 export function updateRuntime(world: World, dt: number): void {
@@ -377,11 +378,19 @@ export function switchRuntime(world: World, loadout: ResolvedLoadout): boolean {
 export function applyTempo(world: World, bonus = 0): void {
   const { effects } = world.loadout;
   const tempo = effects.tempo + bonus + (world.talents.afterglow > 0 ? effects.afterglowTempo : 0);
-  if (tempo <= 0) return;
+  recoverCooldowns(world, tempo);
+}
+
+/**
+ * Wind cooldowns back by `seconds` - an ultimate by half as much - sparing
+ * `except`, for a skill whose refund goes to the others.
+ */
+export function recoverCooldowns(world: World, seconds: number, except?: AbilityId): void {
+  if (seconds <= 0) return;
   for (const slot of world.talents.slots) {
-    if (!slot.id || slot.cooldown <= 0) continue;
+    if (!slot.id || slot.id === except || slot.cooldown <= 0) continue;
     const share = abilityById(slot.id)?.ultimate ? 0.5 : 1;
-    slot.cooldown = Math.max(0, slot.cooldown - tempo * share);
+    slot.cooldown = Math.max(0, slot.cooldown - seconds * share);
   }
 }
 
@@ -462,7 +471,11 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   runtime.drive++;
   runtime.rallyReturns++;
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
-  applyTempo(world, runtime.guardWindow > 0 ? effects.parryTempo : 0);
+  // Rebound banks its second on top of this return's own tempo, not as a
+  // second helping of it.
+  const rebound = (runtime.tactics.rebound ?? 0) > 0;
+  if (rebound) runtime.tactics.rebound = 0;
+  applyTempo(world, (runtime.guardWindow > 0 ? effects.parryTempo : 0) + (rebound ? 1 : 0));
   if (runtime.shield < runtime.shieldMax && effects.shieldTempo > 0) {
     runtime.shieldTimer = Math.max(0, runtime.shieldTimer - effects.shieldTempo);
   }
@@ -531,10 +544,6 @@ export function playerReturn(world: World, offset: number): ReturnMods {
     runtime.tactics.reserve = 0;
   }
   if ((runtime.tactics.breach ?? 0) > 0) growth -= 0.05;
-  if ((runtime.tactics.rebound ?? 0) > 0) {
-    applyTempo(world, 1);
-    runtime.tactics.rebound = 0;
-  }
   if (inClutch(world)) growth += effects.clutchGrowth;
   growth += reboundBonus(world.player.equipment, offset, charged || crit || guarded);
   if (world.player.equipment.insert === 'copper' && growth > tuning.speedPerHit)

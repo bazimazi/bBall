@@ -6,12 +6,13 @@ import styles from '../Screens.module.css';
 
 export type MenuScreenId = Exclude<ScreenId, 'home' | 'onboarding' | 'playing'>;
 
+/** Each screen's own heading, so a loading or failed menu reads as the same place. */
 const TITLES: Record<MenuScreenId, string> = {
-  modes: 'Modes',
+  modes: 'More modes',
   help: 'How to play',
   quick: 'Quick Match',
   practice: 'Practice',
-  challenges: 'Challenges',
+  challenges: 'Challenge',
   journey: 'Journey',
   daily: 'Daily',
   gauntlet: 'Gauntlet',
@@ -24,7 +25,7 @@ const TITLES: Record<MenuScreenId, string> = {
   talents: 'Talents',
   workshop: 'Paddle Workshop',
   lab: 'Resonance Lab',
-  demo: 'Demo a level',
+  demo: 'Demo',
   result: 'Results'
 };
 

@@ -18,10 +18,13 @@ const patterns = Object.entries(dictionary)
   )
   .map(([source, target]) => {
     const slots: string[] = [];
-    const chunks = source.split(/(\{\d+\})/g).map((chunk) => {
+    const chunks = source.split(/(\{\d+\})/g).map((chunk, index, all) => {
       if (/^\{\d+\}$/.test(chunk)) {
         slots.push(chunk);
-        return '(.*?)';
+        // A slot the translation drops is an English plural suffix ("flick{1}").
+        // Matching only a suffix keeps it from swallowing a following clause.
+        const suffix = !target.includes(chunk) && /[a-z]$/i.test(all[index - 1] ?? '');
+        return suffix ? '((?:e?s)?)' : '(.*?)';
       }
       return escape(chunk);
     });
@@ -61,15 +64,20 @@ function translate(text: string, depth = 0): string {
     if (!best || untranslated < best.untranslated) best = { value, untranslated };
     if (untranslated === 0) return value;
   }
-  if (best) return best.value;
   // Composed summaries use these separators; translating each component also
   // covers content whose structure is assembled by core progression helpers.
+  // A greedy pattern ("Win {0}") can match a whole composed line, so a split
+  // that leaves less English behind wins over a partial pattern match.
   for (const separator of [' · ', '. ', '; ', ' + ', ' → ', ', ', ': ']) {
     if (!text.includes(separator)) continue;
     const parts = text.split(separator);
     const translated = parts.map((part) => translate(part, depth + 1));
-    if (translated.some((part, index) => part !== parts[index])) return translated.join(separator);
+    if (translated.some((part, index) => part !== parts[index])) {
+      const joined = translated.join(separator);
+      if (!best || joined.replace(/[^a-z]/gi, '').length < best.untranslated) return joined;
+    }
   }
+  if (best) return best.value;
   // Generated courts, boss phases, and plural counters use known catalog
   // names followed by a number (or a known unit after a number).
   const numbered = /^(.*\S) (\d+(?:\/\d+)?)$/.exec(text);

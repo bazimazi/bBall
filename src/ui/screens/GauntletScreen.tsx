@@ -286,7 +286,18 @@ function DraftView({
   return (
     <Screen
       title={t('Choose a boon')}
-      subtitle={t(msg('Encounter {0} won · {1}', [t(run.stage), t(run.format ?? 'Sprint')]))}
+      subtitle={t(
+        msg('Encounter {0} won · {1}', [
+          t(run.stage),
+          t(
+            run.format === 'expedition'
+              ? 'Expedition'
+              : run.format === 'endless'
+                ? 'Endless'
+                : 'Sprint'
+          )
+        ])
+      )}
       onBack={onBack}
     >
       <p className={styles.note}>
@@ -455,7 +466,9 @@ function RunView({
   onBack: () => void;
   onWorkshop?: (() => void) | undefined;
 }) {
-  const [confirm, setConfirm] = useState(false);
+  // Ending the run outright, or a restart that spends the last heart and so
+  // ends it just the same: both ask first.
+  const [confirm, setConfirm] = useState<'end' | 'restart' | null>(null);
   const next = encounterFor(run);
   const boss = next.boss ? bossById(next.boss) : undefined;
   const lastResult = run.results[run.results.length - 1];
@@ -464,6 +477,13 @@ function RunView({
   const futureActs = [currentAct + 1, currentAct + 2].filter(
     (act) => act * actLength(run) + (run.actOffset ?? 0) < runLength(run)
   );
+  const play = () => {
+    if (run.attempt) {
+      if (!runAction('restart')) return;
+      if (!profileStore.getSnapshot().progress.run) return;
+    }
+    onPlay();
+  };
 
   return (
     <Screen
@@ -477,11 +497,8 @@ function RunView({
             className={styles.primary}
             disabled={(run.equipment?.version ?? 0) > 1}
             onClick={() => {
-              if (run.attempt) {
-                if (!runAction('restart')) return;
-                if (!profileStore.getSnapshot().progress.run) return;
-              }
-              onPlay();
+              if (run.attempt && run.hearts === 1) setConfirm('restart');
+              else play();
             }}
           >
             {t(
@@ -504,7 +521,7 @@ function RunView({
                   {t('Bank this run')}
                 </button>
               )}
-            <button type="button" className={styles.ghost} onClick={() => setConfirm(true)}>
+            <button type="button" className={styles.ghost} onClick={() => setConfirm('end')}>
               {t('End run')}
             </button>
           </div>
@@ -657,20 +674,27 @@ function RunView({
         </MenuDisclosure>
       )}
       <ConfirmAction
-        show={confirm}
-        title={t('End this run?')}
+        show={confirm !== null}
+        title={t(confirm === 'restart' ? 'Restart on your last heart?' : 'End this run?')}
         description={t(
-          msg(
-            'This ends the run at {0}, without another clear. Its boons and remaining hearts will not carry into a new run. Your earned XP and unlocks stay. You can keep the run and return later.',
-            [t(runPosition(run))]
-          )
+          confirm === 'restart'
+            ? msg(
+                'Restarting costs your last heart, so this ends the run at {0}. Your earned XP and unlocks stay. You can keep the run and return later.',
+                [t(runPosition(run))]
+              )
+            : msg(
+                'This ends the run at {0}, without another clear. Its boons and remaining hearts will not carry into a new run. Your earned XP and unlocks stay. You can keep the run and return later.',
+                [t(runPosition(run))]
+              )
         )}
         cancelLabel="Keep run"
-        confirmLabel="End this run"
-        onCancel={() => setConfirm(false)}
+        confirmLabel={confirm === 'restart' ? 'Restart and end run' : 'End this run'}
+        onCancel={() => setConfirm(null)}
         onConfirm={() => {
-          setConfirm(false);
-          onAbandon();
+          const action = confirm;
+          setConfirm(null);
+          if (action === 'restart') play();
+          else onAbandon();
         }}
       />
     </Screen>

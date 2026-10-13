@@ -133,7 +133,17 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   const [workshopKit, setWorkshopKit] = useState<PaddleKit | null>(null);
   const setScreen = useCallback((next: ScreenId) => {
     if (next === 'workshop') setWorkshopKit(null);
-    setStack((current) => (current[current.length - 1] === next ? current : [...current, next]));
+    setStack((current) => {
+      // A screen already on the way here is returned to rather than stacked
+      // twice, so cross-links such as Talents and Lab never pile up - unless
+      // a match sits above it, which only its own exits may tidy away.
+      const index = current.lastIndexOf(next);
+      if (index === current.length - 1) return current;
+      if (index < 0) return [...current, next];
+      const above = current.slice(index + 1);
+      if (above.includes('playing') || above.includes('result')) return [...current, next];
+      return current.slice(0, index + 1);
+    });
   }, []);
   const replace = useCallback(
     (next: ScreenId) => setStack((current) => [...current.slice(0, -1), next]),

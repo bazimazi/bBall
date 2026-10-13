@@ -1,13 +1,7 @@
 import { t } from '../../core/i18n/index';
 import type { GoalView } from '../../game/types';
 import styles from './GoalList.module.css';
-
-const STATUS = {
-  active: 'In progress',
-  reached: 'Target reached · win to earn',
-  missed: 'Missed this match',
-  earned: 'Star earned'
-};
+import { GOAL_STATUS } from './goalStatus';
 
 export function GoalList({ goals }: { goals: readonly GoalView[] }) {
   if (goals.length === 0) return null;
@@ -21,7 +15,7 @@ export function GoalList({ goals }: { goals: readonly GoalView[] }) {
             <small>
               {t(goal.progress)}
               {t(' · ')}
-              {t(STATUS[goal.state])}
+              {t(GOAL_STATUS[goal.state])}
             </small>
           </li>
         ))}

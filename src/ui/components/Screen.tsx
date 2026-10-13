@@ -1,5 +1,5 @@
 import { t } from '../../core/i18n/index';
-import { useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { useScreenFocus } from '../hooks/useScreenFocus';
 import { SaveNotice } from './SaveNotice';
 
@@ -41,28 +41,37 @@ export function Screen({
 }: ScreenProps) {
   const heading = useScreenFocus();
   const titleId = useId();
+  const escape = useRef(onEscape);
+  useEffect(() => {
+    escape.current = onEscape;
+  });
+  const listening = onEscape !== undefined;
+  // On the document rather than the section: Safari does not focus a clicked
+  // button, so after any click the key arrives at the body. Dialogs and key
+  // capture claim Escape first and stop it before it bubbles this far.
+  useEffect(() => {
+    if (!listening) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      escape.current?.();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [listening]);
   return (
     <section
       className={`${styles.screen}${className ? ` ${className}` : ''}`}
       aria-labelledby={titleId}
-      onKeyDown={
-        onEscape
-          ? (event) => {
-              if (
-                event.key !== 'Escape' ||
-                event.defaultPrevented ||
-                event.repeat ||
-                event.ctrlKey ||
-                event.altKey ||
-                event.metaKey
-              )
-                return;
-              event.preventDefault();
-              event.stopPropagation();
-              onEscape();
-            }
-          : undefined
-      }
     >
       <header className={styles.header}>
         {onBack && (

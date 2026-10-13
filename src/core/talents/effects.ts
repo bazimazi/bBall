@@ -332,15 +332,18 @@ function clampEffects(effects: TalentEffects): void {
   effects.dashCooldown = Math.max(1.5, effects.dashCooldown);
   effects.guardCooldown = Math.max(2, effects.guardCooldown);
   effects.powerStrikeWindow = clamp(effects.powerStrikeWindow, 1, 8);
-  effects.comboLength = clamp(effects.comboLength, 0, 0.06);
-  effects.clutchLength = clamp(effects.clutchLength, 0, 0.3);
+  // Length and flow ceilings sit exactly at the top talent rank, so every
+  // rank a player buys does what its text says; boons and synergies fill the
+  // gap below the ceiling rather than pushing past it.
+  effects.comboLength = clamp(effects.comboLength, 0, E.comboDrive.length * 3);
+  effects.clutchLength = clamp(effects.clutchLength, 0, E.clutch.length * 2);
   effects.afterglowLength = clamp(effects.afterglowLength, 0, 0.2);
   effects.afterglowSeconds = clamp(effects.afterglowSeconds, 0, 8);
   effects.driveKeep = clamp(effects.driveKeep, 0, 0.65);
   effects.critGrowth = clamp(effects.critGrowth, 0, 0.5);
   effects.critHeft = clamp(effects.critHeft, 0, 0.6);
-  effects.flowAngle = clamp(effects.flowAngle, 0, 0.03);
-  effects.flowHeft = clamp(effects.flowHeft, 0, 0.04);
+  effects.flowAngle = clamp(effects.flowAngle, 0, E.flowState.angle * 3);
+  effects.flowHeft = clamp(effects.flowHeft, 0, E.flowState.heft * 3);
 }
 
 /** Drop any equipped ability the build no longer owns, or has no slot for. */

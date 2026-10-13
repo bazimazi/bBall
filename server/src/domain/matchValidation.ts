@@ -87,8 +87,34 @@ export const LIMITS = {
   /** Seconds of play accepted per hour of wall clock. */
   playBudgetSeconds: 90 * 60,
   /** How far into the future a client clock may claim a match happened. */
-  clockSkewMs: 10 * 60 * 1000
+  clockSkewMs: 10 * 60 * 1000,
+  /**
+   * How far back a match's own timestamp is believed for the play budget.
+   *
+   * Long enough to cover a weekend offline; anything older counts at its
+   * arrival instead, which is what every match did before. A wider window
+   * would let a quiet account bank more empty hours to fill at once.
+   */
+  playedAtLookbackMs: 72 * 60 * 60 * 1000
 } as const;
+
+/**
+ * The moment a match is counted at for the play budget.
+ *
+ * An offline player's matches arrive together when they reconnect, so
+ * counting them at arrival would put an evening of honest play into one hour
+ * and refuse it. The match's own timestamp is used instead - but only inside
+ * bounds the server can stand behind: not before the account existed, not
+ * further back than {@link LIMITS.playedAtLookbackMs}, and not past the
+ * clock-skew allowance (a later timestamp is refused outright). A timestamp
+ * outside those bounds, such as one from a device whose clock is years out,
+ * is not believed and the match counts when it arrived.
+ */
+export function budgetTime(playedAt: number, accountCreatedAt: number, now: number): number {
+  const earliest = Math.max(accountCreatedAt, now - LIMITS.playedAtLookbackMs);
+  if (!Number.isFinite(playedAt) || playedAt < earliest) return now;
+  return Math.min(playedAt, now + LIMITS.clockSkewMs);
+}
 
 export type RejectionCode =
   | 'invalid-equipment-attempt'
@@ -152,7 +178,11 @@ export type ValidationResult = Acceptance | Rejection;
 
 export interface ValidationContext {
   readonly profile: PlayerProfile;
-  /** Seconds of play already recorded in the budget window. */
+  /**
+   * Seconds of play already recorded in the busier of the two budget
+   * windows - the hour before this match and the hour after it, placed at
+   * its {@link budgetTime}.
+   */
   readonly recentPlaySeconds: number;
   readonly now: number;
 }

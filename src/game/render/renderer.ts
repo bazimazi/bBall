@@ -102,7 +102,10 @@ export class Renderer {
     this.lastTime = fx.time;
     const { ball } = world;
     this.ballSpin += ((ball.vx >= 0 ? 1 : -1) * ball.speed * this.frameDt) / BALL_R;
-    if (ball.vx === 0 && ball.vy === 0 && this.frameDt > 0) this.ballSpin *= 0.9;
+    // Unwinds at the same rate at any frame rate: 0.9 per 60 Hz frame.
+    if (ball.vx === 0 && ball.vy === 0 && this.frameDt > 0) {
+      this.ballSpin *= Math.pow(0.9, this.frameDt * 60);
+    }
 
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     this.drawBackground(world);
@@ -631,11 +634,14 @@ export class Renderer {
         this.gridPath = path;
         this.gridKey = key;
       } else {
+        // The impulses are stored at full strength; Calm bows the floor less,
+        // like every other motion-scaled effect.
+        const bow = world.motion;
         for (let r = 1; r < rows - 1; r++) {
           for (let c = 0; c < cols; c++) {
             const i = r * cols + c;
-            const px = c * sx + dx[i]!;
-            const py = r * sy + dy[i]!;
+            const px = c * sx + dx[i]! * bow;
+            const py = r * sy + dy[i]! * bow;
             if (c === 0) path.moveTo(px, py);
             else path.lineTo(px, py);
           }
@@ -643,8 +649,8 @@ export class Renderer {
         for (let c = 1; c < cols - 1; c++) {
           for (let r = 0; r < rows; r++) {
             const i = r * cols + c;
-            const px = c * sx + dx[i]!;
-            const py = r * sy + dy[i]!;
+            const px = c * sx + dx[i]! * bow;
+            const py = r * sy + dy[i]! * bow;
             if (r === 0) path.moveTo(px, py);
             else path.lineTo(px, py);
           }

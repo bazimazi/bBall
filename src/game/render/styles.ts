@@ -1,4 +1,4 @@
-import type { ResolvedTheme } from '../../core/cosmetics/theme';
+import { DEFAULT_THEME, type ResolvedTheme } from '../../core/cosmetics/theme';
 import { BALL_R, PADDLE_W } from '../constants';
 import { hsla } from '../palette';
 import type { Paddle, Vec2 } from '../types';
@@ -50,6 +50,10 @@ export function drawPaddleBody(
   alpha: number
 ): void {
   const theme = world.theme;
+  // Only the player's paddle wears the equipped finish; the other side keeps
+  // the default capsule's glow and corners, as it keeps its style.
+  const glowScale = styled ? theme.paddleGlow : DEFAULT_THEME.paddleGlow;
+  const roundness = styled ? theme.paddleRound : DEFAULT_THEME.paddleRound;
   const flash = paddle.flash;
   // Squash on contact: thicker and a touch shorter, springing back.
   const w = PADDLE_W * (1 + flash * 0.4);
@@ -62,7 +66,7 @@ export function drawPaddleBody(
 
   // The halo: a pre-blurred capsule stretched to the paddle - the neon look
   // without a single shadowBlur in the frame loop.
-  const halo = (0.62 + flash * 0.5) * theme.paddleGlow;
+  const halo = (0.62 + flash * 0.5) * glowScale;
   if (halo > 0.01) {
     const x = cx - w / 2;
     const core = BAR_W - BAR_PAD * 2;
@@ -84,7 +88,7 @@ export function drawPaddleBody(
   }
 
   // The spine, bowed away from the ball at the point it struck.
-  const round = theme.paddleRound >= 0.5;
+  const round = roundness >= 0.5;
   const inset = w / 2;
   const y0 = top + inset;
   const y1 = top + h - inset;
@@ -184,7 +188,7 @@ export function drawPaddleBody(
     ctx.globalAlpha = flash * 0.5 * alpha;
     ctx.strokeStyle = hsla(hue, 100, 80, 1);
     ctx.lineWidth = 2;
-    const radius = (w / 2) * theme.paddleRound + 5;
+    const radius = (w / 2) * roundness + 5;
     roundRect(ctx, cx - w / 2 - 5, top - 5, w + 10, h + 10, radius);
     ctx.stroke();
   }
@@ -539,7 +543,7 @@ export function drawTrailStyled(
     for (let i = n - 1; i >= 0; i -= 2) {
       const t = i / (n - 1);
       const p = trail[i]!;
-      const s = Math.max(2, Math.round((BALL_R * 1.5 * t) / 3) * 3);
+      const s = Math.max(2, Math.round((BALL_R * 1.5 * theme.trailWidth * t) / 3) * 3);
       const x = Math.round(p.x / 4) * 4;
       const y = Math.round(p.y / 4) * 4;
       ctx.fillStyle = hsla(hue, 100, 64 + (1 - t) * 10, 0.55 * theme.trailAlpha * t);
@@ -553,7 +557,7 @@ export function drawTrailStyled(
   // triangle strip: neighbouring quads share their joint edge exactly, so it
   // tapers with no seams, and - unlike one long self-intersecting polygon - a
   // sharp bounce cannot punch a hole in it.
-  const width = style === 'ribbon' ? 0.52 : theme.trailWidth;
+  const width = theme.trailWidth;
   for (let i = 0; i < n; i++) {
     const a = trail[Math.max(0, i - 1)]!;
     const b = trail[Math.min(n - 1, i + 1)]!;

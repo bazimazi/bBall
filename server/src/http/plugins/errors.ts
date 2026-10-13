@@ -75,6 +75,15 @@ export function registerErrorHandler(app: FastifyInstance): void {
         .code(429)
         .send(body('RATE_LIMITED', 'Too many requests. Wait a moment.', requestId));
     }
+    // A body in a format no route here reads - a form posted at a JSON
+    // endpoint, most often. It is the caller's mistake, not a fault.
+    if (fastifyError.statusCode === 415 || fastifyError.code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE') {
+      return reply
+        .code(415)
+        .send(
+          body('BAD_REQUEST', 'That request is in a format this server does not read.', requestId)
+        );
+    }
     if (fastifyError.statusCode === 400) {
       return reply
         .code(400)

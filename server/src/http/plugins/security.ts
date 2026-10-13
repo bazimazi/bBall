@@ -24,8 +24,10 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
+import { HEADER_DEVICE, HEADER_IDEMPOTENCY, HEADER_PROTOCOL } from '../../../../shared/protocol';
 import type { AppConfig } from '../../config/env';
 import { AppError } from '../../domain/errors';
+import { verifyAccessToken } from '../../lib/tokens';
 
 /**
  * The key a rate limit counts against.
@@ -33,10 +35,25 @@ import { AppError } from '../../domain/errors';
  * A signed-in caller is counted per account, so one player on a shared
  * network cannot exhaust the budget for everyone behind the same address, and
  * a single account cannot multiply its budget by changing addresses.
+ *
+ * The limiter runs on `onRequest`, before any route's `requireAuth` has had a
+ * chance to set a principal, so the account is read from the bearer token
+ * here. Only the signature and expiry are checked - no database read - which
+ * is enough: a forged token cannot name somebody else's account, and a
+ * signed one for a revoked session still belongs to the account it names, so
+ * it can only ever spend that account's own budget. Anything that does not
+ * verify is counted against the address, exactly as an anonymous call is.
  */
-function limitKey(request: FastifyRequest): string {
-  const principal = request.principal;
-  return principal ? `user:${principal.userId}` : `ip:${request.ip}`;
+function limitKeyFor(config: AppConfig): (request: FastifyRequest) => string {
+  return (request) => {
+    const header = request.headers.authorization;
+    const [scheme, token] = typeof header === 'string' ? header.split(' ') : [];
+    if (token && scheme?.toLowerCase() === 'bearer') {
+      const verified = verifyAccessToken(config.auth.secret, token.trim());
+      if (verified.ok) return `user:${verified.claims.sub}`;
+    }
+    return `ip:${request.ip}`;
+  };
 }
 
 /**
@@ -81,7 +98,16 @@ export async function registerSecurity(app: FastifyInstance, config: AppConfig):
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['content-type', 'authorization', 'idempotency-key', 'x-bball-protocol'],
+    // Every header the game itself sends. A browser preflights anything outside
+    // the CORS-safelisted set, and one missing name here fails the whole
+    // request for a cross-origin build - the packaged shells included.
+    allowedHeaders: [
+      'content-type',
+      'authorization',
+      HEADER_IDEMPOTENCY,
+      HEADER_PROTOCOL,
+      HEADER_DEVICE
+    ],
     exposedHeaders: ['x-request-id', 'retry-after'],
     maxAge: 600
   });
@@ -90,7 +116,7 @@ export async function registerSecurity(app: FastifyInstance, config: AppConfig):
     global: true,
     max: config.rateLimit.max,
     timeWindow: config.rateLimit.windowSeconds * 1000,
-    keyGenerator: limitKey,
+    keyGenerator: limitKeyFor(config),
     // Health checks must never be throttled: a limiter that hides a liveness
     // probe turns a busy minute into a restart loop.
     allowList: (request) => request.url.startsWith('/v1/health'),
@@ -110,7 +136,7 @@ export function authRateLimit(config: AppConfig) {
     rateLimit: {
       max: config.rateLimit.authMax,
       timeWindow: config.rateLimit.windowSeconds * 1000,
-      keyGenerator: limitKey
+      keyGenerator: limitKeyFor(config)
     }
   };
 }

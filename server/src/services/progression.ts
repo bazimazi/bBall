@@ -68,7 +68,7 @@ import type {
 import { transaction } from '../db/index';
 import { conflict, notFound, rejected, versionConflict } from '../domain/errors';
 import { validateMatch } from '../domain/matchValidation';
-import { LIMITS } from '../domain/matchValidation';
+import { budgetTime, LIMITS } from '../domain/matchValidation';
 import { toCloudProfile, withProfile, type ServerProfile } from '../domain/profile';
 import {
   activeTournamentId,
@@ -83,8 +83,9 @@ import {
   insertMatch,
   logProgressionEvent,
   markOpApplied,
-  playedSecondsSince
+  playedSecondsBetween
 } from '../repositories/progression';
+import { findUserById } from '../repositories/users';
 import type { ServiceContext } from './context';
 
 export interface MatchOutcome {
@@ -161,9 +162,20 @@ export function recordMatch(
     const server = requireProfile(context, userId);
     const now = context.now();
 
+    // Both hours either side of when the match was played, so a match slotted
+    // in among earlier ones cannot overfill the hour that follows it either.
+    const playedAt = budgetTime(
+      submission.playedAt,
+      findUserById(context.db, userId)?.created_at ?? now,
+      now
+    );
+    const span = LIMITS.playBudgetWindowMs;
     const verdict = validateMatch(submission, {
       profile: server.profile,
-      recentPlaySeconds: playedSecondsSince(context.db, userId, now - LIMITS.playBudgetWindowMs),
+      recentPlaySeconds: Math.max(
+        playedSecondsBetween(context.db, userId, playedAt - span, playedAt),
+        playedSecondsBetween(context.db, userId, playedAt, playedAt + span)
+      ),
       now
     });
 
@@ -219,7 +231,9 @@ export function recordMatch(
         challengeId: result.challengeId ?? null,
         tournamentId,
         objectiveMet: result.objectiveMet,
-        playedAt: submission.playedAt
+        // The bounded time the budget used, not the raw claim, so the next
+        // match's budget is counted against the same clock.
+        playedAt
       },
       now
     );

@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { it, type TestContext } from 'node:test';
-import { practiceRules, quickMatchRules, versusRules } from '../../src/core/modes/rules';
+import {
+  endlessRules,
+  practiceRules,
+  quickMatchRules,
+  runRules,
+  versusRules
+} from '../../src/core/modes/rules';
+import { createRun } from '../../src/core/run/run';
+import { advanceWave, scorePoint } from '../../src/game/match';
 import { DEFAULT_BINDINGS } from '../../src/core/settings/controls';
 import { DEFAULT_SETTINGS, type DeviceSettings } from '../../src/core/settings/store';
 import { GameEngine } from '../../src/game/engine';
@@ -135,8 +143,17 @@ it('court switching allows one choice per point and clears previous builds in fi
   assert.deepEqual(engine.getSnapshot().specializations, ['Attack', 'Control']);
   assert.equal(engine.switchSpecialization(0), true);
   assert.equal(engine.switchSpecialization(1), false);
-  world.match.score.you++;
+  world.match.status = 'play';
+  scorePoint(world, 'you');
   engine.pause();
+  assert.equal(engine.switchSpecialization(1), true);
+  // Lives modes score nothing on a won point, but it is still a new point.
+  engine.play(endlessRules(), builds);
+  assert.equal(engine.switchSpecialization(0), true);
+  assert.equal(engine.switchSpecialization(1), false);
+  world.match.status = 'play';
+  scorePoint(world, 'you');
+  assert.deepEqual([world.match.lives, world.match.score.you], [world.match.maxLives, 0]);
   assert.equal(engine.switchSpecialization(1), true);
   engine.play({ ...quickMatchRules('elite'), fixedBuild: true }, builds);
   assert.deepEqual(engine.getSnapshot().specializations, []);
@@ -1139,4 +1156,149 @@ it('covered gameplay releases held input and ignores keyboard, touch and mouse s
   key('w');
   advance(40);
   assert.ok(world.player.target < playerTarget);
+});
+
+it('a movement key held through a resume countdown or a match start steers without a second press', (t) => {
+  const { engine, world, win, advance } = harness(t);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, autoServe: false });
+  const press = (key: string, code: string, repeat: boolean) => {
+    const event = Object.assign(new Event('keydown', { cancelable: true }), { key, code, repeat });
+    win.dispatchEvent(event);
+    return event;
+  };
+  const slots: number[] = [];
+  engine.useAbility = (slot) => {
+    slots.push(slot);
+  };
+  engine.play(quickMatchRules('rookie'));
+  // Held from the menu into the match: the next auto-repeat takes over.
+  assert.equal(press('w', 'KeyW', true).defaultPrevented, true);
+  advance(30);
+  const started = world.player.target;
+  advance(30);
+  assert.ok(world.player.target < started, 'held through the match start');
+  engine.serve();
+  advance(16);
+  assert.equal(world.match.status, 'play');
+  engine.pause();
+  engine.resume();
+  assert.equal(world.match.status, 'resuming');
+  press('w', 'KeyW', true);
+  const frozen = world.player.target;
+  advance(250);
+  assert.equal(world.player.target, frozen, 'the countdown itself never moves the paddle');
+  for (let i = 0; i < 6 && world.match.status === 'resuming'; i++) advance(250);
+  assert.equal(world.match.status, 'play');
+  const resumed = world.player.target;
+  advance(30);
+  assert.ok(world.player.target < resumed, 'held through the countdown');
+  win.dispatchEvent(Object.assign(new Event('keyup'), { key: 'w', code: 'KeyW' }));
+  // Auto-repeat never re-fires a one-shot action.
+  press('1', 'Digit1', false);
+  press('1', 'Digit1', true);
+  assert.deepEqual(slots, [0]);
+});
+
+it('a finger put down during the resume countdown owns the paddle once play returns', (t) => {
+  const { engine, world, pointer, advance } = harness(t);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, autoServe: false });
+  engine.play(quickMatchRules('rookie'));
+  engine.serve();
+  advance(16);
+  engine.pause();
+  engine.resume();
+  const target = world.player.target;
+  pointer('pointerdown', 1, toScreenX(world.view, 100, 150), toScreenY(world.view, 100, 150));
+  assert.equal(world.player.target, target, 'the countdown holds the paddle still');
+  pointer('pointerdown', 2, toScreenX(world.view, 100, 450), toScreenY(world.view, 100, 450));
+  for (let i = 0; i < 6 && world.match.status === 'resuming'; i++) advance(250);
+  assert.equal(world.match.status, 'play');
+  pointer('pointermove', 2, toScreenX(world.view, 100, 480), toScreenY(world.view, 100, 480));
+  assert.equal(world.player.target, target, 'a second finger cannot steal the paddle');
+  pointer('pointermove', 1, toScreenX(world.view, 100, 200), toScreenY(world.view, 100, 200));
+  assert.ok(Math.abs(world.player.target - 200) < 1e-8);
+});
+
+it('non-Latin layouts reach bindings through the physical key, and typed bindings still win', (t) => {
+  const { engine, world, win, advance } = harness(t);
+  engine.setPreferences({ ...DEFAULT_SETTINGS, autoServe: false });
+  const press = (key: string, code: string) => {
+    const event = Object.assign(new Event('keydown', { cancelable: true }), { key, code });
+    win.dispatchEvent(event);
+    return event;
+  };
+  const release = (key: string, code: string) =>
+    win.dispatchEvent(Object.assign(new Event('keyup'), { key, code }));
+  const slots: number[] = [];
+  engine.useAbility = (slot) => {
+    slots.push(slot);
+  };
+  engine.play(quickMatchRules('rookie'));
+  // The Persian layout types these on W, 1 and the numpad's 2.
+  assert.equal(press('ص', 'KeyW').defaultPrevented, true);
+  advance(30);
+  const moved = world.player.target;
+  advance(30);
+  assert.ok(world.player.target < moved);
+  release('ص', 'KeyW');
+  const stopped = world.player.target;
+  advance(30);
+  assert.equal(world.player.target, stopped);
+  press('۱', 'Digit1');
+  press('۲', 'Numpad2');
+  assert.deepEqual(slots, [0, 1]);
+  // A Latin layout's own unbound key stays unbound (AZERTY Z sits on KeyW).
+  assert.equal(press('z', 'KeyW').defaultPrevented, false);
+  advance(30);
+  assert.equal(world.player.target, stopped);
+  // A binding made on the Persian layout is matched as typed.
+  engine.setPreferences({
+    ...DEFAULT_SETTINGS,
+    autoServe: false,
+    keyBindings: { ...DEFAULT_BINDINGS, skill2: ['ص'] }
+  });
+  slots.length = 0;
+  press('ص', 'KeyW');
+  assert.deepEqual(slots, [1]);
+});
+
+it('the completed lesson stays live through blur and hidden pages', (t) => {
+  const { engine, world, win, doc } = harness(t);
+  engine.learn();
+  world.tutorial!.step = 'complete';
+  win.dispatchEvent(new Event('blur'));
+  assert.equal(world.match.status, 'serve');
+  doc.hidden = true;
+  doc.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(world.match.status, 'serve');
+  doc.hidden = false;
+  doc.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(world.match.status, 'serve');
+  engine.learn();
+  win.dispatchEvent(new Event('blur'));
+  assert.equal(world.match.status, 'paused', 'an unfinished lesson still pauses');
+});
+
+it('replaying a boss or wave match starts from its opening rules, not its last phase', (t) => {
+  const { engine, world } = harness(t);
+  for (const rules of [
+    runRules({ ...createRun('boss', 0, 1, 'endless'), stage: 5 }),
+    endlessRules({ waves: true })
+  ]) {
+    engine.play(rules);
+    world.match.status = 'play';
+    if (rules.boss) {
+      world.match.score.you = 1;
+      scorePoint(world, 'you');
+      assert.equal(world.arena.phase, 1);
+    } else {
+      world.match.hits = 12;
+      assert.equal(advanceWave(world), true);
+    }
+    assert.notEqual(world.rules, rules);
+    engine.replay();
+    assert.equal(world.rules, rules);
+    assert.equal(world.arena.phase, 0);
+    assert.equal(world.match.label, rules.label);
+  }
 });

@@ -144,14 +144,22 @@ directory import needs no package boundary.
 - **Refresh tokens**: opaque, stored only as a SHA-256, single use. Rotation
   links each token to its successor; presenting a spent one revokes the whole
   family, on the reasoning that a copy is loose and there is no way to tell
-  whose. Delivered as an httpOnly cookie, and in the body for clients that
+  whose. The one exception is a token rotated in the last 30 seconds, which is
+  two tabs racing on one cookie rather than a theft: that request is refused
+  without revoking anything, and the client retries once with the rotated
+  cookie. Delivered as an httpOnly cookie, and in the body for clients that
   have no cookie jar.
 - **Enumeration**: wrong password, unknown address, disabled account and
   deleted account all produce the same `INVALID_CREDENTIALS`. Password reset
-  answers `202` whether or not the address exists.
-- **After a password change or reset**, every other session is revoked - that
-  is the action someone takes when they think their account is not theirs any
-  more.
+  answers `202` whether or not the address exists. Registration with a taken
+  address is the exception and says so (`CONFLICT`), behind the tight auth
+  rate limit.
+- **After a password change or reset**, every session is revoked, including
+  the one that made the change, and the player signs in again with the new
+  password - that is the action someone takes when they think their account
+  is not theirs any more. A reset link is spent only when the new password is
+  accepted, so a password the policy refuses can be corrected without a new
+  email; a reset also gives a provider-only account its password identity.
 
 ## Social sign-in
 
@@ -182,7 +190,11 @@ has _verified_ may be linked to an existing account with that address;
 otherwise a new account is created. An unverified address is refused with an
 explanation. Skipping that check is the classic pre-hijack attack - register
 at the provider with someone else's address, never confirm it, sign in as
-them - and there is a test named after it.
+them - and there is a test named after it. The mirror image is covered too:
+when a provider proves an address whose bBall account never confirmed it, the
+account's unproven password, any other linked identity and every session they
+opened are dropped before the provider is linked, because whoever attached
+them never showed they owned the address.
 
 The ID token is verified in full before any of that: signature against the
 provider's published JWKS (algorithm taken from the key, so `alg: none` and
@@ -193,7 +205,13 @@ checks each rejection individually.
 Apple gets two accommodations it needs and nobody else does: its client secret
 is a freshly minted ES256 assertion rather than a static string, and its
 callback is a form POST carrying the player's name exactly once, on first
-authorization, which is taken there or lost for good.
+authorization, which is taken there or lost for good. The form body parser is
+registered for that callback route only; every other endpoint still reads
+JSON alone, which is part of what keeps a cross-site form from calling it.
+
+The game finishes a returning sign-in only when it has a matching pending
+sign-in of its own for that provider, so a link carrying somebody else's
+handoff code cannot sign a player in to the wrong account.
 
 An account created this way has no password. It cannot be signed in to with
 one, and deleting it asks only for confirmation, since there is no password to
@@ -285,11 +303,18 @@ been played under, and against physics:
 - Abilities fired by a build that does not own them, or more often than the
   cooldowns allow, with the caps taken from `resolveLoadout` so a deeper build
   is allowed more without a number being duplicated.
-- More play submitted in an hour than an hour contains.
+- More play in any hour than an hour contains. Each match is placed at its
+  own timestamp, so an offline evening synced at once is judged hour by hour,
+  but only within bounds: not before the account existed, not more than 72
+  hours back, not past the clock-skew allowance. A timestamp outside them
+  counts on arrival.
 
 Duplicates are handled at three levels: the `clientMatchId` unique index, the
 applied-operation log, and whole-response idempotency keyed by the caller's
-`Idempotency-Key`. Retrying a lost request is always safe.
+`Idempotency-Key` for 24 hours. Retrying a lost request is always safe. A sync
+push carries a key of its own per request, since its operations are already
+de-duplicated by `opId`; a replayed operation the server had refused is
+reported as refused again rather than as a duplicate.
 
 Everything is shaped so that a server-authoritative simulation could be added
 later without moving anything else.
@@ -336,7 +361,9 @@ with the existing record. Other pending records remain eligible for retry.
 A push is a batch with per-item results rather than an all-or-nothing
 transaction: a queue assembled offline will legitimately contain operations
 that have gone stale, and refusing the batch over one of them would strand
-every match behind it.
+every match behind it. A refusal is final and leaves the queue; an `INTERNAL`
+failure or a `VERSION_CONFLICT` (a write that raced) is left unrecorded by
+the server and stays queued on the client to be sent again.
 
 ### Claiming a guest save
 
@@ -349,8 +376,9 @@ never to make one.
 So it is imported, as far as its own evidence supports it. Statistics are
 clamped against each other and against time; XP is capped at the most the
 save's own match record could have paid, using the real reward ceilings;
-talent points, levels and unlocks are re-derived rather than copied. A player
-who played honestly keeps everything. A player who edited localStorage keeps
+talent points, levels and unlocks are re-derived rather than copied. A cup or
+run in progress is never imported. A player who played honestly keeps
+everything. A player who edited localStorage keeps
 what a real player with the same match record would have had.
 
 ## API
@@ -371,7 +399,7 @@ Everything is under `/v1`. Full request and response types are in
 | POST     | `/auth/verify-email/request\|confirm`    | Email confirmation                                  |
 | POST     | `/auth/password/forgot\|reset\|change`   | Password lifecycle                                  |
 | GET      | `/me`                                    | The account and its profile                         |
-| DELETE   | `/me`                                    | Delete the account, password required               |
+| DELETE   | `/me`                                    | Delete the account, password required if it has one |
 | PATCH    | `/profile`                               | Name, avatar, cosmetics, preferences                |
 | POST     | `/progression/match`                     | One finished match, one transaction                 |
 | POST     | `/progression/talents/purchase\|respec`  | Spend or refund points                              |
@@ -463,8 +491,9 @@ specification and the second is the same hole with extra steps.
 Production also gets HSTS, a strict CSP (this server returns JSON; it never
 needs to load anything), `no-referrer`, and no framing. Rate limits come in
 two budgets: a general one sized for a client that syncs after each match, and
-a much tighter one on `/v1/auth`, counted per account when there is one and
-per address when there is not.
+a much tighter one on `/v1/auth`, counted per account when the request carries
+an access token whose signature verifies (no database read is needed for
+that) and per address when it does not.
 
 ## Logging
 
@@ -551,6 +580,8 @@ identity, cache formats, progression and sync rules retain their behavior.
 | `demo-continuity.test.ts`    | Background sync during Demo, parked guest claims, offline rewards once, delayed responses and real cache-write recovery           |
 | `experience.test.ts`         | Frame statistics, sample bounds, invalid clocks, soak arguments and scoped deterministic randomness                               |
 | `experience-summary.test.ts` | Export validation, recomputed statistics, duplicate trials, comparison groups and the real summary CLI                            |
+| `hardening.test.ts`          | CORS preflight, form callbacks, reset links, revocations, cookies, stored responses, per-account limits, the play budget          |
+| `account-hardening.test.ts`  | Transient sync failures retried, foreign sign-in links refused, two-tab refresh races, with the real client                       |
 
 `journey.test.ts` is the one worth reading. It installs a fake browser -
 localStorage as a Map, `fetch` routed at `app.inject` with a cookie jar, a

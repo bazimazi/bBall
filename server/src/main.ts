@@ -59,7 +59,16 @@ async function main(): Promise<void> {
   sweep.unref();
 
   let closing = false;
-  const shutdown = async (signal: string): Promise<void> => {
+  /** The status the process leaves with; raised by any failure on the way out. */
+  let exitStatus = 0;
+  /**
+   * Drain and exit. `status` is 0 for a requested stop and 1 for a crash, so
+   * a supervisor can tell a deploy from a failure - and one configured to
+   * restart only on failure still does.
+   */
+  const shutdown = async (signal: string, status = 0): Promise<void> => {
+    // A crash during a graceful stop must not be reported as a clean one.
+    exitStatus = Math.max(exitStatus, status);
     if (closing) return;
     closing = true;
     app.log.info({ signal }, 'shutting down');
@@ -68,7 +77,7 @@ async function main(): Promise<void> {
       // Fastify stops accepting connections and waits for in-flight requests,
       // so a deploy cannot cut a match submission in half.
       await built.close();
-      process.exit(0);
+      process.exit(exitStatus);
     } catch (error) {
       app.log.error({ err: error }, 'shutdown failed');
       process.exit(1);
@@ -85,7 +94,7 @@ async function main(): Promise<void> {
     // An uncaught exception leaves the process in an unknown state; log it and
     // let the supervisor restart rather than carrying on regardless.
     app.log.fatal({ err: error }, 'uncaught exception');
-    void shutdown('uncaughtException');
+    void shutdown('uncaughtException', 1);
   });
 
   await app.listen({ host: config.host, port: config.port });

@@ -628,11 +628,12 @@ export function bumperHue(world: World): number {
 /**
  * The player just scored: has the boss been pushed into its next phase?
  * Each phase can hand it a sharper brain, a different paddle and a harder
- * court - and it says so, with a banner and a beat of its own.
+ * court - and it says so, with a banner and a beat of its own. Returns true
+ * when a phase began.
  */
-export function checkBossPhase(world: World): void {
+export function checkBossPhase(world: World): boolean {
   const boss = world.rules.boss;
-  if (!boss) return;
+  if (!boss) return false;
   const arena = world.arena;
   const score = world.match.score.you;
   let next: BossPhase | null = null;
@@ -644,7 +645,7 @@ export function checkBossPhase(world: World): void {
       index = i + 1;
     }
   }
-  if (!next) return;
+  if (!next) return false;
   if (next.arena) {
     const events = arena.course.events;
     world.rules = { ...world.rules, modifiers: { ...world.rules.modifiers, arena: next.arena } };
@@ -687,6 +688,7 @@ export function checkBossPhase(world: World): void {
   world.grid.impulse(world.bot.x, world.bot.y, 700, 260);
   addShake(world, 8);
   world.audio.phase();
+  return true;
 }
 
 /** Seconds a banner - boss intro, phase, stage name - stays up. */

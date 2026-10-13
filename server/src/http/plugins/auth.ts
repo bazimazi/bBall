@@ -10,7 +10,8 @@
 
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 
-import { unauthenticated } from '../../domain/errors';
+import type { AppConfig } from '../../config/env';
+import { emailNotVerified, unauthenticated } from '../../domain/errors';
 import { authenticate, type Principal } from '../../services/auth';
 import type { ServiceContext } from '../../services/context';
 
@@ -24,6 +25,25 @@ declare module 'fastify' {
 /** The refresh cookie's name and the path it is scoped to. */
 export const REFRESH_COOKIE = 'bball_rt';
 export const REFRESH_COOKIE_PATH = '/v1/auth';
+
+/**
+ * The refresh cookie's attributes, for setting it and for clearing it.
+ *
+ * Clearing has to name the same path and domain the cookie was set with, or
+ * the browser treats it as a different cookie and keeps the real one - which
+ * is how "signed out" ends up with a live refresh token still attached.
+ * `maxAgeSeconds` is omitted when clearing.
+ */
+export function refreshCookieOptions(config: AppConfig, maxAgeSeconds?: number) {
+  return {
+    httpOnly: true,
+    secure: config.http.cookieSecure,
+    sameSite: config.http.cookieSameSite,
+    path: REFRESH_COOKIE_PATH,
+    ...(maxAgeSeconds !== undefined ? { maxAge: maxAgeSeconds } : {}),
+    ...(config.http.cookieDomain ? { domain: config.http.cookieDomain } : {})
+  } as const;
+}
 
 function bearerFrom(request: FastifyRequest): string | undefined {
   const header = request.headers.authorization;
@@ -56,7 +76,10 @@ export function makeRequireVerified(context: ServiceContext): preHandlerHookHand
   return function requireVerified(request: FastifyRequest, _reply: FastifyReply, done) {
     if (!context.config.auth.requireVerifiedEmail) return done();
     if (request.principal?.emailVerified) return done();
-    done(unauthenticated('email not verified') as Error);
+    // EMAIL_NOT_VERIFIED, not UNAUTHENTICATED: the session is fine, and a
+    // client that took this for an expired token would refresh and retry
+    // forever instead of telling the player to check their inbox.
+    done(emailNotVerified() as Error);
   };
 }
 

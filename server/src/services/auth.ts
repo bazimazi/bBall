@@ -10,11 +10,15 @@
  * answer cannot be timed either.
  *
  * **Sessions rotate.** A refresh token is spent the moment it is used. Seeing
- * a spent one again means a copy is loose, so the whole family is revoked.
+ * a spent one again means a copy is loose, so the whole family is revoked -
+ * unless it was rotated within {@link ROTATION_GRACE_MS}, which is two tabs
+ * racing on one cookie rather than a theft.
  *
- * **Password changes end other sessions.** Changing or resetting a password
+ * **Password changes end every session.** Changing or resetting a password
  * is the action a player takes when they believe someone else is in their
- * account; it would be useless if the intruder's session survived it.
+ * account; it would be useless if the intruder's session survived it. The
+ * session that made the change ends too, and the player signs in again with
+ * the new password - one rule with no exception to get wrong.
  */
 
 import type { AuthResponse, TokensDto, UserDto } from '../../../shared/protocol';
@@ -45,6 +49,7 @@ import {
   verifyAccessToken
 } from '../lib/tokens';
 import { insertProfile, loadProfile } from '../repositories/profiles';
+import { deleteIdempotentForUser } from '../repositories/progression';
 import {
   createSession,
   findSessionById,
@@ -60,8 +65,10 @@ import {
   createEmailToken,
   createUser,
   deleteUser,
+  findEmailToken,
   findUserByEmail,
   findUserById,
+  linkIdentity,
   listProviders,
   markEmailVerified,
   normalizeEmail,
@@ -70,6 +77,20 @@ import {
 } from '../repositories/users';
 import type { ServiceContext } from './context';
 import { passwordResetMessage, verificationMessage } from './mail';
+
+/**
+ * How long a just-rotated refresh token may come back without being taken
+ * for theft.
+ *
+ * Two tabs share one cookie, and both can send it in the same instant: one
+ * rotates it and the other arrives a moment later holding the copy that was
+ * just spent. That is a race, not a replay, and revoking the family over it
+ * would sign a player out for having the game open twice. Inside this window
+ * the late request is refused - it still gets no session out of a spent
+ * token - but the family survives, and the client asks again with the
+ * rotated cookie. Outside it, a spent token is treated exactly as before.
+ */
+export const ROTATION_GRACE_MS = 30_000;
 
 export interface RequestMeta {
   readonly ip?: string | undefined;
@@ -282,6 +303,16 @@ export function refresh(
   const presented = findSessionByRefreshHash(context.db, hash);
   if (!presented) throw sessionExpired('unknown refresh token');
 
+  if (
+    presented.revoked_at !== null &&
+    presented.revoked_reason === 'rotated' &&
+    now - presented.revoked_at <= ROTATION_GRACE_MS
+  ) {
+    // See ROTATION_GRACE_MS: a concurrent refresh lost the race. Nothing is
+    // revoked and nothing is issued.
+    throw sessionExpired('refresh token rotated moments ago');
+  }
+
   if (presented.revoked_at !== null) {
     // A token that has already been spent is being presented again. Either it
     // was stolen or the legitimate client kept a copy; there is no way to tell
@@ -301,16 +332,24 @@ export function refresh(
     throw sessionExpired('refresh token reuse');
   }
 
+  // An account that has been disabled keeps nothing. The revocation is made
+  // on its own, before the throw, for the same reason as the reuse case
+  // above: inside the transaction that then fails it would be rolled back.
+  const owner = findUserById(context.db, presented.user_id);
+  if (!owner || owner.status !== 'active') {
+    transaction(context.db, () => revokeSession(context.db, presented.id, 'user-inactive', now));
+    throw sessionExpired('user inactive');
+  }
+
   return transaction(context.db, () => {
     const session = findSessionByRefreshHash(context.db, hash);
     if (!session || session.revoked_at !== null) throw sessionExpired('refresh token spent');
     if (session.expires_at <= now) throw sessionExpired('refresh token expired');
 
     const user = findUserById(context.db, session.user_id);
-    if (!user || user.status !== 'active') {
-      revokeSession(context.db, session.id, 'user-inactive', now);
-      throw sessionExpired('user inactive');
-    }
+    // Re-read inside the transaction, so a disable that landed in between
+    // still wins. Nothing is written on this path, so the throw costs nothing.
+    if (!user || user.status !== 'active') throw sessionExpired('user inactive');
 
     const nextToken = newRefreshToken();
     const next = rotateSession(
@@ -436,15 +475,27 @@ export async function requestPasswordReset(context: ServiceContext, email: strin
   );
 }
 
+/**
+ * Finish a password reset.
+ *
+ * The link is checked first and spent last. Checking it up front means a bad
+ * link is refused before any hashing work; spending it only in the final
+ * transaction means a new password the policy turns down does not burn the
+ * link - the player fixes the password and submits again, rather than going
+ * back to their inbox for another one. Two submissions racing with one link
+ * still cannot both win, because the consume inside the transaction is the
+ * real gate.
+ */
 export async function resetPassword(
   context: ServiceContext,
   token: string,
   password: string
 ): Promise<void> {
-  const row = consumeEmailToken(context.db, 'reset', hashToken(token), context.now());
-  if (!row) throw invalidToken('reset token not live');
+  const tokenHash = hashToken(token);
+  const live = findEmailToken(context.db, 'reset', tokenHash, context.now());
+  if (!live) throw invalidToken('reset token not live');
 
-  const user = findUserById(context.db, row.user_id);
+  const user = findUserById(context.db, live.user_id);
   if (!user) throw invalidToken('reset token user missing');
 
   const issues = checkPasswordPolicy(password, { email: user.email });
@@ -452,7 +503,14 @@ export async function resetPassword(
 
   const hash = await hashPassword(password, context.passwordParams);
   transaction(context.db, () => {
+    const row = consumeEmailToken(context.db, 'reset', tokenHash, context.now());
+    if (!row || row.user_id !== user.id) throw invalidToken('reset token spent meanwhile');
     setPasswordHash(context.db, user.id, hash, context.now());
+    // An account that only ever signed in through a provider has no password
+    // identity yet. It has one now, or the account screen would not offer
+    // the password it just chose, and deleting the account would ask for one
+    // the player could never be prompted for.
+    linkIdentity(context.db, user.id, 'password', user.email_normalized, context.now());
     // A reset is what someone does when they think their account is not their
     // own any more. Leaving other sessions alive would defeat it.
     revokeAllForUser(context.db, user.id, 'password-reset', context.now());
@@ -506,7 +564,10 @@ export async function deleteAccount(
 
   transaction(context.db, () => {
     revokeAllForUser(context.db, user.id, 'account-deleted', context.now());
-    // Every table cascades from users, so this really does remove the
+    // Stored responses are the one record without a foreign key, so they go
+    // explicitly; they hold copies of the profile being deleted.
+    deleteIdempotentForUser(context.db, user.id);
+    // Every other table cascades from users, so this really does remove the
     // profile, the match history and the progression log with it.
     deleteUser(context.db, user.id);
   });

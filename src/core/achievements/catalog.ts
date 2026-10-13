@@ -33,6 +33,19 @@ export interface Achievement {
 const ratio = (value: number, target: number): number =>
   target <= 0 ? 1 : Math.max(0, Math.min(1, value / target));
 
+/**
+ * The longest Endless rally on record. Equipment-era runs are filed under
+ * Workshop categories (ranked by waves), so the match just finished counts
+ * too, and the legacy stat keeps pre-Workshop runs.
+ */
+function endlessRally({ profile, result }: AchievementContext): number {
+  let best = profile.stats.endlessBest;
+  for (const record of Object.values(profile.progress.workshop.endless))
+    best = Math.max(best, record.rally);
+  if (result?.mode === 'endless') best = Math.max(best, result.bestRally);
+  return best;
+}
+
 /** One achievement per Journey world, for beating its boss. */
 function worldAchievement(world: number, id: string, name: string, xp: number): Achievement {
   const def = JOURNEY.find((item) => item.id === world)!;
@@ -101,8 +114,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     description: 'Survive a 30 rally in Endless',
     group: 'rally',
     xp: 100,
-    check: ({ profile }) => profile.stats.endlessBest >= 30,
-    progress: ({ profile }) => ratio(profile.stats.endlessBest, 30)
+    check: (context) => endlessRally(context) >= 30,
+    progress: (context) => ratio(endlessRally(context), 30)
   },
   {
     id: 'endless-60',
@@ -110,8 +123,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     description: 'Survive a 60 rally in Endless',
     group: 'rally',
     xp: 200,
-    check: ({ profile }) => profile.stats.endlessBest >= 60,
-    progress: ({ profile }) => ratio(profile.stats.endlessBest, 60)
+    check: (context) => endlessRally(context) >= 60,
+    progress: (context) => ratio(endlessRally(context), 60)
   },
   {
     id: 'endless-100',
@@ -119,8 +132,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     description: 'Survive a 100 rally in Endless',
     group: 'rally',
     xp: 350,
-    check: ({ profile }) => profile.stats.endlessBest >= 100,
-    progress: ({ profile }) => ratio(profile.stats.endlessBest, 100)
+    check: (context) => endlessRally(context) >= 100,
+    progress: (context) => ratio(endlessRally(context), 100)
   },
   {
     id: 'streak-3',
@@ -187,8 +200,13 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     description: 'Clear every challenge',
     group: 'skill',
     xp: 300,
-    check: ({ profile }) => profile.stats.challengesCleared >= CHALLENGES.length,
-    progress: ({ profile }) => ratio(profile.stats.challengesCleared, CHALLENGES.length)
+    // The cleared counter also counts contracts and Resonance Trials.
+    check: ({ profile }) => CHALLENGES.every((entry) => profile.challenges[entry.id]?.cleared),
+    progress: ({ profile }) =>
+      ratio(
+        CHALLENGES.filter((entry) => profile.challenges[entry.id]?.cleared).length,
+        CHALLENGES.length
+      )
   },
   {
     id: 'cup-finalist',

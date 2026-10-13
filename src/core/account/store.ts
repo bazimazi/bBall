@@ -19,6 +19,7 @@ import type {
   CloudProfileDto,
   OAuthProviderDto,
   SyncOp,
+  SyncOpResult,
   UserDto
 } from '../../../shared/protocol';
 import { profileStore } from '../profile/store';
@@ -51,7 +52,8 @@ import {
   storedRefreshToken,
   storedSession,
   takePendingOAuth,
-  updateTokens
+  updateTokens,
+  usesCookieSession
 } from './session';
 
 export type AccountStatus = 'guest' | 'restoring' | 'authenticated';
@@ -94,6 +96,28 @@ const IDLE: AccountState = {
 
 /** How long after a change the queue is flushed, so a burst sends once. */
 const FLUSH_DEBOUNCE_MS = 400;
+
+/**
+ * How long to wait before asking again after a refresh was refused.
+ *
+ * Long enough for whichever tab won a refresh race to have stored the
+ * rotated cookie or token, short enough that nobody notices the pause.
+ */
+const REFRESH_RETRY_MS = 600;
+
+/**
+ * Operation results the server left unrecorded because sending them again
+ * may succeed: an unexpected fault, or a write that raced another one. Any
+ * other refusal is final and the operation leaves the queue.
+ */
+function retryable(result: SyncOpResult): boolean {
+  return (
+    result.status === 'rejected' &&
+    (result.code === 'INTERNAL' || result.code === 'VERSION_CONFLICT')
+  );
+}
+
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 class AccountStore {
   private state: AccountState = IDLE;
@@ -381,14 +405,27 @@ class AccountStore {
    * and asking again after the round trip would be asking them to remember
    * what they had just chosen.
    */
-  async completeOAuth(code: string): Promise<void> {
+  async completeOAuth(code: string, provider: string | null): Promise<void> {
     const pending = takePendingOAuth();
+    // A sign-in this device never started is not one to finish. Without this,
+    // anyone could send a player a link carrying a code for *their own*
+    // account and have the game quietly sign the player in to it - and then
+    // sync the player's next matches into an account somebody else controls.
+    // The intent recorded before leaving is the proof that the round trip
+    // began here, and nothing is cleared when it is missing.
+    if (!pending || pending.provider !== provider) {
+      this.set({
+        busy: false,
+        notice: 'That sign-in link was not started from this device. Start the sign-in again.'
+      });
+      return;
+    }
     this.set({ busy: true, notice: null, conflict: null });
     try {
       const guest = profileStore.guestProfile();
       const response = await api.oauthComplete(
         code,
-        pending?.claimGuestProgress ? profileStore.guestSave() : undefined
+        pending.claimGuestProgress ? profileStore.guestSave() : undefined
       );
 
       this.adopt(response.user, response.tokens, response.profile);
@@ -510,21 +547,39 @@ class AccountStore {
   private async rotateTokens(): Promise<boolean> {
     if (!hasRememberedSession()) return false;
     const generation = this.sessionGeneration;
-    try {
-      const response = await api.refresh(storedRefreshToken());
-      if (generation !== this.sessionGeneration) throw new AccountChangedError();
-      updateTokens(response.tokens);
-      return true;
-    } catch (error) {
-      if (generation !== this.sessionGeneration) throw new AccountChangedError();
-      if (
-        error instanceof ApiError &&
-        (error.code === 'SESSION_EXPIRED' || error.code === 'UNAUTHENTICATED')
-      )
-        return false;
-      // Propagate connection/server failures so neither boot nor a request's
-      // token refresh can mistake an unreachable account for a signed-out one.
-      throw error;
+    // Two tabs share one refresh credential - the cookie, or the stored
+    // token - and both may try to rotate it at once. The loser presents the
+    // copy the winner has just spent, and the server answers SESSION_EXPIRED
+    // without ending the session. One more attempt a moment later picks up
+    // the rotated credential; a second refusal is a session that really is
+    // gone.
+    for (let attempt = 0; ; attempt++) {
+      const sent = storedRefreshToken();
+      try {
+        const response = await api.refresh(sent);
+        if (generation !== this.sessionGeneration) throw new AccountChangedError();
+        updateTokens(response.tokens);
+        return true;
+      } catch (error) {
+        if (generation !== this.sessionGeneration) throw new AccountChangedError();
+        if (error instanceof ApiError && error.code === 'SESSION_EXPIRED' && attempt === 0) {
+          await pause(REFRESH_RETRY_MS);
+          if (generation !== this.sessionGeneration) throw new AccountChangedError();
+          if (!hasRememberedSession()) return false;
+          // In token mode there is only something new to send if another tab
+          // stored it; under a cookie the browser sends whatever is current.
+          if (usesCookieSession || storedRefreshToken() !== sent) continue;
+          return false;
+        }
+        if (
+          error instanceof ApiError &&
+          (error.code === 'SESSION_EXPIRED' || error.code === 'UNAUTHENTICATED')
+        )
+          return false;
+        // Propagate connection/server failures so neither boot nor a request's
+        // token refresh can mistake an unreachable account for a signed-out one.
+        throw error;
+      }
     }
   }
 
@@ -615,16 +670,15 @@ class AccountStore {
       let batch = nextBatch();
       while (batch.length > 0) {
         const meta = profileStore.getCloudMeta();
-        const response = await api.push(
-          meta?.version ?? 0,
-          batch,
-          deviceId(),
-          `push:${batch.map((op) => op.opId).join(',')}`.slice(0, 120)
-        );
+        const response = await api.push(meta?.version ?? 0, batch, deviceId());
 
         if (generation !== this.sessionGeneration) return;
 
-        for (const result of response.results) {
+        // A failure the server calls transient is not a verdict: it left the
+        // operation unrecorded so it can be sent again, and it stays queued
+        // here for exactly that. Everything else has been decided.
+        const settled = response.results.filter((result) => !retryable(result));
+        for (const result of settled) {
           if (result.status !== 'rejected') continue;
           const op = batch.find((entry) => entry.opId === result.opId);
           if (op?.kind === 'match')
@@ -634,10 +688,10 @@ class AccountStore {
               result.reason ?? 'Not accepted for rewards.'
             );
         }
-        resolveOps(response.results.map((result) => result.opId));
+        resolveOps(settled.map((result) => result.opId));
         profileStore.applyCloud(response.profile);
 
-        const refused = response.results.filter((result) => result.status === 'rejected');
+        const refused = settled.filter((result) => result.status === 'rejected');
         if (refused.length > 0) {
           this.set({
             conflict:
@@ -646,6 +700,11 @@ class AccountStore {
           });
         } else if (response.diverged) {
           this.set({ conflict: 'Progress from another device was merged in.' });
+        }
+        if (settled.length < response.results.length) {
+          this.set({
+            notice: 'Some progress has not reached the server yet. It will be sent again.'
+          });
         }
 
         const next = nextBatch();

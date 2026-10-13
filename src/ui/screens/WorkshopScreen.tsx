@@ -30,6 +30,7 @@ import { levelOf } from '../../core/progression/levels';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
 import { Dialog } from '../components/Dialog';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { MaterialGlyph, PaddlePreview, WorkshopSymbol } from './WorkshopArt';
 import { MATERIAL_COLOURS } from './workshopVisuals';
 import { useWorkshopDetailMotion, useWorkshopMotion } from './useWorkshopMotion';
@@ -165,6 +166,8 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
     close: closeDetail,
     blockClosingClick
   } = useWorkshopDetailMotion(detail, () => setDetail(null));
+  // Back closes the detail sheet before it leaves the Workshop.
+  useBackHandler(detail !== null, closeDetail);
   const loadout = resolveLoadout(profile.talents, levelOf(profile.xp));
   const reach = Math.min(
     BALANCE.talents.maxLength,

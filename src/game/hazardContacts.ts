@@ -22,7 +22,9 @@ export function bounceBumper(
   ball.vy -= 2 * dot * ny;
   ball.x = bumper.x + nx * (min + 0.5);
   ball.y = clamp(bumper.y + ny * (min + 0.5), BALL_R, FIELD_H - BALL_R);
-  ball.speed = Math.min(maxSpeed, ball.speed * 1.035);
+  // A bumper adds a little pace up to the cap, and never takes any away from
+  // a ball already travelling above it.
+  ball.speed = Math.max(ball.speed, Math.min(maxSpeed, ball.speed * 1.035));
   if (Math.abs(ball.vx) < 1) ball.vx = nx >= 0 ? 1 : -1;
   const angle = clamp(Math.atan2(ball.vy, Math.abs(ball.vx)), -1.12, 1.12);
   ball.vx = Math.sign(ball.vx) * Math.cos(angle) * ball.speed;

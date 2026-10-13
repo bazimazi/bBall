@@ -16,7 +16,11 @@
 
 import type { FastifyInstance } from 'fastify';
 
-import type { ClaimResponse, SyncPullResponse } from '../../../../shared/protocol';
+import {
+  HEADER_DEVICE,
+  type ClaimResponse,
+  type SyncPullResponse
+} from '../../../../shared/protocol';
 import { toCloudProfile } from '../../domain/profile';
 import type { ServiceContext } from '../../services/context';
 import { claimLocalSave, pullProfile, pushOperations } from '../../services/sync';
@@ -38,7 +42,7 @@ export function registerSyncRoutes(app: FastifyInstance, context: ServiceContext
   const guarded = { preHandler: [requireAuth, requireVerified] };
 
   app.get('/v1/sync/pull', { preHandler: requireAuth }, async (request, reply) => {
-    const device = deviceIdOf(request.headers['x-bball-device']);
+    const device = deviceIdOf(request.headers[HEADER_DEVICE]);
     const profile = pullProfile(context, principalOf(request).userId, device);
     const payload: SyncPullResponse = {
       profile: toCloudProfile(profile),
@@ -52,7 +56,7 @@ export function registerSyncRoutes(app: FastifyInstance, context: ServiceContext
     if (hit) return reply.code(hit.status).send(hit.payload);
 
     const input = parse(syncPushSchema, request.body);
-    const device = deviceIdOf(request.headers['x-bball-device']);
+    const device = deviceIdOf(request.headers[HEADER_DEVICE]);
     const payload = pushOperations(
       context,
       principalOf(request).userId,

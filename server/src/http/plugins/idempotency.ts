@@ -62,7 +62,7 @@ export function beginIdempotent(
   }
 
   const userId = principalOf(request).userId;
-  const stored = findIdempotent(context.db, userId, key);
+  const stored = findIdempotent(context.db, userId, key, context.now());
   if (!stored) return { key, hash, hit: null };
 
   if (stored.request_hash !== hash) {

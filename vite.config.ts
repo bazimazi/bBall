@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => {
       // Tauri is configured to load a fixed URL, so a port that silently
       // moved would leave it pointing at nothing.
       strictPort: desktop,
-      hmr: devHost ? { protocol: 'ws', host: devHost, port: 5174 } : undefined,
+      hmr: devHost ? { protocol: 'ws', host: devHost, port: 5173 } : undefined,
       watch: {
         // Rust output changes constantly during a build and none of it is
         // part of the front end.

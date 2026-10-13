@@ -26,7 +26,8 @@ export function goalViews(world: World): readonly GoalView[] {
       progress: `${match.score.you}/${match.winScore} points`,
       state: finished ? (evidence.won ? 'earned' : 'missed') : 'active'
     },
-    ...rules.goals.map((goal): GoalView => {
+    // Index-qualified: a stage may set the same kind twice (2 and 5 flicks).
+    ...rules.goals.map((goal, index): GoalView => {
       let progress = '';
       let reached = false;
       let missed = false;
@@ -65,7 +66,7 @@ export function goalViews(world: World): readonly GoalView[] {
           break;
       }
       return {
-        id: goal.id,
+        id: `${goal.id}-${index}`,
         label: starGoalLabel(goal),
         progress,
         state: finished

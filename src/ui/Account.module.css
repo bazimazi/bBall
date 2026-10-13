@@ -84,9 +84,11 @@
   text-align: start;
 }
 
-.entry:hover {
-  color: var(--ink);
-  background: rgba(238, 242, 255, 0.06);
+@media (hover: hover) {
+  .entry:hover {
+    color: var(--ink);
+    background: rgba(238, 242, 255, 0.06);
+  }
 }
 
 .entryText {
@@ -169,8 +171,10 @@
   transition: background 0.18s ease;
 }
 
-.provider:hover {
-  background: rgba(238, 242, 255, 0.12);
+@media (hover: hover) {
+  .provider:hover {
+    background: rgba(238, 242, 255, 0.12);
+  }
 }
 
 .provider:active {
@@ -305,8 +309,10 @@
   cursor: pointer;
 }
 
-.link:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .link:hover {
+    color: var(--ink);
+  }
 }
 
 .identity {

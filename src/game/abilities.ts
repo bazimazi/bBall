@@ -174,7 +174,10 @@ function fire(world: World, def: AbilityDef): void {
       );
       world.ball.vx = sign * Math.cos(angle) * world.ball.speed;
       world.ball.vy = Math.sin(angle) * world.ball.speed;
+      // Every curve the ball is carrying: the opponent's Swerve and a boss's
+      // own late bend alike.
       world.botTalents.swerveDir = 0;
+      world.arena.bossSwerveDir = 0;
       world.casts.spawn(
         'dash',
         { x: world.ball.x, y: world.ball.y, hue, life: 0.45, size: 32 },

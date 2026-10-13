@@ -138,8 +138,8 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     blurb: 'Slow an incoming ball by 28%',
     talent: 'tempo',
     hue: 312,
-    cooldown: () => 18,
-    summary: () => 'Incoming ball 28% slower · 18s cooldown'
+    cooldown: (effects) => 18 * effects.cooldownMul,
+    summary: (effects) => `Incoming ball 28% slower · ${seconds(18 * effects.cooldownMul)} cooldown`
   },
   {
     id: 'phase-lens',
@@ -147,8 +147,8 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     blurb: 'Straighten an incoming ball and clear its curve',
     talent: 'foresight',
     hue: 212,
-    cooldown: () => 22,
-    summary: () => 'Clean incoming angle · 22s cooldown'
+    cooldown: (effects) => 22 * effects.cooldownMul,
+    summary: (effects) => `Clean incoming angle · ${seconds(22 * effects.cooldownMul)} cooldown`
   }
 ];
 

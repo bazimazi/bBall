@@ -21,9 +21,14 @@ import { roundRect } from './shapes';
  *
  *  - Every mark a skill makes is in *that skill's* hue, never the player's,
  *    so two effects at once are two colours and never one brighter blur.
- *  - Every alpha is multiplied by `world.motion`, so a player who selected
- *    Calm gets the same information at a quarter of the intensity
- *    rather than a different screen.
+ *  - Decorative alphas scale with `world.motion`, so a player who selected
+ *    Calm gets the same information at a fraction of the intensity rather
+ *    than a different screen. Marks that carry a read - the base ring, Perfect
+ *    Guard's brackets, the ultimate banner - keep a floor, or stay whole, so
+ *    Calm never hides them.
+ *
+ * Glow (`shadowBlur`) is the costliest thing a canvas does, so it is drawn on
+ * the High graphics setting only; Balanced and Low get the same shapes crisp.
  */
 
 /** Smooth 0..1 -> 0..1, fast out of the gate and slow into the wall. */
@@ -325,7 +330,7 @@ function skillLayer(
     case 'perfect-guard': {
       const span = Math.max(0.01, loadout.effects.guardWindow);
       const left = clamp(runtime.guardWindow / span, 0, 1);
-      drawGuardBrackets(ctx, geom, hue);
+      drawGuardBrackets(ctx, geom, hue, world.graphicsIntensity === 'high' ? 10 : 0);
       drawGuardClose(ctx, world, hue, geom, left);
       break;
     }
@@ -426,7 +431,7 @@ function drawCrackle(
   ctx.lineWidth = 1.7;
   ctx.lineCap = 'round';
   ctx.shadowColor = hsla(hue, 100, 60, 0.9);
-  ctx.shadowBlur = 8 * world.motion;
+  ctx.shadowBlur = world.graphicsIntensity === 'high' ? 8 * world.motion : 0;
 
   const detail = world.graphicsIntensity === 'high' ? count : Math.ceil(count / 2);
   for (let i = 0; i < detail; i++) {
@@ -450,7 +455,7 @@ function drawGuardBrackets(
   ctx: CanvasRenderingContext2D,
   geom: Geom,
   hue: number,
-  blur = 10
+  blur: number
 ): void {
   const { x, y, w, h, pad } = geom;
   ctx.save();
@@ -580,7 +585,7 @@ function drawZenithRays(
   ctx.lineWidth = 2.2;
   ctx.lineCap = 'round';
   ctx.shadowColor = hsla(hue, 100, 64, 0.9);
-  ctx.shadowBlur = 12 * motion;
+  ctx.shadowBlur = world.graphicsIntensity === 'high' ? 12 * motion : 0;
   for (let i = 0; i < 8; i++) {
     const a = spin + (i * Math.PI) / 4;
     const long = i % 2 === 0 ? 20 : 11;
@@ -906,7 +911,7 @@ export function drawUltimateBanner(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = hsla(fx.castHue, 100, 50, 0.9);
-  ctx.shadowBlur = 18;
+  ctx.shadowBlur = world.graphicsIntensity === 'high' ? 18 : 0;
   ctx.fillStyle = hsla(fx.castHue, 100, 76, 1);
   ctx.fillText(translateText(fx.castLabel.toUpperCase()), 0, 0);
 

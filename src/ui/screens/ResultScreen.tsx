@@ -52,6 +52,7 @@ function title(result: MatchResult, summary: ProgressSummary | null): string {
     return `${bossById(result.bossId)?.spec.name ?? 'Boss'} defeated`;
   if (result.mode === 'campaign') return result.won ? 'Stage clear' : 'Not quite';
   if (result.mode === 'daily') return result.won ? 'Daily clear' : 'Not quite';
+  if (result.mode === 'tournament' && summary?.cupWon) return 'Cup won';
   return result.won ? 'You win' : 'Bot wins';
 }
 
@@ -378,37 +379,43 @@ export function ResultScreen({
 
         {(summary?.workshop?.marks ?? 0) > 0 && (
           <div className={styles.card}>
-            <p>
-              {t('Workshop Marks ')}
-              <b>
-                {t('+')}
-                {t(summary!.workshop.marks)}
-              </b>
-              {t(' ·')}
-              {t(' ')}
-              {t(summary!.profile.progress.workshop.marks)}
-              {t(' available')}
-            </p>
-            {summary!.workshop.contracts.map((name) => (
-              <p key={name}>
-                {name}
-                {t(' complete')}
+            {/* Laid out like the XP card below it: lines, then a total. */}
+            <div className={styles.xpLines}>
+              <p className={styles.xpLine}>
+                <span>{t('Workshop Marks')}</span>
+                <span>
+                  {t('+')}
+                  {t(summary!.workshop.marks)}
+                </span>
               </p>
-            ))}
-            <p>{t(nextWorkshopRecipe(summary!.profile.progress.workshop))}</p>
-            {WORKSHOP_CONTRACTS.filter(
-              (c) => (summary!.profile.progress.workshop.contracts[c.id] ?? 0) < c.target
-            )
-              .slice(0, 2)
-              .map((c) => (
-                <p key={c.id}>
-                  {t(c.name)}
-                  {t(' · ')}
-                  {t(summary!.profile.progress.workshop.contracts[c.id] ?? 0)}
-                  {t('/')}
-                  {t(c.target)}
+              {summary!.workshop.contracts.map((name) => (
+                <p key={name} className={styles.xpLine}>
+                  <span>{t(name)}</span>
+                  <span>{t('Complete')}</span>
                 </p>
               ))}
+              {WORKSHOP_CONTRACTS.filter(
+                (c) => (summary!.profile.progress.workshop.contracts[c.id] ?? 0) < c.target
+              )
+                .slice(0, 2)
+                .map((c) => (
+                  <p key={c.id} className={styles.xpLine}>
+                    <span>{t(c.name)}</span>
+                    <span>
+                      {t(summary!.profile.progress.workshop.contracts[c.id] ?? 0)}
+                      {t('/')}
+                      {t(c.target)}
+                    </span>
+                  </p>
+                ))}
+            </div>
+            <p className={styles.xpTotal}>
+              <span>{t('Marks')}</span>
+              <span>{t(summary!.profile.progress.workshop.marks)}</span>
+            </p>
+            <p className={styles.note} style={{ marginTop: 10 }}>
+              {t(nextWorkshopRecipe(summary!.profile.progress.workshop))}
+            </p>
             {onWorkshop && (
               <button type="button" className={styles.ghost} onClick={onWorkshop}>
                 {t('Paddle Workshop')}

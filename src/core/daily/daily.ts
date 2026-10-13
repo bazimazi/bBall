@@ -187,6 +187,10 @@ export interface DailyOutcome {
 /** Fold one attempt at `key`'s challenge into the record. Pure. */
 export function applyDaily(source: DailyRecord, key: string, stars: number): DailyOutcome {
   const record: DailyRecord = { ...source };
+  // A card older than the one on record (a stale tab, a clock moved back)
+  // earns nothing: resetting to it would let alternating days pay twice.
+  if (record.day && daysBetween(record.day, key) < 0)
+    return { record, firstClear: false, newMedals: 0 };
   if (record.day !== key) {
     record.day = key;
     record.medals = 0;

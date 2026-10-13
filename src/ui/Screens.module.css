@@ -101,8 +101,10 @@
   stroke-linejoin: round;
 }
 
-.back:hover {
-  background: rgba(238, 242, 255, 0.1);
+@media (hover: hover) {
+  .back:hover {
+    background: rgba(238, 242, 255, 0.1);
+  }
 }
 
 :global(html[dir='rtl']) .back svg {
@@ -353,9 +355,11 @@
   box-shadow: 0 0 0 1px var(--you) inset;
 }
 
-.choice:hover,
-.disclosureTrigger:hover {
-  background: rgba(238, 242, 255, 0.04);
+@media (hover: hover) {
+  .choice:hover,
+  .disclosureTrigger:hover {
+    background: rgba(238, 242, 255, 0.04);
+  }
 }
 
 .pager {
@@ -542,9 +546,11 @@
     background 0.18s ease;
 }
 
-.row:hover {
-  border-color: rgba(238, 242, 255, 0.24);
-  background: rgba(24, 30, 48, 0.8);
+@media (hover: hover) {
+  .row:hover {
+    border-color: rgba(238, 242, 255, 0.24);
+    background: rgba(24, 30, 48, 0.8);
+  }
 }
 
 .row:active {
@@ -620,8 +626,10 @@
     filter 0.18s ease;
 }
 
-.primary:hover {
-  filter: brightness(1.06);
+@media (hover: hover) {
+  .primary:hover {
+    filter: brightness(1.06);
+  }
 }
 
 .primary:active {
@@ -650,9 +658,11 @@
     background 0.18s ease;
 }
 
-.ghost:hover {
-  color: var(--ink);
-  background: rgba(238, 242, 255, 0.06);
+@media (hover: hover) {
+  .ghost:hover {
+    color: var(--ink);
+    background: rgba(238, 242, 255, 0.06);
+  }
 }
 
 .buttonRow {
@@ -695,8 +705,10 @@
   cursor: pointer;
 }
 
-.chip:hover {
-  border-color: rgba(238, 242, 255, 0.24);
+@media (hover: hover) {
+  .chip:hover {
+    border-color: rgba(238, 242, 255, 0.24);
+  }
 }
 
 .chipText {
@@ -790,8 +802,10 @@
   cursor: pointer;
 }
 
-.demoExit:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .demoExit:hover {
+    color: var(--ink);
+  }
 }
 
 /* ---------------------------------------------------------------- xp bar */
@@ -1425,8 +1439,10 @@ button.unlockRow {
   cursor: pointer;
 }
 
-.iconButton:hover {
-  border-color: rgba(238, 242, 255, 0.24);
+@media (hover: hover) {
+  .iconButton:hover {
+    border-color: rgba(238, 242, 255, 0.24);
+  }
 }
 
 .iconButton svg {

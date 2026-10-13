@@ -31,7 +31,6 @@ export const PADDLE_INSET = 46;
 
 /** Radians off the long axis (~53 degrees). */
 export const MAX_BOUNCE_ANGLE = 0.92;
-export const SPIN_INFLUENCE = 0.26;
 
 /** Seconds the ball hovers at centre before launch. */
 export const SERVE_DELAY = 0.8;

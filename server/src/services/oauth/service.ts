@@ -20,6 +20,10 @@
  * - Otherwise, an address the provider says it has **verified** may be linked
  *   to an existing account with that address. This is what makes signing in
  *   with Google work for someone who originally registered with a password.
+ * - When the existing account had never confirmed its own address, its
+ *   password and any other linked identities are dropped and its sessions
+ *   ended before linking: whoever attached them never proved they owned the
+ *   address the provider just has.
  * - An **unverified** address is never linked and never used to create an
  *   account that collides with one. Doing so is the classic pre-hijack
  *   attack: register an account at the provider with someone else's address,
@@ -28,7 +32,7 @@
  * - Otherwise a new account is created.
  */
 
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import type { LocalSaveDto } from '../../../../shared/protocol';
 import { transaction } from '../../db/index';
@@ -42,8 +46,10 @@ import {
   FLOW_TTL_SECONDS,
   type OAuthClient
 } from '../../repositories/oauth';
+import { revokeAllForUser } from '../../repositories/sessions';
 import {
   createUserWithIdentity,
+  dropUnprovenCredentials,
   findUserByEmail,
   findUserById,
   findUserByIdentity,
@@ -133,7 +139,10 @@ export interface CallbackResult {
  * no address until the player adds one.
  */
 function placeholderEmail(provider: string, subject: string): string {
-  const digest = Buffer.from(subject).toString('base64url').slice(0, 24).toLowerCase();
+  // A digest rather than the subject itself: subjects are opaque, may be long
+  // and may contain anything. Hex because addresses are compared lowercased,
+  // and a case-folded encoding of the subject could make two of them equal.
+  const digest = createHash('sha256').update(subject).digest('hex').slice(0, 40);
   return `${provider}.${digest}@no-email.bball.invalid`;
 }
 
@@ -166,8 +175,21 @@ function resolveAccount(
         );
       }
       if (existing.status !== 'active') throw forbidden('That account is not available.');
+      if (existing.email_verified === 0) {
+        // The other half of the pre-hijack attack. An account whose address
+        // was never confirmed proves nothing about who made it: someone can
+        // register here with a victim's address and a password of their own
+        // (or through a provider that never verified it), wait for the victim
+        // to sign in with a provider, and still be holding a way in. The
+        // provider has now proved the address, so its owner gets the account
+        // - and every unproven credential, with every session it opened,
+        // goes. The player can set a password of their own through a reset,
+        // which the confirmed mailbox now makes safe.
+        dropUnprovenCredentials(context.db, existing.id, context.now());
+        revokeAllForUser(context.db, existing.id, 'unproven-credentials-dropped', context.now());
+        markEmailVerified(context.db, existing.id, context.now());
+      }
       linkIdentity(context.db, existing.id, providerId, identity.subject, context.now());
-      if (existing.email_verified === 0) markEmailVerified(context.db, existing.id, context.now());
       return { user: findUserById(context.db, existing.id) ?? existing, created: false };
     }
   }

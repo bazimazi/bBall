@@ -57,6 +57,11 @@ export function beginServe(world: World, dir: 1 | -1): void {
   match.serveTimer = SERVE_DELAY;
   match.serveRequested = false;
   match.status = 'serve';
+  match.serves++;
+  // The rally that just ended is over the moment its serve is set up, so
+  // rally pressure and the paused court never carry it into the countdown.
+  // Every caller has already noted it against the match's best.
+  match.rally = 0;
   centreBall(world);
   resetRally(world);
   resetRally(combatant(world, 'bot'));
@@ -339,37 +344,47 @@ function noteRally(world: World): void {
   if (match.rally > match.bestThisMatch) match.bestThisMatch = match.rally;
 }
 
-function pointFx(world: World, scorer: Side, won: boolean): void {
+/**
+ * `breached` is the goal the ball went through: the loser's, except when a
+ * refund hands a conceded point back and the player's own line lights up.
+ */
+function pointFx(
+  world: World,
+  scorer: Side,
+  won: boolean,
+  breached: Side = won ? 'bot' : 'you'
+): void {
   const { fx, ball, view, particles, audio } = world;
+  const far = breached === 'bot';
   fx.comboTimer = 0; // the rally is over - clear its banner
   fx.flash = won ? 0.5 : 0.35;
   buzz(world, won ? 28 : 50);
   fx.timeScale = world.motion > 0.5 ? 0.32 : 1;
   addShake(world, 10);
-  addKick(world, won ? 9 : -9);
+  addKick(world, far ? 9 : -9);
 
   // The line that was breached lights up in the scorer's colour, and the
   // floor bows away from where the ball went through it.
-  const lineX = won ? view.w : 0;
+  const lineX = far ? view.w : 0;
   const y = clamp(ball.y, BALL_R, FIELD_H - BALL_R);
 
   // A serve that won the point untouched is an ace, and it says so.
   if (world.match.rally === 0 && ball.owner === scorer) {
-    world.popups.spawn('ACE', won ? view.w - 70 : 70, y, hueOf(world, scorer), 26);
+    world.popups.spawn('ACE', far ? view.w - 70 : 70, y, hueOf(world, scorer), 26);
   }
   const hue = hueOf(world, scorer);
   fx.goalFlash = 1;
-  fx.goalSide = won ? 'bot' : 'you';
+  fx.goalSide = breached;
   world.rings.spawn(lineX, y, hue, 190, 0.62, 9, 78);
   world.rings.spawn(lineX, y, hue, 110, 0.4, 5, 86);
   world.grid.impulse(lineX, y, 900, 230);
 
   particles.emit(
-    won ? view.w : 0,
-    clamp(ball.y, BALL_R, FIELD_H - BALL_R),
+    lineX,
+    y,
     46,
     {
-      angle: won ? Math.PI : 0,
+      angle: far ? Math.PI : 0,
       spread: 2.2,
       speed: 440,
       life: 0.85,
@@ -412,7 +427,9 @@ export function scorePoint(world: World, scorer: Side): void {
   // is gone for the rest of the match.
   if (!won && (tryZenith(world) || trySecondChance(world))) {
     resetDrive(world);
-    pointFx(world, 'you', true);
+    // Marked as the player's in their colour, at their own line - the one
+    // the ball actually went through.
+    pointFx(world, 'you', true, 'you');
     beginServe(world, 1);
     return;
   }
@@ -441,7 +458,7 @@ export function scorePoint(world: World, scorer: Side): void {
   match.score[scorer]++;
   match.points++;
   sendOrb(world, scorer);
-  if (won && match.score.you < match.winScore) checkBossPhase(world);
+  const phased = won && match.score.you < match.winScore && checkBossPhase(world);
   match.deficit = Math.max(match.deficit, match.score.bot - match.score.you);
 
   if (match.score[scorer] >= match.winScore) {
@@ -449,8 +466,10 @@ export function scorePoint(world: World, scorer: Side): void {
     return;
   }
 
-  // The conceding side receives the next serve.
+  // The conceding side receives the next serve - held a beat longer when a
+  // boss phase has just been announced, so its banner can be read.
   beginServe(world, won ? -1 : 1);
+  if (phased) match.serveTimer += 1.1;
 }
 
 /** Complete a wave only at a safe serve boundary, without consuming a life. */
@@ -555,6 +574,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   match.score.bot = rules.modifiers.startScore.bot;
   match.deficit = Math.max(0, match.score.bot - match.score.you);
   match.points = match.score.you + match.score.bot;
+  match.serves = 0;
   match.rally = 0;
   match.bestThisMatch = 0;
   match.hits = 0;

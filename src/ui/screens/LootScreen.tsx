@@ -10,6 +10,7 @@ import { Screen } from '../components/Screen';
 import { Dialog } from '../components/Dialog';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { GamePicker } from '../components/GamePicker';
+import { useBackHandler } from '../hooks/useBackHandler';
 import screens from '../Screens.module.css';
 import styles from './LootScreen.module.css';
 
@@ -26,6 +27,8 @@ export function LootScreen({ profile, onBack, onTalents, onPlay }: LootScreenPro
   const [selected, setSelected] = useState<ResearchId | null>(null);
   const [tab, setTab] = useState<'research' | 'specializations' | 'trials'>('research');
   const selectedEntry = RESEARCH.find((entry) => entry.id === selected);
+  // Back closes the detail sheet before it leaves the Lab.
+  useBackHandler(selectedEntry !== undefined, () => setSelected(null));
   const glyphs = { shards: '◇', threads: '⌁', cores: '◈' };
   return (
     <Screen

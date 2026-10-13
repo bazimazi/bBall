@@ -4,6 +4,7 @@ import { useId, type CSSProperties } from 'react';
 import { settingsStore } from '../core/settings/store';
 import { useSettings } from './hooks/useSettings';
 import { TalentIcon } from './icons/TalentIcon';
+import { GOAL_STATUS } from './components/goalStatus';
 import styles from './MatchHud.module.css';
 
 interface MatchHudProps {
@@ -154,15 +155,17 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
               onGoals();
             }}
             disabled={!snapshot.canPause}
-            aria-label={t(
-              msg('Star goals. {0}. Pause to review.', [
-                t(
-                  snapshot.goals
-                    .map((goal) => `${goal.label}: ${goal.progress}, ${goal.state}`)
-                    .join('. ')
+            aria-label={msg('Star goals. {0}. Pause to review.', [
+              snapshot.goals
+                .map((goal) =>
+                  msg('{0}: {1}, {2}', [
+                    t(goal.label),
+                    t(goal.progress),
+                    t(GOAL_STATUS[goal.state])
+                  ])
                 )
-              ])
-            )}
+                .join('. ')
+            ])}
           >
             <strong>{t('Goals')}</strong>
             <span className={styles.goalPips} aria-hidden="true">
@@ -170,7 +173,11 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
                 <span
                   key={goal.id}
                   data-state={goal.state}
-                  title={t(msg('{0}: {1}, {2}', [t(goal.label), t(goal.progress), t(goal.state)]))}
+                  title={msg('{0}: {1}, {2}', [
+                    t(goal.label),
+                    t(goal.progress),
+                    t(GOAL_STATUS[goal.state])
+                  ])}
                 >
                   {t(
                     goal.state === 'missed'

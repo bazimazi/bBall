@@ -208,8 +208,10 @@
   border-color: rgba(238, 242, 255, 0.3);
 }
 
-.tileOpen:hover {
-  border-color: rgba(238, 242, 255, 0.55);
+@media (hover: hover) {
+  .tileOpen:hover {
+    border-color: rgba(238, 242, 255, 0.55);
+  }
 }
 
 /* Learned: the frame picks up the branch colour. */
@@ -332,9 +334,11 @@
   transition: color 0.18s ease;
 }
 
-.treeReset:hover:not(:disabled) {
-  color: var(--bot);
-  border-color: rgba(255, 92, 138, 0.4);
+@media (hover: hover) {
+  .treeReset:hover:not(:disabled) {
+    color: var(--bot);
+    border-color: rgba(255, 92, 138, 0.4);
+  }
 }
 
 .treeReset:disabled {

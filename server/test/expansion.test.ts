@@ -68,11 +68,12 @@ import { fireAbility } from '../../src/game/abilities';
 import { playerReturn, resetRuntime, updateRuntime, rallyPressure } from '../../src/game/talents';
 import { createWorld, placePaddles, createBrain } from '../../src/game/world';
 import { advanceWave, scorePoint, startMatch } from '../../src/game/match';
-import { checkBossPhase } from '../../src/game/arena';
+import { BANNER_TIME, checkBossPhase } from '../../src/game/arena';
 import { driveAi } from '../../src/game/ai';
 import { stepBall } from '../../src/game/physics';
 import { updateArena } from '../../src/game/arena';
-import { FIXED_DT, BALL_R, PADDLE_W } from '../../src/game/constants';
+import { FIXED_DT, BALL_R, FIELD_H, PADDLE_W, SERVE_DELAY } from '../../src/game/constants';
+import { bounceBumper } from '../../src/game/hazardContacts';
 import { BALANCE } from '../../src/core/balance/config';
 import { talentBuildOn, masterCardLoadout } from '../../src/core/talents/builds';
 import { spentPoints, respec } from '../../src/core/talents/save';
@@ -1033,4 +1034,118 @@ it('the reproduced wide mirrored bank pocket opens before a rally can stall', ()
     }
     assert.ok(w.match.points > 0, 'A point resolves on the formerly trapped route.');
   });
+});
+
+it('a boss phase banner holds the next serve long enough to be read', () => {
+  const w = world();
+  startMatch(w, runRules({ ...createRun('boss', 0, 1, 'endless'), stage: 5 }));
+  w.match.status = 'play';
+  scorePoint(w, 'you');
+  assert.equal(w.match.serveTimer, SERVE_DELAY, 'a plain point keeps the plain serve delay');
+  w.match.status = 'play';
+  scorePoint(w, 'you');
+  assert.equal(w.arena.phase, 1);
+  assert.equal(w.fx.bannerTimer, BANNER_TIME);
+  assert.ok(Math.abs(w.match.serveTimer - (SERVE_DELAY + 1.1)) < 1e-9);
+});
+
+it('a new serve clears the last rally, its pressure and its heft once the best is recorded', () => {
+  const w = world();
+  w.match.rally = 30;
+  w.ball.heft = 0.4;
+  assert.ok(rallyPressure(w) > 0);
+  scorePoint(w, 'you');
+  assert.equal(w.match.status, 'serve');
+  assert.equal(w.match.rally, 0);
+  assert.equal(w.match.bestThisMatch, 30);
+  assert.equal(rallyPressure(w), 0);
+  assert.equal(w.ball.heft, 0);
+});
+
+it('a refunded point lights the player line the ball actually crossed', () => {
+  const w = world();
+  w.talents.secondChances = 1;
+  w.ball.y = 200;
+  scorePoint(w, 'bot');
+  assert.deepEqual(w.match.score, { you: 0, bot: 0 });
+  assert.equal(w.talents.secondChances, 0);
+  assert.equal(w.fx.goalSide, 'you');
+  scorePoint(w, 'you');
+  assert.equal(w.fx.goalSide, 'bot');
+});
+
+it('Phase Lens clears a boss bend as well as the opponent swerve', () => {
+  const w = createWorld(silent, 1);
+  w.view.w = 1000;
+  placePaddles(w);
+  w.baseLoadout = resolveLoadout(
+    { ...createTalentSave(), licensed: ['phase-lens'], equipped: ['phase-lens'] },
+    50
+  );
+  startMatch(w, runRules({ ...createRun('boss', 0, 1, 'endless'), stage: 5 }));
+  w.match.status = 'play';
+  Object.assign(w.ball, { x: 600, y: 300, vx: -500, vy: 300, speed: Math.hypot(500, 300) });
+  w.arena.bossSwerveDir = 1;
+  w.botTalents.swerveDir = -1;
+  assert.equal(fireAbility(w, 0), true);
+  assert.equal(w.arena.bossSwerveDir, 0);
+  assert.equal(w.botTalents.swerveDir, 0);
+});
+
+it('a bumper adds pace up to the cap and never slows a faster ball', () => {
+  for (const [speed, cap, expected] of [
+    [600, 1000, 600 * 1.035],
+    [990, 1000, 1000],
+    [1200, 1000, 1200]
+  ] as const) {
+    const ball = { ...createWorld(silent, 0).ball, x: 470, y: 300, vx: speed, vy: 0, speed };
+    assert.ok(bounceBumper(ball, { x: 500, y: 300, r: 20 }, cap));
+    assert.ok(Math.abs(ball.speed - expected) < 1e-9, `${speed} against a ${cap} cap`);
+    assert.ok(Math.abs(Math.hypot(ball.vx, ball.vy) - expected) < 1e-6);
+  }
+});
+
+it('Rebound adds its second to a return tempo once, and Relay refunds only the other skills', () => {
+  const w = world();
+  const save = createTalentSave();
+  save.ranks.rebound = 1;
+  save.ranks.relay = 1;
+  save.ranks.dash = 1;
+  save.equipped[0] = 'rebound';
+  save.equipped[1] = 'relay';
+  save.equipped[2] = 'dash';
+  w.loadout = resolveLoadout(save, 50);
+  w.loadout = { ...w.loadout, effects: { ...w.loadout.effects, tempo: 0.5 } };
+  resetRuntime(w);
+  w.talents.tactics.rebound = 3;
+  w.talents.slots[2]!.cooldown = 5;
+  playerReturn(w, 0);
+  assert.equal(w.talents.slots[2]!.cooldown, 3.5, 'tempo 0.5 plus the banked second');
+
+  w.arena.spec = { switches: [{ x: 0.4, y: 0.3, r: 20, gate: 0 }], gates: [] };
+  w.arena.course = createCourse(w.arena.spec);
+  w.talents.tactics.relay = 6;
+  w.talents.slots[1]!.cooldown = 10;
+  w.talents.slots[2]!.cooldown = 5;
+  Object.assign(w.ball, { px: 400, py: 180, x: 400, y: 180, owner: 'you' });
+  collideCourse(w);
+  assert.equal(w.talents.slots[1]!.cooldown, 10, 'Relay does not refund itself');
+  assert.equal(w.talents.slots[2]!.cooldown, 3, 'a switch hit carries no return tempo');
+});
+
+it('the Practice landing estimate measures the whole court and names the edge on screen', () => {
+  for (const rotated of [false, true]) {
+    const w = createWorld(silent, 1);
+    w.view.w = 750;
+    w.view.rotated = rotated;
+    placePaddles(w);
+    startMatch(w, practiceRules('pro'));
+    w.match.status = 'paused';
+    w.match.resumeTo = 'play';
+    Object.assign(w.ball, { x: 400, y: FIELD_H / 4, vx: -400, vy: 0, speed: 400 });
+    assert.equal(
+      practiceLanding(w),
+      `Your landing estimate: 25% from the ${rotated ? 'left' : 'top'} · next 3 seconds`
+    );
+  }
 });

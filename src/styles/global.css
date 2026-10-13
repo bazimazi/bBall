@@ -80,6 +80,13 @@ body {
   outline: none;
 }
 
+/* Screen headings take focus only so a screen reader starts at the top of a
+   new screen. They are not controls, and a ring around a title or the logo
+   reads as a glitch rather than a cursor. */
+[data-screen-heading]:focus-visible {
+  outline: none;
+}
+
 html[lang='fa'] {
   --font: 'Vazirmatn', Tahoma, 'Segoe UI', Arial, sans-serif;
 }

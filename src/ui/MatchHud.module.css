@@ -37,9 +37,11 @@
   cursor: pointer;
 }
 
-.summary:hover {
-  color: var(--ink);
-  background: rgba(238, 242, 255, 0.05);
+@media (hover: hover) {
+  .summary:hover {
+    color: var(--ink);
+    background: rgba(238, 242, 255, 0.05);
+  }
 }
 
 .summary:focus-visible {

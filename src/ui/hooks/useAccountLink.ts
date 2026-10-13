@@ -46,7 +46,9 @@ export function useAccountLink(open: () => void): {
 
         if (status === 'ok' && code) {
           open();
-          void accountStore.completeOAuth(code).catch((error: unknown) => {
+          // The store refuses a code it has no matching pending sign-in for,
+          // so a link someone else crafted cannot sign this player in.
+          void accountStore.completeOAuth(code, params.get('provider')).catch((error: unknown) => {
             accountStore.reportOAuthFailure(
               error instanceof Error ? error.message : 'That sign-in did not complete.'
             );

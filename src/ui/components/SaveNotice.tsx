@@ -42,7 +42,7 @@ export function SaveNotice() {
             {t('Try saving again when storage is available.')}
           </>
         ) : (
-          'Changes saved on this device.'
+          t('Changes saved on this device.')
         )}
       </p>
       {unsaved && (

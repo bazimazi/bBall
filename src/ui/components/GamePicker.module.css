@@ -110,9 +110,11 @@
   height: 100%;
 }
 
-.trigger:hover:not(:disabled) {
-  border-color: rgba(79, 240, 214, 0.55);
-  background: rgba(79, 240, 214, 0.07);
+@media (hover: hover) {
+  .trigger:hover:not(:disabled) {
+    border-color: rgba(79, 240, 214, 0.55);
+    background: rgba(79, 240, 214, 0.07);
+  }
 }
 
 .trigger:disabled {
@@ -336,10 +338,16 @@
   box-shadow: 0 0 0 1px rgba(79, 240, 214, 0.15) inset;
 }
 
-.list:focus-visible .option[data-cursor='true'],
-.option:hover:not(:disabled) {
+.list:focus-visible .option[data-cursor='true'] {
   border-color: var(--you);
   background: rgba(79, 240, 214, 0.12);
+}
+
+@media (hover: hover) {
+  .option:hover:not(:disabled) {
+    border-color: var(--you);
+    background: rgba(79, 240, 214, 0.12);
+  }
 }
 
 .list:focus-visible {

@@ -254,6 +254,16 @@ describe('the callback', () => {
 
   it('links to an existing password account when the address is verified', async () => {
     const existing = await register(server.app);
+    // The account confirmed its own address, so its password is the owner's.
+    const link = server.mailer.last(existing.email)?.text ?? '';
+    const token = decodeURIComponent(/token=([^\s&]+)/.exec(link)?.[1] ?? '');
+    const confirmed = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/verify-email/confirm',
+      payload: { token }
+    });
+    assert.equal(confirmed.statusCode, 200);
+
     const result = await signInWith(
       identity({ subject: 'linking-player-1', email: existing.email, emailVerified: true })
     );
@@ -270,6 +280,141 @@ describe('the callback', () => {
       payload: { email: existing.email, password: existing.password }
     });
     assert.equal(stillWorks.statusCode, 200);
+  });
+
+  it('drops an unconfirmed password when a provider proves the address (pre-account takeover)', async () => {
+    // Someone registers with the victim's address and a password of their
+    // own, and never confirms it.
+    const squatter = await register(server.app);
+
+    // The real owner then signs in with a provider that has verified it.
+    const result = await signInWith(
+      identity({ subject: 'rightful-owner-1', email: squatter.email, emailVerified: true })
+    );
+    const { body } = await complete(result.handoff!);
+
+    assert.equal(body.created, false);
+    assert.equal(body.user.id, squatter.userId);
+    assert.equal(body.user.emailVerified, true);
+    assert.deepEqual(body.user.providers, ['fake']);
+
+    // The squatter's password no longer opens the account...
+    const signIn = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { email: squatter.email, password: squatter.password }
+    });
+    assert.equal(signIn.statusCode, 401);
+
+    // ...and neither do the sessions it had already opened.
+    const me = await server.app.inject({
+      method: 'GET',
+      url: '/v1/me',
+      headers: auth(squatter.accessToken)
+    });
+    assert.equal(me.statusCode, 401);
+    const refreshed = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: { refreshToken: squatter.refreshToken }
+    });
+    assert.equal(refreshed.statusCode, 401);
+
+    // The owner's own session is unaffected.
+    const owner = await server.app.inject({
+      method: 'GET',
+      url: '/v1/me',
+      headers: auth(body.tokens.accessToken)
+    });
+    assert.equal(owner.statusCode, 200);
+  });
+
+  it('drops an identity that never verified the address when another one proves it', async () => {
+    const email = uniqueEmail('squatted');
+    // A provider account that claims the address without verifying it makes
+    // a new bBall account (there was none to collide with)...
+    const squatter = await complete(
+      (
+        await signInWith(
+          identity({ subject: 'unverified-squatter-1', email, emailVerified: false })
+        )
+      ).handoff!
+    );
+    assert.equal(squatter.body.user.emailVerified, false);
+
+    // ...which the address's real owner then proves.
+    const owner = await complete(
+      (await signInWith(identity({ subject: 'verified-owner-1', email, emailVerified: true })))
+        .handoff!
+    );
+    assert.equal(owner.body.user.id, squatter.body.user.id);
+    assert.equal(owner.body.user.providers.length, 1);
+
+    // The squatter's identity no longer reaches the account.
+    const again = await signInWith(
+      identity({ subject: 'unverified-squatter-1', email, emailVerified: false })
+    );
+    assert.equal(again.status, 'failed');
+    const stale = await server.app.inject({
+      method: 'GET',
+      url: '/v1/me',
+      headers: auth(squatter.body.tokens.accessToken)
+    });
+    assert.equal(stale.statusCode, 401);
+  });
+
+  it('accepts a provider that returns by form POST, as Apple does', async () => {
+    const code = 'form-post-code-1';
+    provider.identities.set(code, identity({ subject: 'form-post-player-1' }));
+    const started = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/oauth/fake/start'
+    });
+    const { state } = started.json<{ state: string }>();
+
+    const callback = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/oauth/fake/callback',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        state,
+        code,
+        user: JSON.stringify({ name: { firstName: 'Form', lastName: 'Poster' } })
+      }).toString()
+    });
+    assert.equal(callback.statusCode, 302);
+    const location = new URL(callback.headers.location as string);
+    const params = new URLSearchParams(location.hash.slice(location.hash.indexOf('?') + 1));
+    assert.equal(params.get('status'), 'ok');
+    assert.ok(params.get('code'));
+    assert.equal(provider.exchanges.at(-1)?.formFields?.state, state);
+
+    // The form parser is scoped to the callback: a JSON endpoint still
+    // refuses a form, so a cross-site form cannot reach it.
+    const elsewhere = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/logout',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: 'refreshToken=x'
+    });
+    assert.equal(elsewhere.statusCode, 415);
+    assert.equal(elsewhere.json<{ error: { code: string } }>().error.code, 'BAD_REQUEST');
+  });
+
+  it('gives an account without an address a placeholder that cannot collide', async () => {
+    // Subjects that differ only by case would fold together under a
+    // case-insensitive encoding of the subject itself.
+    const a = await complete(
+      (await signInWith(identity({ subject: 'CaseSubject', email: null, emailVerified: false })))
+        .handoff!
+    );
+    const b = await complete(
+      (await signInWith(identity({ subject: 'casesubject', email: null, emailVerified: false })))
+        .handoff!
+    );
+    assert.notEqual(a.body.user.id, b.body.user.id);
+    assert.notEqual(a.body.user.email, b.body.user.email);
+    assert.match(a.body.user.email, /^fake\.[0-9a-f]{40}@no-email\.bball\.invalid$/);
   });
 
   it('refuses to link on an address the provider has not verified', async () => {

@@ -85,6 +85,15 @@ function isTyping(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 }
 
+/**
+ * The Latin key a physical key position stands for - `KeyW` is "w", `Digit1`
+ * and `Numpad1` are "1" - or null for a key that has none.
+ */
+function physicalKey(code: string | undefined): string | null {
+  const match = /^(?:Key([A-Z])|Digit(\d)|Numpad(\d))$/.exec(code ?? '');
+  return match ? (match[1] ?? match[2] ?? match[3]!).toLowerCase() : null;
+}
+
 let idle: GameSnapshot | null = null;
 
 /**
@@ -170,7 +179,13 @@ export class GameEngine {
   private specializations: { name: string; loadout: ResolvedLoadout }[] = [];
   private specializationNames: readonly string[] = [];
   private activeSpecialization: number | null = null;
+  /** The serve a build was last switched on, so each serve allows one choice. */
   private switchPoint = -1;
+  /**
+   * The rules the last match started under. Boss phases and Endless waves
+   * replace `world.rules` mid-match, so a replay must not start from those.
+   */
+  private startRules: MatchRules | null = null;
 
   constructor(canvas: HTMLCanvasElement, theme: ResolvedTheme = DEFAULT_THEME) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -289,6 +304,7 @@ export class GameEngine {
     this.audio.unlock();
     this.clearInput();
     this.audio.startMusic(songFor(rules));
+    this.startRules = rules;
     startMatch(this.world, rules);
     this.specializations = rules.fixedBuild || rules.versus ? [] : specializations.slice(0, 3);
     this.specializationNames = this.specializations.map((entry) => entry.name);
@@ -304,7 +320,7 @@ export class GameEngine {
       this.learn();
       return;
     }
-    this.play(this.world.rules, this.specializations);
+    this.play(this.startRules ?? this.world.rules, this.specializations);
   };
 
   learn = (): void => {
@@ -327,6 +343,9 @@ export class GameEngine {
   };
 
   pause = (reason: GameSnapshot['pauseReason'] = null): void => {
+    // The finished lesson has no Pause screen to come back from: losing
+    // focus or hiding the page must not strand it behind one.
+    if (this.world.tutorial?.step === 'complete') return;
     if (!pauseMatch(this.world)) return;
     this.pauseReason = reason;
     this.landingEstimate = practiceLanding(this.world);
@@ -355,10 +374,11 @@ export class GameEngine {
 
   private canSwitchSpecialization(): boolean {
     const { match } = this.world;
-    const point = match.score.you + match.score.bot + match.maxLives - match.lives;
+    // Counted by serve, not by score: a won point in a lives mode changes
+    // neither the score nor the lives, but it is still a new point.
     return (
       this.specializations.length > 0 &&
-      point !== this.switchPoint &&
+      match.serves !== this.switchPoint &&
       (match.status === 'serve' || (match.status === 'paused' && match.resumeTo === 'serve')) &&
       !this.world.tutorial
     );
@@ -372,8 +392,7 @@ export class GameEngine {
       ? withBoons(next.loadout, this.world.rules.boons)
       : next.loadout;
     if (!switchRuntime(this.world, loadout)) return false;
-    const { match } = this.world;
-    this.switchPoint = match.score.you + match.score.bot + match.maxLives - match.lives;
+    this.switchPoint = this.world.match.serves;
     this.activeSpecialization = index;
     if (!this.world.specializationsUsed.includes(index)) this.world.specializationsUsed.push(index);
     this.clearInput();
@@ -862,7 +881,10 @@ export class GameEngine {
     const { match } = this.world;
     // A tap during the closing replay skips it.
     if (skipReplay(this.world)) return;
-    if (match.status !== 'play' && match.status !== 'serve') return;
+    // A finger put down during the resume countdown is the one that plays:
+    // it owns the paddle from now, but only steers once the countdown ends.
+    const counting = match.status === 'resuming';
+    if (match.status !== 'play' && match.status !== 'serve' && !counting) return;
     const side = this.versus ? this.sideAt(event) : 'you';
     if (
       !this.pointers.begin(
@@ -881,7 +903,7 @@ export class GameEngine {
     } catch {
       /* capture is a nicety, not a requirement */
     }
-    this.trackPointer(event, side);
+    if (!counting) this.trackPointer(event, side);
   };
 
   private onPointerMove = (event: PointerEvent): void => {
@@ -921,14 +943,32 @@ export class GameEngine {
   };
 
   private onKeyDown = (event: KeyboardEvent): void => {
-    if (event.defaultPrevented || event.repeat || !event.key) return;
+    if (event.defaultPrevented || !event.key) return;
     // The name field is a real text input: while it has focus the game gets
     // no keys at all, or typing "1" would fire an ability and "m" would mute.
     if (isTyping(event.target)) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    const key = event.key.toLowerCase();
+    let key = event.key.toLowerCase();
     const { match } = this.world;
-    const action = key === 'escape' ? 'pause' : keyAction(this.bindings, key);
+    let action = key === 'escape' ? 'pause' : keyAction(this.bindings, key);
+    // A non-Latin layout (Persian, say) types its own letters and digits on
+    // the keys the defaults name. When what was typed is bound to nothing,
+    // the key's physical position stands in for it - Latin layouts never
+    // reach this, so their unbound keys stay unbound.
+    if (!action && Array.from(key).length === 1 && key.charCodeAt(0) > 0x7f) {
+      const physical = physicalKey(event.code);
+      const fallback = physical ? keyAction(this.bindings, physical) : undefined;
+      if (physical && fallback) {
+        key = physical;
+        action = fallback;
+      }
+    }
+    const movement =
+      action === 'up' || action === 'down' || action === 'p2Up' || action === 'p2Down';
+    // Auto-repeat only ever re-registers a held movement key - one held
+    // through a pause, a countdown or a match start takes over again without
+    // being pressed twice. Every other action fires once per press.
+    if (event.repeat && !movement) return;
     if (!this.gameplayInputEnabled && action !== 'mute') return;
     // Space and Enter activate the focused UI even when mapped to another action.
     const focused = document.activeElement;
@@ -943,8 +983,10 @@ export class GameEngine {
 
     // Menu navigation belongs to the focused UI, including its arrow keys.
     const moving = match.status === 'play' || match.status === 'serve';
-    if (action === 'up' || action === 'down' || action === 'p2Up' || action === 'p2Down') {
-      if (!moving) return;
+    if (movement) {
+      // Held during a resume countdown it is recorded, and steers once the
+      // countdown hands play back: the frame loop only reads keys in play.
+      if (!moving && match.status !== 'resuming') return;
       this.heldKeys.set(event.code || key, key);
       event.preventDefault();
       this.audio.unlock();

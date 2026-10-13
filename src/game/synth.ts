@@ -173,9 +173,12 @@ export class Synth {
     env.gain.exponentialRampToValueAtTime(spec.gain, t + attack);
     // Give each sound a short body before its tail. One exponential straight
     // to silence made even strong paddle contacts disappear under the band.
-    const body = Math.max(attack + 0.001, spec.dur * 0.3);
+    // The body is measured from the end of the attack, and never shorter than
+    // 10 ms, so a slow attack does not fall from its peak in a click. The tail
+    // ends at most 20 ms past dur, inside the sources' dur + 50 ms stop.
+    const body = attack + Math.max(0.01, (spec.dur - attack) * 0.3);
     env.gain.exponentialRampToValueAtTime(spec.gain * 0.25, t + body);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(spec.dur, attack + 0.01));
+    env.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(spec.dur, body + 0.01));
     node.connect(env);
     node = env;
 

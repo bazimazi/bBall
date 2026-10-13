@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 
 import type { AuthResponse, RefreshResponse } from '../../shared/protocol';
+import { ROTATION_GRACE_MS } from '../src/services/auth';
 import { auth, GOOD_PASSWORD, makeServer, register, uniqueEmail, type TestServer } from './helpers';
 
 let server: TestServer;
@@ -163,7 +164,9 @@ describe('sessions', () => {
     });
     const live = first.json<RefreshResponse>().tokens;
 
-    // The attacker replays the token the legitimate client already spent.
+    // The attacker replays the token the legitimate client already spent -
+    // later than a two-tab race could explain.
+    server.advance(ROTATION_GRACE_MS + 1_000);
     const replay = await server.app.inject({
       method: 'POST',
       url: '/v1/auth/refresh',
@@ -179,6 +182,43 @@ describe('sessions', () => {
       payload: { refreshToken: live.refreshToken }
     });
     assert.equal(afterReuse.statusCode, 401);
+  });
+
+  it('treats a spent token arriving moments after its rotation as a race, not a theft', async () => {
+    const user = await register(server.app);
+
+    // Two tabs sent the same cookie; this one won.
+    const first = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: { refreshToken: user.refreshToken }
+    });
+    assert.equal(first.statusCode, 200);
+    const live = first.json<RefreshResponse>().tokens;
+
+    // The other arrives with the spent copy. It gets nothing...
+    const late = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: { refreshToken: user.refreshToken }
+    });
+    assert.equal(late.statusCode, 401);
+    assert.equal(late.json<{ error: { code: string } }>().error.code, 'SESSION_EXPIRED');
+    assert.equal(late.headers['set-cookie'], undefined);
+
+    // ...but the session it raced is still alive, and so is its access token.
+    const me = await server.app.inject({
+      method: 'GET',
+      url: '/v1/me',
+      headers: auth(live.accessToken)
+    });
+    assert.equal(me.statusCode, 200);
+    const next = await server.app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: { refreshToken: live.refreshToken }
+    });
+    assert.equal(next.statusCode, 200);
   });
 
   it('expires a refresh token once its lifetime has passed', async () => {

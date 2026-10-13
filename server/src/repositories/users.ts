@@ -111,6 +111,19 @@ export function setPasswordHash(db: Db, userId: string, hash: string, now = Date
   );
 }
 
+/**
+ * Remove every way into an account: its password and all linked identities.
+ *
+ * Used when a provider proves an address that the account itself never did.
+ * Nothing attached before that proof showed who owns the address - a
+ * password, or another provider that never verified it - so none of it is
+ * kept. The caller links the proving identity straight afterwards.
+ */
+export function dropUnprovenCredentials(db: Db, userId: string, now = Date.now()): void {
+  db.prepare('UPDATE users SET password_hash = NULL, updated_at = ? WHERE id = ?').run(now, userId);
+  db.prepare('DELETE FROM auth_identities WHERE user_id = ?').run(userId);
+}
+
 export function markEmailVerified(db: Db, userId: string, now = Date.now()): void {
   db.prepare('UPDATE users SET email_verified = 1, updated_at = ? WHERE id = ?').run(now, userId);
 }
@@ -206,6 +219,20 @@ export function createEmailToken(
   ).run(id, userId, kind, tokenHash, now, now + ttlSeconds * 1000);
 
   return db.prepare('SELECT * FROM email_tokens WHERE id = ?').get(id) as EmailTokenRow;
+}
+
+/** A token that is still live, without spending it. */
+export function findEmailToken(
+  db: Db,
+  kind: EmailTokenKind,
+  tokenHash: string,
+  now = Date.now()
+): EmailTokenRow | null {
+  const row = db
+    .prepare('SELECT * FROM email_tokens WHERE token_hash = ? AND kind = ?')
+    .get(tokenHash, kind) as EmailTokenRow | undefined;
+  if (!row || row.consumed_at !== null || row.expires_at <= now) return null;
+  return row;
 }
 
 /**

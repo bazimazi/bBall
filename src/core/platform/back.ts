@@ -109,6 +109,18 @@ export function installBackRouting(): void {
   startLength = window.history.length;
   pushGuard();
   window.addEventListener('popstate', onPopState);
+  // Browsers' back button skips history entries the player never interacted
+  // with (Firefox's user-interaction rule, Chromium's history intervention).
+  // The start-up guard is pushed before any touch, so the first input pushes
+  // one more: the entry it lands on has then been used, and back reaches the
+  // game instead of leaving the site.
+  const armOnInput = () => {
+    window.removeEventListener('pointerdown', armOnInput, true);
+    window.removeEventListener('keydown', armOnInput, true);
+    if (!leaving) pushGuard();
+  };
+  window.addEventListener('pointerdown', armOnInput, true);
+  window.addEventListener('keydown', armOnInput, true);
   void listenForNativeBack();
 }
 

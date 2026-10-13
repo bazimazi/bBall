@@ -32,7 +32,7 @@ import type { OAuthClient } from '../../repositories/oauth';
 import { flowClient } from '../../repositories/oauth';
 import { oauthCompleteSchema, oauthProviderParamSchema, oauthStartSchema } from '../schemas';
 import { parse } from '../validate';
-import { REFRESH_COOKIE, REFRESH_COOKIE_PATH, requestMeta } from '../plugins/auth';
+import { REFRESH_COOKIE, refreshCookieOptions, requestMeta } from '../plugins/auth';
 import { authRateLimit } from '../plugins/security';
 
 /**
@@ -135,7 +135,26 @@ export function registerOAuthRoutes(app: FastifyInstance, context: ServiceContex
   };
 
   app.get('/v1/auth/oauth/:provider/callback', { config: limited }, callback);
-  app.post('/v1/auth/oauth/:provider/callback', { config: limited }, callback);
+
+  // Apple's `form_post` arrives as an ordinary HTML form, which Fastify does
+  // not parse out of the box. The parser is registered in a scope of its own
+  // around this one route rather than on the whole server: every other
+  // endpoint accepting only JSON is part of what keeps a cross-site form from
+  // being able to call it, and that stays true.
+  void app.register(async (scope) => {
+    scope.addContentTypeParser(
+      'application/x-www-form-urlencoded',
+      { parseAs: 'string' },
+      (_request, body, done) => {
+        try {
+          done(null, Object.fromEntries(new URLSearchParams(body as string)));
+        } catch (error) {
+          done(error as Error, undefined);
+        }
+      }
+    );
+    scope.post('/v1/auth/oauth/:provider/callback', { config: limited }, callback);
+  });
 
   app.post('/v1/auth/oauth/complete', { config: limited }, async (request, reply) => {
     const input = parse(oauthCompleteSchema, request.body);
@@ -144,14 +163,11 @@ export function registerOAuthRoutes(app: FastifyInstance, context: ServiceContex
     const profile = loadProfile(context.db, result.user.id);
     if (!profile) throw new Error('profile missing after social sign-in');
 
-    void reply.setCookie(REFRESH_COOKIE, result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: context.config.http.cookieSecure,
-      sameSite: context.config.http.cookieSameSite,
-      path: REFRESH_COOKIE_PATH,
-      maxAge: ttl,
-      ...(context.config.http.cookieDomain ? { domain: context.config.http.cookieDomain } : {})
-    });
+    void reply.setCookie(
+      REFRESH_COOKIE,
+      result.tokens.refreshToken,
+      refreshCookieOptions(context.config, ttl)
+    );
 
     const payload: OAuthCompleteResponse = {
       user: toUserDto(context.db, result.user),

@@ -35,16 +35,23 @@ function shortSeconds(value: number): string {
   return value >= 10 ? `${Math.ceil(value)}` : `${Math.ceil(value * 10) / 10}`;
 }
 
-/** The whole state of the button, in the words a screen reader needs. */
+/**
+ * The whole state of the button, in the words a screen reader needs. Each
+ * part is translated on its own: joined first, the sentence matches nothing.
+ */
 function label(ability: AbilityView): string {
-  const parts = [ability.name];
+  const parts = [t(ability.name)];
   if (ability.active) {
-    parts.push('active');
-    if (ability.maxCharges > 0) parts.push(`${ability.charges} of ${ability.maxCharges} uses left`);
-    if (ability.duration > 0) parts.push(`${shortSeconds(ability.remain)} seconds left`);
+    parts.push(t('Active'));
+    if (ability.maxCharges > 0)
+      parts.push(msg('{0} of {1} uses left', [t(ability.charges), t(ability.maxCharges)]));
+    if (ability.duration > 0)
+      parts.push(msg('{0} seconds left', [t(shortSeconds(ability.remain))]));
   }
-  parts.push(ability.ready ? 'ready' : `recharging, ${ability.cooldownLeft} seconds`);
-  return parts.join(', ');
+  parts.push(
+    ability.ready ? t('Ready') : msg('recharging, {0} seconds', [t(ability.cooldownLeft)])
+  );
+  return parts.join(t(', '));
 }
 
 /** A one-shot ring on the button, and what it is saying. */
@@ -117,7 +124,7 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
       className={classes.join(' ')}
       data-graphics={graphicsIntensity}
       style={style}
-      aria-label={t(msg('{0}, shortcut {1}', [t(label(ability)), keyList(keyBindings, action)]))}
+      aria-label={msg('{0}, shortcut {1}', [label(ability), t(keyList(keyBindings, action))])}
       aria-disabled={!ability.ready}
       onPointerDown={handleDown}
       onClick={(event) => {

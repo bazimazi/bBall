@@ -108,7 +108,8 @@ export interface AbilitySlot {
   /** The full cooldown it is counting down from, for the HUD ring. */
   span: number;
   /**
-   * Seconds, in real time, before this slot may fire again whatever its
+   * Seconds of simulation time - slowed with the match clock, unhurried by
+   * Flow, Zenith or Echo - before this slot may fire again whatever its
    * cooldown says. Tempo and Echo wind a cooldown down faster than the clock
    * does; this is what keeps "faster" from becoming "every frame".
    */
@@ -122,8 +123,9 @@ export interface AbilitySlot {
 /**
  * Everything a build does *during* one match.
  *
- * Reset on every serve-up, never persisted, and owned entirely by the
- * simulation - the UI reads a flattened view of it and nothing else.
+ * Lives for one match - re-armed when it starts, with only the rally's own
+ * counters cleared at each serve - never persisted, and owned entirely by
+ * the simulation; the UI reads a flattened view of it and nothing else.
  */
 export interface TalentRuntime {
   benchedSlots: Partial<Record<AbilityId, AbilitySlot>>;
@@ -242,6 +244,8 @@ export interface MatchState {
   /** An explicit tap or key requested the waiting serve. */
   serveRequested: boolean;
   serveDir: 1 | -1;
+  /** Serves set up this match: one per point, and one per completed wave. */
+  serves: number;
   rally: number;
   bestThisMatch: number;
   /** Points played this match; drives serve speed. */

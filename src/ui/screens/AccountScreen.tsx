@@ -83,6 +83,26 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  // A reset link can arrive while this screen is already open: it switches
+  // the form over, just as it would have chosen it on the way in.
+  const [seenToken, setSeenToken] = useState(token);
+  if (token !== seenToken) {
+    setSeenToken(token);
+    if (token?.kind === 'reset') {
+      setMode('reset');
+      setError(null);
+      setInfo(null);
+    }
+  }
+  // A sign-in can finish after the player has already left; leaving again
+  // then would pop whatever screen they went to instead.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const restoreFocused = useRef(false);
   const syncButton = useRef<HTMLButtonElement>(null);
 
@@ -136,14 +156,14 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
           // save comes across; the server merges rather than overwrites, so
           // this never costs the account anything it already had.
           if (carryOver && guest.has) await accountStore.claimGuestProgress();
-          onBack();
+          if (mounted.current) onBack();
           break;
         case 'register':
           await accountStore.register(email, password, {
             ...(displayName.trim() ? { displayName: displayName.trim() } : {}),
             claimGuestProgress: carryOver && guest.has
           });
-          onBack();
+          if (mounted.current) onBack();
           break;
         case 'forgot':
           await accountStore.forgotPassword(email);
@@ -503,7 +523,14 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
           </button>
         )}
         {(mode === 'forgot' || mode === 'reset') && (
-          <button type="button" className={styles.link} onClick={() => setMode('signin')}>
+          <button
+            type="button"
+            className={styles.link}
+            onClick={() => {
+              if (mode === 'reset') onTokenUsed?.();
+              setMode('signin');
+            }}
+          >
             {t('Back to sign in')}
           </button>
         )}

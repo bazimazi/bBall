@@ -75,7 +75,10 @@ export function KeyBindingsEditor() {
                         key ? keyName(key) : 'not assigned'
                       ])
                     )}
-                    onClick={() => {
+                    onClick={(event) => {
+                      // Safari does not focus a clicked button, and the key
+                      // is read from this button's own keydown.
+                      if (!active) event.currentTarget.focus();
                       setEditing(active ? null : { action, slot });
                       setMessage('');
                     }}

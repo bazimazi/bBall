@@ -256,7 +256,9 @@ export function ModesScreen({ profile, onPick, onBack }: ModesScreenProps) {
               <button
                 type="button"
                 className={styles.tab}
-                disabled={!presets[i]}
+                // Saving a later slot pads the earlier ones with empty options,
+                // and the save cannot tell those from a slot never used.
+                disabled={!presets[i] || Object.keys(presets[i]!).length === 0}
                 onClick={() => {
                   const p = presets[i]!;
                   setArenaId(p.arenaId ?? '');
