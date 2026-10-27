@@ -1,3 +1,4 @@
+import type { TechniqueId } from './drills';
 import type { EquipmentSnapshot, PaddleKit, MaterialStats } from '../equipment/types';
 import type { TournamentFormat } from '../tournament/bracket';
 import type { MasteryTags } from '../progression/mastery';
@@ -138,6 +139,12 @@ export interface BossPhase {
  * the second half of the fight a different fight from the first.
  */
 export interface BossSpec {
+  readonly rhythm?: {
+    readonly period: number;
+    readonly windup: number;
+    readonly guard: number;
+    readonly recoveryScale: number;
+  };
   readonly id: string;
   readonly name: string;
   /** A few words under the name on the intro card. */
@@ -148,6 +155,7 @@ export interface BossSpec {
   readonly phases: readonly BossPhase[];
 }
 import type { TalentMatchStats } from '../talents/types';
+import type { ResolvedLoadout } from '../talents/effects';
 
 export type ModeId =
   | 'quick'
@@ -220,10 +228,17 @@ export interface MatchOptions {
 
 /** A fully resolved match setup. The engine takes one of these and plays it. */
 export interface MatchRules {
+  /** A completed encounter's resolved build; honored only in unranked Practice. */
+  readonly practiceLoadout?: ResolvedLoadout;
+  readonly neutralBuild?: boolean;
+  readonly sharedCode?: string;
+  readonly technique?: TechniqueId;
   readonly equipment?: EquipmentSnapshot | undefined;
   readonly opponentEquipment?: PaddleKit;
   readonly courtFamily?: string;
   readonly arenaIntensity?: number;
+  /** Unranked boss rehearsals retain the encounter's opening ball tuning. */
+  readonly practiceBallRank?: number;
   readonly fixedBuild?: boolean;
   readonly options?: MatchOptions | undefined;
   readonly seed?: string;
@@ -265,7 +280,10 @@ export interface MatchRules {
 
 /** What a finished match reports back. Pure data - no engine references. */
 export interface MatchResult {
-  readonly specializationsUsed?: readonly number[];
+  readonly technique?: TechniqueId;
+  readonly sharedCode?: string;
+  readonly fieldWidth?: number;
+  readonly specializationsUsed?: readonly number[] | undefined;
   readonly equipment?: EquipmentSnapshot | undefined;
   readonly material?: MaterialStats | undefined;
   readonly waves?: number | undefined;

@@ -1,8 +1,10 @@
+import { updateBossRhythm } from './bossRhythm';
 import { updateArena } from './arena';
 import { updateAbilityFx } from './casts';
 import { FIELD_H } from './constants';
 import { driveAi } from './ai';
-import { advanceWave, celebrate, launchBall } from './match';
+import { techniqueOutcome } from './technique';
+import { advanceWave, celebrate, launchBall, scorePoint, endMatch } from './match';
 import { hsla } from './palette';
 import { movePaddle, stepBall } from './physics';
 import { playerPaddleSpeed, updateRuntime } from './talents';
@@ -176,6 +178,7 @@ export function step(world: World, dt: number): void {
     return;
   }
   updateArena(world, dt);
+  updateBossRhythm(world);
 
   switch (match.status) {
     case 'menu': {
@@ -203,7 +206,7 @@ export function step(world: World, dt: number): void {
       if (world.rules.versus) {
         bot.target = clamp(bot.target, bot.half, FIELD_H - bot.half);
         movePaddle(bot, dt, playerPaddleSpeed(world));
-      } else {
+      } else if (!world.rules.technique || world.rules.ranked) {
         bot.target = lerp(bot.target, FIELD_H / 2, Math.min(1, dt * 3));
         movePaddle(bot, dt, 600);
       }
@@ -220,9 +223,19 @@ export function step(world: World, dt: number): void {
       movePaddle(player, dt, playerPaddleSpeed(world));
       // Two players: the far paddle is a person too, at the same speed.
       if (world.rules.versus) movePaddle(bot, dt, playerPaddleSpeed(world));
-      else driveAi(world, bot, world.botBrain, dt);
+      else if (!world.rules.technique || world.rules.ranked)
+        driveAi(world, bot, world.botBrain, dt);
       stepBall(world, dt);
+      const target = techniqueOutcome(world);
+      if (target !== null) scorePoint(world, target ? 'you' : 'bot');
       advanceWave(world);
+      if (
+        world.rules.sharedCode &&
+        !world.rules.ranked &&
+        match.status === 'play' &&
+        match.hits >= 30
+      )
+        endMatch(world, true);
       // The point may have just ended the match; only a live one is taped.
       if (match.status === 'play') {
         world.replay.record(world);

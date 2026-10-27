@@ -48,6 +48,8 @@ if (!reportOnly) {
   // Check real boundaries, not only a smaller entry filename. Shared static
   // chunks count against startup even if the bundler gives them other names.
   const expected = [
+    'RoutesScreen',
+    'SharedChallengeScreen',
     'AccountScreen',
     'AchievementsScreen',
     'ChallengeScreen',

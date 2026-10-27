@@ -663,6 +663,19 @@ transitions run in both Full and Calm without changing API or progression rules.
 Selection highlights follow the selected tab in both LTR and RTL layouts.
 See the [Workshop report](../docs/validation/paddle-workshop-report.md).
 
+## Gameplay roadmap integration
+
+Gatekeeper, Architect and Duelist now use authored phase courts and bounded
+opponent guard/recovery cycles from shared rules. Deploy compatible client and
+server builds together. Gauntlet route previews resolve the same encounters and
+credit policy used by server validation. No new progression operation or database
+migration is required. Technique drills and shared-code targets are unranked;
+they are not queued for ranked rewards. Short-session cursors/counters are
+per-profile device data; each ordinary match uses the existing progression path.
+The client continues to completely ignore system/browser reduced-motion settings
+on web, desktop and mobile; guard timing is gameplay, independent of Full/Calm
+and shake controls. See the [roadmap review](../docs/balance-and-expansion-review.md).
+
 ## Extension points
 
 The shape was chosen with these in mind, and each is a feature rather than a

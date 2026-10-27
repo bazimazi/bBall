@@ -77,6 +77,10 @@ try {
   const noop = () => {};
   const props = {
     profile,
+    profileId: profile.id,
+    onTechnique: noop,
+    onRoutes: noop,
+    onShared: noop,
     account: accountStore.getSnapshot(),
     result: world.match.result,
     summary: null,
@@ -112,6 +116,8 @@ try {
     onStopPreview: noop
   };
   const cases = [
+    ['RoutesScreen', 'routes'],
+    ['SharedChallengeScreen', 'shared'],
     ['LootScreen', 'lab'],
     ['AccountScreen', 'account'],
     ['AchievementsScreen', 'achievements'],
@@ -184,7 +190,7 @@ try {
       const html = await render(createElement(MenuBoundary, { screen, onBack: noop }, component));
       localeWindow.document.body.innerHTML = html;
       const text = localeWindow.document.body.textContent.replace(
-        /bBall|English|Space|Enter|Escape|Tab|Ctrl|Alt|Shift|Command|Esc/g,
+        /BB1-|bBall|English|Space|Enter|Escape|Tab|Ctrl|Alt|Shift|Command|Esc/g,
         ''
       );
       assert.doesNotMatch(text, /[a-z]{2,}|\{\d+\}/i, `${name} has untranslated Persian content.`);

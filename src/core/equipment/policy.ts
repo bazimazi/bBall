@@ -82,6 +82,11 @@ export function withEquipmentRules(profile: PlayerProfile, rules: MatchRules): M
   return {
     ...rules,
     equipment,
-    opponentEquipment: equipment.version > 0 ? opponentKit(rules) : { ...NEUTRAL_KIT }
+    opponentEquipment:
+      !rules.ranked && rules.opponentEquipment
+        ? { ...rules.opponentEquipment }
+        : equipment.version > 0
+          ? opponentKit(rules)
+          : { ...NEUTRAL_KIT }
   };
 }

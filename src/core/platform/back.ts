@@ -64,6 +64,12 @@ function onPopState(): void {
   // it be re-armed here is what would trap the player in the page.
   if (leaving) return;
 
+  // Same-document account links also emit popstate before hashchange. They
+  // move forward into an incoming link; useAccountLink consumes/cleans it.
+  // Treating that event as Back would open the exit prompt or pop a menu.
+  // The existing guard remains behind the new entry for the next real Back.
+  if (/^#\/(?:verify-email|reset-password|oauth)\?/.test(window.location.hash)) return;
+
   // Re-arm before anything else. On Android this is what keeps
   // `WebView.canGoBack()` true, and so what stops the next press from
   // finishing the activity behind the game's back.

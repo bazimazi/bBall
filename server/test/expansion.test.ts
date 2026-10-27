@@ -358,7 +358,7 @@ it('opponent skills use their own timers and do not count as player casts', () =
 it('boss phase transitions change courts and preserve spent enemy cooldowns', () => {
   const w = world();
   const stage = stageById('w6-24')!;
-  startMatch(w, runRules({ ...createRun('boss', 0, 1, 'endless'), stage: 5 }));
+  startMatch(w, campaignRules(stage));
   const id = w.botTalents.slots[0]!.id;
   w.botTalents.slots[0]!.cooldown = 5;
   const old = w.arena.spec;
@@ -647,7 +647,7 @@ it('Master Daily uses the same temporary build and Practice isolates boss phases
   const drill = practiceRules('rookie', 'relaxed', { bossId: boss.spec.id, bossPhase: 2 });
   assert.equal(drill.ranked, false);
   assert.equal(drill.boss?.phases.length, 0);
-  assert.equal(drill.bot.id, phase.bot);
+  assert.equal(drill.bot.id, phase.bot ?? boss.spec.phases[0]!.bot ?? boss.bot); // Earlier brain upgrades carry into the final phase.
   assert.deepEqual(drill.modifiers.arena, phase.arena);
   assert.equal(drill.arenaIntensity, phase.intensity);
   assert.ok(drill.modifiers.serveSpeedScale < (boss.modifiers.serveSpeedScale ?? 1));

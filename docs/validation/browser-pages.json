@@ -1,0 +1,986 @@
+{
+  "checks": [
+    {
+      "configuration": "en-desktop",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "settings-and-persistence"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "profile-and-guest-account"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "achievements-and-customise"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "workshop-build-details-and-saved"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "talents-lab-and-research"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "workshop-starter-craft-and-equip"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "help-and-first-rally-lesson"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "journey-daily-and-archive"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "gauntlet-selectors"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "quick-practice-and-technique-selectors"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "challenge-and-tournament-pages"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "court-couch-presets"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "short-routes-and-shared-code-validation"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "demo-enter-and-exit-keeps-guest"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "settings-and-persistence"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "profile-and-guest-account"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "achievements-and-customise"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "workshop-build-details-and-saved"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "talents-lab-and-research"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "workshop-starter-craft-and-equip"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "help-and-first-rally-lesson"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "journey-daily-and-archive"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "gauntlet-selectors"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "quick-practice-and-technique-selectors"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "challenge-and-tournament-pages"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "court-couch-presets"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "short-routes-and-shared-code-validation"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "demo-enter-and-exit-keeps-guest"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "settings-and-persistence"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "profile-and-guest-account"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "achievements-and-customise"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "workshop-build-details-and-saved"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "talents-lab-and-research"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "workshop-starter-craft-and-equip"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "help-and-first-rally-lesson"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "journey-daily-and-archive"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "gauntlet-selectors"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "quick-practice-and-technique-selectors"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "challenge-and-tournament-pages"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "court-couch-presets"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "short-routes-and-shared-code-validation"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "demo-enter-and-exit-keeps-guest"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "settings-and-persistence"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "profile-and-guest-account"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "achievements-and-customise"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "workshop-build-details-and-saved"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "talents-lab-and-research"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "workshop-starter-craft-and-equip"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "help-and-first-rally-lesson"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "journey-daily-and-archive"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "gauntlet-selectors"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "quick-practice-and-technique-selectors"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "challenge-and-tournament-pages"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "court-couch-presets"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "short-routes-and-shared-code-validation"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "demo-enter-and-exit-keeps-guest"
+    }
+  ],
+  "pages": [
+    {
+      "configuration": "en-desktop",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "home"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "settings expanded"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "profile mastery"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "account register"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "account forgot"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "achievements"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "customise"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "workshop details"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "workshop return paths"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "workshop saved"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "talent saved builds"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "research detail"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "lab builds"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "lab trials"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "workshop crafted paddle"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "help"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "lesson"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Journey rules"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Journey rules"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "journey locked world"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "daily date picker"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "daily archive"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "gauntlet formats"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Court"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Opponent school"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Contract"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Series"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "quick setup"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "technique cards"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Boss drill"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Isolated phase"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "boss phase picker"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Trial group"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "challenge contracts"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "tournament selectors"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Court for Endless and Versus"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Endless format"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Versus series"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Versus rule"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Versus court"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "picker Versus rule"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "couch presets"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "short sessions"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "shared challenge"
+    },
+    {
+      "configuration": "en-desktop",
+      "name": "level 50 talents"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "home"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "settings expanded"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "profile mastery"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "account register"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "account forgot"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "achievements"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "customise"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "workshop details"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "workshop return paths"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "workshop saved"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "talent saved builds"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "research detail"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "lab builds"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "lab trials"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "workshop crafted paddle"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "help"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "lesson"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Journey rules"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Journey rules"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "journey locked world"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "daily date picker"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "daily archive"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "gauntlet formats"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Court"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Opponent school"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Contract"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Series"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "quick setup"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "technique cards"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Boss drill"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Isolated phase"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "boss phase picker"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Trial group"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "challenge contracts"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "tournament selectors"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Court for Endless and Versus"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Endless format"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Versus series"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Versus rule"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Versus court"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "picker Versus rule"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "couch presets"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "short sessions"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "shared challenge"
+    },
+    {
+      "configuration": "en-mobile",
+      "name": "level 50 talents"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "home"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "settings expanded"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "profile mastery"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "account register"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "account forgot"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "achievements"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "customise"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "workshop details"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "workshop return paths"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "workshop saved"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "talent saved builds"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "research detail"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "lab builds"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "lab trials"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "workshop crafted paddle"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "help"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "lesson"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Journey rules"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Journey rules"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "journey locked world"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "daily date picker"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "daily archive"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "gauntlet formats"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Court"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Opponent school"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Contract"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Series"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "quick setup"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "technique cards"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Boss drill"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Isolated phase"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "boss phase picker"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Trial group"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "challenge contracts"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "tournament selectors"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Court for Endless and Versus"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Endless format"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Versus series"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Versus rule"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Versus court"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "picker Versus rule"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "couch presets"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "short sessions"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "shared challenge"
+    },
+    {
+      "configuration": "fa-desktop",
+      "name": "level 50 talents"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "onboarding"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "home"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "settings expanded"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "profile mastery"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "account register"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "account forgot"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "achievements"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "customise"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "workshop details"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "workshop return paths"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "workshop saved"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "talent saved builds"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "research detail"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "lab builds"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "lab trials"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "workshop crafted paddle"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "help"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "lesson"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Journey rules"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Journey rules"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "journey locked world"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "daily date picker"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "daily archive"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "gauntlet formats"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Court"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Opponent school"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Contract"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Series"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "quick setup"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "technique cards"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Boss drill"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Isolated phase"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "boss phase picker"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Trial group"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "challenge contracts"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "tournament selectors"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Court for Endless and Versus"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Endless format"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Versus series"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Versus rule"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Versus court"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "picker Versus rule"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "couch presets"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "short sessions"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "shared challenge"
+    },
+    {
+      "configuration": "fa-mobile",
+      "name": "level 50 talents"
+    }
+  ],
+  "failures": [],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "requests": []
+}

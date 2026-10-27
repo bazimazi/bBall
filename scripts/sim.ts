@@ -1,3 +1,6 @@
+import { techniqueRules, TECHNIQUES } from '../src/core/modes/drills';
+import { sharedChallengeRules } from '../src/core/modes/sharedChallenge';
+import { AUTHORED_BOSSES } from '../src/core/modes/authoredBosses';
 import { mirroredCourt } from '../src/core/modes/couch';
 import { benchmarkBuild, benchmarkSkills } from './sim-builds';
 import { createRun } from '../src/core/run/run';
@@ -8,7 +11,7 @@ import { frontierStage, EXPANSION_WORLDS } from '../src/core/campaign/expansion'
  * against every Journey stage, boss, challenge, court and daily, and the
  * descriptive bot results come out the other end - win rate, rally length,
  * match length - along with anything that should never
- * happen: a ball gone NaN, a point that never ends, a closing replay that
+ * happen: a ball gone NaN, a ball trapped away from both paddles, a closing replay that
  * never hands over to the result.
  *
  *   npx tsx scripts/sim.ts [matches-per-case] [player-bot]
@@ -28,7 +31,10 @@ import {
   challengeRules,
   dailyRules,
   quickMatchRules,
-  endlessRules
+  endlessRules,
+  practiceRules,
+  tournamentRules,
+  versusRules
 } from '../src/core/modes/rules';
 import type { MatchRules } from '../src/core/modes/types';
 import { driveAi } from '../src/game/ai';
@@ -40,6 +46,7 @@ import { createBrain, createWorld, placePaddles } from '../src/game/world';
 import { simulationOptions, withSoakRandom } from './sim-options';
 import { seeded } from '../src/core/util/random';
 import { NEUTRAL_KIT } from '../src/core/equipment/types';
+import { createTournament } from '../src/core/tournament/bracket';
 import { kitName } from '../src/core/equipment/catalog';
 import { combatant } from '../src/game/combatant';
 import { resetRuntime } from '../src/game/talents';
@@ -58,6 +65,8 @@ interface Tally {
   points: number;
   longest: number;
   seconds: number;
+  /** Points lasting over 90 seconds while contacts continue: diagnostic, not a stall. */
+  longRallies: number;
   stalls: number;
   broken: number;
   /** Matches whose closing replay never reached the celebration. */
@@ -73,6 +82,7 @@ function play(name: string, rules: MatchRules): Tally {
     points: 0,
     longest: 0,
     seconds: 0,
+    longRallies: 0,
     stalls: 0,
     broken: 0,
     replays: 0,
@@ -96,13 +106,24 @@ function play(name: string, rules: MatchRules): Tally {
       }
       world.random = seeded('soak-combat', options.seed, name, m);
       let pointTime = 0;
+      let idleTime = 0;
+      let longRally = false;
       let lastPoints = 0;
+      let lastHits = 0;
+      let lastServes = world.match.serves;
       let failed = false;
       for (let i = 0; i < 120 * 60 * 20; i++) {
         if (world.match.status === 'play') {
           const y = world.player.y;
           driveAi(world, world.player, brain, FIXED_DT);
           world.player.y = y;
+          // In a couch probe both sides need input; the real Versus engine
+          // intentionally never drives the second paddle for a person.
+          if (rules.versus) {
+            const botY = world.bot.y;
+            driveAi(world, world.bot, world.botBrain, FIXED_DT);
+            world.bot.y = botY;
+          }
           if (options.build) {
             benchmarkSkills(world, options.policy ?? 'balanced');
             if (options.group === 'workshop')
@@ -122,16 +143,26 @@ function play(name: string, rules: MatchRules): Tally {
           match.maxLives > 0
             ? match.waveDepth + match.maxLives - match.lives
             : match.score.you + match.score.bot;
-        if (points !== lastPoints) {
-          lastPoints = points;
+        const newRally = points !== lastPoints || match.serves !== lastServes;
+        if (newRally) {
           pointTime = 0;
+          longRally = false;
         } else if (match.status === 'play') {
           pointTime += FIXED_DT;
-          if (pointTime > 90) {
-            tally.stalls++;
-            failed = true;
-            break;
+          if (pointTime > 90 && !longRally) {
+            tally.longRallies++;
+            longRally = true;
           }
+        }
+        if (newRally || match.hits !== lastHits) idleTime = 0;
+        else if (match.status === 'play') idleTime += FIXED_DT;
+        lastPoints = points;
+        lastHits = match.hits;
+        lastServes = match.serves;
+        if (idleTime > 90) {
+          tally.stalls++;
+          failed = true;
+          break;
         }
         if (match.status === 'over') {
           // Let the closing replay run, the way the engine would, and make
@@ -177,6 +208,7 @@ function report(name: string, rules: MatchRules): void {
     `returns/pt ${(t.rallies / Math.max(1, t.points)).toFixed(1).padStart(5)}`,
     `best ${String(t.longest).padStart(3)}`,
     `avg ${(t.seconds / n).toFixed(0).padStart(4)}s`,
+    t.longRallies ? `long rallies ${t.longRallies}` : '',
     t.stalls ? `STALLS ${t.stalls}` : '',
     t.broken ? `BROKEN ${t.broken}` : '',
     t.replays ? `REPLAY ${t.replays}` : '',
@@ -189,10 +221,61 @@ function report(name: string, rules: MatchRules): void {
 console.log(
   `player brain: ${playerBot}, ${matches} matches per case, width ${options.width}, seed ${options.seed}\n`
 );
-if (options.group === 'all' || options.group === 'quick') {
+if (options.group === 'all' || options.group === 'quick' || options.group === 'modes') {
   for (const bot of ['rookie', 'amateur', 'pro', 'elite', 'legend'] as const) {
     report(`quick vs ${bot}`, quickMatchRules(bot));
   }
+}
+if (options.group === 'modes') {
+  for (const drill of TECHNIQUES) report('technique ' + drill.id, techniqueRules(drill.id));
+  for (const boss of AUTHORED_BOSSES) {
+    const base = practiceRules(boss.bot, 'normal', { bossId: boss.spec.id });
+    report('authored boss ' + boss.spec.id, { ...base, boss: boss.spec });
+  }
+  for (const code of ['BB1-FRIENDS', 'BB1-ROADMAP'])
+    report('shared ' + code, sharedChallengeRules(code)!);
+  for (const id of ['w1-4', 'w1-6', 'w6-24', 'w30-24']) {
+    const stage = STAGES.find((entry) => entry.id === id)!;
+    report(`journey ${id}`, campaignRules(stage));
+  }
+  for (const format of ['sprint', 'expedition'] as const) {
+    const stages = format === 'sprint' ? [0, 2, 3, 5, 6, 8] : [0, 5, 6, 11, 35];
+    for (const stage of stages)
+      report(
+        `run ${format} ${stage + 1}`,
+        runRules({ ...createRun(options.seed, 0, 0, format), stage })
+      );
+  }
+  for (const id of [
+    'needle',
+    'long-rally',
+    'melting',
+    'comeback',
+    'flawless',
+    'blitz',
+    'c2-1',
+    'c2-106'
+  ])
+    report(`challenge ${id}`, challengeRules(CHALLENGES.find((entry) => entry.id === id)!));
+  for (const round of [0, 2, 4, 6])
+    report(
+      `marathon bronze ${round + 1}`,
+      tournamentRules({ ...createTournament(0, 0, 'marathon'), round })
+    );
+  for (const key of ['2026-10-13', 'm2-2026-10-13']) report(`daily ${key}`, dailyRules(key));
+  report('endless open', endlessRules());
+  report('endless waves', endlessRules({ waves: true }));
+  report('practice relaxed elite', practiceRules('elite', 'relaxed'));
+  report(
+    'practice boss phase',
+    practiceRules('amateur', 'normal', { bossId: 'colossus', bossPhase: 1 })
+  );
+  report('versus open', versusRules());
+  report(
+    'versus precision',
+    versusRules(5, { duel: 'precision', arenaId: 'switchyard-1', mirror: true })
+  );
+  report('versus speed', versusRules(5, { duel: 'speed' }));
 }
 console.log('');
 if (options.group === 'all' || options.group === 'journey') {

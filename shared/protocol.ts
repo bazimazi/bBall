@@ -347,7 +347,7 @@ export interface UpdateProfileRequest {
  * evidence, and implausible evidence is rejected outright.
  */
 export interface MatchSubmissionDto {
-  readonly specializationsUsed?: readonly number[];
+  readonly specializationsUsed?: readonly number[] | undefined;
   readonly equipment?: EquipmentSnapshot | undefined;
   readonly material?: MaterialStats | undefined;
   waves?: number | undefined;

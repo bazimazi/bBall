@@ -47,7 +47,14 @@
     "check:experience": "node scripts/check-experience.mjs",
     "check:performance": "node scripts/check-performance.mjs",
     "soak": "node --import tsx scripts/sim.ts",
-    "summarize:experience": "node --import tsx scripts/summarize-experience.ts"
+    "summarize:experience": "node --import tsx scripts/summarize-experience.ts",
+    "check:roadmap": "node scripts/check-roadmap.mjs",
+    "check:browser:pages": "node scripts/check-browser-pages.mjs",
+    "check:browser:gameplay": "node scripts/check-browser-gameplay.mjs",
+    "check:browser:drills": "node scripts/check-drill-gameplay.mjs",
+    "check:browser:bosses": "node scripts/check-boss-gameplay.mjs",
+    "check:browser:progression": "node scripts/check-browser-progression.mjs",
+    "check:browser:account": "node --import tsx scripts/check-browser-account.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

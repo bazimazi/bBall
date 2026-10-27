@@ -23,6 +23,7 @@ interface PausePanelProps {
   onQuit: () => void;
   quitLabel?: string;
   versus?: boolean;
+  technique?: boolean;
   objective?: string | null;
   goals?: readonly GoalView[];
   enemyAbilities?: readonly AbilityView[] | undefined;
@@ -45,6 +46,7 @@ export function PausePanel({
   onQuit,
   quitLabel = 'Quit to menu',
   versus = false,
+  technique = false,
   objective,
   goals = [],
   enemyAbilities = [],
@@ -67,9 +69,9 @@ export function PausePanel({
           className={styles.score}
           aria-label={t(
             msg('{0} {1}, {2} {3}', [
-              t(versus ? 'Player 1' : 'You'),
+              t(technique ? 'Targets' : versus ? 'Player 1' : 'You'),
               t(score.you),
-              t(versus ? 'Player 2' : 'opponent'),
+              t(technique ? 'Misses' : versus ? 'Player 2' : 'opponent'),
               t(score.bot)
             ])
           )}
@@ -79,6 +81,7 @@ export function PausePanel({
           <span className={styles.scoreBot}>{t(score.bot)}</span>
         </p>
       )}
+      {technique && <p className={styles.tagline}>{t('Targets : Misses')}</p>}
       {lives && (
         <p
           className={styles.score}
@@ -117,7 +120,7 @@ export function PausePanel({
         </div>
       )}
       {goals.length === 0 && objective && <p className={styles.tagline}>{t(objective)}</p>}
-      {enemyAbilities.length > 0 && (
+      {!technique && enemyAbilities.length > 0 && (
         <details className={styles.controls}>
           <summary>
             {t('Opponent skills · ')}

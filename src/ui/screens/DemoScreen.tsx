@@ -44,12 +44,12 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
 
   // The field may be mid-edit (empty, or a number that is not a level yet);
   // the preview keeps showing the last level that was, so it never flickers.
-  const typed = Number.parseInt(text, 10);
+  const typed = text.trim() === '' ? NaN : Number(text);
   const valid = Number.isInteger(typed) && typed >= 1 && typed <= DEMO_LEVEL_MAX;
 
   const edit = (next: string) => {
     setText(next);
-    const value = Number.parseInt(next, 10);
+    const value = Number(next);
     if (Number.isInteger(value) && value >= 1 && value <= DEMO_LEVEL_MAX) setLevel(value);
   };
 

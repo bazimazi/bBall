@@ -7,7 +7,8 @@ export interface SimulationOptions {
   playerBot: BotLevelId;
   width: number;
   seed: string;
-  group: 'all' | 'journey' | 'quick' | 'courts' | 'expansion' | 'waves' | 'couch' | 'workshop';
+  group:
+    'all' | 'journey' | 'quick' | 'courts' | 'expansion' | 'waves' | 'couch' | 'workshop' | 'modes';
   build?: 'power' | 'control' | 'defense' | 'momentum' | 'utility';
   policy?: 'balanced' | 'rush' | 'edge' | 'late';
   level?: number;
@@ -47,12 +48,20 @@ export function simulationOptions(args: readonly string[]): SimulationOptions {
     throw new Error('Field width must be from 750 to 1290.');
   if (!seed.trim() || seed.length > 100) throw new Error('Seed must contain 1–100 characters.');
   if (
-    !['all', 'journey', 'quick', 'courts', 'expansion', 'waves', 'couch', 'workshop'].includes(
-      group
-    )
+    ![
+      'all',
+      'journey',
+      'quick',
+      'courts',
+      'expansion',
+      'waves',
+      'couch',
+      'workshop',
+      'modes'
+    ].includes(group)
   )
     throw new Error(
-      'Group must be all, journey, quick, courts, expansion, waves, couch or workshop.'
+      'Group must be all, journey, quick, courts, expansion, waves, couch, workshop or modes.'
     );
   const build = flags.get('build'),
     policy = flags.get('policy'),

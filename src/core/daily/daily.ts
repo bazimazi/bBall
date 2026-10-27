@@ -98,15 +98,15 @@ export function dailySpec(key: string): DailySpec {
   const twist = pickOne(random, TWISTS);
   const bot = pickOne(random, BOTS);
   const first = pickOne(random, GOALS);
-  // A comeback twist cannot also ask for a clean sheet.
-  const rest = GOALS.filter(
-    (goal) => goal.id !== first.id && !(goal.id === 'shutout' && twist.modifiers.startScore)
-  );
-  const second = pickOne(random, rest);
   const firstGoal =
     first.id === 'shutout' && twist.modifiers.startScore
       ? { id: 'margin' as const, value: 2 }
       : first;
+  // A comeback twist cannot also ask for a clean sheet.
+  const rest = GOALS.filter(
+    (goal) => goal.id !== firstGoal.id && !(goal.id === 'shutout' && twist.modifiers.startScore)
+  );
+  const second = pickOne(random, rest);
 
   return {
     key,
