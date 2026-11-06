@@ -51,7 +51,30 @@ function label(ability: AbilityView): string {
   parts.push(
     ability.ready ? t('Ready') : msg('recharging, {0} seconds', [t(ability.cooldownLeft)])
   );
+  if (!ability.ready && ability.rate > 1)
+    parts.push(msg('recovering {0}x faster', [t(ability.rate)]));
   return parts.join(t(', '));
+}
+
+/**
+ * A passive winding this cooldown back - Tempo on a return, Chain Casting on
+ * another cast, Time Slip on a Blink Strike: the seconds it gave, rising off
+ * the button in that talent's colour. Derived during render like the bursts,
+ * so mounting again after a pause never replays one.
+ */
+function useRewind(rewindId: number): number | null {
+  const [seen, setSeen] = useState(rewindId);
+  const [shown, setShown] = useState<number | null>(null);
+  if (seen !== rewindId) {
+    setSeen(rewindId);
+    setShown(rewindId > seen ? rewindId : null);
+  }
+  useEffect(() => {
+    if (shown === null) return;
+    const handle = window.setTimeout(() => setShown(null), 800);
+    return () => window.clearTimeout(handle);
+  }, [shown]);
+  return shown;
 }
 
 /** A one-shot ring on the button, and what it is saying. */
@@ -96,6 +119,7 @@ interface AbilityButtonProps {
 function AbilityButton({ ability, onUse }: AbilityButtonProps) {
   const index = ability.slot;
   const burst = useBurst(ability.castId, ability.refreshId);
+  const rewound = useRewind(ability.rewindId);
   const { keyBindings, graphicsIntensity } = useSettings();
   // A slot past the bindable range simply has no shortcut to show.
   const keys = keyBindings[skillAction(index)] ?? [];
@@ -206,6 +230,29 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
       {keys[0] && (
         <span className={styles.key} aria-hidden="true">
           {t(keyName(keys[0]))}
+        </span>
+      )}
+
+      {/* Recovering faster than the clock - Flow State, Zenith, Echo,
+          Versatility's overflow - and by how much. */}
+      {!ability.ready && ability.rate > 1 && (
+        <span className={styles.rate} aria-hidden="true">
+          {t('×')}
+          {t(ability.rate)}
+        </span>
+      )}
+
+      {/* Keyed on the refund, so two in a row each rise on their own. */}
+      {rewound !== null && ability.rewound > 0 && (
+        <span
+          key={rewound}
+          className={styles.rewind}
+          style={{ '--rewind-hue': String(ability.rewindHue) } as CSSProperties}
+          aria-hidden="true"
+        >
+          {t('−')}
+          {t(ability.rewound)}
+          {secondsUnit()}
         </span>
       )}
 

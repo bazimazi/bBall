@@ -40,7 +40,17 @@ it('pause freezes the entire court, effects and skill timers', () => {
   world.fx.flash = 0.4;
   world.player.target = 100;
   world.talents.slots = [
-    { id: 'power-strike', cooldown: 8, span: 8, lockout: 0.2, castId: 0, refreshId: 0 }
+    {
+      id: 'power-strike',
+      cooldown: 8,
+      span: 8,
+      lockout: 0.2,
+      castId: 0,
+      refreshId: 0,
+      rewindId: 0,
+      rewound: 0,
+      rewoundBy: null
+    }
   ];
   assert.ok(pauseMatch(world));
   const before = frozenState(world);
@@ -80,7 +90,17 @@ it('instant resume is available and manual serving waits for a deliberate reques
   const courtTime = world.arena.time;
   world.player.target = 100;
   world.talents.slots = [
-    { id: 'power-strike', cooldown: 8, span: 8, lockout: 0.2, castId: 0, refreshId: 0 }
+    {
+      id: 'power-strike',
+      cooldown: 8,
+      span: 8,
+      lockout: 0.2,
+      castId: 0,
+      refreshId: 0,
+      rewindId: 0,
+      rewound: 0,
+      rewoundBy: null
+    }
   ];
   for (let i = 0; i < 1200; i++) step(world, FIXED_DT);
   assert.equal(world.player.y, 100, 'the player can aim while waiting');

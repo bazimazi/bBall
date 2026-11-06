@@ -23,6 +23,7 @@ import { drawArena } from './arenaFx';
 import { AmbientLayer } from './ambient';
 import { GlowCache } from './glow';
 import { roundRect } from './shapes';
+import { drawCourtMarks, drawHeft, drawPaddleMarks } from './passiveMarks';
 import { drawOrbs, drawReplayFrame, drawServeAim, drawVersusCard } from './stage';
 import { drawBallStyled, drawPaddleBody, drawTrailStyled } from './styles';
 import { UltimateLayer } from './ultimateFx';
@@ -236,6 +237,7 @@ export class Renderer {
 
     this.drawShieldWall(world);
     this.drawBastion(world);
+    drawCourtMarks(ctx, world);
     this.drawForesight(world);
     if (soloDrill && world.rules.technique) {
       const attempt = Math.max(0, world.match.points - Number(world.match.status === 'over'));
@@ -268,11 +270,13 @@ export class Renderer {
     if (!soloDrill) this.drawPaddle(world, world.bot, -1);
     this.drawLessonTarget(world);
     if (!replaying) {
+      drawPaddleMarks(ctx, world);
       drawPlayerAura(ctx, world);
       drawCasts(ctx, world);
     }
     this.drawParticles(world);
     drawOrbs(ctx, world, this.glow);
+    if (!replaying) drawHeft(ctx, world);
     this.drawBall(world);
 
     ctx.restore();

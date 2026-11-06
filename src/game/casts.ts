@@ -31,7 +31,26 @@ export type CastKind =
   /** One beat of Echo's rhythm, while its window runs. */
   | 'echo-pulse'
   /** The court-wide ring every capstone opens with. */
-  | 'shockwave';
+  | 'shockwave'
+  // ---------------------------------------------------- passives paying out
+  /** A critical return: a starburst at the contact. */
+  | 'crit'
+  /** Bank Shot steepening a return off the wall: a spark and the new line. */
+  | 'bank'
+  /** Swerve's late break: a hook bent the way the ball just broke. */
+  | 'swerve'
+  /** A return wider than a plain paddle allows: the extra wedge Precision or Flow opened. */
+  | 'fan'
+  /** Bastion turning a corner ball back: that corner's wall flares. */
+  | 'corner'
+  /** A Shield charge or Adrenaline's banked save catching a ball at the line. */
+  | 'save'
+  /** A Shield charge coming back: it settles onto the line. */
+  | 'recharge'
+  /** Second Chance handing a point back. */
+  | 'refund'
+  /** Combo Drive's paddle growing a step, or Clutch's last stand: the ends flare. */
+  | 'grow';
 
 export interface Cast {
   kind: CastKind;
@@ -59,7 +78,7 @@ export interface CastOptions {
   dir?: number;
 }
 
-const CAST_MAX = 28;
+const CAST_MAX = 32;
 const GHOST_MAX = 10;
 /** Seconds an afterimage survives, and how often one is taken. */
 const GHOST_LIFE = 0.3;

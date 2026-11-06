@@ -14,7 +14,13 @@ import {
   type KeyBindings
 } from '../core/settings/controls';
 import { withBoons, type ResolvedLoadout } from '../core/talents/effects';
-import { abilityCooldown, abilityViews, activeUltimate, fireAbility } from './abilities';
+import {
+  abilityCooldown,
+  abilityRate,
+  abilityViews,
+  activeUltimate,
+  fireAbility
+} from './abilities';
 import { GameAudio } from './audio';
 import {
   BALL_R,
@@ -49,7 +55,8 @@ import { wobble } from './effects';
 import { step } from './simulation';
 import { playerKeySpeed, resetRuntime, rallyPressure, switchRuntime } from './talents';
 import { advanceTutorial, startTutorial } from './tutorial';
-import type { AbilityView, GameSnapshot, GoalView, Paddle, Side } from './types';
+import { passiveKey, passiveViews } from './passives';
+import type { AbilityView, GameSnapshot, GoalView, Paddle, PassiveView, Side } from './types';
 import { clamp } from './utils/math';
 import { readStored } from './utils/storage';
 import { layoutView, screenToFieldX, screenToFieldY, sizeCanvas } from './view';
@@ -85,6 +92,7 @@ const LANE_PROPERTIES = [
 
 /** Shared so an ability-free snapshot never allocates a fresh array. */
 const NO_ABILITIES: readonly AbilityView[] = [];
+const NO_PASSIVES: readonly PassiveView[] = [];
 
 /** A series identity: the same contract replayed is the next game of it. */
 function seriesKey(rules: MatchRules | null): string | null {
@@ -157,6 +165,7 @@ export function idleSnapshot(): GameSnapshot {
     tutorialCleared: false,
     tutorialFeedback: null,
     abilities: NO_ABILITIES,
+    passives: NO_PASSIVES,
     ultimateCastId: 0,
     ultimateHue: 0,
     ultimateActive: false,
@@ -190,6 +199,9 @@ export class GameEngine {
   private enemyAbilities: readonly AbilityView[] = NO_ABILITIES;
   private enemyAbilityKey = '';
   private abilityKey = '';
+  /** Cached passive chips, rebuilt only when what they show changes. */
+  private passives: readonly PassiveView[] = NO_PASSIVES;
+  private passiveKey = '';
   private goals: readonly GoalView[] = NO_GOALS;
   private goalKey = '';
   /** Cached so the snapshot only changes when the shown second or score does. */
@@ -657,7 +669,7 @@ export class GameEngine {
       const { ready, progress, cooldownLeft } = abilityCooldown(slot);
       // The whole second is in the key too: the HUD prints it, so a ring that
       // has not moved a step is still a re-render when the digit changes.
-      key += `${index}:${slot.id}:${progress}:${cooldownLeft}:${ready}:${slot.castId}:${slot.refreshId};`;
+      key += `${index}:${slot.id}:${progress}:${cooldownLeft}:${ready}:${slot.castId}:${slot.refreshId}:${slot.rewindId}:${abilityRate(actor, slot)};`;
     }
     // Every live effect, at a tenth of a second - the resolution the HUD's
     // own countdowns are shown at, and no finer.
@@ -682,6 +694,17 @@ export class GameEngine {
       this.abilities = views.length > 0 ? views : NO_ABILITIES;
     }
     return this.abilities;
+  }
+
+  /** The player's passive chips, as the HUD sees them - cached like the abilities. */
+  private passiveView(): readonly PassiveView[] {
+    const views = passiveViews(this.world);
+    const key = passiveKey(views);
+    if (key !== this.passiveKey) {
+      this.passiveKey = key;
+      this.passives = views.length > 0 ? views : NO_PASSIVES;
+    }
+    return this.passives;
   }
 
   /** Elapsed against a timed objective's limit, rounded as the result rounds it. */
@@ -771,6 +794,7 @@ export class GameEngine {
       tutorialCleared: this.world.tutorial?.cleared ?? false,
       tutorialFeedback: this.world.tutorial?.feedback ?? null,
       abilities: this.abilityView(),
+      passives: this.passiveView(),
       enemyAbilities: rules.versus || status === 'menu' ? NO_ABILITIES : this.abilityView(true),
       paddleKit: kitName(this.world.player.equipment),
       opponentKit: kitName(this.world.bot.equipment),

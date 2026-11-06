@@ -436,13 +436,43 @@ it('custom keys steer each versus paddle independently and skill views retain em
   assert.ok(world.player.target < 300);
   assert.ok(world.bot.target > 300);
   world.talents.slots = [
-    { id: 'power-strike', cooldown: 0, span: 0, lockout: 0, castId: 0, refreshId: 0 }
+    {
+      id: 'power-strike',
+      cooldown: 0,
+      span: 0,
+      lockout: 0,
+      castId: 0,
+      refreshId: 0,
+      rewindId: 0,
+      rewound: 0,
+      rewoundBy: null
+    }
   ];
   advance(16);
   assert.equal(engine.getSnapshot().abilities[0]!.slot, 0);
   world.talents.slots = [
-    { id: null, cooldown: 0, span: 0, lockout: 0, castId: 0, refreshId: 0 },
-    { id: 'power-strike', cooldown: 0, span: 0, lockout: 0, castId: 0, refreshId: 0 }
+    {
+      id: null,
+      cooldown: 0,
+      span: 0,
+      lockout: 0,
+      castId: 0,
+      refreshId: 0,
+      rewindId: 0,
+      rewound: 0,
+      rewoundBy: null
+    },
+    {
+      id: 'power-strike',
+      cooldown: 0,
+      span: 0,
+      lockout: 0,
+      castId: 0,
+      refreshId: 0,
+      rewindId: 0,
+      rewound: 0,
+      rewoundBy: null
+    }
   ];
   assert.equal(abilityViews(world)[0]!.slot, 1);
   advance(16);
@@ -629,7 +659,17 @@ for (const phase of ['serve', 'play', 'resuming'] as const) {
     pointer('pointerdown', 1, 100, 100);
     world.match.score.you = 2;
     world.talents.slots = [
-      { id: 'power-strike', cooldown: 3, span: 5, lockout: 0, castId: 0, refreshId: 0 }
+      {
+        id: 'power-strike',
+        cooldown: 3,
+        span: 5,
+        lockout: 0,
+        castId: 0,
+        refreshId: 0,
+        rewindId: 0,
+        rewound: 0,
+        rewoundBy: null
+      }
     ];
     const elapsed = world.match.elapsed;
     const requested = world.match.serveRequested;
@@ -1063,7 +1103,17 @@ for (const phase of ['serve', 'play'] as const) {
     assert.equal(world.match.status, phase);
     world.match.score.you = 2;
     world.talents.slots = [
-      { id: 'power-strike', cooldown: 3, span: 5, lockout: 0, castId: 0, refreshId: 0 }
+      {
+        id: 'power-strike',
+        cooldown: 3,
+        span: 5,
+        lockout: 0,
+        castId: 0,
+        refreshId: 0,
+        rewindId: 0,
+        rewound: 0,
+        rewoundBy: null
+      }
     ];
     engine.pause();
     const state = () =>

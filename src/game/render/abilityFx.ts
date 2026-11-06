@@ -2,7 +2,7 @@ import { t as translateText } from '../../core/i18n';
 import { abilityById } from '../../core/talents/abilities';
 import { liveEffect } from '../abilities';
 import { GhostTrail, ULTIMATE_BANNER, type Cast } from '../casts';
-import { FIELD_H, PADDLE_W } from '../constants';
+import { BALL_R, FIELD_H, MAX_BOUNCE_ANGLE, PADDLE_W } from '../constants';
 import { hsla } from '../palette';
 import { paddleBuffed } from '../talents';
 import { clamp } from '../utils/math';
@@ -653,13 +653,40 @@ export function drawCasts(ctx: CanvasRenderingContext2D, world: World): void {
       if (cast.kind === 'echo-pulse') continue;
       ring(ctx, cast.x, cast.y, 10 + t * 28, 2, cast.hue, (1 - t) * cast.strength);
     } else {
-      drawCast(ctx, cast, t);
+      drawCast(ctx, world, cast, t);
     }
   }
   ctx.restore();
 }
 
-function drawCast(ctx: CanvasRenderingContext2D, cast: Cast, t: number): void {
+/** A filled star of `points` points, centred on the origin. */
+function star(ctx: CanvasRenderingContext2D, outer: number, inner: number, points: number): void {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outer : inner;
+    const a = (i * Math.PI) / points;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+}
+
+/** An open arrowhead at (x, y) pointing along `angle`. */
+function arrowhead(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  size: number
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + Math.cos(angle + 2.5) * size, y + Math.sin(angle + 2.5) * size);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + Math.cos(angle - 2.5) * size, y + Math.sin(angle - 2.5) * size);
+  ctx.stroke();
+}
+
+function drawCast(ctx: CanvasRenderingContext2D, world: World, cast: Cast, t: number): void {
   const { hue, x, y, size, strength } = cast;
   const fade = 1 - t;
 
@@ -865,12 +892,214 @@ function drawCast(ctx: CanvasRenderingContext2D, cast: Cast, t: number): void {
       break;
     }
 
-    // A point handed back. The ring closes *inwards*, which is the only
-    // motion in the game that runs that way - time being taken back.
-    case 'zenith-refund': {
+    // A point handed back - by Zenith, or by Second Chance in its own colour.
+    // The ring closes *inwards*, which is the only motion in the game that
+    // runs that way - time being taken back.
+    case 'zenith-refund':
+    case 'refund': {
       const r = (1 - easeOut(t)) * size + 8;
       ring(ctx, x, y, r, 5, hue, (0.3 + fade * 0.7) * strength, 82);
       ring(ctx, x, y, r * 1.5, 2.5, hue, fade * 0.5 * strength, 78);
+      break;
+    }
+
+    // ------------------------------------------------- passives paying out
+
+    // A critical return: a four-point star snapping open along the line the
+    // ball left on - sharper than a charge's chevrons, and never white like a
+    // parry's rays.
+    case 'crit': {
+      const r = 10 + easeOut(t) * size * 0.62;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(cast.dir + t * 0.7);
+      ctx.globalAlpha = fade * fade * 0.95 * strength;
+      ctx.fillStyle = hsla(hue, 100, 76, 1);
+      star(ctx, r, r * 0.2, 4);
+      ctx.fill();
+      ctx.restore();
+      ring(ctx, x, y, 8 + easeOut(t) * size, 3 * fade, hue, fade * 0.7 * strength, 72);
+      break;
+    }
+
+    // Bank Shot: the wall lit where it was struck, and the steeper line the
+    // ball left it on, drawn out ahead of it.
+    case 'bank': {
+      const ux = Math.cos(cast.dir);
+      const uy = Math.sin(cast.dir);
+      const wall = y - Math.sign(uy || 1) * BALL_R;
+      const len = 20 + easeOut(t) * size;
+      const spark = 18 + t * 22;
+      ctx.save();
+      ctx.globalAlpha = fade * strength;
+      ctx.strokeStyle = hsla(hue, 100, 78, 1);
+      ctx.lineWidth = 3.5 * fade + 0.8;
+      ctx.beginPath();
+      ctx.moveTo(x - spark, wall);
+      ctx.lineTo(x + spark, wall);
+      ctx.stroke();
+      ctx.lineWidth = 2.4 * fade + 0.6;
+      ctx.setLineDash([7, 6]);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + ux * len, y + uy * len);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      arrowhead(ctx, x + ux * len, y + uy * len, cast.dir, 10);
+      ctx.restore();
+      break;
+    }
+
+    // Swerve: a hook from the straight line the ball was on into the one it
+    // broke onto - the break, drawn the instant it happens and not a moment
+    // before.
+    case 'swerve': {
+      const side = size < 0 ? -1 : 1;
+      const ux = Math.cos(cast.dir);
+      const uy = Math.sin(cast.dir);
+      // The normal on the side it broke towards; field y grows downwards.
+      let nx = -uy;
+      let ny = ux;
+      if (ny * side < 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      const grow = easeOut(Math.min(1, t * 1.8));
+      const bend = Math.abs(size) * 0.55 * grow;
+      const back = 52;
+      const ahead = 14 + 30 * grow;
+      const ex = x + ux * ahead + nx * bend;
+      const ey = y + uy * ahead + ny * bend;
+      ctx.save();
+      ctx.globalAlpha = fade * 0.95 * strength;
+      ctx.strokeStyle = hsla(hue, 100, 78, 1);
+      ctx.lineWidth = 3 * fade + 0.8;
+      ctx.beginPath();
+      ctx.moveTo(x - ux * back, y - uy * back);
+      ctx.quadraticCurveTo(x + ux * 8, y + uy * 8, ex, ey);
+      ctx.stroke();
+      arrowhead(ctx, ex, ey, Math.atan2(ey - y, ex - x), 9);
+      ctx.restore();
+      ring(ctx, x, y, 6 + grow * 16, 2 * fade, hue, fade * 0.6 * strength, 82);
+      break;
+    }
+
+    // Precision (or Flow State) opening an angle a plain paddle never could:
+    // the plain range ghosted in, the extra wedge lit, and the line the ball
+    // actually took drawn through it.
+    case 'fan': {
+      const r = 26 + easeOut(t) * size;
+      const edge = Math.sign(cast.dir) * MAX_BOUNCE_ANGLE;
+      ctx.save();
+      ctx.globalAlpha = fade * 0.4 * strength;
+      ctx.strokeStyle = hsla(hue, 70, 82, 1);
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 5]);
+      ctx.beginPath();
+      for (const a of [-MAX_BOUNCE_ANGLE, MAX_BOUNCE_ANGLE]) {
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = fade * 0.55 * strength;
+      ctx.fillStyle = hsla(hue, 100, 68, 1);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, r, Math.min(edge, cast.dir), Math.max(edge, cast.dir));
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = fade * 0.95 * strength;
+      ctx.strokeStyle = hsla(hue, 100, 84, 1);
+      ctx.lineWidth = 2.4 * fade + 0.6;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(cast.dir) * r * 1.08, y + Math.sin(cast.dir) * r * 1.08);
+      ctx.stroke();
+      ctx.restore();
+      break;
+    }
+
+    // Bastion: the walled corner that just turned the ball, flaring along
+    // its whole stretch of the line.
+    case 'corner': {
+      const top = cast.dir > 0;
+      const y0 = top ? 0 : FIELD_H - size;
+      const depth = 30 + easeOut(t) * 40;
+      ctx.save();
+      ctx.globalAlpha = fade * strength;
+      const wash = ctx.createLinearGradient(0, 0, depth, 0);
+      wash.addColorStop(0, hsla(hue, 100, 72, 0.85));
+      wash.addColorStop(1, hsla(hue, 100, 72, 0));
+      ctx.fillStyle = wash;
+      ctx.fillRect(0, y0, depth, size);
+      ctx.fillStyle = hsla(hue, 100, 88, 1);
+      ctx.fillRect(0, y0, 5, size);
+      ctx.restore();
+      ring(
+        ctx,
+        0,
+        top ? size * 0.5 : FIELD_H - size * 0.5,
+        10 + easeOut(t) * size,
+        4 * fade,
+        hue,
+        fade * 0.8 * strength,
+        80
+      );
+      break;
+    }
+
+    // A Shield charge or a banked save catching the ball: a bar of light
+    // along the line where it was caught, and a ring off it.
+    case 'save': {
+      const half = 24 + easeOut(t) * size;
+      ctx.save();
+      ctx.globalAlpha = fade * strength;
+      const bar = ctx.createLinearGradient(0, y - half, 0, y + half);
+      bar.addColorStop(0, hsla(hue, 100, 84, 0));
+      bar.addColorStop(0.5, hsla(hue, 100, 86, 1));
+      bar.addColorStop(1, hsla(hue, 100, 84, 0));
+      ctx.fillStyle = bar;
+      ctx.fillRect(0, y - half, 6, half * 2);
+      ctx.restore();
+      ring(ctx, 2, y, 8 + easeOut(t) * size * 0.8, 4 * fade, hue, fade * 0.9 * strength, 80);
+      break;
+    }
+
+    // A save coming back: two heads of light running out along the line from
+    // its middle, leaving the wall lit behind them.
+    case 'recharge': {
+      const reach = (easeOut(Math.min(1, t * 1.7)) * size) / 2;
+      const alpha = (t < 0.6 ? 1 : fade / 0.4) * strength;
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.fillStyle = hsla(hue, 100, 80, 1);
+      ctx.fillRect(0, y - reach, 4, reach * 2);
+      ctx.restore();
+      ring(ctx, 2, y - reach, 7, 2.5, hue, alpha * 0.9, 86);
+      ring(ctx, 2, y + reach, 7, 2.5, hue, alpha * 0.9, 86);
+      break;
+    }
+
+    // The paddle growing - a Combo Drive step, Clutch's last stand,
+    // Afterglow: a chevron off each end, pointing the way it grew. It follows
+    // the paddle, because the paddle is what changed.
+    case 'grow': {
+      const { player } = world;
+      const push = easeOut(t) * 22;
+      ctx.save();
+      ctx.globalAlpha = fade * 0.95 * strength;
+      ctx.strokeStyle = hsla(hue, 100, 78, 1);
+      ctx.lineWidth = 3 * fade + 0.6;
+      for (const s of [-1, 1]) {
+        const ey = player.y + s * (player.half + 6 + push);
+        ctx.beginPath();
+        ctx.moveTo(player.x - 12, ey - s * 8);
+        ctx.lineTo(player.x, ey);
+        ctx.lineTo(player.x + 12, ey - s * 8);
+        ctx.stroke();
+      }
+      ctx.restore();
       break;
     }
   }

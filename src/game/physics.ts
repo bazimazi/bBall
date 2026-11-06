@@ -3,16 +3,18 @@ import { contactAngle } from '../core/equipment/catalog';
 import { returnPace, FLICK_EDGE, FLICK_SPEED } from './returnPace';
 import { applyArenaForces, bossReturned, collideArena, playerReturned } from './arena';
 import { abilityById } from '../core/talents/abilities';
-import { BALL_R, COMBO_STEPS, FIELD_H, PADDLE_W } from './constants';
+import { BALL_R, COMBO_STEPS, FIELD_H, MAX_BOUNCE_ANGLE, PADDLE_W } from './constants';
 import { scorePoint } from './match';
 import { techniqueGoalX } from './technique';
 import { hsla } from './palette';
+import { bankFx, returnFx, wideFx } from './passiveFx';
 import {
   bankBall,
   ballTimeScale,
   slowCrossing,
   plainReturn,
   playerReturn,
+  proc,
   swerveBall,
   tryBastion,
   tryShield,
@@ -168,13 +170,26 @@ function onPaddleHit(
   );
   world.grid.impulse(paddle.x, contactY, 140 + p * 260, 120 + p * 60);
 
+  // A passive that charged or crit this return names itself at the contact.
+  // It takes the place of the plain EDGE word, and a FLICK steps aside for it.
+  const named =
+    paddle.side === 'you' && talented
+      ? returnFx(world, mods, ball.x + dir * BALL_R, contactY, angle)
+      : false;
+  if (talented && paddle.side === 'you' && Math.abs(angle) > MAX_BOUNCE_ANGLE + 0.01) {
+    // Only Precision and Flow State open angles past a plain paddle's.
+    const by = actor.loadout.effects.angleMul > 1 ? 'precision' : 'flow-state';
+    proc(actor, by);
+    wideFx(world, ball.x + dir * BALL_R, contactY, angle, by);
+  }
+
   if (human && match.status !== 'menu') {
     if (flick) {
       if (paddle.side === 'you') match.flicks++;
-      world.popups.spawn('FLICK', ball.x, contactY, paddleHue, 22);
+      world.popups.spawn('FLICK', ball.x + (named ? dir * 70 : 0), contactY, paddleHue, 22);
       world.audio.flick(pan);
     } else if (Math.abs(raw) >= EDGE_SAVE) {
-      world.popups.spawn('EDGE', ball.x, contactY, paddleHue, 18);
+      if (!named) world.popups.spawn('EDGE', ball.x, contactY, paddleHue, 18);
       if (fx.edgeCooldown <= 0 && p > 0.35) {
         fx.edgeCooldown = 3.5;
         fx.timeScale = Math.min(fx.timeScale, world.motion > 0.5 ? 0.55 : 1);
@@ -424,7 +439,11 @@ function onWallBounce(world: World): void {
   if (match.status !== 'menu') {
     world.replay.mark(REPLAY_WALL);
     world.audio.wall(p, panAt(world, ball.x, ball.y));
-    bankBall(combatant(world, ball.owner));
+    const banker = combatant(world, ball.owner);
+    if (bankBall(banker)) {
+      proc(banker, 'bank-shot');
+      if (ball.owner === 'you') bankFx(world);
+    }
   }
 }
 

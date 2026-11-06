@@ -119,7 +119,19 @@ export interface AbilitySlot {
   castId: number;
   /** Echo clears of a spent cooldown this match, independent of lockout. */
   refreshId: number;
+  /**
+   * Passive refunds of this slot's cooldown this match - Tempo on a return,
+   * Chain Casting on another cast, Time Slip on a Blink Strike - and the
+   * seconds and the talent behind the latest one. Presentation reads them
+   * the way it reads `castId`: a change means a passive just paid out here.
+   */
+  rewindId: number;
+  rewound: number;
+  rewoundBy: TalentId | null;
 }
+
+/** The passives that can leave the next returns charged, so the court can name which one did. */
+export type PrimedBy = 'hot-hand' | 'counterstrike';
 
 /**
  * Everything a build does *during* one match.
@@ -147,6 +159,16 @@ export interface TalentRuntime {
   spareSave: number;
   /** Returns still to leave charged: Hot Hand after a won point, or Counterstrike after a save. */
   primed: number;
+  /** Which of the two put those charges there. `null` once they are spent. */
+  primedBy: PrimedBy | null;
+  /** True while one point - or one life - from losing. Tracked so Clutch can announce itself. */
+  clutch: boolean;
+  /**
+   * How many times each passive has paid out this match, by talent. Never
+   * read by the rules: the court and the HUD watch these counters change, the
+   * way the skill bar watches `castId`.
+   */
+  procs: Partial<Record<TalentId, number>>;
   /** Swerve: which way the ball in flight bends. 0 once it is not the player's. */
   swerveDir: -1 | 0 | 1;
   /** Seconds left of Afterglow's extra length. */
@@ -222,6 +244,46 @@ export interface AbilityView {
    *  skill that is purely timed. */
   readonly charges: number;
   readonly maxCharges: number;
+  /** Bumps whenever a passive winds this cooldown back; `rewound` seconds, in `rewindHue`. */
+  readonly rewindId: number;
+  readonly rewound: number;
+  readonly rewindHue: number;
+  /**
+   * How much faster than the clock this cooldown is recovering right now -
+   * Flow State, Versatility's overflow, Zenith, Echo - to one decimal. 1 when
+   * nothing is hurrying it.
+   */
+  readonly rate: number;
+}
+
+/**
+ * One passive talent's live state, flattened for the HUD.
+ *
+ * Only the passives that have a state worth watching - a charge recharging,
+ * a count building, a window open - get one; the always-on ones are drawn on
+ * the court instead, where they act.
+ */
+export interface PassiveView {
+  readonly id: TalentId;
+  readonly name: string;
+  /** The talent's branch colour. */
+  readonly hue: number;
+  /**
+   * `idle`: nothing doing. `building`: counting towards a payout. `ready`:
+   * the next ball or return will get it. `active`: doing it right now.
+   * `spent`: used up for the match.
+   */
+  readonly state: 'idle' | 'building' | 'ready' | 'active' | 'spent';
+  /** 0..1 for the ring: recharge, count or window. Quantised. */
+  readonly progress: number;
+  /** A short count on the chip - charges, stacks, returns left - or null. */
+  readonly value: number | null;
+  /** What `value` counts out of, for "1 of 2"; 0 when it is not out of anything. */
+  readonly max: number;
+  /** Whole seconds left on a recharge or a window, or 0. */
+  readonly seconds: number;
+  /** Bumps each time the passive pays out, so the chip can flash. */
+  readonly procs: number;
 }
 
 export type { TalentMatchStats };
@@ -496,6 +558,8 @@ export interface GameSnapshot {
    * changes, so the HUD re-renders on state changes rather than per frame.
    */
   abilities: readonly AbilityView[];
+  /** The player's stateful passives. Rebuilt only when what it shows changes. */
+  passives: readonly PassiveView[];
   /**
    * The capstone cue, flattened into scalars.
    *

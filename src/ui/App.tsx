@@ -11,6 +11,7 @@ import { AbilityBar } from './AbilityBar';
 import { GameCanvas } from './GameCanvas';
 import { Hud } from './Hud';
 import { MatchHud } from './MatchHud';
+import { PassiveTray } from './PassiveTray';
 import { TutorialCoach } from './TutorialCoach';
 import { Overlay } from './Overlay';
 import { UltimateFlare } from './UltimateFlare';
@@ -309,6 +310,15 @@ export function App() {
         show={playing && (snapshot.status === 'play' || snapshot.status === 'serve')}
         side={settings.skillSide}
         onUse={(slot) => engine?.useAbility(slot)}
+      />
+      <PassiveTray
+        passives={snapshot.passives}
+        show={
+          playing &&
+          !snapshot.tutorialStep &&
+          (snapshot.status === 'play' || snapshot.status === 'serve')
+        }
+        skillSide={settings.skillSide}
       />
       {playing && snapshot.status === 'serve' && (snapshot.specializations?.length ?? 0) > 0 && (
         <button type="button" className="courtside-switch" onClick={() => engine?.pause()}>

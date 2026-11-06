@@ -524,6 +524,25 @@ the cooldown updates and does not replay when returning from Pause.
 Everything else is passive. With more skills than slots, which ones you carry is
 a decision in its own right.
 
+Passives show their work too, in their branch's colour. When one pays out, it
+marks the court where it acted and names itself: a critical return flares a
+star (CRIT, EDGE CRIT), a charge from Momentum, Hot Hand, Blink Strike or
+Counterstrike is named at the contact, Bank Shot lights the wall and the
+steeper line, Swerve draws its break the instant it happens, Precision lights
+the extra angle it opened, and Bastion, Shield, Adrenaline and Second Chance
+flare the line they saved. Between payouts the paddle carries the rest: the
+reach the build added past a plain paddle, Edge Pressure's critical zones, a
+lit face when the next return will leave charged, and Flow State's stacks. A
+missing Shield charge refills along your goal line, Clutch tints the half it
+slows, a heavy return shimmers, and Reckless leaves the line bare. Passives with
+a live state - Shield, Adrenaline, Second Chance, Counterstrike, Clutch,
+Momentum, Hot Hand, Combo Drive, Flow State, Blink Strike and Afterglow - get a
+small chip on the edge opposite the skill buttons, ringed with their recharge
+or count and flashing when they pay out. A skill button shows the seconds Tempo,
+Chain Casting or Time Slip just gave back, and how much faster than the clock
+it is recovering while Flow State, Zenith or Echo hurries it. None of this
+changes a rally: the same match plays out identically at every graphics setting.
+
 Certain pairs turn into named **synergies** (Power Strike + Momentum, Swerve +
 Bank Shot, Long Reach + Dash, Perfect Guard + Shield, Combo Drive + Adrenaline,
 Cooldown Mastery + two actives, Perfect Guard + Tempo, Afterglow + Tempo,

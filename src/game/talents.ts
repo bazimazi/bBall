@@ -1,10 +1,19 @@
-import type { AbilityId } from '../core/talents/types';
+import type { AbilityId, TalentId } from '../core/talents/types';
 import { BALANCE } from '../core/balance/config';
 import { abilityById } from '../core/talents/abilities';
 import { resolveLoadout, type ResolvedLoadout } from '../core/talents/effects';
 import { createTalentSave } from '../core/talents/save';
 import type { TalentMatchStats } from '../core/talents/types';
 import { aegisSaveCast, zenithRefundCast } from './casts';
+import {
+  bastionFx,
+  clutchFx,
+  rechargeFx,
+  refundFx,
+  saveFx,
+  swerveFx,
+  unbrokenFx
+} from './passiveFx';
 import { BALL_R, FIELD_H, MAX_BOUNCE_ANGLE, PADDLE_W } from './constants';
 import { growPaddle } from './paddle';
 import { equipmentReach, reboundBonus, surfaceResponse } from '../core/equipment/catalog';
@@ -38,8 +47,22 @@ function emptySlots(): AbilitySlot[] {
     span: 0,
     lockout: 0,
     castId: 0,
-    refreshId: 0
+    refreshId: 0,
+    rewindId: 0,
+    rewound: 0,
+    rewoundBy: null
   }));
+}
+
+/**
+ * Count one payout of a passive.
+ *
+ * Counted for both sides, because the runtime is shared code; only the
+ * player's counters are ever shown. Nothing in the rules reads them.
+ */
+export function proc(world: World, id: TalentId): void {
+  const procs = world.talents.procs;
+  procs[id] = (procs[id] ?? 0) + 1;
 }
 
 export function createRuntime(): TalentRuntime {
@@ -52,6 +75,9 @@ export function createRuntime(): TalentRuntime {
     surge: 0,
     spareSave: 0,
     primed: 0,
+    primedBy: null,
+    clutch: false,
+    procs: {},
     swerveDir: 0,
     afterglow: 0,
     shield: 0,
@@ -99,6 +125,9 @@ export function resetRuntime(world: World): void {
   runtime.surge = 0;
   runtime.spareSave = 0;
   runtime.primed = 0;
+  runtime.primedBy = null;
+  runtime.clutch = false;
+  runtime.procs = {};
   runtime.swerveDir = 0;
   runtime.afterglow = 0;
   runtime.strikeArmed = 0;
@@ -129,6 +158,9 @@ export function resetRuntime(world: World): void {
     slot.lockout = 0;
     slot.castId = 0;
     slot.refreshId = 0;
+    slot.rewindId = 0;
+    slot.rewound = 0;
+    slot.rewoundBy = null;
   }
 
   runtime.stats.abilitiesUsed = 0;
@@ -165,20 +197,32 @@ export function resetDrive(world: World): void {
   const runtime = world.talents;
   const { effects } = world.loadout;
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
-  if (runtime.zenith <= 0) runtime.drive = Math.floor(runtime.drive * effects.driveKeep);
+  if (runtime.zenith <= 0) {
+    runtime.drive = Math.floor(runtime.drive * effects.driveKeep);
+    // Unbroken held part of a streak that would otherwise have ended.
+    if (effects.driveKeep > 0 && runtime.drive > 0) {
+      proc(world, 'unbroken');
+      unbrokenFx(world, runtime.drive);
+    }
+  }
   runtime.rallyReturns = 0;
   runtime.surge = 0;
   runtime.primed = 0;
+  runtime.primedBy = null;
 }
 
 /** The player won the point. Hot Hand arms the first returns of the next one. */
 export function wonPoint(world: World): void {
   const { hotHand } = world.loadout.effects;
-  if (hotHand > 0) world.talents.primed = Math.max(world.talents.primed, hotHand);
+  if (hotHand > 0 && hotHand >= world.talents.primed) {
+    world.talents.primed = hotHand;
+    world.talents.primedBy = 'hot-hand';
+    proc(world, 'hot-hand');
+  }
 }
 
 /** True when a single point - or a single life - would end the match. */
-function inClutch(world: World): boolean {
+export function inClutch(world: World): boolean {
   const { match } = world;
   if (match.maxLives > 0) return match.lives <= 1;
   return (
@@ -193,7 +237,7 @@ function inClutch(world: World): boolean {
  * Zenith pins this at the top for its window - being instantly in peak form,
  * and staying there through a dropped point, is what that capstone buys.
  */
-function flowStacks(world: World): number {
+export function flowStacks(world: World): number {
   const { effects } = world.loadout;
   const max = BALANCE.effects.flowState.stacks;
   if (world.talents.zenith > 0) return max;
@@ -264,12 +308,39 @@ function boostLength(world: World): number {
   const { effects } = world.loadout;
   const runtime = world.talents;
   let length = 0;
-  if (effects.comboLength > 0) {
-    const steps = Math.min(effects.comboSteps, Math.floor(runtime.drive / effects.comboEvery));
-    length += steps * effects.comboLength;
-  }
+  if (effects.comboLength > 0) length += comboSteps(world) * effects.comboLength;
   if (runtime.afterglow > 0) length += effects.afterglowLength;
   return length;
+}
+
+/** Combo Drive: how many steps of growth the current drive has earned. 0 without the talent. */
+export function comboSteps(world: World): number {
+  const { effects } = world.loadout;
+  if (effects.comboLength <= 0) return 0;
+  return Math.min(effects.comboSteps, Math.floor(world.talents.drive / effects.comboEvery));
+}
+
+/**
+ * How fast a slot's cooldown is recovering, as two factors: the everyday
+ * rate (Flow State, Conduit, Versatility's overflow) and the hurry a running
+ * Zenith or Echo adds - which never reaches an ultimate. Shared by the clock
+ * and the HUD, so the badge on a button can never disagree with the ring.
+ */
+export function recoveryRate(world: World, id: AbilityId | null): { base: number; hurry: number } {
+  const runtime = world.talents;
+  const { effects } = world.loadout;
+  // Zenith and Echo both hurry cooldowns along; they never stack. Neither
+  // hurries an ultimate - its own or another - or the capstone that is
+  // running would wind itself back: measured, Echo came round every five
+  // seconds and kept Slipstream up permanently.
+  const hurry = Math.max(
+    runtime.zenith > 0 ? effects.zenithRecharge : 1,
+    runtime.echo > 0 ? effects.echoRecharge : 1
+  );
+  return {
+    base: 1 + effects.recharge + effects.flowRecharge * flowProgress(world),
+    hurry: id && abilityById(id)?.ultimate ? 1 : hurry
+  };
 }
 
 /**
@@ -301,17 +372,19 @@ export function updateRuntime(world: World, dt: number): void {
   // rather than whenever one of them happens to move.
   growPaddle(world.player, playerLength(world));
 
-  // Zenith and Echo both hurry cooldowns along; they never stack. Neither
-  // hurries an ultimate - its own or another - or the capstone that is
-  // running would wind itself back: measured, Echo came round every five
-  // seconds and kept Slipstream up permanently.
-  const hurry = Math.max(
-    runtime.zenith > 0 ? effects.zenithRecharge : 1,
-    runtime.echo > 0 ? effects.echoRecharge : 1
-  );
-  const plain = dt * (1 + effects.recharge + effects.flowRecharge * flowProgress(world));
+  // Clutch has no button and no cast: the moment the match turns into a last
+  // stand is the one moment it can say it is there.
+  const clutch = (effects.clutchLength > 0 || effects.clutchSlow > 0) && inClutch(world);
+  if (clutch && !runtime.clutch) {
+    proc(world, 'clutch');
+    clutchFx(world);
+  }
+  runtime.clutch = clutch;
+
   const recover = (id: AbilityId | null, slot: AbilitySlot) => {
-    const step = id && abilityById(id)?.ultimate ? plain : plain * hurry;
+    const { base, hurry } = recoveryRate(world, id);
+    const plain = dt * base;
+    const step = hurry === 1 ? plain : plain * hurry;
     if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - step);
     if (slot.lockout > 0) slot.lockout = Math.max(0, slot.lockout - dt);
   };
@@ -325,6 +398,8 @@ export function updateRuntime(world: World, dt: number): void {
       runtime.shieldDebt = Math.max(runtime.shieldDebt, runtime.shieldMax - runtime.shield) - 1;
       runtime.shield = Math.max(0, runtime.shieldMax - runtime.shieldDebt);
       runtime.shieldTimer = effects.shieldRecharge;
+      proc(world, 'shield');
+      rechargeFx(world);
     }
   }
 }
@@ -347,8 +422,10 @@ export function switchRuntime(world: World, loadout: ResolvedLoadout): boolean {
   const refunds = runtime.zenithRefunds;
   const debt = Math.max(runtime.shieldDebt, runtime.shieldMax - runtime.shield);
   const shieldTimer = runtime.shieldTimer;
+  const procs = runtime.procs;
   world.loadout = loadout;
   resetRuntime(world);
+  runtime.procs = procs;
   runtime.stats = stats;
   runtime.bestDrive = bestDrive;
   runtime.zenithRefunds = refunds;
@@ -370,18 +447,39 @@ export function switchRuntime(world: World, loadout: ResolvedLoadout): boolean {
 /** Tempo: a return winds every cooldown back a notch - an ultimate by half as much. */
 export function applyTempo(world: World, bonus = 0): void {
   const { effects } = world.loadout;
-  const tempo = effects.tempo + bonus + (world.talents.afterglow > 0 ? effects.afterglowTempo : 0);
-  recoverCooldowns(world, tempo);
+  const glow = world.talents.afterglow > 0 ? effects.afterglowTempo : 0;
+  const tempo = effects.tempo + bonus + glow;
+  // Credited to whichever part of it was biggest, for the colour the HUD uses.
+  const by: TalentId =
+    effects.tempo >= bonus && effects.tempo >= glow
+      ? 'tempo'
+      : bonus >= glow
+        ? 'perfect-guard'
+        : 'afterglow';
+  recoverCooldowns(world, tempo, by);
 }
 
 /** Wind cooldowns back by `seconds` - an ultimate by half as much. */
-function recoverCooldowns(world: World, seconds: number): void {
+function recoverCooldowns(world: World, seconds: number, by: TalentId): void {
   if (seconds <= 0) return;
+  let any = false;
   for (const slot of world.talents.slots) {
     if (!slot.id || slot.cooldown <= 0) continue;
     const share = abilityById(slot.id)?.ultimate ? 0.5 : 1;
+    const before = slot.cooldown;
     slot.cooldown = Math.max(0, slot.cooldown - seconds * share);
+    rewind(slot, before - slot.cooldown, by);
+    any = true;
   }
+  if (any) proc(world, by);
+}
+
+/** Note a passive refund on a slot, for the HUD. Shared with the casts that refund. */
+export function rewind(slot: AbilitySlot, seconds: number, by: TalentId): void {
+  if (seconds <= 0) return;
+  slot.rewindId++;
+  slot.rewound = seconds;
+  slot.rewoundBy = by;
 }
 
 // ------------------------------------------------------------------ returns
@@ -404,6 +502,18 @@ export interface ReturnMods {
   readonly overloaded: boolean;
   /** How much harder than its speed says the return is to read. */
   readonly heft: number;
+  /**
+   * The passive that charged this return or made it critical, when one did
+   * and no skill already claims it - so the court can say which. Null for a
+   * plain return, and for one Power Strike, Perfect Guard or Overload made.
+   */
+  readonly source: TalentId | null;
+  /** Combo Drive grew the paddle a step on this return. */
+  readonly grew: boolean;
+  /** Adrenaline banked a spare save on this return. */
+  readonly banked: boolean;
+  /** Flow State reached its top stack on this return. */
+  readonly flowed: boolean;
 }
 
 /** The plain return: what every contact did before talents existed. */
@@ -418,7 +528,11 @@ export function plainReturn(world: World, off: number): ReturnMods {
     charged: false,
     guarded: false,
     overloaded: false,
-    heft: 0
+    heft: 0,
+    source: null,
+    grew: false,
+    banked: false,
+    flowed: false
   };
 }
 
@@ -458,16 +572,28 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   );
   const rawOff = response.off;
 
+  const stepsBefore = comboSteps(world);
   runtime.drive++;
   runtime.rallyReturns++;
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
+  const grew = comboSteps(world) > stepsBefore;
+  if (grew) proc(world, 'combo-drive');
+  const flowed =
+    effects.flowAngle > 0 &&
+    runtime.zenith <= 0 &&
+    runtime.rallyReturns - effects.flowFrom === BALANCE.effects.flowState.stacks;
+  if (flowed) proc(world, 'flow-state');
   applyTempo(world, runtime.guardWindow > 0 ? effects.parryTempo : 0);
   if (runtime.shield < runtime.shieldMax && effects.shieldTempo > 0) {
     runtime.shieldTimer = Math.max(0, runtime.shieldTimer - effects.shieldTempo);
+    proc(world, 'rally-armor');
   }
 
+  let banked = false;
   if (effects.adrenalineEvery > 0 && runtime.drive % effects.adrenalineEvery === 0) {
+    banked = runtime.spareSave <= 0;
     runtime.spareSave = 1;
+    if (banked) proc(world, 'adrenaline');
   }
 
   // A return inside the guard window is a parry - and a parry goes back as a
@@ -503,30 +629,58 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   }
 
   const rhythm = effects.momentumEvery > 0 && runtime.rallyReturns % effects.momentumEvery === 0;
+  if (rhythm) proc(world, 'momentum');
   const primed = runtime.primed > 0;
-  if (primed) runtime.primed--;
+  const primedBy = runtime.primedBy ?? 'hot-hand';
+  if (primed) {
+    runtime.primed--;
+    if (runtime.primed <= 0) runtime.primedBy = null;
+  }
   // Blink Strike: the return a dash just rescued goes straight back on the attack.
   const blinked = runtime.blink > 0;
   runtime.blink = 0;
+  if (blinked) proc(world, 'blink-strike');
   // Time Slip: the return a dash rescued winds Dash itself back.
   if (blinked && effects.blinkRefund > 0) {
+    let slipped = false;
     for (const slot of runtime.slots) {
-      if (slot.id === 'dash') slot.cooldown = Math.max(0, slot.cooldown - effects.blinkRefund);
+      if (slot.id !== 'dash') continue;
+      const before = slot.cooldown;
+      slot.cooldown = Math.max(0, slot.cooldown - effects.blinkRefund);
+      rewind(slot, before - slot.cooldown, 'time-slip');
+      slipped ||= before > slot.cooldown;
     }
+    if (slipped) proc(world, 'time-slip');
   }
 
   // Use the actual paddle edge, not the angle compensated for a longer paddle:
   // more reach must not turn safe centre contacts into free edge criticals.
   const edged = effects.edgePressure > 0 && Math.abs(offset) >= effects.edgePressure;
+  if (edged) proc(world, 'edge-pressure');
   const charged = overloaded || struck || guarded || rhythm || primed || blinked || edged;
-  const crit =
+  // Every certain source first: the roll is only taken when none of them
+  // applied, exactly as often as it always was, so a seeded match is unchanged.
+  const forced =
     edged ||
     overloaded ||
     (primed && effects.hotHandCrit) ||
     (blinked && effects.blinkCrit) ||
-    (charged && effects.chargedCrits) ||
-    (effects.critChance > 0 && world.random() < effects.critChance);
+    (charged && effects.chargedCrits);
+  const rolled = !forced && effects.critChance > 0 && world.random() < effects.critChance;
+  const crit = forced || rolled;
   if (crit) runtime.stats.crits++;
+  if (rolled) proc(world, 'critical-strike');
+
+  // Which passive to name on the court. A skill that charged the return
+  // already has an animation of its own, so it is never doubled up.
+  let source: TalentId | null = null;
+  if (!overloaded && !struck && !guarded) {
+    if (edged) source = 'edge-pressure';
+    else if (blinked) source = 'blink-strike';
+    else if (primed) source = primedBy;
+    else if (rhythm) source = 'momentum';
+    else if (rolled) source = 'critical-strike';
+  }
 
   // Passive sources, capped together.
   let growth = tuning.speedPerHit;
@@ -568,7 +722,11 @@ export function playerReturn(world: World, offset: number): ReturnMods {
     charged,
     guarded,
     overloaded,
-    heft
+    heft,
+    source,
+    grew,
+    banked,
+    flowed
   };
 }
 
@@ -587,6 +745,7 @@ export function previewReturn(world: World, offset: number): ReturnMods {
       value: {
         ...runtime,
         stats: { ...runtime.stats },
+        procs: { ...runtime.procs },
         slots: runtime.slots.map((s) => ({ ...s }))
       }
     },
@@ -659,20 +818,23 @@ export function swerveBall(world: World): void {
   ball.vx = vx;
   ball.vy = vy;
   ball.speed = speed;
+  proc(world, 'swerve');
+  swerveFx(world, side);
 }
 
 /**
  * The ball just hit a wall: a player's return comes off it steeper with Bank
  * Shot.
  */
-export function bankBall(world: World): void {
+export function bankBall(world: World): boolean {
   const { ball } = world;
-  if (ball.owner !== world.player.side) return;
+  if (ball.owner !== world.player.side) return false;
 
   const bank = world.loadout.effects.bankShot;
-  if (bank <= 0) return;
+  if (bank <= 0) return false;
   const angle = Math.atan2(ball.vy, Math.abs(ball.vx));
   aim(world, clamp(angle * (1 + bank), -MAX_BEND_ANGLE, MAX_BEND_ANGLE));
+  return true;
 }
 
 /**
@@ -761,10 +923,21 @@ export function tryShield(world: World): boolean {
     aim(world, side * E.counterstrike.minAngle * MAX_BOUNCE_ANGLE);
     ball.heft = E.counterstrike.heft;
     // ...and the player's next return goes back charged, too.
-    runtime.primed = Math.max(runtime.primed, E.counterstrike.primed);
+    if (E.counterstrike.primed >= runtime.primed) {
+      runtime.primed = E.counterstrike.primed;
+      runtime.primedBy = 'counterstrike';
+    }
+    proc(world, 'counterstrike');
   } else {
     ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed * effects.shieldSaveSpeed);
     aim(world, Math.atan2(ball.vy, ball.vx));
+  }
+
+  // Aegis has its own barrier; the two everyday saves are named where they
+  // caught the ball, so a spent charge is never a mystery.
+  if (!aegis) {
+    proc(world, spare ? 'adrenaline' : 'shield');
+    saveFx(world, ball.y, spare ? 'adrenaline' : 'shield', effects.counterPace > 0);
   }
 
   // A Shield charge is the player's own colour; an Aegis save is Aegis's,
@@ -810,6 +983,8 @@ export function tryBastion(world: World): boolean {
   ball.squash = 0.9;
   ball.squashAngle = 0;
   world.talents.swerveDir = 0;
+  proc(world, 'bastion');
+  bastionFx(world, ball.y);
 
   world.particles.emit(
     0,
@@ -865,6 +1040,8 @@ export function trySecondChance(world: World): boolean {
 
   runtime.secondChances--;
   runtime.stats.secondChances++;
+  proc(world, 'second-chance');
+  refundFx(world);
   world.audio.secondChance();
   return true;
 }
@@ -893,6 +1070,21 @@ export function matchStats(world: World): TalentMatchStats {
 export function paddleBuffed(world: World): boolean {
   if (world.match.status === 'menu') return false;
   return boostLength(world) > 0 || (world.loadout.effects.clutchLength > 0 && inClutch(world));
+}
+
+/**
+ * The passive that will charge the player's very next return, if one will:
+ * a Blink Strike window, Hot Hand or Counterstrike charges in hand, or the
+ * Momentum beat landing on it. Power Strike and Overload wear their own aura.
+ */
+export function nextCharged(world: World): TalentId | null {
+  const runtime = world.talents;
+  const { effects } = world.loadout;
+  if (runtime.blink > 0) return 'blink-strike';
+  if (runtime.primed > 0) return runtime.primedBy ?? 'hot-hand';
+  if (effects.momentumEvery > 0 && (runtime.rallyReturns + 1) % effects.momentumEvery === 0)
+    return 'momentum';
+  return null;
 }
 
 /** Clamp a paddle's target inside the court. Shared with the dash. */

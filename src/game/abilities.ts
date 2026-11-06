@@ -5,7 +5,8 @@ import { predictY } from './ai';
 import { laneRush, ultimateCast } from './casts';
 import { FIELD_H } from './constants';
 import { hsla, sideHue } from './palette';
-import { boundTarget } from './talents';
+import { afterglowFx, talentHue } from './passiveFx';
+import { boundTarget, proc, recoveryRate, rewind } from './talents';
 import type { AbilitySlot, AbilityView } from './types';
 import type { World } from './world';
 
@@ -263,15 +264,22 @@ export function fireAbility(world: World, slot: number): boolean {
   // Afterglow: any skill used lends the paddle a little length.
   if (world.loadout.effects.afterglowLength > 0) {
     world.talents.afterglow = world.loadout.effects.afterglowSeconds;
+    proc(world, 'afterglow');
+    afterglowFx(world);
   }
   if (def.ultimate) world.talents.stats.ultimates++;
   // Chain Casting: every skill used winds the *other* equipped skills back.
   if (world.loadout.effects.castTempo > 0) {
+    let chained = false;
     for (const other of world.talents.slots) {
       if (!other.id || other === entry) continue;
       const share = abilityById(other.id)?.ultimate ? 0.5 : 1;
+      const before = other.cooldown;
       other.cooldown = Math.max(0, other.cooldown - world.loadout.effects.castTempo * share);
+      rewind(other, before - other.cooldown, 'chain-casting');
+      chained ||= before > other.cooldown;
     }
+    if (chained) proc(world, 'chain-casting');
   }
   fire(world, def);
   return true;
@@ -356,10 +364,24 @@ export function abilityViews(world: World): AbilityView[] {
       remain: live.remain,
       duration: live.duration,
       charges: live.charges,
-      maxCharges: live.maxCharges
+      maxCharges: live.maxCharges,
+      rewindId: slot.rewindId,
+      rewound: Math.round(slot.rewound * 10) / 10,
+      rewindHue: slot.rewoundBy ? talentHue(slot.rewoundBy) : def.hue,
+      rate: abilityRate(world, slot)
     });
   }
   return views;
+}
+
+/**
+ * The recovery multiplier a cooling slot is running at, to one decimal - the
+ * figure the HUD prints next to it. 1 for a ready slot: nothing to hurry.
+ */
+export function abilityRate(world: World, slot: AbilitySlot): number {
+  if (slot.cooldown <= 0) return 1;
+  const { base, hurry } = recoveryRate(world, slot.id);
+  return Math.round(base * hurry * 10) / 10;
 }
 
 /**

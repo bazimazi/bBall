@@ -476,3 +476,73 @@
   --glyph: 21px;
   font-size: 19px;
 }
+
+/*
+ * A passive winding this cooldown back: the seconds it gave, rising off the
+ * top of the button in that talent's colour and gone in under a second.
+ * Tempo pays on every return, so this is the one place it is ever seen.
+ */
+.rewind {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: rgba(6, 8, 15, 0.85);
+  box-shadow: 0 0 0 1px hsla(var(--rewind-hue), 100%, 64%, 0.8);
+  color: hsl(var(--rewind-hue), 100%, 80%);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 15px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: rewind 0.75s ease-out forwards;
+}
+
+@keyframes rewind {
+  from {
+    transform: translate(-50%, 4px);
+    opacity: 0;
+  }
+  20% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -14px);
+    opacity: 0;
+  }
+}
+
+[data-graphics='low'] .rewind {
+  animation-name: rewindStill;
+}
+
+@keyframes rewindStill {
+  from,
+  80% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 0;
+  }
+}
+
+/* Recovering faster than the clock: the multiplier, bottom right. */
+.rate {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  padding: 0 3px;
+  border-radius: 6px;
+  background: rgba(6, 8, 15, 0.85);
+  color: hsl(var(--hue), 100%, 80%);
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 13px;
+  pointer-events: none;
+}

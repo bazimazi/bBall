@@ -1,0 +1,239 @@
+/*
+ * The passive talents' live state, during play.
+ *
+ * The mirror of the skill bar: on the opposite edge, kept out of both paddle
+ * lanes by the same `--court-lane-*` lengths the engine publishes. In portrait
+ * it is a column along the side wall above the player's lane; in landscape a
+ * row along the bottom wall, stopping short of the serve button.
+ *
+ * The chips are smaller than the skill buttons, see-through, and take no
+ * input - pointer events pass straight to the court - because nothing here is
+ * pressed: it is read. Five states have to be told apart without reading:
+ * idle (dim), building (a ring filling), ready (a lit rim), active (the hue
+ * floods the chip) and spent (greyed out).
+ */
+
+.tray {
+  --lane-l: var(--court-lane-l, 0px);
+  --lane-r: var(--court-lane-r, 0px);
+  --lane-t: var(--court-lane-t, 74px);
+  --lane-b: var(--court-lane-b, 84px);
+  --tray-x: max(calc(var(--safe-r) + 12px), calc(var(--lane-r) + 10px));
+  --tray-y: max(calc(var(--safe-b) + 14px), calc(var(--lane-b) + 12px));
+  direction: ltr;
+  position: fixed;
+  right: var(--tray-x);
+  bottom: var(--tray-y);
+  z-index: 3;
+  display: flex;
+  flex-direction: column-reverse;
+  flex-wrap: wrap-reverse;
+  align-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  /* Clear of the opponent's lane and the sound and pause buttons. */
+  max-height: calc(100vh - var(--tray-y) - var(--lane-t) - 120px);
+  pointer-events: none;
+}
+
+.left {
+  --tray-x: max(calc(var(--safe-l) + 12px), calc(var(--lane-l) + 10px));
+  right: auto;
+  left: var(--tray-x);
+  flex-wrap: wrap;
+}
+
+@media (orientation: landscape) {
+  .tray {
+    --lane-l: var(--court-lane-l, calc(14px + (100vh - 28px) * 0.164));
+    --lane-r: var(--court-lane-r, calc(14px + (100vh - 28px) * 0.164));
+    --lane-t: var(--court-lane-t, 0px);
+    --lane-b: var(--court-lane-b, 0px);
+    flex-direction: row;
+    flex-wrap: wrap-reverse;
+    justify-content: flex-end;
+    max-height: none;
+    /* Stop short of the serve button, centred on the bottom edge. */
+    max-width: max(40px, calc(50vw - 76px - var(--tray-x)));
+  }
+
+  .left {
+    justify-content: flex-start;
+  }
+}
+
+.chip {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(8, 11, 20, 0.34);
+  color: hsl(var(--hue), 60%, 70%);
+  opacity: 0.5;
+  box-shadow: 0 0 0 1px rgba(238, 242, 255, 0.12) inset;
+  transition:
+    opacity 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.chip[data-state='building'] {
+  opacity: 0.8;
+}
+
+/* The next ball or return gets it: a rim in the talent's own colour. */
+.chip[data-state='ready'] {
+  opacity: 1;
+  color: hsl(var(--hue), 95%, 74%);
+  box-shadow:
+    0 0 0 1.5px hsla(var(--hue), 95%, 64%, 0.85) inset,
+    0 0 12px hsla(var(--hue), 95%, 55%, 0.35);
+}
+
+/* Working right now: the hue floods the chip, as it does a running skill. */
+.chip[data-state='active'] {
+  opacity: 1;
+  color: hsl(var(--hue), 100%, 80%);
+  background: hsla(var(--hue), 80%, 20%, 0.6);
+  box-shadow:
+    0 0 0 2px hsla(var(--hue), 100%, 66%, 0.95) inset,
+    0 0 16px hsla(var(--hue), 100%, 60%, 0.45);
+}
+
+.chip[data-state='spent'] {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+.chip[data-state='idle'] .glyph {
+  filter: grayscale(0.6);
+}
+
+.glyph {
+  display: grid;
+  place-items: center;
+}
+
+.glyph svg {
+  width: 19px;
+  height: 19px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ringTrack {
+  fill: none;
+  stroke: rgba(238, 242, 255, 0.1);
+  stroke-width: 2.5;
+}
+
+.ringFill {
+  fill: none;
+  stroke: hsl(var(--hue), 95%, 64%);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  /* Smooths the quantised progress the engine publishes. */
+  transition: stroke-dashoffset 0.22s linear;
+}
+
+/* The count - charges, stacks, returns to go - on its own dark chip. */
+.value {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  min-width: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: rgba(6, 8, 15, 0.92);
+  box-shadow: 0 0 0 1px hsla(var(--hue), 100%, 64%, 0.8);
+  color: hsl(var(--hue), 100%, 82%);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+}
+
+.seconds {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 3px;
+  border-radius: 6px;
+  background: rgba(6, 8, 15, 0.8);
+  color: rgba(238, 242, 255, 0.9);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* A payout: one ring out, the way a cast throws one on a skill button. */
+.flash {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid hsl(var(--hue), 100%, 74%);
+  animation: flash 0.6s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes flash {
+  from {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.75);
+    opacity: 0;
+  }
+}
+
+/* Explicit device graphics budget: the payout still shows, without the motion. */
+.chip[data-graphics='low'] .flash {
+  animation: none;
+  inset: 0;
+  opacity: 0.9;
+}
+
+.chip[data-graphics='low'][data-state='ready'],
+.chip[data-graphics='low'][data-state='active'] {
+  box-shadow: 0 0 0 2px hsla(var(--hue), 100%, 66%, 0.95) inset;
+}
+
+/* Short screens, and a long list of passives: smaller chips, closer together. */
+@media (max-height: 640px) {
+  .chip {
+    width: 32px;
+    height: 32px;
+  }
+
+  .glyph svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+.tray[data-crowded='true'] {
+  gap: 6px;
+}
+
+.tray[data-crowded='true'] .chip {
+  width: 34px;
+  height: 34px;
+}
+
+.tray[data-crowded='true'] .glyph svg {
+  width: 16px;
+  height: 16px;
+}
