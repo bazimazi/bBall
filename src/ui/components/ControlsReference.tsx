@@ -2,6 +2,7 @@ import { t, msg } from '../../core/i18n/index';
 import { useCoarsePointer } from '../hooks/useCoarsePointer';
 import styles from '../Screens.module.css';
 import { useSettings } from '../hooks/useSettings';
+import { BALANCE } from '../../core/balance/config';
 import { keyList, keyName, skillAction } from '../../core/settings/controls';
 
 /** The same short control reference is available before play and on pause. */
@@ -50,7 +51,7 @@ export function ControlsReference({ versus = false }: { versus?: boolean }) {
             {t(
               coarse
                 ? 'Tap an equipped skill'
-                : Array.from({ length: 9 }, (_, slot) =>
+                : Array.from({ length: BALANCE.talents.slots.max }, (_, slot) =>
                     msg('{0}: {1}', [t(slot + 1), keyList(keyBindings, skillAction(slot))])
                   ).join(' · ')
             )}

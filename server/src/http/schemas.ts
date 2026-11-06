@@ -478,10 +478,15 @@ export const syncOpSchema = z.discriminatedUnion('kind', [
       payload: z
         .object({
           slot: z.number().int().min(0).max(7),
-          action: z.enum(['save', 'load']),
+          action: z.enum(['save', 'load', 'rename']),
           name: z.string().max(32).optional()
         })
         .strict()
+        // A rename carries the new label; without one it has nothing to do.
+        .refine((payload) => payload.action !== 'rename' || !!payload.name?.trim(), {
+          message: 'A renamed build needs a name.',
+          path: ['name']
+        })
     })
     .strict()
 ]);

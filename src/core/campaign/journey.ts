@@ -203,7 +203,9 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
         2,
         'Slalom',
         'Three bumpers, staggered down the court',
-        'pro',
+        // Amateur still: Pro on three stages in a row was where a new player
+        // most often stalled - four or five attempts a stage.
+        'amateur',
         [
           { id: 'margin', value: 2 },
           { id: 'rally', value: 12 }
@@ -495,12 +497,16 @@ export function stageById(id: string): Stage | undefined {
       ...base,
       id,
       name: `${harder ? 'Ascendant' : 'Veteran'} · ${base.name}`,
+      // A variant only ever raises the opponent: never below the Champion a
+      // last-arc boss already brings.
       bot:
-        harder || base.bot === 'legend'
-          ? 'legend'
-          : base.bot === 'rookie' || base.bot === 'amateur'
-            ? 'pro'
-            : 'elite',
+        base.bot === 'champion'
+          ? 'champion'
+          : harder || base.bot === 'legend'
+            ? 'legend'
+            : base.bot === 'rookie' || base.bot === 'amateur'
+              ? 'pro'
+              : 'elite',
       modifiers: {
         ...base.modifiers,
         serveSpeedScale: (base.modifiers.serveSpeedScale ?? 1) * (harder ? 1.12 : 1.05),
@@ -527,6 +533,24 @@ export function worldById(id: number): JourneyWorld | undefined {
     };
   }
   return JOURNEY.find((world) => world.id === id);
+}
+
+/** Worlds past the numbered thirty are Journey Beyond's Frontier sectors. */
+const FRONTIER_BASE = 30;
+
+/**
+ * A world's heading: "World 12", or the Frontier sector it really is -
+ * "Frontier 1" rather than the internal world number 31.
+ */
+export function worldTitle(world: Pick<JourneyWorld, 'id'>): string {
+  return world.id > FRONTIER_BASE ? `Frontier ${world.id - FRONTIER_BASE}` : `World ${world.id}`;
+}
+
+/** A stage's short code: "12-4", or "Frontier 1-20" in Journey Beyond. */
+export function stageCode(stage: Pick<Stage, 'world' | 'index'>): string {
+  return stage.world > FRONTIER_BASE
+    ? `Frontier ${stage.world - FRONTIER_BASE}-${stage.index + 1}`
+    : `${stage.world}-${stage.index + 1}`;
 }
 
 /** Every star a Journey can hold. */

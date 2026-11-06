@@ -210,10 +210,7 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   effects.clutchGrowth += clutch * E.clutch.growth;
   effects.clutchSlow += clutch * E.clutch.slow;
 
-  if (r('counterstrike') > 0) {
-    effects.counterPace = E.counterstrike.pace;
-    effects.shieldCharges += E.counterstrike.charges;
-  }
+  if (r('counterstrike') > 0) effects.counterPace = E.counterstrike.pace;
   effects.secondChances += r('second-chance') * E.secondChance.uses;
 
   // -- momentum -----------------------------------------------------------

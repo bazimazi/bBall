@@ -535,7 +535,8 @@ export const ACCENTS: readonly AccentCosmetic[] = [
   })
 ];
 
-const BUILD_NAMES = ['Power', 'Control', 'Defense', 'Momentum', 'Utility'] as const;
+// The fifth branch's id is still 'utility'; players know it as Mastery.
+const BUILD_NAMES = ['Power', 'Control', 'Defense', 'Momentum', 'Mastery'] as const;
 const BUILD_IDS = ['power', 'control', 'defense', 'momentum', 'utility'] as const;
 const SCHOOL_IDS = ['anchor', 'aggressor', 'banker', 'curver', 'disruptor'] as const;
 export const BALLS: readonly BallCosmetic[] = [
@@ -601,7 +602,10 @@ export const ARENAS: readonly ArenaCosmetic[] = [
     return {
       ...BASE_ARENAS[i % BASE_ARENAS.length]!,
       id: `arena-mastery-${id}`,
-      name: `${id.replaceAll('-', ' ')} vault`,
+      name: `${id
+        .split('-')
+        .map((word) => word[0]!.toUpperCase() + word.slice(1))
+        .join(' ')} Vault`,
       bgHue: hue,
       courtTop: `hsl(${hue} 40% 9%)`,
       courtBottom: `hsl(${hue} 40% 5%)`,

@@ -3,6 +3,7 @@ import type { Stage, JourneyWorld } from './journey';
 import { EXPANSION_COURTS } from '../modes/expansionCourts';
 import { recipe, PERSONALITIES } from '../modes/recipes';
 import type { BotLevelId } from '../bots/types';
+import { AUTHORED_BOSSES } from '../modes/authoredBosses';
 
 const NAMES = [
   'Bankworks',
@@ -52,6 +53,23 @@ export const EXPANSION_BOSS_IDS = [
   'fracture'
 ] as const;
 
+/**
+ * An expansion boss's display name: its authored name, or its id in title
+ * case - the name the boss catalogue gives it. Resolved here rather than
+ * through the catalogue, which itself reads this module's boss ids.
+ */
+export function expansionBossName(id: string): string {
+  return (
+    AUTHORED_BOSSES.find((boss) => boss.spec.id === id)?.spec.name ??
+    id.replace(/(^|-)(\w)/g, (_, dash: string, c: string) => `${dash ? ' ' : ''}${c.toUpperCase()}`)
+  );
+}
+
+/** A boss stage plays on the boss's own court, so its card describes the fight. */
+function bossBlurb(id: string): string {
+  return `${expansionBossName(id)} guards the way on. Each phase changes the fight as you score: keep a skill for the last one.`;
+}
+
 export const EXPANSION_WORLDS: readonly JourneyWorld[] = NAMES.map((name, n) => {
   const id = n + 6,
     arc = Math.floor(n / 5);
@@ -68,13 +86,12 @@ export const EXPANSION_WORLDS: readonly JourneyWorld[] = NAMES.map((name, n) => 
       world: id,
       index: i,
       courtFamily: court.id.replace(/-\d+$/, ''),
-      name: boss
-        ? boss.replace(
-            /(^|-)(\w)/g,
-            (_, space: string, c: string) => `${space ? ' ' : ''}${c.toUpperCase()}`
-          )
-        : `${type} ${i + 1} · ${court.name}`,
-      blurb: `${court.blurb}. ${teaching ? 'Learn the route before combining skills.' : i >= 20 ? 'Mastery trial: read the court and punish the opponent’s recovery.' : 'Choose your route and preserve a skill for the return.'}`,
+      name: boss ? expansionBossName(boss) : `${type} ${i + 1} · ${court.name}`,
+      // A boss fights on its own court, so its card describes the fight
+      // rather than this stage's court - and it is not a mastery trial.
+      blurb: boss
+        ? bossBlurb(boss)
+        : `${court.blurb}. ${teaching ? 'Learn the route before combining skills.' : i >= 20 ? 'Mastery trial: read the court and punish the opponent’s recovery.' : 'Choose your route and preserve a skill for the return.'}`,
       personality: PERSONALITIES[(n + i) % 6]!,
       bot: bots[arc]!,
       winScore: boss ? 5 : i >= 20 ? 5 : 3,
@@ -82,7 +99,8 @@ export const EXPANSION_WORLDS: readonly JourneyWorld[] = NAMES.map((name, n) => 
         ...mods,
         arena: court.arena,
         ...(teaching ? { serveSpeedScale: 0.9 } : {}),
-        ...(i >= 20 ? { playerPaddleScale: 0.88 } : {})
+        // Mastery trials shorten the paddle; the boss is a fight of its own.
+        ...(i >= 20 && !boss ? { playerPaddleScale: 0.88 } : {})
       },
       goals: [
         boss
@@ -133,8 +151,8 @@ export function frontierStage(sector: number, index: number): Stage {
     world: 30 + sector,
     index,
     courtFamily: r.courtFamily,
-    name: boss ? `Frontier · ${boss}` : r.courtName,
-    blurb: r.blurb,
+    name: boss ? `Frontier ${sector} · ${expansionBossName(boss)}` : r.courtName,
+    blurb: boss ? bossBlurb(boss) : r.blurb,
     personality: r.personality,
     bot: r.bot,
     winScore: boss ? Math.max(5, r.winScore) : r.winScore,

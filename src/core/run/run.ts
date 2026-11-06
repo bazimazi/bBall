@@ -14,9 +14,11 @@ import {
   type BoonDef,
   type BoonRanks
 } from './boons';
-import { recipe } from '../modes/recipes';
+import { recipe, validArena } from '../modes/recipes';
 import { EXPANSION_BOSS_IDS } from '../campaign/expansion';
+import type { ResolvedLoadout } from '../talents/effects';
 import { actLength, actIndex, runLength, RUN_HISTORY, type RunFormat } from './formats';
+import { usefulFor } from './draft';
 
 /**
  * The legacy Gauntlet: nine matches in three acts, each act two
@@ -47,7 +49,12 @@ export interface PressureRank {
 export const PRESSURE: readonly PressureRank[] = [
   { level: 1, name: 'Quicker', blurb: 'The ball starts 8% faster' },
   { level: 2, name: 'Thin Ice', blurb: 'Two hearts instead of three' },
-  { level: 3, name: 'Hard Courts', blurb: 'Every match is played on a hazard court' },
+  {
+    level: 3,
+    name: 'Hard Courts',
+    blurb:
+      'Every match is on a hazard court with harder hazards: stronger wind and wells, tighter gates, tougher walls, bigger bumpers and sharper pace zones'
+  },
   { level: 4, name: 'Slim Pickings', blurb: 'Drafts offer two boons, not three' },
   { level: 5, name: 'Overdrive', blurb: 'Faster still, and every match starts a point down' },
   ...Array.from({ length: 45 }, (_, i) => ({
@@ -198,7 +205,7 @@ export function encounterFor(save: RunSave, stage = save.stage): Encounter {
           ? pickOne(seeded('run-boss', save.seed, act), ['orbiter', 'tempest', 'singularity'])
           : EXPANSION_BOSS_IDS[(act + save.pressure) % EXPANSION_BOSS_IDS.length]!;
     const definition = boss ? bossById(boss) : undefined;
-    const order = ['rookie', 'amateur', 'pro', 'elite', 'legend'];
+    const order = ['rookie', 'amateur', 'pro', 'elite', 'legend', 'champion'];
     const bot =
       definition && order.indexOf(definition.bot) > order.indexOf(r.bot) ? definition.bot : r.bot;
     return {
@@ -209,7 +216,7 @@ export function encounterFor(save: RunSave, stage = save.stage): Encounter {
       personality: r.personality,
       bot,
       winScore: boss ? Math.max(5, r.winScore) : r.winScore,
-      modifiers: definition?.modifiers ?? r.modifiers,
+      modifiers: hardCourts(definition?.modifiers ?? r.modifiers, save.pressure),
       courtName: definition?.spec.name ?? r.courtName
     };
   }
@@ -245,9 +252,78 @@ export function encounterFor(save: RunSave, stage = save.stage): Encounter {
     boss: null,
     bot,
     winScore: 3,
-    modifiers: arena ? { arena } : {},
+    modifiers: hardCourts(arena ? { arena } : {}, save.pressure),
     courtName: preset?.name ?? null
   };
+}
+
+/** The Pressure rank from which every court's hazards are turned up. */
+export const HARD_COURTS_PRESSURE = 3;
+
+/** The pace-zone pair a court with nothing to turn up gains under Hard Courts. */
+const HARD_ZONES = [
+  { x: 0.33, y: 0.12, w: 0.12, h: 0.17, scale: 1.12 },
+  { x: 0.55, y: 0.71, w: 0.12, h: 0.17, scale: 1.12 }
+] as const;
+
+/**
+ * Hard Courts: the same court with its hazards turned up, inside the
+ * authoring limits every generated court is held to. Wind and wells push a
+ * quarter harder, gates open narrower and cycle faster, breakable deflectors
+ * take one more hit, brick walls are armoured, bumpers stand larger and
+ * slide faster, and pace zones change the ball's pace more. A court with none
+ * of those - plain rails or portals - gains a pair of pace zones. A court the
+ * limits would refuse keeps its ordinary hazards.
+ */
+export function hardCourt(arena: ArenaSpec): ArenaSpec {
+  const push = (strength: number) => Math.sign(strength) * Math.min(400, Math.abs(strength) * 1.25);
+  const sharpen = (scale: number) =>
+    scale >= 1 ? Math.min(1.2, scale + 0.05) : Math.max(0.85, scale - 0.05);
+  const hard: ArenaSpec = {
+    ...arena,
+    ...(arena.wind ? { wind: { ...arena.wind, strength: push(arena.wind.strength) } } : {}),
+    ...(arena.well ? { well: { ...arena.well, strength: push(arena.well.strength) } } : {}),
+    ...(arena.gates
+      ? {
+          gates: arena.gates.map((gate) => ({
+            ...gate,
+            gap: Math.max(0.24, gate.gap * 0.85),
+            period: Math.max(4, gate.period * 0.85)
+          }))
+        }
+      : {}),
+    ...(arena.rails
+      ? {
+          rails: arena.rails.map((rail) =>
+            rail.hp === undefined ? rail : { ...rail, hp: Math.min(6, rail.hp + 1) }
+          )
+        }
+      : {}),
+    ...(arena.bricks ? { bricks: { ...arena.bricks, armored: true } } : {}),
+    ...(arena.bumpers
+      ? {
+          bumpers: arena.bumpers.map((bumper) => ({
+            ...bumper,
+            r: Math.min(40, bumper.r * 1.15),
+            ...(bumper.slide
+              ? { slide: { ...bumper.slide, period: bumper.slide.period * 0.85 } }
+              : {})
+          }))
+        }
+      : {}),
+    ...(arena.zones
+      ? { zones: arena.zones.map((zone) => ({ ...zone, scale: sharpen(zone.scale) })) }
+      : {})
+  };
+  if (validArena(hard) && JSON.stringify(hard) !== JSON.stringify(arena)) return hard;
+  const zoned: ArenaSpec = { ...arena, zones: HARD_ZONES.map((zone) => ({ ...zone })) };
+  return !arena.zones?.length && validArena(zoned) ? zoned : arena;
+}
+
+function hardCourts(modifiers: Partial<MatchModifiers>, pressure: number): Partial<MatchModifiers> {
+  return pressure >= HARD_COURTS_PRESSURE && modifiers.arena
+    ? { ...modifiers, arena: hardCourt(modifiers.arena) }
+    : modifiers;
 }
 
 /** Pressure's effect on one match's modifiers. */
@@ -275,14 +351,19 @@ export function offerSize(pressure: number): number {
  * The draft after winning `stage`: a seeded pick from what the run could
  * still use. A duo boon, when one has come available, always takes a slot -
  * it is the reward for the build the player has been making.
+ *
+ * Given the build the run is played with, a new-format draft offers only
+ * boons and relics that would change something for it, and never relics
+ * alone: a relic is a trade, so there is always another way forward.
  */
-export function draftFor(save: RunSave, stage: number): string[] {
+export function draftFor(save: RunSave, stage: number, build?: ResolvedLoadout): string[] {
   const random =
     (save.draftRoll ?? 0) > 0
       ? seeded('draft', save.seed, stage, save.draftRoll!)
       : seeded('draft', save.seed, stage);
-  const available = (save.version === 2 ? [...BOONS, ...RELICS] : LEGACY_BOONS).filter((boon) =>
-    boonAvailable(boon, save.boons)
+  const useful = build && save.version === 2 ? usefulFor(build, save.boons) : () => true;
+  const available = (save.version === 2 ? [...BOONS, ...RELICS] : LEGACY_BOONS).filter(
+    (boon) => boonAvailable(boon, save.boons) && useful(boon)
   );
   const duos = available.filter((boon) => boon.family === 'duo');
   const rest = available.filter((boon) => boon.family !== 'duo' && !boon.instant);
@@ -298,7 +379,15 @@ export function draftFor(save: RunSave, stage: number): string[] {
     picks.push(pool.splice(index, 1)[0]!);
   }
   if (picks.length === 0) picks.push(boonById('repair-credit')!);
-  return picks.slice(0, size).map((boon) => boon.id);
+  const offered = picks.slice(0, size);
+  if (save.version === 2 && offered.every((boon) => boon.family === 'relic')) {
+    const others = pool.filter((boon) => boon.family !== 'relic');
+    offered[offered.length - 1] =
+      others.length > 0
+        ? others[Math.floor(random() * others.length) % others.length]!
+        : boonById('repair-credit')!;
+  }
+  return offered.map((boon) => boon.id);
 }
 
 // ----------------------------------------------------------------- advance
@@ -314,9 +403,15 @@ export interface RunAdvance {
 
 /**
  * Record one finished Gauntlet match. A win moves the run on and opens a
- * draft; a loss costs a heart and keeps the same opponent. Pure.
+ * draft for `build`; a loss costs a heart and keeps the same opponent. Pure.
  */
-export function advanceRun(source: RunSave, won: boolean, you: number, bot: number): RunAdvance {
+export function advanceRun(
+  source: RunSave,
+  won: boolean,
+  you: number,
+  bot: number,
+  build?: ResolvedLoadout
+): RunAdvance {
   const save: RunSave = {
     ...source,
     boons: { ...source.boons },
@@ -335,7 +430,7 @@ export function advanceRun(source: RunSave, won: boolean, you: number, bot: numb
     }
     if (source.version === 2)
       save.credits = Math.min(9, (source.credits ?? 0) + (source.route === 'risk' ? 2 : 1));
-    save.offer = draftFor(save, source.stage);
+    save.offer = draftFor(save, source.stage, build);
     return { save, ended: false, cleared: false, heartLost: false };
   }
   save.hearts = Math.max(0, source.hearts - 1);

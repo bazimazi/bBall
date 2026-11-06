@@ -33,8 +33,11 @@ export const LEGACY_BOSSES: readonly BossDef[] = [
       title: 'A paddle half again as long',
       hue: 28,
       phases: [
-        { at: 2, label: 'It wakes up', bot: 'pro', botPaddleScale: 1.3 },
-        { at: 4, label: 'Last stand', botPaddleScale: 1.15 }
+        // The first boss: it stays an Amateur until its last stand. Turning
+        // Pro two points in measured as a wall for a new player - a stage
+        // they had won nine times in ten dropped to one win in five.
+        { at: 2, label: 'It wakes up', botPaddleScale: 1.3 },
+        { at: 4, label: 'Last stand', bot: 'pro', botPaddleScale: 1.15 }
       ]
     },
     bot: 'amateur',

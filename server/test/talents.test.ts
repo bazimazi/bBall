@@ -316,7 +316,10 @@ it('existing rank upgrades remain useful for charge timing, Afterglow and max-le
   assert.equal(resolveLoadout(save, 1).slots, 3);
   assert.equal(resolveLoadout(save, 1).effects.recharge, 0);
   assert.equal(resolveLoadout(save, 50).slots, 5);
-  assert.equal(resolveLoadout(save, 50).effects.recharge, 0.1);
+  assert.equal(
+    resolveLoadout(save, 50).effects.recharge,
+    BALANCE.effects.rankRewards.overflowRecharge
+  );
 });
 
 it('all five new tree paths are purchasable, have unique cells and refund safely', () => {
@@ -511,10 +514,13 @@ it('Bastion turns a corner ball back at full pace, heavy and away from the oppon
   assert.equal(tryBastion(world), false, 'the middle of the line is not walled');
 });
 
-it('Counterstrike adds a shield charge and charges the returns after a save', () => {
+it('Counterstrike turns a save into an attack and charges the returns after it', () => {
   const world = build({ shield: 1, counterstrike: 1 });
-  assert.equal(world.loadout.effects.shieldCharges, 2);
-  assert.equal(world.talents.shield, 2);
+  assert.equal(
+    world.loadout.effects.shieldCharges,
+    1,
+    'no extra charge: that out-measured Shield rank 2'
+  );
   world.ball.vx = -600;
   assert.equal(tryShield(world), true);
   assert.equal(world.talents.primed, BALANCE.effects.counterstrike.primed);
@@ -522,7 +528,7 @@ it('Counterstrike adds a shield charge and charges the returns after a save', ()
     assert.equal(playerReturn(world, 0).charged, true);
   assert.equal(playerReturn(world, 0).charged, false);
   const reckless = build({ shield: 1, counterstrike: 1, reckless: 1 });
-  assert.equal(reckless.loadout.effects.shieldCharges, 0, 'Reckless still strips every save');
+  assert.equal(reckless.loadout.effects.counterPace, 0, 'Reckless still strips every save');
 });
 
 it('Second Chance carries two refunds and Hot Hand charges the next rally', () => {

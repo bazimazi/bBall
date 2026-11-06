@@ -29,6 +29,10 @@ import { UltimateLayer } from './ultimateFx';
 
 const COURT_RADIUS = 26;
 const COMBO_DURATION = 1.3;
+/** Screen pixels a popup word keeps from the viewport's edge. */
+const POPUP_EDGE = 8;
+/** Seconds a banner raised mid-rally stays readable: shorter than a serve's. */
+const LIVE_BANNER_TIME = 1.25;
 /** How far a capstone's camera punch pushes the view in, at full strength. */
 const PUNCH_ZOOM = 0.025;
 
@@ -65,6 +69,9 @@ export class Renderer {
   private vignette: CanvasGradient | null = null;
   /** Match-point heartbeat tint, per side, cached with the vignette. */
   private pressure: Partial<Record<Side, CanvasGradient>> = {};
+  /** The banner on screen: how old it was last frame, and whether it began mid-rally. */
+  private bannerAge = Infinity;
+  private bannerLive = false;
 
   private readonly ctx: CanvasRenderingContext2D;
   private font = CANVAS_FONT;
@@ -931,7 +938,11 @@ export class Renderer {
     }
   }
 
-  /** Words rising off special returns, upright whatever the orientation. */
+  /**
+   * Words rising off special returns, upright whatever the orientation.
+   * A word born at a wall - an ace into the corner - is kept whole inside
+   * the viewport rather than rising off its edge.
+   */
   private drawPopups(world: World): void {
     const { ctx } = this;
     const { view } = world;
@@ -941,19 +952,33 @@ export class Renderer {
       const grow = popup.age < 0.22 ? 0.55 + easeOutBack(popup.age / 0.22, 2.6) * 0.45 : 1;
       const rise = easeOutCubic(t) * 34;
       const fade = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
-      const x = toScreenX(view, popup.x, popup.y);
-      const y = toScreenY(view, popup.x, popup.y) - 26 * view.scale - rise;
+      const text = translateText(popup.text);
+      const size = popup.size * view.scale;
+      ctx.font = `850 ${size.toFixed(1)}px ${this.font}`;
+      const stroke = 4 * view.scale;
+      // Half extents at full size (text is centred on its anchor), plus the outline.
+      const halfW = ctx.measureText(text).width / 2 + stroke;
+      const halfH = size * 0.6 + stroke;
+      const x = clamp(
+        toScreenX(view, popup.x, popup.y),
+        POPUP_EDGE + halfW,
+        Math.max(POPUP_EDGE + halfW, view.vw - POPUP_EDGE - halfW)
+      );
+      const y = clamp(
+        toScreenY(view, popup.x, popup.y) - 26 * view.scale - rise,
+        POPUP_EDGE + halfH,
+        Math.max(POPUP_EDGE + halfH, view.vh - POPUP_EDGE - halfH)
+      );
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(grow, grow);
       ctx.globalAlpha = fade;
-      ctx.font = `850 ${(popup.size * view.scale).toFixed(1)}px ${this.font}`;
-      ctx.lineWidth = 4 * view.scale;
+      ctx.lineWidth = stroke;
       ctx.lineJoin = 'round';
       ctx.strokeStyle = 'rgba(6,8,15,0.75)';
-      ctx.strokeText(translateText(popup.text), 0, 0);
+      ctx.strokeText(text, 0, 0);
       ctx.fillStyle = hsla(popup.hue, 100, 78, 1);
-      ctx.fillText(translateText(popup.text), 0, 0);
+      ctx.fillText(text, 0, 0);
       ctx.restore();
     }
   }
@@ -961,14 +986,25 @@ export class Renderer {
   /**
    * The big card across the middle: a stage's name, a boss walking on, a
    * boss moving into its next phase. Scales in with a little overshoot,
-   * holds, and fades - never while the ball is in the player's face, because
-   * it only ever appears over a serve or on the point a phase begins.
+   * holds, and fades - over a serve, or on the point a phase begins.
+   *
+   * A banner raised while the ball is live (rally pressure starting) is
+   * decided as it appears and drawn as a compact notice instead.
    */
   private drawBanner(world: World, cx: number, cy: number, s: number): void {
-    const { fx } = world;
-    if (fx.bannerTimer <= 0 || !fx.bannerText) return;
+    const { fx, match } = world;
+    if (fx.bannerTimer <= 0 || !fx.bannerText) {
+      this.bannerAge = Infinity;
+      return;
+    }
     const { ctx } = this;
     const age = BANNER_TIME - fx.bannerTimer;
+    if (age < this.bannerAge) this.bannerLive = match.status === 'play' && match.rally > 0;
+    this.bannerAge = age;
+    if (this.bannerLive) {
+      this.drawLiveBanner(world, age, s);
+      return;
+    }
     const grow = age < 0.3 ? 0.7 + easeOutBack(age / 0.3, 2.2) * 0.3 : 1;
     const fade = Math.min(1, fx.bannerTimer / 0.45, age / 0.12);
     ctx.save();
@@ -989,6 +1025,52 @@ export class Renderer {
       ctx.font = `650 ${(15 * s).toFixed(1)}px ${this.font}`;
       ctx.fillStyle = 'rgba(238,242,255,0.72)';
       ctx.fillText(translateText(fx.bannerSub), 0, 26 * s, width - 24 * s);
+    }
+    ctx.restore();
+  }
+
+  /**
+   * A notice raised mid-rally: outlined words with no band behind them,
+   * gone in {@link LIVE_BANNER_TIME}. On a landscape court it sits against
+   * the top wall at the centre line, clear of both paddle lanes; upright on a
+   * portrait one it sits just short of the centre line, where it is passed
+   * through rather than played against. The HUD keeps the lasting detail.
+   */
+  private drawLiveBanner(world: World, age: number, s: number): void {
+    if (age >= LIVE_BANNER_TIME) return;
+    const { ctx } = this;
+    const { fx, view } = world;
+    const fade = Math.min(1, age / 0.12, (LIVE_BANNER_TIME - age) / 0.35);
+    const titleSize = Math.max(13, 17 * s);
+    const subSize = Math.max(10, 11 * s);
+    const gap = subSize * 1.3;
+    // A long subtitle breaks at its own separators rather than squeezing.
+    const lines = fx.bannerSub ? translateText(fx.bannerSub).split(' · ') : [];
+    const height = titleSize + lines.length * gap;
+    const halfShort = (view.h * view.scale) / 2;
+    const top = view.rotated
+      ? view.cy - 14 * s - height
+      : view.cy - halfShort + Math.max(10, 12 * s);
+    const room = (view.rotated ? halfShort * 2 : view.w * view.scale) * 0.6;
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(6,8,15,0.8)';
+    ctx.font = `850 ${titleSize.toFixed(1)}px ${this.font}`;
+    ctx.lineWidth = Math.max(3, titleSize * 0.22);
+    const title = translateText(fx.bannerText.toUpperCase());
+    ctx.strokeText(title, view.cx, top, room);
+    ctx.fillStyle = hsla(fx.bannerHue, 100, 76, 1);
+    ctx.fillText(title, view.cx, top, room);
+    ctx.font = `650 ${subSize.toFixed(1)}px ${this.font}`;
+    ctx.lineWidth = Math.max(2.5, subSize * 0.3);
+    ctx.fillStyle = 'rgba(238,242,255,0.85)';
+    for (const [index, line] of lines.entries()) {
+      const y = top + titleSize + 2 + index * gap;
+      ctx.strokeText(line, view.cx, y, room);
+      ctx.fillText(line, view.cx, y, room);
     }
     ctx.restore();
   }

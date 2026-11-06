@@ -140,10 +140,12 @@ try {
                 scroll = scroll.parentElement;
               if (!scroll && (r.left < -1 || r.right > innerWidth + 1))
                 issues.push('horizontal clipping: ' + element.textContent.slice(0, 60));
-              // Tree reset geometry predates this change; measure the new controls.
+              // Tree reset geometry predates this change, and the branch jump row is
+              // shown to fine pointers only; measure the new touch controls.
               if (
                 element.matches('button,input,summary') &&
                 !element.matches('[class*="_treeReset_"]') &&
+                !element.matches('[class*="_branchJump_"]') &&
                 !element.closest('footer') &&
                 r.height < 43
               )
@@ -265,9 +267,11 @@ try {
               : 'Save current talents to build 2'
         });
         await save.click();
+        // Leaving the name field renames the saved build at once; the save
+        // itself still waits for the overwrite to be confirmed.
         assert.equal(
           (await page.evaluate(() => window.lootReview.profile())).talents.presets[1].name,
-          'Control'
+          name
         );
         await save.click();
         assert.equal(

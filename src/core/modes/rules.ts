@@ -4,9 +4,17 @@ import { recipe } from './recipes';
 import { waveModifiers } from './sessions';
 import { actLength } from '../run/formats';
 import { botProfile } from '../bots/levels';
+import {
+  buildFor,
+  contractBotPoints,
+  cupBotPoints,
+  journeyBotPoints,
+  runBotPoints
+} from '../bots/builds';
+import { contractPace, cupPace, journeyPace, runPace, withPace } from './pace';
 import { BALANCE } from '../balance/config';
 import type { BotLevelId } from '../bots/types';
-import type { Stage } from '../campaign/journey';
+import { stageCode, type Stage } from '../campaign/journey';
 import { dailySpec, dailyIdentity } from '../daily/daily';
 import { applyBoonModifiers } from '../run/boons';
 import { applyPressure, encounterFor, type RunSave } from '../run/run';
@@ -49,18 +57,26 @@ function optionModifiers(options?: MatchOptions): Partial<MatchModifiers> {
   };
 }
 
+/** The opponent a contract declares: Legend for Master, Champion for Mythic. */
+export function contractBot(contract: MatchOptions['contract']): BotLevelId | undefined {
+  return contract === 'mythic' ? 'champion' : contract === 'master' ? 'legend' : undefined;
+}
+
 export function quickMatchRules(bot: BotLevelId, options?: MatchOptions): MatchRules {
   return {
     mode: 'quick',
     bot: {
-      ...botProfile(options?.contract ? 'legend' : bot),
+      ...botProfile(contractBot(options?.contract) ?? bot),
       ...(options?.personality ? { personality: options.personality } : {})
     },
     ...(options ? { options } : {}),
     winScore:
       options?.contract === 'mythic' ? 9 : options?.contract === 'master' ? 7 : QUICK_WIN_SCORE,
     lives: 0,
-    modifiers: modifiers(optionModifiers(options)),
+    modifiers: withPace(modifiers(optionModifiers(options)), contractPace(options?.contract)),
+    ...(options?.contract
+      ? { botPoints: buildFor(contractBot(options.contract)!, contractBotPoints(options.contract)) }
+      : {}),
     ranked: true,
     label: 'Quick Match',
     objective: {
@@ -194,8 +210,9 @@ export function tournamentRules(save: TournamentSave): MatchRules {
     },
     ...(generated ? { courtFamily: generated.courtFamily } : {}),
     winScore: round.winScore,
+    botPoints: buildFor(opponentFor(save), cupBotPoints(save.tier)),
     lives: 0,
-    modifiers: modifiers(generated?.modifiers),
+    modifiers: withPace(modifiers(generated?.modifiers), cupPace(save.tier)),
     ranked: true,
     label: `${tier.name} · ${round.name}`,
     objective: { id: 'win', label: `Win ${round.name.toLowerCase()}`, value: 0 },
@@ -221,19 +238,26 @@ export function campaignRules(stage: Stage): MatchRules {
     },
     seed: stage.id,
     winScore: stage.winScore,
+    botPoints: buildFor(
+      stage.bot,
+      journeyBotPoints(stage.world, stage.index, Math.max(0, stage.world - 30))
+    ),
     lives: 0,
-    modifiers: modifiers(
-      boss && stage.world > 5
-        ? { ...boss.modifiers, ...stage.modifiers, arena: boss.modifiers.arena }
-        : stage.modifiers
+    modifiers: withPace(
+      modifiers(
+        boss && stage.world > 5
+          ? { ...boss.modifiers, ...stage.modifiers, arena: boss.modifiers.arena }
+          : stage.modifiers
+      ),
+      journeyPace(stage.world, Math.max(0, stage.world - 30))
     ),
     ranked: true,
-    label: `${stage.world}-${stage.index + 1} · ${stage.name}`,
+    label: `${stageCode(stage)} · ${stage.name}`,
     objective: { id: 'win', label: goalLine(stage.goals), value: 0 },
     stageId: stage.id,
     goals: stage.goals,
     boss: boss?.spec,
-    intro: boss ? undefined : { title: stage.name, sub: `Stage ${stage.world}-${stage.index + 1}` }
+    intro: boss ? undefined : { title: stage.name, sub: `Stage ${stageCode(stage)}` }
   };
 }
 
@@ -273,6 +297,7 @@ export function runRules(save: RunSave): MatchRules {
   const mods = modifiers(encounter.modifiers);
   applyBoonModifiers(mods, save.boons);
   applyPressure(mods, save.pressure);
+  const paced = withPace(mods, runPace(encounter.act, save.pressure));
   const act = encounter.act + 1;
   const length = actLength(save);
   const match = ((save.stage - (save.actOffset ?? 0)) % length) + 1;
@@ -285,8 +310,9 @@ export function runRules(save: RunSave): MatchRules {
     },
     seed: `${save.seed}-${save.stage}-${save.route ?? 'safe'}`,
     winScore: encounter.winScore,
+    botPoints: buildFor(encounter.bot, runBotPoints(encounter.act, save.pressure, !!boss)),
     lives: 0,
-    modifiers: mods,
+    modifiers: paced,
     ranked: true,
     label: `Gauntlet · Act ${act}`,
     objective: {
@@ -347,8 +373,10 @@ export function objectiveMet(
       return result.won;
     case 'shutout':
       return result.won && result.scoreBot === 0;
+    // A rally counts both players' returns, so a long one is no feat on its
+    // own: lost 0-3, it used to clear the challenge every time.
     case 'rally':
-      return result.bestRally >= objective.value;
+      return result.won && result.bestRally >= objective.value;
     case 'quick-win':
       return result.won && result.seconds <= objective.value;
     case 'survive':

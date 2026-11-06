@@ -219,10 +219,11 @@ function fire(world: World, def: AbilityDef): void {
       break;
     case 'echo':
       // Clears the *other* slots, never its own - that is what keeps a
-      // capstone from ever becoming part of a rotation.
+      // capstone from ever becoming part of a rotation. Another ultimate only
+      // loses half of what it has left, as every refund treats ultimates.
       for (const slot of talents.slots) {
         if (slot.id && slot.id !== 'echo' && slot.cooldown > 0) {
-          slot.cooldown = 0;
+          slot.cooldown = abilityById(slot.id)?.ultimate ? slot.cooldown / 2 : 0;
           slot.refreshId++;
         }
       }

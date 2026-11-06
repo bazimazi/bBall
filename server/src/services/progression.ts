@@ -28,6 +28,7 @@ import type { WorkshopAction, EquipmentSnapshot } from '../../../src/core/equipm
 import type { MatchResult } from '../../../src/core/modes/types';
 import { grantAchievements, syncUnlocks } from '../../../src/core/progression/apply';
 import { applyMatchResult } from '../../../src/core/progression/apply';
+import { isForfeit } from '../../../src/core/progression/forfeit';
 import { levelOf } from '../../../src/core/progression/levels';
 import { cleanName } from '../../../src/core/profile/defaults';
 import type { AvatarId, PlayerProfile } from '../../../src/core/profile/types';
@@ -39,7 +40,7 @@ import {
   runActionOn,
   type RunAction
 } from '../../../src/core/run/ops';
-import { talentBuildOn } from '../../../src/core/talents/builds';
+import { talentBuildOn, type TalentBuildAction } from '../../../src/core/talents/builds';
 import type { RunFormat } from '../../../src/core/run/formats';
 import { isRunActive, pressureUnlocked } from '../../../src/core/run/run';
 import {
@@ -198,7 +199,8 @@ export function recordMatch(
 
     const modeStats = foldModeStats(server.modeStats, result.mode, {
       won: result.won,
-      counts: result.ranked && !result.abandoned,
+      // A forfeit is a loss on the record, the same as on the profile.
+      counts: (result.ranked && !result.abandoned) || isForfeit(result),
       scoreYou: result.scoreYou,
       scoreBot: result.scoreBot,
       bestRally: result.bestRally,
@@ -607,10 +609,14 @@ export function abandonTournament(
   return mutate(context, userId, baseVersion, (profile) => {
     const current = profile.tournament;
     if (!current) return profile;
+    // Giving up a ladder season keeps a title won earlier in the same run,
+    // exactly as the device store does.
+    const kept = profile.lastTournament;
+    const sameRunTitle = !!kept?.champion && kept.startedAt === current.startedAt;
     return {
       ...profile,
       tournament: null,
-      lastTournament: { ...current, finished: true, champion: false }
+      lastTournament: sameRunTitle ? kept : { ...current, finished: true, champion: false }
     };
   });
 }
@@ -685,7 +691,7 @@ export function applyTalentBuild(
   context: ServiceContext,
   userId: string,
   slot: number,
-  action: 'save' | 'load',
+  action: TalentBuildAction,
   name?: string
 ): ServerProfile {
   return mutate(context, userId, undefined, (profile) => {

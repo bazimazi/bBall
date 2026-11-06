@@ -6,7 +6,7 @@ import { fireAbility } from './abilities';
 import { combatant } from './combatant';
 import type { BotProfile } from '../core/bots/types';
 import { arenaNonLinear, brickAt, wallFor } from './arena';
-import { BALL_R, FIELD_H } from './constants';
+import { BALL_R, FIELD_H, PADDLE_W } from './constants';
 import { movePaddle } from './physics';
 import type { BotBrain, Paddle, Vec2 } from './types';
 import { clamp, lerp } from './utils/math';
@@ -195,8 +195,13 @@ function decide(
   const p = brain.profile;
   if (!correcting) brain.misread = world.random() > p.consistency;
 
-  const exact = predictY(world, paddle.x);
-  const naive = naiveY(world, paddle.x);
+  // Contact is decided at the paddle's face, not its centre line. Reading the
+  // centre line misjudges a steep ball by up to half a paddle - a weakness most
+  // tiers keep, and the top ones have trained out (`contactRead`).
+  const readX =
+    paddle.x + (paddle.side === 'bot' ? -1 : 1) * (PADDLE_W / 2 + BALL_R) * (p.contactRead ?? 0);
+  const exact = predictY(world, readX);
+  const naive = naiveY(world, readX);
   const quality = clamp(p.prediction * (brain.misread ? 0.3 : 1) + (correcting ? 0.3 : 0), 0, 1);
   const cross = lerp(naive, exact, quality);
 
@@ -204,10 +209,11 @@ function decide(
   // into whichever half the opponent has left open.
   const foe = paddle.side === 'bot' ? world.player : world.bot;
   const away = foe.y < FIELD_H / 2 ? 1 : -1;
-  const place =
+  const wanted =
     p.rank >= 3 && p.assist === 0
       ? chooseShot(world, paddle, brain, cross)
       : away * (0.25 + p.placement * 0.6);
+  const place = cautious(world, paddle, p, wanted, fast);
 
   paddle.target = clamp(
     cross - place * paddle.half + aimError(world, brain, fast, correcting),
@@ -219,6 +225,34 @@ function decide(
   brain.wait = p.reaction * 0.7;
   if (paddle.side === 'bot' && world.match.status === 'play' && p.assist === 0)
     chooseSkill(world, brain, cross);
+}
+
+/**
+ * Keep an off-centre contact inside the bot's own margin for error.
+ *
+ * Striking near the paddle's end is how a bot angles its return - and how it
+ * misses, once the ball is heavy or breaks late. A cautious bot weighs its
+ * likely aim error on this ball and the late break the opponent's returns
+ * have shown, and keeps that much paddle between the contact and the end.
+ * Without it the best bots gambled on the edge every time, and a developed
+ * build turned nearly every one of those gambles into a point.
+ */
+function cautious(
+  world: World,
+  paddle: Paddle,
+  p: BotProfile,
+  place: number,
+  fast: number
+): number {
+  const caution = p.caution ?? 0;
+  if (caution <= 0) return place;
+  const foe = combatant(world, paddle.side === 'bot' ? 'you' : 'bot');
+  const spread =
+    p.aimError * (1 + (1 - p.pressure) * fast * 1.3) * (1 + Math.min(0.8, world.ball.heft));
+  const margin = caution * (spread + foe.loadout.effects.swerve);
+  const reach = paddle.half + BALL_R * 0.55;
+  const limit = clamp((reach - margin) / paddle.half, 0, 1);
+  return clamp(place, -limit, limit);
 }
 
 function chooseShot(world: World, paddle: Paddle, brain: BotBrain, cross: number): number {

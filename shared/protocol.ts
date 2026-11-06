@@ -538,7 +538,7 @@ export type SyncOp =
       readonly opId: string;
       readonly payload: {
         readonly slot: number;
-        readonly action: 'save' | 'load';
+        readonly action: 'save' | 'load' | 'rename';
         readonly name?: string | undefined;
       };
     }

@@ -1,4 +1,4 @@
-import { t, msg } from '../core/i18n/index';
+import { t, msg, secondsUnit } from '../core/i18n/index';
 import { useEffect, useState, type CSSProperties, type PointerEvent } from 'react';
 
 import type { SkillSide } from '../core/settings/store';
@@ -6,7 +6,7 @@ import type { AbilityView } from '../game/types';
 import styles from './AbilityBar.module.css';
 import { TalentIcon } from './icons/TalentIcon';
 import { useSettings } from './hooks/useSettings';
-import { keyList, keyName, skillAction } from '../core/settings/controls';
+import { keyName, skillAction } from '../core/settings/controls';
 
 interface AbilityBarProps {
   abilities: readonly AbilityView[];
@@ -97,7 +97,8 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
   const index = ability.slot;
   const burst = useBurst(ability.castId, ability.refreshId);
   const { keyBindings, graphicsIntensity } = useSettings();
-  const action = skillAction(index);
+  // A slot past the bindable range simply has no shortcut to show.
+  const keys = keyBindings[skillAction(index)] ?? [];
 
   // Fire on pointerdown, not click: during a rally the difference between the
   // two is the difference between reaching the ball and watching it go past.
@@ -124,7 +125,11 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
       className={classes.join(' ')}
       data-graphics={graphicsIntensity}
       style={style}
-      aria-label={msg('{0}, shortcut {1}', [label(ability), t(keyList(keyBindings, action))])}
+      aria-label={
+        keys.length
+          ? msg('{0}, shortcut {1}', [label(ability), t(keys.map(keyName).join(' / '))])
+          : label(ability)
+      }
       aria-disabled={!ability.ready}
       onPointerDown={handleDown}
       onClick={(event) => {
@@ -187,20 +192,22 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
       {ability.active && ability.duration > 0 ? (
         <span className={`${styles.timer} ${styles.timerActive}`} aria-hidden="true">
           {t(shortSeconds(ability.remain))}
-          {t('s')}
+          {secondsUnit()}
         </span>
       ) : (
         !ability.ready && (
           <span className={styles.timer} aria-hidden="true">
             {t(ability.cooldownLeft)}
-            {t('s')}
+            {secondsUnit()}
           </span>
         )
       )}
 
-      <span className={styles.key} aria-hidden="true">
-        {t(keyName(keyBindings[action][0]!))}
-      </span>
+      {keys[0] && (
+        <span className={styles.key} aria-hidden="true">
+          {t(keyName(keys[0]))}
+        </span>
+      )}
 
       {/* Keyed on a counter so firing twice in a row replays the ring rather
           than leaving the first one frozen half-way out. */}
@@ -218,15 +225,22 @@ function AbilityButton({ ability, onUse }: AbilityButtonProps) {
 /**
  * The equipped active skills, during play.
  *
- * Thumb-sized controls on the side the player picked, raised above the bottom
- * paddle lane so the player can drag beneath them. Nothing else is added to
- * the gameplay HUD.
+ * Thumb-sized controls on the side the player picked, kept outside both
+ * paddle lanes and the contact zones in front of them: a column along the
+ * side wall above the player's lane on a portrait court, a row along the
+ * bottom wall beside it on a landscape one. The engine publishes where the
+ * lanes end. The gaps between buttons pass input through, and pointer moves
+ * over the buttons still steer the paddle. Nothing else is added to the
+ * gameplay HUD.
  */
 export function AbilityBar({ abilities, show, side, onUse }: AbilityBarProps) {
   if (!show || abilities.length === 0) return null;
 
   return (
-    <div className={side === 'left' ? `${styles.bar} ${styles.left}` : styles.bar}>
+    <div
+      className={side === 'left' ? `${styles.bar} ${styles.left}` : styles.bar}
+      data-crowded={abilities.length > 5}
+    >
       {abilities.map((ability) => (
         <AbilityButton key={ability.id} ability={ability} onUse={onUse} />
       ))}

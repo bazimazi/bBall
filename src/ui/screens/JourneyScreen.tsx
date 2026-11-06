@@ -2,11 +2,13 @@ import { t, msg } from '../../core/i18n/index';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
+import { buildFor, journeyBotPoints } from '../../core/bots/builds';
 import {
   JOURNEY,
   nextStage,
   nextFrontierStage,
   stageById,
+  stageCode,
   stageOpen,
   starsInWorld,
   TOTAL_STARS,
@@ -14,6 +16,7 @@ import {
   worldById,
   worldCleared,
   worldOpen,
+  worldTitle,
   type JourneyWorld,
   type Stage
 } from '../../core/campaign/journey';
@@ -246,8 +249,7 @@ export function JourneyScreen({ profile, onPlay, onBack }: JourneyScreenProps) {
 
       <div className={modes.worldHead}>
         <span className={styles.sectionLabel} style={{ margin: 0 }}>
-          {t('World ')}
-          {t(world.id)}
+          {t(worldTitle(world))}
           {t(' · ')}
           {t(world.theme)}
         </span>
@@ -362,11 +364,7 @@ function StageTile({ stage, hue, mask, open, next, selected, onSelect }: StageTi
       onClick={onSelect}
       aria-pressed={selected}
     >
-      <span className={modes.stageNum}>
-        {t(stage.world)}
-        {t('-')}
-        {t(stage.index + 1)}
-      </span>
+      <span className={modes.stageNum}>{t(stageCode(stage))}</span>
       <span className={modes.stageName}>{t(stage.name)}</span>
       {stage.boss && <span className={modes.bossBadge}>{t('Boss')}</span>}
       <StarRow mask={mask} className={modes.stars} on={modes.starOn} />
@@ -376,6 +374,10 @@ function StageTile({ stage, hue, mask, open, next, selected, onSelect }: StageTi
 
 function StageDetail({ stage, hue, mask }: { stage: Stage; hue: number; mask: number }) {
   const bot = botProfile(stage.bot);
+  const build = buildFor(
+    stage.bot,
+    journeyBotPoints(stage.world, stage.index, Math.max(0, stage.world - 30))
+  );
   const goals = [
     { bit: 1, label: 'Win the match' },
     { bit: 2, label: starGoalLabel(stage.goals[0]) },
@@ -388,9 +390,7 @@ function StageDetail({ stage, hue, mask }: { stage: Stage; hue: number; mask: nu
         <span className={modes.stageNum}>
           {t(boss ? 'Boss · ' : '')}
           {t('Stage ')}
-          {t(stage.world)}
-          {t('-')}
-          {t(stage.index + 1)}
+          {t(stageCode(stage))}
         </span>
         <h3 className={modes.detailName}>{t(stage.name)}</h3>
         <p className={modes.detailBlurb}>{t(stage.blurb)}</p>
@@ -400,6 +400,7 @@ function StageDetail({ stage, hue, mask }: { stage: Stage; hue: number; mask: nu
           {t(' · first to ')}
           {t(stage.winScore)}
           {t(boss ? msg(' · {0} phases', [t(boss.spec.phases.length + 1)]) : '')}
+          {build > 0 ? msg(' · {0}-point talent build', [t(build)]) : ''}
         </p>
       </div>
       <div className={modes.goals}>

@@ -11,7 +11,9 @@ import { starCount, starsEarned } from '../modes/stars';
 import { cloneProgress } from '../profile/progress';
 import { applyQuests, QUEST_BONUS_XP, QUEST_XP, type QuestDef } from '../quests/quests';
 import { advanceRun, type RunAdvance } from '../run/run';
-import { atBoundary } from '../run/formats';
+import { actIndex, atBoundary, ENDLESS_CLEAR_ACTS } from '../run/formats';
+import { runBuild } from '../run/ops';
+import { isForfeit } from './forfeit';
 import { COSMETICS, isUnlocked, type Cosmetic } from '../cosmetics/catalog';
 import type { MatchResult } from '../modes/types';
 import { createStats } from '../profile/defaults';
@@ -272,6 +274,21 @@ function applyTournament(profile: PlayerProfile, result: MatchResult): Tournamen
   return next;
 }
 
+/**
+ * A forfeit: the match goes on the record as a loss - ending the win streak -
+ * and a cup round forfeited is a cup lost. Nothing is paid and no other
+ * progress moves.
+ */
+function applyForfeit(profile: PlayerProfile, result: MatchResult): TournamentSave | null {
+  const stats = profile.stats;
+  stats.matches += 1;
+  stats.losses += 1;
+  stats.currentStreak = 0;
+  stats.pointsWon += result.scoreYou;
+  stats.pointsLost += result.scoreBot;
+  return applyTournament(profile, { ...result, won: false });
+}
+
 /** Fold what the build did this match into the lifetime talent numbers. */
 function applyTalentStats(profile: PlayerProfile, result: MatchResult): void {
   const from = result.talent;
@@ -300,13 +317,18 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
 
   rollDaily(profile);
 
-  // Practice and abandoned matches leave no trace at all.
+  // Practice and abandoned matches leave no trace at all - except a forfeit:
+  // a ranked match left or restarted after a point was played. That is a
+  // loss, and in a cup an elimination, but it pays nothing.
   const counts = result.ranked && !result.abandoned;
   if (!counts) {
+    const forfeit = isForfeit(result);
+    const tournament = forfeit ? applyForfeit(profile, result) : null;
+    if (forfeit) profile.updatedAt = Date.now();
     return {
       loot: emptyLootReward(),
       workshop: { marks: 0, contracts: [] },
-      profile: source,
+      profile: forfeit ? profile : source,
       award: EMPTY_AWARD,
       xpBefore,
       xpAfter: xpBefore,
@@ -317,7 +339,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
       unlocks: [],
       newBestRally: false,
       challengeCleared: false,
-      tournament: null,
+      tournament,
       cupWon: false,
       talentPoints: 0,
       talentPointsAvailable: source.talents.points,
@@ -487,7 +509,13 @@ function applyModes(profile: PlayerProfile, result: MatchResult): ModesOutcome {
   if (result.mode === 'run' && progress.run && !progress.run.finished) {
     if (result.runStage === undefined || result.runStage === progress.run.stage) {
       const pressure = progress.run.pressure;
-      run = advanceRun(progress.run, result.won, result.scoreYou, result.scoreBot);
+      run = advanceRun(
+        progress.run,
+        result.won,
+        result.scoreYou,
+        result.scoreBot,
+        runBuild(profile)
+      );
       if (result.won) {
         add(
           result.bossId ? 'Boss defeated' : 'Gauntlet win',
@@ -514,10 +542,17 @@ function applyModes(profile: PlayerProfile, result: MatchResult): ModesOutcome {
           atBoundary(run.save)
         ) {
           progress.runRecords.bestStage = Math.max(progress.runRecords.bestStage, run.save.stage);
-          progress.runRecords.bestPressure = Math.max(progress.runRecords.bestPressure, pressure);
-          progress.runRecords.clears++;
           run.save.bankedActs = (run.save.bankedActs ?? 0) + 1;
           add('Act completed', RUN_BOSS_XP);
+          // An Endless run clears the Gauntlet once, on completing the same
+          // three-act climb a Sprint clears. A continued Sprint or Expedition
+          // starts past that act: it cleared before it continued.
+          if (actIndex(run.save) === ENDLESS_CLEAR_ACTS) {
+            progress.runRecords.clears++;
+            progress.runRecords.bestPressure = Math.max(progress.runRecords.bestPressure, pressure);
+            add('Gauntlet cleared', RUN_CLEAR_XP + pressure * RUN_PRESSURE_XP);
+            run = { ...run, cleared: true };
+          }
         }
       }
     }

@@ -1,5 +1,5 @@
 import { t, msg } from '../../core/i18n/index';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { abilitySlotsForLevel, BALANCE, paddleSpeedForLevel } from '../../core/balance/config';
 import { COSMETICS, isUnlocked } from '../../core/cosmetics/catalog';
@@ -42,8 +42,10 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
   const [level, setLevel] = useState(demoLevel ?? 1);
   const [text, setText] = useState(String(demoLevel ?? 1));
 
-  // The field may be mid-edit (empty, or a number that is not a level yet);
-  // the preview keeps showing the last level that was, so it never flickers.
+  const rangeId = useId();
+  // The field may be mid-edit (empty, or a number that is not a level). Every
+  // label then says so instead of describing the last level that was valid:
+  // the button, the facts and the note only ever name the level in the field.
   const typed = text.trim() === '' ? NaN : Number(text);
   const valid = Number.isInteger(typed) && typed >= 1 && typed <= DEMO_LEVEL_MAX;
 
@@ -53,10 +55,23 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
     if (Number.isInteger(value) && value >= 1 && value <= DEMO_LEVEL_MAX) setLevel(value);
   };
 
+  /** Leaving the field settles it on the nearest level, so it never stays out of range. */
+  const settle = () => {
+    if (valid) return;
+    if (!Number.isFinite(typed)) {
+      setText(String(level));
+      return;
+    }
+    const nearest = Math.min(DEMO_LEVEL_MAX, Math.max(1, Math.round(typed)));
+    setLevel(nearest);
+    setText(String(nearest));
+  };
+
   const points = earnedPoints(level);
   const slots = abilitySlotsForLevel(level);
   const cups = unlockedTiers(level);
   const pointsCap = BALANCE.talents.pointsUntilLevel;
+  const fact = (value: number) => (valid ? value : '—');
 
   return (
     <Screen
@@ -72,9 +87,13 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
             onClick={() => onStart(level)}
           >
             {t(
-              demoLevel === null
-                ? msg('Demo level {0}', [t(level)])
-                : msg('Switch to level {0}', [t(level)])
+              !valid
+                ? demoLevel === null
+                  ? 'Demo a level'
+                  : 'Change demo level'
+                : demoLevel === null
+                  ? msg('Demo level {0}', [t(level)])
+                  : msg('Switch to level {0}', [t(level)])
             )}
           </button>
           {demoLevel !== null && (
@@ -95,8 +114,10 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
         step={1}
         value={text}
         aria-label={t(msg('Demo level, 1 to {0}', [t(DEMO_LEVEL_MAX)]))}
+        aria-invalid={!valid}
+        aria-describedby={rangeId}
         onChange={(event) => edit(event.target.value)}
-        onBlur={() => setText(String(level))}
+        onBlur={settle}
         onKeyDown={(event) => {
           if (event.key !== 'Enter' || !valid) return;
           event.currentTarget.blur();
@@ -104,28 +125,39 @@ export function DemoScreen({ demoLevel, onStart, onExit, onBack }: DemoScreenPro
         }}
       />
 
+      <p
+        id={rangeId}
+        className={valid ? styles.fieldHint : `${styles.fieldHint} ${styles.fieldError}`}
+        aria-live="polite"
+      >
+        {t(`Choose a level from 1 to ${DEMO_LEVEL_MAX}.`)}
+      </p>
+
       <p className={styles.sectionLabel}>{t('At this level')}</p>
       <div className={styles.stats}>
-        <Fact value={points} label={t('Talent points')} />
-        <Fact value={slots} label={t('Skill slots')} />
-        <Fact value={cups.length} label={t('Cups open')} />
-        <Fact value={cosmeticsAt(level)} label={t('Cosmetics')} />
-        <Fact value={paddleSpeedForLevel(level)} label={t('Paddle speed')} />
+        <Fact value={fact(points)} label={t('Talent points')} />
+        <Fact value={fact(slots)} label={t('Skill slots')} />
+        <Fact value={fact(cups.length)} label={t('Cups open')} />
+        <Fact value={fact(cosmeticsAt(level))} label={t('Cosmetics')} />
+        <Fact value={fact(paddleSpeedForLevel(level))} label={t('Paddle speed')} />
       </div>
 
-      <p className={styles.note}>
-        {t('A demo profile starts with a clean record and the talent points level ')}
-        {t(level)}{' '}
-        {t(
-          ' has earned. Levelling never stops, but what it pays does: talent points end at level '
-        )}
-        {t(pointsCap)}
-        {t(' and paddle speed at ')}
-        {t(BALANCE.paddle.max)}
-        {t(
-          '. Matches, XP and builds from a demo are thrown away when you leave - your real progress is untouched.'
-        )}
-      </p>
+      {/* Mid-edit there is no level to describe; the rule above says what is wrong. */}
+      {valid && (
+        <p className={styles.note}>
+          {t('A demo profile starts with a clean record and the talent points level ')}
+          {t(level)}{' '}
+          {t(
+            ' has earned. Levelling never stops, but what it pays does: talent points end at level '
+          )}
+          {t(pointsCap)}
+          {t(' and paddle speed at ')}
+          {t(BALANCE.paddle.max)}
+          {t(
+            '. Matches, XP and builds from a demo are thrown away when you leave - your real progress is untouched.'
+          )}
+        </p>
+      )}
     </Screen>
   );
 }

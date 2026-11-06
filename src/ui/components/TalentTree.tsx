@@ -34,6 +34,12 @@ interface TalentTreeProps {
   total: number;
   selected: TalentId | null;
   onPick: (talent: TalentDef) => void;
+  /**
+   * The branch reset asks twice. While `resetArmed`, the button reads as a
+   * confirmation and the next press of it resets; the screen owns the state
+   * (and its time-out), so only one reset is ever waiting.
+   */
+  resetArmed: boolean;
   onReset: () => void;
 }
 
@@ -85,6 +91,7 @@ export function TalentTree({
   total,
   selected,
   onPick,
+  resetArmed,
   onReset
 }: TalentTreeProps) {
   const talents = talentsOfBranch(branch.id);
@@ -98,6 +105,7 @@ export function TalentTree({
       className={styles.tree}
       style={{ '--branch': `${hue}` } as React.CSSProperties}
       aria-label={t(msg('{0} talents', [t(branch.name)]))}
+      data-branch={branch.id}
     >
       <header className={styles.treeHead}>
         <span className={styles.treeCrest}>
@@ -154,8 +162,14 @@ export function TalentTree({
         </div>
       </div>
 
-      <button type="button" className={styles.treeReset} disabled={spent === 0} onClick={onReset}>
-        {t('✕ Reset')}
+      <button
+        type="button"
+        className={resetArmed ? `${styles.treeReset} ${styles.treeResetArmed}` : styles.treeReset}
+        disabled={spent === 0}
+        data-arm={`branch:${branch.id}`}
+        onClick={onReset}
+      >
+        {t(resetArmed ? 'Confirm reset' : '✕ Reset')}
       </button>
     </section>
   );

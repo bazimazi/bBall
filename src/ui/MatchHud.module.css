@@ -1,8 +1,16 @@
 .info {
+  /*
+   * Never over a paddle lane or the contact zone in front of it. The engine
+   * publishes how far in from each viewport edge those reach; in portrait
+   * the opponent's (or Player 2's) lane runs along the top, in landscape the
+   * player's runs down the left. The fallbacks approximate either court.
+   */
+  --lane-l: var(--court-lane-l, 0px);
+  --lane-r: var(--court-lane-r, 0px);
+  --lane-t: var(--court-lane-t, 74px);
   position: fixed;
-  /* Leave the upper paddle lane open for Player 2 in portrait Versus. */
-  top: calc(var(--safe-t) + 88px);
-  left: calc(var(--safe-l) + 16px);
+  top: max(calc(var(--safe-t) + 12px), calc(var(--lane-t) + 10px));
+  left: max(calc(var(--safe-l) + 16px), calc(var(--lane-l) + 10px));
   z-index: 2;
   width: max-content;
   max-width: min(270px, calc(100vw - var(--safe-l) - var(--safe-r) - 132px));
@@ -15,9 +23,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+@media (orientation: landscape) {
+  .info {
+    --lane-l: var(--court-lane-l, calc(14px + (100vh - 28px) * 0.164));
+    --lane-r: var(--court-lane-r, calc(14px + (100vh - 28px) * 0.164));
+    --lane-t: var(--court-lane-t, 0px);
+  }
+}
+
 :global(html[dir='rtl']) .info {
   left: auto;
-  right: calc(var(--safe-r) + 16px);
+  right: max(calc(var(--safe-r) + 16px), calc(var(--lane-r) + 10px));
 }
 
 .summary {
@@ -49,6 +65,63 @@
   outline-offset: 2px;
 }
 
+/* The score, with the live objective line beneath it. */
+.head {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/*
+ * The live objective: one line, never wrapping, so the collapsed panel stays
+ * small. Each part is its own span, joined by a dot.
+ */
+.live {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--muted);
+}
+
+.live > * + *::before {
+  content: '·';
+  margin-inline: 5px;
+  color: var(--muted);
+}
+
+.live i {
+  font-style: normal;
+}
+
+.live [data-state='reached'] i,
+.live [data-state='earned'] i {
+  color: #ffd35c;
+}
+
+.live [data-state='missed'] {
+  color: var(--bot);
+}
+
+.clock b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.clock[data-over='true'],
+.clock[data-over='true'] b {
+  color: var(--bot);
+}
+
+.pressure {
+  color: #ffbf6b;
+}
+
 .chevron {
   flex-shrink: 0;
   width: 12px;
@@ -61,7 +134,6 @@
 }
 
 .score {
-  flex: 1;
   min-width: 0;
   direction: ltr;
   display: flex;
@@ -85,12 +157,12 @@
 
 @media (orientation: landscape) {
   .info[data-technique='true'] {
-    left: calc(var(--safe-l) + 128px);
+    left: max(calc(var(--safe-l) + 128px), calc(var(--lane-l) + 10px));
   }
 
   :global(html[dir='rtl']) .info[data-technique='true'] {
     left: auto;
-    right: calc(var(--safe-r) + 128px);
+    right: max(calc(var(--safe-r) + 128px), calc(var(--lane-r) + 10px));
   }
 }
 

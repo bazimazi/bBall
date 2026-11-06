@@ -1,7 +1,7 @@
 import type { TournamentFormat } from '../tournament/bracket';
 import { workshopActionOn, withAttempt } from '../equipment/workshop';
 import type { WorkshopAction, WorkshopAttempt } from '../equipment/types';
-import { talentBuildOn } from '../talents/builds';
+import { talentBuildOn, type TalentBuildAction } from '../talents/builds';
 import { lootActionOn, type LootAction } from '../loot/ops';
 import type { CloudProfileDto } from '../../../shared/protocol';
 import type { BotLevelId } from '../bots/types';
@@ -396,13 +396,22 @@ class ProfileStore {
     return save;
   }
 
-  /** Give up on the current cup. It counts as played, never as won. */
+  /**
+   * Give up on the current cup. It counts as played, never as won.
+   *
+   * The round saved is the one that was never played, so the record reads
+   * "gave up before" it rather than "knocked out in" the one before. A ladder
+   * keeps running after a season is won; giving it up later must not replace
+   * that season's championship record with a give-up.
+   */
   abandonTournament(): void {
     if (!this.profile.tournament) return;
     this.patch((draft) => {
       const current = draft.tournament;
       if (!current) return;
-      draft.lastTournament = { ...current, finished: true, champion: false };
+      const kept = draft.lastTournament;
+      const sameRunTitle = !!kept?.champion && kept.startedAt === current.startedAt;
+      if (!sameRunTitle) draft.lastTournament = { ...current, finished: true, champion: false };
       draft.tournament = null;
     });
   }
@@ -431,7 +440,7 @@ class ProfileStore {
     return true;
   }
 
-  talentBuild(slot: number, action: 'save' | 'load', name?: string): boolean {
+  talentBuild(slot: number, action: TalentBuildAction, name?: string): boolean {
     const next = talentBuildOn(this.profile, slot, action, name);
     if (!next) return false;
     this.commit(next);

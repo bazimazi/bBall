@@ -663,7 +663,7 @@ export function checkBossPhase(world: World): boolean {
         : {})
     };
     setBrainProfile(world.botBrain, profile);
-    world.botLoadout = opponentLoadout(profile);
+    world.botLoadout = opponentLoadout(profile, world.rules.botPoints ?? 0);
     const oldSlots = previous.slots.map((s) => ({ ...s }));
     const stats = { ...previous.stats };
     resetRuntime(combatant(world, 'bot'));

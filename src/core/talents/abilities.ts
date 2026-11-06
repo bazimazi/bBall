@@ -37,8 +37,9 @@ function pct(value: number): string {
   return `${Math.round(value * 1000) / 10}%`;
 }
 
+/** Two decimals at most, the way the talent sheets print them: 0.25s, 4s. */
 function seconds(value: number): string {
-  return `${Math.round(value * 10) / 10}s`;
+  return `${Math.round(value * 100) / 100}s`;
 }
 
 export const ABILITY_DEFS: readonly AbilityDef[] = [

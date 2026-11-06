@@ -3698,9 +3698,12 @@ try {
     assert.equal(setupPreview('Series').querySelectorAll('[data-series-game]').length, 3);
     await choose('Series', 1);
     await choose('Opponent school', 'banker');
-    await click([...host.querySelectorAll('button')].find((b) => b.textContent.includes('Legend')));
+    // A Mythic contract is played against the Champion, the tier above Legend.
+    await click(
+      [...host.querySelectorAll('button')].find((b) => b.textContent.includes('Champion'))
+    );
     assert.deepEqual(picked.at(-1), {
-      bot: 'legend',
+      bot: 'champion',
       options: { personality: 'banker', arenaId: 'gatehouse-1', contract: 'mythic' }
     });
     await mount(h(ExpansionDifficulty, { ...props, practice: true }));

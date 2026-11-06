@@ -1,10 +1,9 @@
-import { t } from '../../core/i18n/index';
+import { t, secondsUnit } from '../../core/i18n/index';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { accountStore } from '../../core/account/store';
 import { localPracticeRecords } from '../../core/account/localPractice';
-import { ApiError } from '../../core/net/client';
-import { apiErrorText } from '../../core/i18n/errors';
+import { accountErrorText } from '../../core/i18n/errors';
 import { profileStore } from '../../core/profile/store';
 import { levelFromXp } from '../../core/progression/levels';
 import { ProviderButton } from '../components/ProviderButton';
@@ -29,16 +28,6 @@ interface AccountScreenProps {
 }
 
 type Mode = 'signin' | 'register' | 'forgot' | 'reset';
-
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) {
-    return apiErrorText(error);
-  }
-  if (error instanceof Error && error.name === 'NetworkError') {
-    return 'No connection. You can keep playing - this will sync later.';
-  }
-  return 'Something went wrong. Try again.';
-}
 
 /** Provider ids are lowercase on the wire and capitalised on screen. */
 function titleCase(value: string): string {
@@ -138,7 +127,8 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
     try {
       await work();
     } catch (failure) {
-      setError(messageFor(failure));
+      // Only a signed-in (or restoring) account has progress waiting to sync.
+      setError(accountErrorText(failure, accountStore.getSnapshot().status !== 'guest'));
     } finally {
       setWorking(false);
     }
@@ -251,7 +241,7 @@ export function AccountScreen({ onBack, token, onTokenUsed }: AccountScreenProps
                     {t(' ·')}
                     {t(' ')}
                     {t(Math.round(record.seconds))}
-                    {t('s')}
+                    {secondsUnit()}
                     <br />
                     <small>{t(record.reason)}</small>
                   </p>

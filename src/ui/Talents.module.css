@@ -58,6 +58,79 @@
 }
 
 /*
+ * A mouse cannot swipe. On a fine pointer the strip drops its snapping (a
+ * wheel step smaller than a panel would only snap back), shows a slim
+ * scrollbar to grab, and the wheel itself scrolls it sideways (see
+ * useWheelScrollX). The jump buttons above it reach any branch in one click.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .trees {
+    scroll-snap-type: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(238, 242, 255, 0.28) transparent;
+    padding-bottom: 10px;
+  }
+}
+
+.branchNav {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.branchJump {
+  flex: 1 1 0;
+  min-width: 0;
+  /* Shown to fine pointers only, so it can be slimmer than a touch target. */
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid hsl(var(--branch) 60% 55% / 0.24);
+  border-radius: 10px;
+  background: hsl(var(--branch) 45% 16% / 0.45);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.branchJump svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: hsl(var(--branch) 90% 72%);
+}
+
+.branchJump span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The branches the strip is showing right now. */
+.branchJumpOn {
+  color: var(--ink);
+  border-color: hsl(var(--branch) 80% 65% / 0.6);
+  background: hsl(var(--branch) 55% 26% / 0.7);
+}
+
+@media (hover: hover) {
+  .branchJump:hover {
+    color: var(--ink);
+    border-color: hsl(var(--branch) 80% 65% / 0.6);
+  }
+}
+
+/*
  * On a wide screen the menu is a centred column, so the strip ends mid-air
  * rather than at the screen edge: fade branches out there instead of cutting
  * them off.
@@ -344,6 +417,14 @@
 .treeReset:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+/* Armed: the next press of this button wipes the branch. */
+.treeResetArmed,
+.treeResetArmed:hover:not(:disabled) {
+  color: var(--bot);
+  border-color: rgba(255, 92, 138, 0.55);
+  background: rgba(255, 92, 138, 0.1);
 }
 
 /* ------------------------------------------------------------- actives */

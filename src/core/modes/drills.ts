@@ -24,7 +24,7 @@ export const TECHNIQUES: readonly {
   {
     id: 'placement',
     name: 'Placement drill',
-    hint: 'Cross the highlighted target. It alternates ends after each attempt. Contact near the paddle edge to change direction.',
+    hint: 'Cross the highlighted half; it switches after each attempt. Meet the ball just off your paddle’s centre, on the target’s side, and it leaves toward that side. Edge contacts are steep and rebound off the walls.',
     arena: {}
   }
 ];
@@ -50,6 +50,14 @@ export function techniqueRules(id: TechniqueId): MatchRules {
     intro: { title: drill.name, sub: drill.hint }
   };
 }
+/**
+ * The band of the far end an attempt must cross, in fractions of the court's
+ * height. Placement alternates halves either side of a small centre gap: from
+ * the identical centred feed, contacts from just off centre to about a third
+ * of the way to the paddle's end reach the chosen half directly or off one
+ * wall on every court width, while edge contacts leave so steep they rebound
+ * several times.
+ */
 export function techniqueTarget(id: TechniqueId, attempts: number): readonly [number, number] {
-  return id === 'placement' ? (attempts % 2 ? [0.62, 0.88] : [0.12, 0.38]) : [0.03, 0.97];
+  return id === 'placement' ? (attempts % 2 ? [0.53, 0.97] : [0.03, 0.47]) : [0.03, 0.97];
 }

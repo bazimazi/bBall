@@ -47,13 +47,13 @@ export function starGoalLabel(goal: StarGoal): string {
     case 'returns':
       return `Make ${goal.value} returns`;
     case 'banks':
-      return `Land ${goal.value} rail banks`;
+      return `Land ${goal.value} rail bank${goal.value === 1 ? '' : 's'}`;
     case 'switches':
-      return `Trigger ${goal.value} switches`;
+      return `Trigger ${goal.value} switch${goal.value === 1 ? '' : 'es'}`;
     case 'breaks':
-      return `Break ${goal.value} structures`;
+      return `Break ${goal.value} structure${goal.value === 1 ? '' : 's'}`;
     case 'gates':
-      return `Cross ${goal.value} gate openings`;
+      return `Cross ${goal.value} gate opening${goal.value === 1 ? '' : 's'}`;
   }
 }
 

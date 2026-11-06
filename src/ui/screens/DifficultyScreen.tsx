@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ARENA_PRESETS } from '../../core/modes/arenas';
 import { BOSSES, bossById } from '../../core/modes/bosses';
 import { PERSONALITIES, SCHOOL_SCOUT } from '../../core/modes/recipes';
-import { quickMatchRules, practiceRules } from '../../core/modes/rules';
+import { contractBot, quickMatchRules, practiceRules } from '../../core/modes/rules';
 import type { MatchOptions } from '../../core/modes/types';
 import { SELECTABLE_BOTS } from '../../core/bots/levels';
 import type { BotLevelId } from '../../core/bots/types';
@@ -32,9 +32,10 @@ interface DifficultyScreenProps {
 }
 
 function RankDots({ rank }: { rank: number }) {
+  const steps = SELECTABLE_BOTS.length;
   return (
-    <span className={styles.rank} aria-label={t(msg('Difficulty {0} of 5', [t(rank)]))}>
-      {[1, 2, 3, 4, 5].map((step) => (
+    <span className={styles.rank} aria-label={t(msg('Difficulty {0} of {1}', [t(rank), t(steps)]))}>
+      {Array.from({ length: steps }, (_, i) => i + 1).map((step) => (
         <i
           key={step}
           className={step <= rank ? `${styles.rankDot} ${styles.rankOn}` : styles.rankDot}
@@ -350,36 +351,38 @@ export function DifficultyScreen({
         </div>
       ) : (
         <div className={styles.grid}>
-          {SELECTABLE_BOTS.filter((bot) => !contract || practice || bot.id === 'legend').map(
-            (bot) => {
-              const wins = profile.stats.winsByBot[bot.id] ?? 0;
-              return (
-                <button
-                  key={bot.id}
-                  type="button"
-                  className={bot.id === last ? `${styles.row} ${styles.selected}` : styles.row}
-                  onClick={() => onPick(contract && !practice ? 'legend' : bot.id, options)}
-                >
-                  <span className={styles.rowText}>
-                    <span className={styles.rowTitle}>{t(bot.name)}</span>
-                    <span className={styles.rowBlurb}>{t(bot.blurb)}</span>
+          {SELECTABLE_BOTS.filter(
+            (bot) => !contract || practice || bot.id === contractBot(contract)
+          ).map((bot) => {
+            const wins = profile.stats.winsByBot[bot.id] ?? 0;
+            return (
+              <button
+                key={bot.id}
+                type="button"
+                className={bot.id === last ? `${styles.row} ${styles.selected}` : styles.row}
+                onClick={() =>
+                  onPick((!practice && contractBot(contract || undefined)) || bot.id, options)
+                }
+              >
+                <span className={styles.rowText}>
+                  <span className={styles.rowTitle}>{t(bot.name)}</span>
+                  <span className={styles.rowBlurb}>{t(bot.blurb)}</span>
+                </span>
+                <span className={styles.rowMeta}>
+                  <RankDots rank={bot.rank} />
+                  <span>
+                    {t(
+                      practice
+                        ? 'Free play'
+                        : wins > 0
+                          ? msg('{0} won', [t(wins)])
+                          : msg('{0}x XP', [t(bot.xpFactor)])
+                    )}
                   </span>
-                  <span className={styles.rowMeta}>
-                    <RankDots rank={bot.rank} />
-                    <span>
-                      {t(
-                        practice
-                          ? 'Free play'
-                          : wins > 0
-                            ? msg('{0} won', [t(wins)])
-                            : msg('{0}x XP', [t(bot.xpFactor)])
-                      )}
-                    </span>
-                  </span>
-                </button>
-              );
-            }
-          )}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </Screen>

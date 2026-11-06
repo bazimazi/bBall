@@ -30,6 +30,7 @@ import type { MatchResult } from '../modes/types';
 import { profileStore, type ProgressSummary } from '../profile/store';
 import type { AvatarId } from '../profile/types';
 import type { AbilityId, BranchId, TalentId } from '../talents/types';
+import type { TalentBuildAction } from '../talents/builds';
 import { newRunSeed } from '../run/run';
 import { accountStore } from './store';
 
@@ -147,7 +148,8 @@ export function respecTalents(branch?: BranchId): void {
   });
 }
 
-export function talentBuild(slot: number, action: 'save' | 'load', name?: string): boolean {
+/** Save, load or rename a saved talent build. Renaming keeps its ranks and skills. */
+export function talentBuild(slot: number, action: TalentBuildAction, name?: string): boolean {
   if (!profileStore.talentBuild(slot, action, name)) return false;
   queue({
     kind: 'talent.build',

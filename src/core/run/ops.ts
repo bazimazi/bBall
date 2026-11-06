@@ -3,6 +3,8 @@ import { cloneProgress } from '../profile/progress';
 import { advanceRun, createRun, draftFor, isRunActive, pickBoon, pressureUnlocked } from './run';
 import { boonById } from './boons';
 import { atBoundary, type RunFormat } from './formats';
+import { resolveLoadout, type ResolvedLoadout } from '../talents/effects';
+import { levelOf } from '../progression/levels';
 export type RunAction =
   | 'continue'
   | 'bank'
@@ -24,6 +26,14 @@ export type RunAction =
  *
  * Each returns the new profile, or null when the action is not allowed.
  */
+
+/**
+ * The build a run's drafts are rolled for: the player's own talents and
+ * skills at their level, which is what the run's matches are played with.
+ */
+export function runBuild(profile: PlayerProfile): ResolvedLoadout {
+  return resolveLoadout(profile.talents, levelOf(profile.xp));
+}
 
 /** Begin a run at `pressure`. Refused while one is under way, or above what has been unlocked. */
 export function startRunOn(
@@ -91,7 +101,7 @@ export function runActionOn(profile: PlayerProfile, action: RunAction): PlayerPr
       return null;
     run.credits = (run.credits ?? 0) - 2;
     run.draftRoll = (run.draftRoll ?? 0) + 1;
-    run.offer = draftFor(run, run.stage - 1);
+    run.offer = draftFor(run, run.stage - 1, runBuild(profile));
   } else if (action.startsWith('recycle:') || action.startsWith('upgrade:')) {
     if (!boundary || run.offer) return null;
     const id = action.slice(action.indexOf(':') + 1),

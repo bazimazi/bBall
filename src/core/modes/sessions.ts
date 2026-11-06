@@ -26,14 +26,27 @@ export function waveRecipe(options: MatchOptions | undefined, depth: number) {
     Math.min(4, Math.floor(depth / 4))
   );
 }
-/** A wave owns its penalties; nothing from a previous court carries forward. */
+/** The wave from which court recipes stop getting harder. */
+const RECIPE_PEAK = 16;
+
+/**
+ * A wave owns its penalties; nothing from a previous court carries forward.
+ *
+ * Past the last recipe band the courts stop getting harder, so the ball does
+ * instead: a faster serve and a higher ceiling each wave. Without it a
+ * developed build survived at the same pace forever - measured, still alive
+ * at wave 35 after fifteen minutes.
+ */
 export function waveModifiers(options: MatchOptions | undefined, depth: number): MatchModifiers {
+  const beyond = Math.max(0, depth - RECIPE_PEAK);
+  const recipe = waveRecipe(options, depth).modifiers;
   return {
     ...NEUTRAL_MODIFIERS,
-    ...waveRecipe(options, depth).modifiers,
+    ...recipe,
     // Lives and a steady rally acceleration replace the recipe's score rules.
     startScore: { you: 0, bot: 0 },
-    maxSpeedScale: 1.5,
+    serveSpeedScale: (recipe.serveSpeedScale ?? 1) * (1 + Math.min(0.5, beyond * 0.03)),
+    maxSpeedScale: Math.min(2, 1.5 + beyond * 0.03),
     speedPerHitScale: 1.35
   };
 }

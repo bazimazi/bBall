@@ -13,7 +13,7 @@
  * Nothing outside this file may hard-code a speed, a cooldown or a cap.
  */
 
-/** Ball-speed scaling per opponent rank (1..5). Difficulty lives here. */
+/** Ball-speed scaling per opponent rank (1..6). Difficulty lives here. */
 export interface RankScale {
   /** Serve speed multiplier. */
   readonly serve: number;
@@ -100,8 +100,13 @@ export const BALANCE = {
      * and this is the only thing in the game that may go there.
      */
     burst: 2900,
-    /** Keyboard travel, as a fraction of the current paddle speed. */
-    keyboardShare: 0.7,
+    /**
+     * Keyboard travel, as a fraction of the current paddle speed. At 0.7 a
+     * level-1 keyboard player moved slower than the Amateur bot, and lost to
+     * a Pro their mouse-playing self beat; a key held down is already a
+     * coarser tool than a pointer.
+     */
+    keyboardShare: 0.9,
     /** Field units from a wall that still counts as "at the edge". */
     edgeBand: 26
   },
@@ -124,7 +129,8 @@ export const BALANCE = {
       { serve: 0.96, max: 0.95, growth: 0.85 },
       { serve: 1.05, max: 1.06, growth: 1 },
       { serve: 1.13, max: 1.16, growth: 1.15 },
-      { serve: 1.2, max: 1.26, growth: 1.3 }
+      { serve: 1.2, max: 1.26, growth: 1.3 },
+      { serve: 1.28, max: 1.36, growth: 1.45 }
     ] as readonly RankScale[],
     /** Absolute ceiling. No modifier, talent or ability may exceed it. */
     hardMax: 1720,
@@ -253,7 +259,7 @@ export const BALANCE = {
      * far more than its size suggests. Aimed away from the opponent's paddle,
      * sixteen units a rank won nearly every point; this is the measured size.
      */
-    swerve: { shift: 6, from: 0.84 },
+    swerve: { shift: 5, from: 0.84 },
     dash: { distance: 110, cooldown: 6, seconds: 0.12 },
     /** Seconds after a dash in which a return leaves charged, and what each rank takes off the dash. */
     blinkStrike: { seconds: 1.2, cooldown: -1.5 },
@@ -277,11 +283,12 @@ export const BALANCE = {
     // -- defense ----------------------------------------------------------
     /**
      * Units from each wall where Bastion turns a ball back at the line:
-     * `reach` at rank one and `step` more at rank two. Little reaches the
-     * corners, so less than ninety measured as next to nothing. It goes back
-     * at full pace, `minAngle` off centre and `heft` heavy.
+     * `reach` at rank one and `step` more at rank two. Worth far more to a
+     * person, who misjudges wall bounces, than to a bot: at 90 and 140 units a
+     * human-model player gained ten points of point share per talent point.
+     * It goes back at full pace, `minAngle` off centre and `heft` heavy.
      */
-    bastion: { reach: 90, step: 50, minAngle: 0.5, heft: 0.3 },
+    bastion: { reach: 50, step: 30, minAngle: 0.5, heft: 0.3 },
     /**
      * `rechargeStep` is added per rank past the first, so charges return
      * sooner. A charge used to come back every 48 seconds, which made a
@@ -300,10 +307,11 @@ export const BALANCE = {
     fortify: { recharge: 0.25 },
     /**
      * Saves are rare, so a talent that only improved the ball each save sends
-     * back measured as nothing: `charges` is one more Shield charge to save
-     * with, and `primed` the returns after a save that leave charged.
+     * back measured as nothing; `primed` turns the save into an attack that
+     * lasts. An extra Shield charge was tried too, and out-measured Shield's
+     * own second rank for a human player.
      */
-    counterstrike: { pace: 0.25, minAngle: 0.6, heft: 0.6, primed: 2, charges: 1 },
+    counterstrike: { pace: 0.25, minAngle: 0.6, heft: 0.6, primed: 3 },
     /** Uses per match. One measured as less than a point of point share per talent point. */
     secondChance: { uses: 2 },
 
@@ -311,8 +319,13 @@ export const BALANCE = {
     /** Returns charged at the start of the rally after a won point, and what rank two adds. */
     hotHand: { returns: 4, step: 2 },
     comboDrive: { every: 5, length: 0.03, steps: 3 },
-    /** Every `start - rank * step` returns on a drive bank one spare save. */
-    adrenaline: { start: 24, step: 4 },
+    /**
+     * Every `start - rank * step` returns on a drive bank one spare save.
+     * A save is worth far more to a person than to a bot: banked every twenty
+     * returns, one point here out-measured three in Long Reach for a
+     * human-model player.
+     */
+    adrenaline: { start: 52, step: 8 },
     flowState: {
       from: 2,
       /** Returns past `from` that Flow State keeps counting. */
@@ -346,7 +359,8 @@ export const BALANCE = {
     rallyArmor: { perReturn: 1.5 },
     fastStart: { flowStep: 1, comboStep: 1 },
     chainCasting: { refund: 0.75 },
-    rankRewards: { strikeWindow: 0.5, afterglowSeconds: 1, overflowRecharge: 0.1 },
+    /** `overflowRecharge`: Versatility once level alone has opened every slot - two points, so worth two of Cooldown Mastery. */
+    rankRewards: { strikeWindow: 0.5, afterglowSeconds: 1, overflowRecharge: 0.2 },
 
     /*
      * The capstones.
@@ -388,6 +402,67 @@ export const BALANCE = {
      */
     zenith: { seconds: 8, grow: 0.3, recharge: 2, refunds: 1, cooldown: 35 },
     echo: { seconds: 6, recharge: 4, cooldown: 45 }
+  },
+
+  /**
+   * Talent points an opponent's build carries in the content a developed
+   * build reaches - see `core/bots/builds.ts`. Bot brains top out at
+   * Legend; these are what keep the later Journey, cups, the Gauntlet and the
+   * contracts a contest. Tuned against a human-model player.
+   */
+  opponents: {
+    max: 49,
+    /**
+     * The share of a content build the Champion still brings. Its brain is
+     * already the difficulty; a full build and the late pace on top of it
+     * measured as unwinnable for every player.
+     */
+    championShare: 0,
+    /** Expansion world 6, plus this much per world after it. */
+    journey: 8,
+    journeyStep: 1.5,
+    /** Added for a world's trials and boss; taken off its three teaching stages. */
+    trial: 4,
+    boss: 6,
+    teaching: 4,
+    /** Frontier sector 1, plus this much per sector. */
+    frontier: 44,
+    frontierStep: 0.5,
+    /** Gauntlet: per act, and per level of Pressure. */
+    runAct: 6,
+    runPressure: 0.5,
+    /** Cups: per level a tier unlocks above `cupFrom`. Bronze to Gold stay plain. */
+    cupFrom: 15,
+    cupLevel: 0.8,
+    /**
+     * Contracts. Mythic already plays the Champion on its own reduced reach,
+     * larger opponent and longer game; any build on top measured as
+     * unwinnable even for an expert player.
+     */
+    master: 45,
+    mythic: 0
+  },
+
+  /**
+   * Content pace - see `core/modes/pace.ts`. Multipliers on serve, ceiling
+   * and per-return growth together, on top of the opponent's rank. Tuned
+   * against a human-model player; the ball's hard ceiling still applies.
+   */
+  pace: {
+    max: 1.45,
+    /** Per Journey world after the fifth. */
+    journeyStep: 0.012,
+    /** Frontier sector 1, plus this much per sector. */
+    frontier: 1.3,
+    frontierStep: 0.01,
+    /** Gauntlet: per act, and per level of Pressure. */
+    runAct: 0.03,
+    runPressure: 0.003,
+    /** Cups: per level a tier opens above `cupFrom`. */
+    cupFrom: 15,
+    cupLevel: 0.006,
+    master: 1.2,
+    mythic: 1
   },
 
   /** What a finished match is allowed to add on top of the base XP rules. */

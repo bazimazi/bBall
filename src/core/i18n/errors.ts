@@ -1,4 +1,5 @@
 import type { ErrorCode } from '../../../shared/protocol';
+import { ApiError, NetworkError } from '../net/client';
 import { settingsStore } from '../settings/store';
 import { t } from './index';
 
@@ -20,6 +21,42 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   REJECTED: 'Not accepted for rewards.',
   INTERNAL: 'Something went wrong. Try again.'
 };
+
+/**
+ * Why an account request failed, in words that blame the right thing.
+ *
+ * Three different failures used to read alike: the player's own connection
+ * being down, the account server being down or missing (a refused
+ * connection, a 502, or a page that is not the API at all), and the server
+ * answering "no". Only the first is the player's network, and only a
+ * signed-in player has anything waiting to sync - a guest whose sign-in
+ * failed is told to try again, never that it "will sync later".
+ *
+ * Returns English; the screen translates what it renders.
+ */
+export function accountErrorText(error: unknown, signedIn: boolean): string {
+  const after = signedIn
+    ? ' Your progress is saved on this device and will sync later.'
+    : ' You can keep playing as a guest.';
+  if (error instanceof NetworkError) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false)
+      return signedIn
+        ? 'This device is offline. Your progress is saved here and will sync when you reconnect.'
+        : 'This device is offline. Connect to the internet to sign in.' + after;
+    if (error.message === 'The server took too long to answer.')
+      return 'The account server took too long to answer. Try again in a moment.' + after;
+    return 'Could not reach the account server. Try again later.' + after;
+  }
+  if (error instanceof ApiError) {
+    // The fetch wrapper invents an error with no request id when the reply was
+    // not the API's own JSON - a proxy's 502, or a page served in its place.
+    const notTheApi = !error.requestId;
+    if (notTheApi || error.status === 502 || error.status === 503 || error.status === 504)
+      return 'The account server is not available right now. Try again later.' + after;
+    return apiErrorText(error);
+  }
+  return 'Something went wrong. Try again.';
+}
 
 /** Server validation details can change with its schema and remain in English. */
 export function apiErrorText(error: {

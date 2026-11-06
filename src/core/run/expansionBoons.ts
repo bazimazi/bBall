@@ -331,15 +331,16 @@ export const RELICS: readonly BoonDef[] = Array.from({ length: 24 }, (_, i) => {
   const base = EXPANSION_BOONS[i]!;
   const cost = i % 4;
   const drawback = [
-    '8% shorter paddle',
-    '8% larger opponent',
+    'your paddle 8% shorter',
+    "opponent's paddle 8% longer",
     '10% faster serves',
     '10% faster rally growth'
   ][cost]!;
   return {
     id: `relic-${i + 1}`,
     name: `${base.name} Relic`,
-    blurb: `Double ${base.name.toLowerCase()} effect; ${drawback}`,
+    // Spelled out, so the card says what is doubled and what it costs.
+    blurb: `Two ranks of ${base.name} at once (${base.blurb} per rank). Cost: ${drawback}`,
     family: 'relic',
     maxRank: 1,
     effects: (e) => {

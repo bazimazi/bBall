@@ -100,10 +100,18 @@ function playstyle(kit: PaddleKit): string {
   if (kit.surface === 'woven') return 'Stay composed at the edge.';
   return 'Build your next great return.';
 }
-function ContactDiagram({ kit, moving }: { kit: PaddleKit; moving: boolean }) {
+/** The ordinary return angle a kit gives, standing still or moving, as the diagram draws it. */
+function returnAngle(kit: PaddleKit, moving: boolean): number {
   const raw = moving ? 0.65 : 0.18;
   const response = surfaceResponse(kit, raw, raw);
-  const angle = contactAngle(response.off, 625, moving ? 700 : 0, response.grip, 0.92);
+  return contactAngle(response.off, 625, moving ? 700 : 0, response.grip, 0.92);
+}
+/** Does this kit send an ordinary return anywhere the neutral paddle would not? */
+function pathDiffers(kit: PaddleKit, moving: boolean): boolean {
+  return Math.abs(returnAngle(kit, moving) - returnAngle({ ...NEUTRAL_KIT }, moving)) > 1e-4;
+}
+function ContactDiagram({ kit, moving }: { kit: PaddleKit; moving: boolean }) {
+  const angle = returnAngle(kit, moving);
   const y = 70 + Math.sin(angle) * 90;
   return (
     <svg
@@ -192,6 +200,8 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
   const value = Math.min(contract.target, w.contracts[contract.id] ?? 0);
   const done = value >= contract.target;
   const preset = w.presets[presetIndex];
+  // "Cork · Rubber": the parts that make this paddle differ from the neutral one.
+  const title = kitName(selected);
   const choose = (key: keyof PaddleKit, id: string) => {
     const next = { ...selected, [key]: id };
     if (key === 'insert' && id === 'copper' && next.core === 'memory-gel')
@@ -241,7 +251,10 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
         <span className={css.state}>
           {t(equipped ? 'Equipped' : owned ? 'Ready to equip' : 'Bench loan')}
         </span>
-        <h3>{t(componentById(selected.surface)!.name)}</h3>
+        {/* The whole kit, so a new core or insert shows up here too. */}
+        <h3 className={title.length > 24 ? css.identityLong : undefined} title={t(title)}>
+          {t(title)}
+        </h3>
         <p>
           {t(MATERIAL_HINTS[selected.core])} · {t(MATERIAL_HINTS[selected.surface])}
         </p>
@@ -442,14 +455,15 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                           <MaterialGlyph id={c.id} />
                           <b>{t(c.name)}</b>
                           <small>{t(MATERIAL_HINTS[c.id])}</small>
+                          {/* Testing is always free; the Marks are what crafting costs. */}
                           <span>
-                            {t(
-                              w.owned.includes(c.id)
-                                ? 'Owned'
-                                : msg('{0}{1} Marks', [
-                                    t(c.milestone > stage ? 'Loan · ' : ''),
-                                    t(c.cost)
-                                  ])
+                            {w.owned.includes(c.id) ? (
+                              t('Owned')
+                            ) : (
+                              <>
+                                {c.milestone > stage && t('Free to test · ')}
+                                {t(`${c.cost} Marks to craft`)}
+                              </>
                             )}
                           </span>
                         </button>
@@ -949,6 +963,15 @@ export function WorkshopScreen({ profile, initialKit, onBack, onBench, onCustomi
                       <ContactDiagram kit={selected} moving={moving} />
                     </div>
                   </div>
+                  {!pathDiffers(selected, moving) && (
+                    <p className={css.muted}>
+                      {t(
+                        moving
+                          ? 'Same path as neutral while moving.'
+                          : 'Same path as neutral when standing still.'
+                      )}
+                    </p>
+                  )}
                   <p className={css.muted}>
                     {t('Ordinary surface response only. Your skills still apply in live practice.')}
                   </p>

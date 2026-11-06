@@ -113,7 +113,7 @@ it('a boss rehearsal matches the live reached court, brain, bend and base ball p
     assert.equal(checkBossPhase(practice), false, 'the selected phase stays isolated');
   }
   const opening = tuningFor(practiceRules('rookie', 'normal', { bossId: 'colossus' }));
-  const later = practiceRules('rookie', 'normal', { bossId: 'colossus', bossPhase: 1 });
+  const later = practiceRules('rookie', 'normal', { bossId: 'colossus', bossPhase: 2 });
   assert.equal(later.bot.id, 'pro');
   assert.deepEqual(tuningFor(later), opening);
   assert.deepEqual(

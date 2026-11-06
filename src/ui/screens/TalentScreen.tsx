@@ -1,10 +1,11 @@
 import { t, msg } from '../../core/i18n/index';
 import { hasResearch } from '../../core/loot/state';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import { BALANCE, nextSlotLevel } from '../../core/balance/config';
 import { buildSlots } from '../../core/talents/builds';
 import * as progression from '../../core/account/progression';
+import { profileStore } from '../../core/profile/store';
 import type { PlayerProfile } from '../../core/profile/types';
 import { levelOf } from '../../core/progression/levels';
 import { abilityById, ABILITY_DEFS } from '../../core/talents/abilities';
@@ -13,7 +14,6 @@ import {
   isUltimate,
   TALENT_BRANCHES,
   talentById,
-  TOTAL_TALENT_COST,
   ULTIMATE_TIER,
   tierRequirement
 } from '../../core/talents/catalog';
@@ -26,11 +26,20 @@ import {
   type TalentState
 } from '../../core/talents/save';
 import { activeSynergies, SYNERGIES } from '../../core/talents/synergy';
-import type { AbilityId, TalentDef, TalentId } from '../../core/talents/types';
+import type {
+  AbilityId,
+  BranchId,
+  TalentDef,
+  TalentId,
+  TalentSave
+} from '../../core/talents/types';
 import { Screen } from '../components/Screen';
 import { MenuDisclosure } from '../components/MenuDisclosure';
 import { Dialog } from '../components/Dialog';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useArmed } from '../hooks/useArmed';
+import { useCoarsePointer } from '../hooks/useCoarsePointer';
+import { useWheelScrollX } from '../hooks/useWheelScrollX';
 import { TalentTree } from '../components/TalentTree';
 import { TalentIcon } from '../icons/TalentIcon';
 import screens from '../Screens.module.css';
@@ -69,16 +78,46 @@ function blockText(state: TalentState): string | null {
   }
 }
 
+/** The destructive buttons that ask twice: reset all, reset a branch, overwrite a build. */
+type ArmKey = 'all' | `branch:${BranchId}` | `save:${number}`;
+
+/**
+ * A status line tied to the build it describes. It is shown only while the
+ * talents are exactly as that action left them, so "Build saved" cannot
+ * linger over a later, unrelated purchase or reset.
+ */
+interface Notice {
+  readonly text: string;
+  readonly save: TalentSave;
+}
+
+/** A copy of the drafts without one slot's. */
+function withoutDraft(names: Record<number, string>, index: number): Record<number, string> {
+  const next = { ...names };
+  delete next[index];
+  return next;
+}
+
 export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
   const level = levelOf(profile.xp);
   const save = profile.talents;
+  const coarse = useCoarsePointer();
   const [open, setOpen] = useState<TalentId | null>(null);
   const [slot, setSlot] = useState<number | null>(null);
-  const [confirmRespec, setConfirmRespec] = useState(false);
+  const [armed, setArmed] = useArmed<ArmKey>();
   const [bought, setBought] = useState<TalentId | null>(null);
+  // Names being typed, by slot. A saved build's name is committed as a rename
+  // when the field is left or Enter is pressed; an empty slot keeps its draft
+  // for the next save.
   const [buildNames, setBuildNames] = useState<Record<number, string>>({});
-  const [confirmSave, setConfirmSave] = useState<number | null>(null);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [visible, setVisible] = useState<ReadonlySet<BranchId>>(() => new Set());
+  const strip = useRef<HTMLDivElement>(null);
+  useWheelScrollX(strip);
+
+  /** Announce the outcome of an action against the talents it produced. */
+  const announce = (text: string) => setNotice({ text, save: profileStore.getSnapshot().talents });
+  const shownNotice = notice && notice.save === save ? notice.text : '';
 
   const loadout = useMemo(() => resolveLoadout(save, level), [save, level]);
   const spend = useMemo(() => branchSpend(save), [save]);
@@ -101,41 +140,100 @@ export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
     return () => window.clearTimeout(id);
   }, [bought]);
 
+  // Which branches are in view, so the jump buttons can show where the strip is.
+  useEffect(() => {
+    const root = strip.current;
+    if (!root || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) =>
+        setVisible((current) => {
+          const next = new Set(current);
+          for (const entry of entries) {
+            const id = (entry.target as HTMLElement).dataset.branch as BranchId | undefined;
+            if (!id) continue;
+            if (entry.intersectionRatio >= 0.6) next.add(id);
+            else next.delete(id);
+          }
+          return next;
+        }),
+      { root, threshold: [0, 0.6, 1] }
+    );
+    root.querySelectorAll('[data-branch]').forEach((tree) => observer.observe(tree));
+    return () => observer.disconnect();
+  }, []);
+
   // Back closes whatever is open over the tree before it leaves the tree: a
-  // talent card, a slot being filled, or a half-confirmed respec.
-  useBackHandler(open !== null || slot !== null || confirmRespec, () => {
+  // talent card, a slot being filled, or a half-confirmed reset.
+  useBackHandler(open !== null || slot !== null || armed !== null, () => {
     if (open !== null) setOpen(null);
     else if (slot !== null) setSlot(null);
-    else setConfirmRespec(false);
+    else setArmed(null);
   });
 
   const buy = (talent: TalentDef) => {
     if (progression.buyTalent(talent.id)) setBought(talent.id);
   };
 
+  /** Centre a branch in the strip - the mouse's way to reach the far ones. */
+  const jumpTo = (id: BranchId) => {
+    const root = strip.current;
+    const tree = root?.querySelector<HTMLElement>(`[data-branch="${id}"]`);
+    if (!root || !tree) return;
+    const box = root.getBoundingClientRect();
+    const target = tree.getBoundingClientRect();
+    root.scrollBy({
+      left: target.left + target.width / 2 - (box.left + box.width / 2),
+      behavior: 'smooth'
+    });
+  };
+
+  /** Commit a typed name for a saved build, keeping its ranks and skills. */
+  const rename = (index: number) => {
+    const draft = buildNames[index];
+    const preset = save.presets?.[index];
+    if (draft === undefined || !preset) return;
+    const name = draft.trim();
+    setBuildNames((names) => withoutDraft(names, index));
+    if (!name) {
+      announce('A build needs a name. The old name is kept.');
+      return;
+    }
+    if (name === preset.name) return;
+    announce(
+      progression.talentBuild(index, 'rename', name)
+        ? 'Build renamed'
+        : 'Could not rename that build.'
+    );
+  };
+
+  // The total is what this level has actually paid out, so the line can read
+  // "all invested" - not the cost of every tree, which no level reaches.
+  const earned = spent + save.points;
+
   return (
     <Screen
       title={t('Talents')}
-      subtitle={t(
-        msg('Level {0} · {1} of {2} invested', [t(level), t(spent), t(TOTAL_TALENT_COST)])
-      )}
+      subtitle={`${t(msg('Level {0}', [t(level)]))}${t(' · ')}${t(
+        `${spent} of ${earned} points invested`
+      )}`}
       onBack={onBack}
       footer={
         <button
           type="button"
-          className={`${screens.ghost} ${confirmRespec ? screens.danger : ''}`}
+          className={`${screens.ghost} ${armed === 'all' ? screens.danger : ''}`}
           disabled={spent === 0}
+          data-arm="all"
           onClick={() => {
-            if (confirmRespec) {
+            if (armed === 'all') {
               progression.respecTalents();
-              setConfirmRespec(false);
+              setArmed(null);
               setOpen(null);
             } else {
-              setConfirmRespec(true);
+              setArmed('all');
             }
           }}
         >
-          {t(confirmRespec ? 'Tap again to refund every branch' : 'Reset all talents · free')}
+          {t(armed === 'all' ? 'Tap again to refund every branch' : 'Reset all talents · free')}
         </button>
       }
     >
@@ -145,7 +243,7 @@ export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
         </button>
       )}
       <p className={screens.note} role="status">
-        {t(notice)}
+        {t(shownNotice)}
       </p>
       <MenuDisclosure
         title={t('Saved builds')}
@@ -161,58 +259,84 @@ export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
             'Save your current talents and skills, then load them with a free respec. Six slots open at level 50; eight at level 100.'
           )}
         </p>
-        {Array.from({ length: buildSlots(level) }, (_, i) => (
-          <div key={i} className={`${screens.preset} ${styles.buildPreset}`}>
-            <input
-              className={screens.input}
-              maxLength={32}
-              aria-label={t(msg('Build {0} name', [t(i + 1)]))}
-              value={buildNames[i] ?? save.presets?.[i]?.name ?? msg('Build {0}', [t(i + 1)])}
-              onChange={(event) => {
-                setBuildNames((names) => ({ ...names, [i]: event.target.value }));
-                setConfirmSave(null);
-              }}
-            />
-            <button
-              type="button"
-              className={screens.ghost}
-              aria-label={t(msg('Save current talents to build {0}', [t(i + 1)]))}
-              onClick={() => {
-                if (save.presets?.[i] && confirmSave !== i) {
-                  setConfirmSave(i);
-                  return;
-                }
-                const ok = progression.talentBuild(
-                  i,
-                  'save',
-                  buildNames[i] ?? save.presets?.[i]?.name ?? msg('Build {0}', [t(i + 1)])
-                );
-                setNotice(ok ? 'Build saved' : 'Could not save that build.');
-                setConfirmSave(null);
-              }}
-            >
-              {t(confirmSave === i ? 'Confirm overwrite' : 'Save current')}
-            </button>
-            <button
-              type="button"
-              className={screens.ghost}
-              aria-label={t(msg('Load build {0}', [t(i + 1)]))}
-              disabled={!save.presets?.[i]}
-              onClick={() => {
-                setNotice(
-                  progression.talentBuild(i, 'load')
-                    ? 'Build loaded'
-                    : 'This build needs more talent points.'
-                );
-                setOpen(null);
-                setSlot(null);
-                setConfirmRespec(false);
-              }}
-            >
-              {t('Load')}
-            </button>
-          </div>
-        ))}
+        <p className={screens.rowBlurb}>
+          {t(
+            'To rename a saved build, edit its name and press Enter or leave the field. Its talents stay as saved.'
+          )}
+        </p>
+        {Array.from({ length: buildSlots(level) }, (_, i) => {
+          const preset = save.presets?.[i] ?? null;
+          const fallback = msg('Build {0}', [t(i + 1)]);
+          const overwrite: ArmKey = `save:${i}`;
+          return (
+            <div key={i} className={`${screens.preset} ${styles.buildPreset}`}>
+              <input
+                className={screens.input}
+                maxLength={32}
+                dir="auto"
+                aria-label={t(msg('Build {0} name', [t(i + 1)]))}
+                placeholder={fallback}
+                // A player's own name for a build is shown as typed, never translated.
+                value={buildNames[i] ?? preset?.name ?? ''}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setBuildNames((names) => ({ ...names, [i]: value }));
+                }}
+                onBlur={() => rename(i)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    rename(i);
+                  } else if (event.key === 'Escape' && buildNames[i] !== undefined) {
+                    // Escape abandons the edit, not the screen.
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setBuildNames((names) => withoutDraft(names, i));
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className={`${screens.ghost} ${armed === overwrite ? screens.danger : ''}`}
+                aria-label={t(msg('Save current talents to build {0}', [t(i + 1)]))}
+                data-arm={overwrite}
+                onClick={() => {
+                  if (preset && armed !== overwrite) {
+                    setArmed(overwrite);
+                    return;
+                  }
+                  // A blank field saves under the slot's own name, which the
+                  // field then shows - never the blank it was given.
+                  const name = (buildNames[i] ?? preset?.name ?? '').trim() || fallback;
+                  const ok = progression.talentBuild(i, 'save', name);
+                  setBuildNames((names) => withoutDraft(names, i));
+                  announce(ok ? 'Build saved' : 'Could not save that build.');
+                  setArmed(null);
+                }}
+              >
+                {t(armed === overwrite ? 'Confirm overwrite' : 'Save current')}
+              </button>
+              <button
+                type="button"
+                className={screens.ghost}
+                aria-label={t(msg('Load build {0}', [t(i + 1)]))}
+                disabled={!preset}
+                onClick={() => {
+                  announce(
+                    progression.talentBuild(i, 'load')
+                      ? 'Build loaded'
+                      : 'This build needs more talent points.'
+                  );
+                  setOpen(null);
+                  setSlot(null);
+                  setArmed(null);
+                }}
+              >
+                {t('Load')}
+              </button>
+            </div>
+          );
+        })}
       </MenuDisclosure>
       {/* --------------------------------------------------------- actives */}
       <p className={screens.sectionLabel}>{t('Active skills')}</p>
@@ -287,25 +411,60 @@ export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
         <span className={styles.pointsValue}>{t(save.points)}</span>
       </div>
 
-      <div className={styles.trees}>
-        {TALENT_BRANCHES.map((branch) => (
-          <TalentTree
-            key={branch.id}
-            branch={branch}
-            save={save}
-            spent={spend[branch.id]}
-            total={branchCost(branch.id)}
-            selected={open}
-            onPick={(talent) => setOpen(open === talent.id ? null : talent.id)}
-            onReset={() => {
-              progression.respecTalents(branch.id);
-              setOpen(null);
-            }}
-          />
-        ))}
+      {/* A mouse has no swipe: on a fine pointer every branch is one click away. */}
+      {!coarse && (
+        <div className={styles.branchNav} role="group" aria-label={t('Jump to a branch')}>
+          {TALENT_BRANCHES.map((branch) => (
+            <button
+              key={branch.id}
+              type="button"
+              className={
+                visible.has(branch.id)
+                  ? `${styles.branchJump} ${styles.branchJumpOn}`
+                  : styles.branchJump
+              }
+              style={{ '--branch': `${branch.hue}` } as CSSProperties}
+              onClick={() => jumpTo(branch.id)}
+            >
+              <TalentIcon id={branch.crest} />
+              <span>{t(branch.name)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.trees} ref={strip}>
+        {TALENT_BRANCHES.map((branch) => {
+          const reset: ArmKey = `branch:${branch.id}`;
+          return (
+            <TalentTree
+              key={branch.id}
+              branch={branch}
+              save={save}
+              spent={spend[branch.id]}
+              total={branchCost(branch.id)}
+              selected={open}
+              onPick={(talent) => setOpen(open === talent.id ? null : talent.id)}
+              resetArmed={armed === reset}
+              onReset={() => {
+                if (armed !== reset) {
+                  setArmed(reset);
+                  return;
+                }
+                progression.respecTalents(branch.id);
+                setArmed(null);
+                setOpen(null);
+              }}
+            />
+          );
+        })}
       </div>
       <p className={screens.note}>
-        {t('Swipe the branches · tap a talent to spend a point. ')}
+        {t(
+          coarse
+            ? 'Swipe across the branches · tap a talent to see it and spend points. '
+            : 'Scroll the branches with the wheel or jump to one above · click a talent to see it and spend points. '
+        )}
         <b>{t('Ultimates')}</b>
         {t(' unlock after')}
         {t(' ')}
@@ -455,10 +614,7 @@ export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
                   disabled={!state.canBuy}
                   onClick={() => buy(selected)}
                 >
-                  {t('Spend ')}
-                  {t(state.cost)}
-                  {t(' point')}
-                  {t(state.cost > 1 ? 's' : '')}
+                  {msg('Spend {0} point{1}', [t(state.cost), state.cost > 1 ? 's' : ''])}
                 </button>
                 {!state.canBuy && <p className={screens.note}>{t(blockText(state))}</p>}
               </>
@@ -480,7 +636,7 @@ export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
                         expectedRank: state.rank
                       })
                     ) {
-                      setNotice('Talent rank refunded');
+                      announce('Talent rank refunded');
                       setBought(null);
                     }
                   }}

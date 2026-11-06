@@ -10,11 +10,7 @@ export const KEY_ACTIONS = [
   'skill2',
   'skill3',
   'skill4',
-  'skill5',
-  'skill6',
-  'skill7',
-  'skill8',
-  'skill9'
+  'skill5'
 ] as const;
 
 export type KeyAction = (typeof KEY_ACTIONS)[number];
@@ -32,11 +28,7 @@ export const DEFAULT_BINDINGS: KeyBindings = Object.freeze({
   skill2: Object.freeze(['2', 'e']),
   skill3: Object.freeze(['3', 'r']),
   skill4: Object.freeze(['4', 'f']),
-  skill5: Object.freeze(['5', 'v']),
-  skill6: Object.freeze(['6']),
-  skill7: Object.freeze(['7']),
-  skill8: Object.freeze(['8']),
-  skill9: Object.freeze(['9'])
+  skill5: Object.freeze(['5', 'v'])
 });
 
 export function keyName(key: string): string {

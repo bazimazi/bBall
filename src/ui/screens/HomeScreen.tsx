@@ -1,7 +1,22 @@
 import { t, msg } from '../../core/i18n/index';
-import type { CSSProperties } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 
-import { nextStage, TOTAL_STARS, totalStars, worldById } from '../../core/campaign/journey';
+import {
+  isCleared,
+  JOURNEY,
+  nextFrontierStage,
+  nextStage,
+  stageById,
+  stageOpen,
+  TOTAL_STARS,
+  totalStars,
+  worldById,
+  worldCleared,
+  worldOpen,
+  type JourneyProgress,
+  type JourneyWorld,
+  type Stage
+} from '../../core/campaign/journey';
 import { dailySpec, streakAlive } from '../../core/daily/daily';
 import type { ModeId } from '../../core/modes/types';
 import { dayKey } from '../../core/progression/xp';
@@ -45,11 +60,62 @@ const HINT_MATCHES = 3;
 const accent = (hue: number): CSSProperties =>
   ({ '--accent': `hsl(${hue} 90% 66%)` }) as CSSProperties;
 
+/**
+ * The stages a world's boss actually needs: walk back from the boss through
+ * each stage's prerequisites (or the stage before it). Side branches and
+ * mastery trials hang off this path and never gate the boss.
+ */
+function corePath(world: JourneyWorld): ReadonlySet<string> {
+  const path = new Set<string>();
+  const queue = world.stages.slice(-1);
+  while (queue.length > 0) {
+    const stage = queue.pop()!;
+    if (path.has(stage.id)) continue;
+    path.add(stage.id);
+    const before = stage.prerequisites
+      ? stage.prerequisites.map((id) => stageById(id))
+      : [world.stages[stage.index - 1]];
+    for (const item of before) if (item) queue.push(item);
+  }
+  return path;
+}
+
+const CORE = new Set(JOURNEY.flatMap((world) => [...corePath(world)]));
+
+/**
+ * Where Home points: the next stage on the main road. An optional branch left
+ * behind in an earlier world is not "next" once the road has moved on - the
+ * Journey map still lists it. Past the last fixed world the road is the
+ * Frontier; anything else open is the fallback.
+ */
+function homeStage(journey: JourneyProgress): Stage | null {
+  // World by world, so each world's star gate is counted once rather than once per stage.
+  for (const world of JOURNEY) {
+    if (!worldOpen(journey, world)) continue;
+    for (const item of world.stages)
+      if (CORE.has(item.id) && !isCleared(journey, item.id) && stageOpen(journey, item))
+        return item;
+  }
+  if (isCleared(journey, 'w5-6')) return nextFrontierStage(journey);
+  return nextStage(journey);
+}
+
+/** The first world still shut only because it needs more stars, if that is what blocks the road. */
+function starLockedWorld(journey: JourneyProgress): JourneyWorld | null {
+  for (const world of JOURNEY) {
+    if (worldOpen(journey, world)) continue;
+    const previous = worldById(world.id - 1);
+    return !previous || worldCleared(journey, previous) ? world : null;
+  }
+  return null;
+}
+
 function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () => void }) {
   const journey = profile.progress.journey;
   const stars = totalStars(journey);
-  const next = nextStage(journey);
-  const world = worldById(next?.world ?? 5);
+  const next = useMemo(() => homeStage(journey), [journey]);
+  const locked = useMemo(() => (next ? null : starLockedWorld(journey)), [next, journey]);
+  const world = locked ?? worldById(next?.world ?? 5);
   return (
     <button
       type="button"
@@ -73,7 +139,13 @@ function JourneyCard({ profile, onPick }: { profile: PlayerProfile; onPick: () =
                     t(next.name),
                     t(next.boss ? ' · Boss' : '')
                   ])
-                : 'Every stage cleared'
+                : locked
+                  ? // Every open stage is cleared, but the road goes on: say
+                    // what opens the next world rather than "all done".
+                    `${locked.name} · ${msg('{0} more stars to open', [
+                      t(Math.max(1, locked.starsToOpen - stars))
+                    ])}`
+                  : 'Every stage cleared'
             )}
           </span>
         </span>

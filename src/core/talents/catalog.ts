@@ -225,7 +225,7 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [{ talent: 'overdrive', rank: 1 }],
     ability: 'overload',
     rankText: () =>
-      `Unlocks Overload. Your next ${E.overload.hits} returns are charged *and* critical, stacking every source of pace you own onto ${E.overload.hits} consecutive hits and driving each one into a corner. ${E.overload.cooldown}s cooldown.`
+      `Unlocks Overload. Your next ${E.overload.hits} returns are charged and critical, stacking every source of pace you own onto ${E.overload.hits} consecutive hits and driving each one into a corner. ${E.overload.cooldown}s cooldown.`
   },
 
   // ---------------------------------------------------------------- control
@@ -412,20 +412,20 @@ export const TALENTS: readonly TalentDef[] = [
     id: 'counterstrike',
     branch: 'defense',
     name: 'Counterstrike',
-    blurb: 'One more shield charge, and every save goes back as an attack',
+    blurb: 'Every save goes back as an attack',
     maxRank: 1,
     costs: [2],
     tier: 1,
     column: 1,
     requires: [{ talent: 'shield', rank: 1 }],
     rankText: () =>
-      `+${E.counterstrike.charges} shield charge. Every ball you save - by Shield, Aegis or Adrenaline - goes back as a winner: driven into a corner, ${pct(E.counterstrike.pace)} faster than it came and far harder to read. Your next ${E.counterstrike.primed} returns leave charged, too.`
+      `Every ball you save - by Shield, Aegis or Adrenaline - goes back as a winner: driven into a corner, ${pct(E.counterstrike.pace)} faster than it came and far harder to read. Your next ${E.counterstrike.primed} returns leave charged, too.`
   },
   {
     id: 'second-chance',
     branch: 'defense',
     name: 'Second Chance',
-    blurb: 'Take a conceded point back while you are behind',
+    blurb: 'Take a conceded point back while you are not ahead',
     maxRank: 1,
     costs: [2],
     tier: 2,
@@ -539,7 +539,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 2,
     requires: [{ talent: 'flow-state', rank: 1 }],
     rankText: (rank) =>
-      `Flow State starts building after ${Math.max(0, E.flowState.from - rank * E.fastStart.flowStep)} returns, and Combo Drive grows every ${Math.max(3, E.comboDrive.every - rank * E.fastStart.comboStep)} returns instead of ${E.comboDrive.every}. Their maximum bonuses stay the same.`
+      `Flow State starts building from your ${nth(Math.max(0, E.flowState.from - rank * E.fastStart.flowStep) + 1)} return of a rally instead of your ${nth(E.flowState.from + 1)}, and Combo Drive grows every ${Math.max(3, E.comboDrive.every - rank * E.fastStart.comboStep)} returns instead of ${E.comboDrive.every}. Their maximum bonuses stay the same.`
   },
   {
     id: 'zenith',
@@ -553,7 +553,7 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [{ talent: 'unbroken', rank: 1 }],
     ability: 'zenith',
     rankText: () =>
-      `Unlocks Zenith. For ${E.zenith.seconds}s you are in peak form: Flow State at full stacks, your paddle ${pct(E.zenith.grow)} longer, skills recharging ${E.zenith.recharge}x faster and a drive that cannot break - and once a match, the first point you would concede is given back. ${E.zenith.cooldown}s cooldown.`
+      `Unlocks Zenith. For ${E.zenith.seconds}s you are in peak form: Flow State at full stacks, your paddle ${pct(E.zenith.grow)} longer, skills that are not ultimates recharging ${E.zenith.recharge}x faster and a drive that cannot break - and once a match, the first point you would concede is given back. ${E.zenith.cooldown}s cooldown.`
   },
 
   // ---------------------------------------------------------------- utility
@@ -600,7 +600,7 @@ export const TALENTS: readonly TalentDef[] = [
     id: 'versatility',
     branch: 'utility',
     name: 'Versatility',
-    blurb: 'One more skill slot',
+    blurb: 'One more skill slot - or faster recovery once all are open',
     maxRank: 1,
     costs: [2],
     tier: 1,
@@ -647,7 +647,7 @@ export const TALENTS: readonly TalentDef[] = [
     requires: [{ talent: 'cooldown-mastery', rank: 2 }],
     ability: 'echo',
     rankText: () =>
-      `Unlocks Echo. Instantly clears the cooldown of your other equipped skills, then recharges them ${E.echo.recharge}x faster for ${E.echo.seconds}s. ${E.echo.cooldown}s cooldown.`
+      `Unlocks Echo. Instantly clears the cooldown of your other equipped skills - an ultimate's only by half - then recharges your skills that are not ultimates ${E.echo.recharge}x faster for ${E.echo.seconds}s. ${E.echo.cooldown}s cooldown.`
   }
 ];
 

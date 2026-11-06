@@ -244,6 +244,8 @@ export interface MatchRules {
   readonly seed?: string;
   readonly mode: ModeId;
   readonly bot: BotProfile;
+  /** Talent points the opponent's own build carries. Absent or 0: skills only. */
+  readonly botPoints?: number | undefined;
   /** Points needed to win. 0 means the match has no score-based end. */
   readonly winScore: number;
   /** Misses allowed before the run ends. 0 means lives are not used. */

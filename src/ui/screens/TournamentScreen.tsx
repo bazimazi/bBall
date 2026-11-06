@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { botProfile } from '../../core/bots/levels';
 import { levelOf } from '../../core/progression/levels';
+import { trophyAward } from '../../core/progression/xp';
 import type { PlayerProfile } from '../../core/profile/types';
 import {
   roundsFor,
@@ -13,7 +14,8 @@ import {
   TOURNAMENT_TIERS,
   opponentFor,
   tierById,
-  tierForLevel
+  tierForLevel,
+  type TournamentSave
 } from '../../core/tournament/bracket';
 import { Screen } from '../components/Screen';
 import { PaddleNotice } from '../components/PaddleNotice';
@@ -66,6 +68,28 @@ function Bracket({ profile }: { profile: PlayerProfile }) {
       })}
     </div>
   );
+}
+
+/**
+ * How the last cup ended, in one line.
+ *
+ * A lost round is saved as played, with the bracket moved past it; a cup that
+ * was given up is saved as it stood, pointing at the round never played. So a
+ * loss in the results means "knocked out in" that round, and no loss means the
+ * player walked away before the round the bracket was waiting on.
+ */
+function lastCupLine(last: TournamentSave): string {
+  if (last.champion) return msg('Champion of the {0}', [t(tierById(last.tier).name)]);
+  const rounds = roundsFor(last);
+  const lost = last.results.findIndex((result) => !result.won);
+  const index = Math.max(0, Math.min(lost >= 0 ? lost : last.round, rounds.length - 1));
+  const round = rounds[index] ?? rounds[0]!;
+  // Long formats number their rounds: "round 3", not "the round 3".
+  const numbered = /^Round \d+$/.test(round.name);
+  const named = t(round.name.toLowerCase());
+  if (lost >= 0)
+    return numbered ? `Knocked out in round ${index + 1}` : msg('Knocked out in the {0}', [named]);
+  return numbered ? `Gave up before round ${index + 1}` : `Gave up before the ${named}`;
 }
 
 /** A changed cup/round mounts afresh, discarding any earlier request to give it up. */
@@ -185,19 +209,13 @@ export function TournamentScreen({
       <PaddleNotice profile={profile} policy="cup" />
       {last && (
         <div className={styles.card}>
-          <p className={styles.sectionLabel}>{t('Last cup')}</p>
+          <p className={styles.sectionLabel}>
+            {t('Last cup')}
+            {t(' · ')}
+            {t(tierById(last.tier).name)}
+          </p>
           <p className={styles.note} style={{ textAlign: 'start', marginTop: 6 }}>
-            {t(
-              last.champion
-                ? msg('Champion of the {0}', [t(tierById(last.tier).name)])
-                : msg('Knocked out in the {0}', [
-                    t(
-                      (
-                        roundsFor(last)[Math.max(0, last.round - 1)] ?? roundsFor(last)[0]!
-                      ).name.toLowerCase()
-                    )
-                  ])
-            )}
+            {t(lastCupLine(last))}
           </p>
         </div>
       )}
@@ -236,7 +254,9 @@ export function TournamentScreen({
               </span>
               <span className={styles.rowMeta}>
                 {t(
-                  locked ? msg('Level {0}', [t(item.minLevel)]) : msg('{0} XP', [t(item.trophyXp)])
+                  locked
+                    ? msg('Level {0}', [t(item.minLevel)])
+                    : msg('{0} XP', [t(trophyAward(item.id, format))])
                 )}
               </span>
             </button>

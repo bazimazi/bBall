@@ -580,7 +580,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   setBrainProfile(world.botBrain, rules.bot);
   // Shields, charges and cooldowns all start a match full and cold.
   resetRuntime(world);
-  world.botLoadout = opponentLoadout(rules.bot);
+  world.botLoadout = opponentLoadout(rules.bot, rules.botPoints ?? 0);
   resetRuntime(combatant(world, 'bot'));
   world.random = rules.seed ? seeded('match-v2', rules.seed) : () => Math.random();
 
@@ -627,7 +627,8 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
  */
 function introBanner(world: World): void {
   const { rules, fx, match } = world;
-  const boss = rules.boss;
+  // An isolated boss phase in Practice introduces itself as the drill it is.
+  const boss = rules.boss && (rules.ranked || !rules.intro) ? rules.boss : undefined;
   if (boss) {
     fx.bannerText = boss.name;
     fx.bannerSub = boss.title;

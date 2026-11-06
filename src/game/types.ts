@@ -431,8 +431,28 @@ export interface GoalView {
   state: 'active' | 'reached' | 'missed' | 'earned';
 }
 
+/** A timed objective's clock, in whole seconds rounded the way the result rounds them. */
+export interface MatchClock {
+  readonly elapsed: number;
+  readonly limit: number;
+}
+
+/** The best-of series a game belongs to: its number and the games each side has won. */
+export interface SeriesView {
+  readonly game: number;
+  readonly length: number;
+  readonly you: number;
+  readonly foe: number;
+}
+
 /** The slice of engine state the React layer renders. */
 export interface GameSnapshot {
+  /** One live line for the collapsed HUD: wave progress or the objective's counter. */
+  readonly progress?: string | null;
+  /** Elapsed time against a timed objective's limit. */
+  readonly clock?: MatchClock | null;
+  /** The best-of series this game is part of. */
+  readonly series?: SeriesView | null;
   readonly technique?: TechniqueId;
   readonly sharedReturns?: number;
   readonly bossCue?: string | null;

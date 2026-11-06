@@ -17,10 +17,13 @@ import { withBoons, type ResolvedLoadout } from '../core/talents/effects';
 import { abilityCooldown, abilityViews, activeUltimate, fireAbility } from './abilities';
 import { GameAudio } from './audio';
 import {
+  BALL_R,
   FIELD_H,
   FIXED_DT,
   MAX_FRAME_DT,
   MAX_STEPS_PER_FRAME,
+  PADDLE_INSET,
+  PADDLE_W,
   RESUME_BEAT,
   STORAGE_KEYS
 } from './constants';
@@ -62,10 +65,40 @@ import {
 
 type Listener = () => void;
 
+import type { MatchClock, SeriesView } from './types';
+export type { MatchClock, SeriesView };
+
 const CALM_EFFECTS_SCALE = 0.25;
+
+/**
+ * How far in from each end line the DOM chrome keeps clear, in field units:
+ * the paddle, its face and a few ball widths in front of it, where the ball
+ * meets the paddle. Published as CSS lengths on every layout.
+ */
+const HUD_CLEARANCE = PADDLE_INSET + PADDLE_W / 2 + BALL_R * 4;
+const LANE_PROPERTIES = [
+  '--court-lane-l',
+  '--court-lane-r',
+  '--court-lane-t',
+  '--court-lane-b'
+] as const;
 
 /** Shared so an ability-free snapshot never allocates a fresh array. */
 const NO_ABILITIES: readonly AbilityView[] = [];
+
+/** A series identity: the same contract replayed is the next game of it. */
+function seriesKey(rules: MatchRules | null): string | null {
+  const length = rules?.options?.series ?? 1;
+  if (!rules || length <= 1) return null;
+  return JSON.stringify([rules.mode, rules.bot.id, !!rules.versus, rules.options]);
+}
+
+interface SeriesTally {
+  key: string;
+  length: number;
+  you: number;
+  foe: number;
+}
 
 /**
  * The song a match is played to. A boss brings its own, Endless has the
@@ -148,6 +181,8 @@ export class GameEngine {
   /** Physical key -> value at press time, so Shift/layout changes cannot stick a key. */
   private readonly heldKeys = new Map<string, string>();
   private readonly pointers = new PointerTracker();
+  /** The mouse is steering the paddle: it has moved over the court since input was last reset. */
+  private mouseSteering = false;
 
   private snapshot: GameSnapshot;
   /** Cached ability view, rebuilt only when what the HUD shows changes. */
@@ -157,6 +192,15 @@ export class GameEngine {
   private abilityKey = '';
   private goals: readonly GoalView[] = NO_GOALS;
   private goalKey = '';
+  /** Cached so the snapshot only changes when the shown second or score does. */
+  private clock: MatchClock | null = null;
+  private seriesShown: SeriesView | null = null;
+  /**
+   * The best-of series being played, counted from the games this engine
+   * finishes. A replay of the same contract is its next game; a rehearsal in
+   * between leaves it waiting; leaving a series game for the menu ends it.
+   */
+  private series: SeriesTally | null = null;
   private frameHandle = 0;
   private layoutHandle = 0;
   private lastTime = 0;
@@ -225,6 +269,7 @@ export class GameEngine {
     cancelAnimationFrame(this.frameHandle);
     if (this.layoutHandle) cancelAnimationFrame(this.layoutHandle);
     this.removeListeners();
+    this.publishLanes(true);
     this.audio.dispose();
     this.frameObserver = null;
     this.matchObserver = null;
@@ -317,7 +362,9 @@ export class GameEngine {
     this.clearInput();
     this.audio.startMusic(songFor(rules));
     this.startRules = rules;
+    this.joinSeries(rules);
     startMatch(this.world, rules);
+    this.announceSeries();
     this.specializations =
       rules.fixedBuild ||
       (rules.mode === 'practice' && !rules.ranked && rules.practiceLoadout) ||
@@ -429,6 +476,8 @@ export class GameEngine {
   /** Leave the match and go back to the attract-mode demo behind the menus. */
   quitToMenu = (): void => {
     this.noteDiagnosticMatch('abandoned');
+    // Leaving a series game ends the series; leaving a rehearsal returns to it.
+    if (seriesKey(this.startRules)) this.series = null;
     this.audio.ui();
     this.clearInput();
     returnToMenu(this.world);
@@ -526,6 +575,69 @@ export class GameEngine {
     if (fireAbility(this.world, slot)) this.publish();
   };
 
+  // -------------------------------------------------------------- series
+
+  /** Start counting a new series, or carry on the one this contract belongs to. */
+  private joinSeries(rules: MatchRules): void {
+    const key = seriesKey(rules);
+    // Practice rehearsals in between keep the series for the return to it.
+    if (!key) return;
+    const tally = this.series;
+    const decided = !!tally && Math.max(tally.you, tally.foe) > tally.length / 2;
+    if (!tally || tally.key !== key || decided)
+      this.series = { key, length: rules.options?.series ?? 1, you: 0, foe: 0 };
+  }
+
+  /** Count a finished series game, once, as the result is published. */
+  private countSeriesGame(): void {
+    const { result } = this.world.match;
+    const tally = this.series;
+    if (!result || !tally || seriesKey(this.startRules) !== tally.key) return;
+    if (Math.max(tally.you, tally.foe) > tally.length / 2) return;
+    this.series = {
+      ...tally,
+      you: tally.you + Number(result.won),
+      foe: tally.foe + Number(!result.won)
+    };
+  }
+
+  /** The series state, for the HUD; null outside a series game. */
+  private seriesView(): SeriesView | null {
+    const tally = this.series;
+    if (
+      !tally ||
+      seriesKey(this.world.match.status === 'menu' ? null : this.startRules) !== tally.key
+    )
+      return null;
+    const finished = this.world.match.result !== null;
+    // The game in progress, or the one just finished while its result shows.
+    const game = tally.you + tally.foe + (finished ? 0 : 1);
+    const shown = this.seriesShown;
+    if (
+      !shown ||
+      shown.game !== game ||
+      shown.you !== tally.you ||
+      shown.foe !== tally.foe ||
+      shown.length !== tally.length
+    )
+      this.seriesShown = { game, length: tally.length, you: tally.you, foe: tally.foe };
+    return this.seriesShown;
+  }
+
+  /**
+   * The versus card names the series game; the first one names the format.
+   * It leads the line, where the dictionary's "Game {0} · {1}–{2}" and
+   * "Best of {0}" still match it as a whole.
+   */
+  private announceSeries(): void {
+    const view = this.seriesView();
+    const { fx } = this.world;
+    if (!view || fx.vsTimer <= 0) return;
+    const state =
+      view.game > 1 ? `Game ${view.game} · ${view.you}–${view.foe}` : `Best of ${view.length}`;
+    fx.vsSub = fx.vsSub ? `${state} · ${fx.vsSub}` : state;
+  }
+
   // --------------------------------------------------------------- state
 
   /**
@@ -572,10 +684,56 @@ export class GameEngine {
     return this.abilities;
   }
 
+  /** Elapsed against a timed objective's limit, rounded as the result rounds it. */
+  private clockView(): MatchClock | null {
+    const { match, rules } = this.world;
+    const objective = rules.objective;
+    if (objective?.id !== 'quick-win' || !(objective.value > 0) || match.status === 'menu')
+      return null;
+    const elapsed = Math.round(match.elapsed);
+    if (this.clock?.elapsed !== elapsed || this.clock.limit !== objective.value)
+      this.clock = { elapsed, limit: objective.value };
+    return this.clock;
+  }
+
+  /**
+   * The one line of live progress the collapsed HUD can show. Star goals,
+   * clocks and rally pressure have their own structured fields.
+   */
+  private progressLine(objective: string | null): string | null {
+    const { match, rules } = this.world;
+    // Shared targets and drills already keep their own line on screen.
+    if (match.status === 'menu' || rules.versus || rules.sharedCode || rules.technique) return null;
+    if (rules.options?.waves) return objective;
+    const target = rules.objective;
+    if (!target || rules.goals) return null;
+    switch (target.id) {
+      case 'rally':
+        return `Rally ${Math.max(match.bestThisMatch, match.rally)}/${target.value}`;
+      case 'banks':
+      case 'switches':
+      case 'breaks':
+      case 'gates':
+        return `${target.label} · ${this.world.arena.course.events.you[target.id]}/${target.value}`;
+      default:
+        return null;
+    }
+  }
+
   private buildSnapshot(): GameSnapshot {
     const { match, rules, fx } = this.world;
     const status = match.status;
     const live = activeUltimate(this.world);
+    const objective = rules.sharedCode
+      ? `Shared target · ${match.hits}/30 · Returns`
+      : rules.options?.waves
+        ? `Wave ${match.waveDepth + 1} · ${match.hits - match.waveHits}/12 returns · ${match.lives} lives`
+        : rules.versus
+          ? `P1: ${keyList(this.bindings, 'up')} / ${keyList(this.bindings, 'down')} · P2: ${keyList(this.bindings, 'p2Up')} / ${keyList(this.bindings, 'p2Down')}`
+          : (rules.objective?.label ?? null);
+    // Boss phases sharpen the brain without touching the rules' profile, so
+    // the live opponent is read from the brain; a boss keeps its own name.
+    const opponent = this.world.botBrain.profile;
 
     return {
       status,
@@ -603,14 +761,11 @@ export class GameEngine {
       ...(rules.sharedCode ? { sharedReturns: match.hits } : {}),
       ...(!rules.ranked && rules.technique ? { technique: rules.technique } : {}),
       bossCue: bossCue(this.world),
-      objective: rules.sharedCode
-        ? `Shared target · ${match.hits}/30 · Returns`
-        : rules.options?.waves
-          ? `Wave ${match.waveDepth + 1} · ${match.hits - match.waveHits}/12 returns · ${match.lives} lives`
-          : rules.versus
-            ? `P1: ${keyList(this.bindings, 'up')} / ${keyList(this.bindings, 'down')} · P2: ${keyList(this.bindings, 'p2Up')} / ${keyList(this.bindings, 'p2Down')}`
-            : (rules.objective?.label ?? null),
+      objective,
       objectiveTouch: rules.objective?.touchLabel ?? null,
+      progress: this.progressLine(objective),
+      clock: this.clockView(),
+      series: this.seriesView(),
       goals: this.goalView(),
       tutorialStep: this.world.tutorial?.step ?? null,
       tutorialCleared: this.world.tutorial?.cleared ?? false,
@@ -623,7 +778,9 @@ export class GameEngine {
         this.world.player.material.stored > 0 || this.world.player.material.switchCharge,
       opponentName: rules.versus
         ? 'P2'
-        : `${rules.bot.name} · ${rules.bot.personality ?? 'opportunist'}`,
+        : rules.boss
+          ? `${rules.boss.name} · ${opponent.name}`
+          : `${opponent.name} · ${opponent.personality ?? 'opportunist'}`,
       // The chrome sits above the canvas, so it is the one part of the page a
       // capstone cannot reach from the renderer. These four scalars are what
       // it flares on; `ultimateCastId` changes exactly once per cast.
@@ -702,7 +859,36 @@ export class GameEngine {
     rescaleArena(this.world);
     this.landingEstimate = practiceLanding(this.world);
     this.renderer.invalidate();
+    this.publishLanes();
   };
+
+  /**
+   * Tell the DOM chrome where the paddle lanes are.
+   *
+   * Each `--court-lane-*` length is how far in from that edge of the viewport
+   * a paddle, its face and the contact zone in front of it reach: the left
+   * and right edges on a landscape court, the top (opponent) and bottom
+   * (player) on a portrait one, and 0 on the edges no paddle plays along.
+   * The skill buttons and the match panel keep outside these.
+   */
+  private publishLanes(clear = false): void {
+    const style = (document.documentElement as HTMLElement | undefined)?.style;
+    if (typeof style?.setProperty !== 'function') return;
+    if (clear) {
+      for (const name of LANE_PROPERTIES) style.removeProperty(name);
+      return;
+    }
+    const { view } = this.world;
+    const half = (view.w * view.scale) / 2;
+    const lane = HUD_CLEARANCE * view.scale;
+    const start = Math.max(0, (view.rotated ? view.cy : view.cx) - half + lane);
+    const end = Math.max(0, (view.rotated ? view.vh - view.cy : view.vw - view.cx) - half + lane);
+    const px = (value: number) => `${Math.ceil(value)}px`;
+    style.setProperty('--court-lane-l', px(view.rotated ? 0 : start));
+    style.setProperty('--court-lane-r', px(view.rotated ? 0 : end));
+    style.setProperty('--court-lane-t', px(view.rotated ? start : 0));
+    style.setProperty('--court-lane-b', px(view.rotated ? end : 0));
+  }
 
   private scheduleLayout = (): void => {
     // Hold play before the next animation frame can advance the old court.
@@ -795,7 +981,10 @@ export class GameEngine {
     // for the whole of its replay, when it has one.
     if (match.status === 'over' && !match.overShown && !replayHolding(world)) {
       match.overTimer -= dt;
-      if (match.overTimer <= 0) publishResult(world);
+      if (match.overTimer <= 0) {
+        publishResult(world);
+        this.countSeriesGame();
+      }
     }
 
     // The simulation asks for a buzz by writing how long it wants one; the
@@ -841,6 +1030,7 @@ export class GameEngine {
   private clearInput(): void {
     this.heldKeys.clear();
     this.pointers.clear();
+    this.mouseSteering = false;
     const humans = this.versus ? [this.world.player, this.world.bot] : [this.world.player];
     for (const paddle of humans) {
       paddle.target = paddle.y;
@@ -905,7 +1095,8 @@ export class GameEngine {
     // A tap during the closing replay skips it.
     if (skipReplay(this.world)) return;
     // A finger put down during the resume countdown is the one that plays:
-    // it owns the paddle from now, but only steers once the countdown ends.
+    // it owns the paddle from now, without yanking the target to where it
+    // landed. Its moves are tracked from then on (see onPointerMove).
     const counting = match.status === 'resuming';
     if (match.status !== 'play' && match.status !== 'serve' && !counting) return;
     const side = this.versus ? this.sideAt(event) : 'you';
@@ -932,11 +1123,32 @@ export class GameEngine {
   private onPointerMove = (event: PointerEvent): void => {
     if (!this.gameplayInputEnabled) return;
     const { status } = this.world.match;
-    if (status !== 'play' && status !== 'serve') return;
+    // The countdown keeps following the pointer, so play resumes where the
+    // player is pointing rather than where the pause left the paddle. The
+    // simulation itself holds the paddle still until the countdown ends.
+    if (status !== 'play' && status !== 'serve' && status !== 'resuming') return;
     const side = this.pointers.move(event.pointerId, event.clientX, event.clientY);
     if (side) this.trackPointer(event, side);
-    else if (event.pointerType === 'mouse')
+    else if (event.pointerType === 'mouse') {
       this.trackPointer(event, this.versus ? this.sideAt(event) : 'you');
+      this.mouseSteering = true;
+    }
+  };
+
+  /**
+   * A pointer moving over the match chrome - skill buttons, the score panel -
+   * still steers, so the HUD never freezes a mouse-driven paddle. Moves over
+   * the canvas itself reach {@link onPointerMove} directly (and captured
+   * drags are retargeted to it), so they are skipped here.
+   *
+   * A mouse that has not steered on the court since the last input reset is
+   * only reaching for a control - from the keyboard, or from outside the
+   * window - and does not grab the paddle on its way there.
+   */
+  private onChromePointerMove = (event: PointerEvent): void => {
+    if (event.target === this.canvas) return;
+    if (event.pointerType === 'mouse' && !this.mouseSteering) return;
+    this.onPointerMove(event);
   };
 
   private onPointerUp = (event: PointerEvent): void => {
@@ -1073,6 +1285,7 @@ export class GameEngine {
     canvas.addEventListener('pointercancel', this.onPointerCancel, { passive: true });
     canvas.addEventListener('lostpointercapture', this.onPointerCancel, { passive: true });
     canvas.addEventListener('contextmenu', this.onContextMenu);
+    window.addEventListener('pointermove', this.onChromePointerMove, { passive: true });
 
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -1092,6 +1305,7 @@ export class GameEngine {
     canvas.removeEventListener('pointercancel', this.onPointerCancel);
     canvas.removeEventListener('lostpointercapture', this.onPointerCancel);
     canvas.removeEventListener('contextmenu', this.onContextMenu);
+    window.removeEventListener('pointermove', this.onChromePointerMove);
 
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);

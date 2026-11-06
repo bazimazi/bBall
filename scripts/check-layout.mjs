@@ -1083,7 +1083,7 @@ try {
   }
   await page.getByRole('button', { name: 'More modes', exact: true }).click();
   await page.getByRole('button', { name: /Quick Match/ }).click();
-  await page.getByRole('button', { name: /Legend/ }).click();
+  await page.getByRole('button', { name: /^Legend/ }).click();
   await page.getByRole('button', { name: 'Pause game', exact: true }).waitFor();
   // Allow the versus introduction to finish before serving and inspecting a rally.
   await page.waitForTimeout(1800);
@@ -1099,7 +1099,10 @@ try {
       path: join(screenshots, 'app-phone-pause-skills.png'),
       animations: 'disabled'
     });
-  await page.getByRole('button', { name: 'Quit to menu', exact: true }).click();
+  // Once a point has been played, leaving a ranked match is a forfeit and asks first.
+  await page.getByRole('button', { name: /^(Quit to menu|Leave · counts as a loss)$/ }).click();
+  const forfeit = page.getByRole('button', { name: 'Leave · take the loss', exact: true });
+  if (await forfeit.isVisible().catch(() => false)) await forfeit.click();
   await page.getByRole('button', { name: 'More modes', exact: true }).click();
   await page.getByRole('button', { name: /Quick Match/ }).click();
   await page.getByText('Match setup', { exact: true }).click();

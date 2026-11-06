@@ -66,7 +66,8 @@
 
 .serve {
   position: fixed;
-  bottom: calc(var(--safe-b) + 20px);
+  /* Clear of the player's paddle lane, which runs along the bottom in portrait. */
+  bottom: max(calc(var(--safe-b) + 20px), calc(var(--court-lane-b, 0px) + 10px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;

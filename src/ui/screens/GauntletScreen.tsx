@@ -30,7 +30,9 @@ import { HeartIcon } from '../icons/ModeIcons';
 import {
   actLength,
   actIndex,
+  actStart,
   atBoundary,
+  runCleared,
   runLength,
   runPosition,
   RUN_FORMATS,
@@ -114,6 +116,20 @@ export function GauntletScreen({
 }
 
 // ------------------------------------------------------------------ start
+
+/**
+ * How the last run ended. An Endless run banks or runs out of hearts at a
+ * depth; it reads as cleared only once it has cleared - and a run counts once.
+ */
+function lastRunLine(last: RunSave): string {
+  const cleared = runCleared(last);
+  if (last.format !== 'endless')
+    return cleared
+      ? msg('Cleared at Pressure {0}', [t(last.pressure)])
+      : msg('Reached {0}', [t(runPosition(last))]);
+  const depth = `${last.won ? 'Banked after' : 'Ended after'} ${last.stage} ${last.stage === 1 ? 'encounter' : 'encounters'}`;
+  return cleared ? `${depth} · cleared at Pressure ${last.pressure}` : depth;
+}
 
 function StartView({
   profile,
@@ -247,11 +263,7 @@ function StartView({
               {t('Last run')}
             </p>
             <p className={styles.rowBlurb}>
-              {t(
-                last.won
-                  ? msg('Cleared at Pressure {0}', [t(last.pressure)])
-                  : msg('Reached {0}', [t(runPosition(last))])
-              )}
+              {t(lastRunLine(last))}
               {t(
                 Object.keys(last.boons).length > 0
                   ? msg(' · {0} boons', [t(Object.keys(last.boons).length)])
@@ -404,7 +416,7 @@ function ActTrack({ run, act }: { run: RunSave; act: number }) {
         {t(act + 1)}
       </span>
       {Array.from({ length: actLength(run) }, (_, slot) => {
-        const stage = act * actLength(run) + (run.actOffset ?? 0) + slot;
+        const stage = actStart(run, act) + slot;
         const encounter = encounterFor(run, stage);
         const won = run.results.some((item) => item.stage === stage && item.won);
         const classes = [modes.node];
@@ -476,7 +488,7 @@ function RunView({
   const rematch = lastResult && !lastResult.won && lastResult.stage === run.stage;
   const currentAct = actIndex(run);
   const futureActs = [currentAct + 1, currentAct + 2].filter(
-    (act) => act * actLength(run) + (run.actOffset ?? 0) < runLength(run)
+    (act) => actStart(run, act) < runLength(run)
   );
   const play = () => {
     if (run.attempt) {
@@ -633,7 +645,7 @@ function RunView({
       {run.attempt && (
         <p className={styles.rowBlurb}>
           {t(
-            'This encounter was started. Its court and route stay fixed. You can return to an open paused match, or restart here for one heart.'
+            'This encounter was started before the game closed, so its court and route stay fixed. A closed match cannot be resumed: playing it again costs one heart.'
           )}
         </p>
       )}

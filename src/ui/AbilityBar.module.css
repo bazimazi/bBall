@@ -2,10 +2,14 @@
  * The in-game ability buttons.
  *
  * Near a bottom corner, where a thumb rests - left by default, right if the
- * player asks for it on the profile screen. In portrait the court is drawn
- * rotated. The strip sits above the player's paddle lane so a drag can reach
- * either end beneath the circles. The buttons are translucent over the court,
- * and nothing else is added to the HUD.
+ * player asks for it on the profile screen. They never cover a paddle lane
+ * or the contact zone in front of it: the engine publishes how far in from
+ * each viewport edge those reach (`--court-lane-*`). In portrait the court
+ * is drawn rotated and the player's lane runs along the bottom, so the strip
+ * is a column along the side wall above it. In landscape the lanes are the
+ * left and right edges, so the strip is a row along the bottom wall, beside
+ * the lane and short of the serve button in the middle. The buttons are
+ * translucent over the court, and nothing else is added to the HUD.
  *
  * Every button carries its skill's own hue in `--hue`, set inline from the
  * catalogue. Three states have to be told apart without reading anything:
@@ -15,22 +19,56 @@
  */
 
 .bar {
+  /* Published by the engine; the fallbacks approximate a portrait court. */
+  --lane-l: var(--court-lane-l, 0px);
+  --lane-r: var(--court-lane-r, 0px);
+  --lane-t: var(--court-lane-t, 74px);
+  --lane-b: var(--court-lane-b, 84px);
+  --bar-x: max(calc(var(--safe-r) + 12px), calc(var(--lane-r) + 10px));
+  --bar-y: max(calc(var(--safe-b) + 12px), calc(var(--lane-b) + 10px));
   direction: ltr;
   position: fixed;
-  right: calc(var(--safe-r) + 12px);
-  /* Leave the bottom paddle lane visible and available for pointer input. */
-  bottom: calc(var(--safe-b) + 96px);
+  right: var(--bar-x);
+  bottom: var(--bar-y);
   z-index: 4;
   display: flex;
   flex-direction: column-reverse;
+  /* A loadout too tall for the side wall continues in a column further in. */
+  flex-wrap: wrap-reverse;
+  align-content: flex-start;
+  align-items: center;
   gap: 10px;
+  /* Clear of the opponent's lane and the match panel below it. */
+  max-height: calc(100vh - var(--bar-y) - var(--lane-t) - 96px);
   /* Only the buttons take input - the rest of the strip belongs to the game. */
   pointer-events: none;
 }
 
 .left {
+  --bar-x: max(calc(var(--safe-l) + 12px), calc(var(--lane-l) + 10px));
   right: auto;
-  left: calc(var(--safe-l) + 12px);
+  left: var(--bar-x);
+  flex-wrap: wrap;
+}
+
+@media (orientation: landscape) {
+  .bar {
+    --lane-l: var(--court-lane-l, calc(14px + (100vh - 28px) * 0.164));
+    --lane-r: var(--court-lane-r, calc(14px + (100vh - 28px) * 0.164));
+    --lane-t: var(--court-lane-t, 0px);
+    --lane-b: var(--court-lane-b, 0px);
+    flex-direction: row;
+    /* Extra rows stack upwards, away from the bottom wall. */
+    flex-wrap: wrap-reverse;
+    justify-content: flex-end;
+    max-height: none;
+    /* Stop short of the serve button, centred on the bottom edge. */
+    max-width: max(64px, calc(50vw - 76px - var(--bar-x)));
+  }
+
+  .left {
+    justify-content: flex-start;
+  }
 }
 
 .button {
@@ -349,18 +387,11 @@
   transition: stroke-dashoffset 0.15s linear;
 }
 
-/* Short landscape screens use a row to keep the controls within reach. */
+/* Short landscape screens pack the row tighter, so a full loadout stays on one line. */
 @media (max-height: 460px) {
   .bar {
-    flex-direction: row;
     gap: 8px;
-    right: calc(var(--safe-r) + 6px);
-    bottom: calc(var(--safe-b) + 48px);
-  }
-
-  .left {
-    right: auto;
-    left: calc(var(--safe-l) + 6px);
+    --bar-y: max(calc(var(--safe-b) + 8px), calc(var(--lane-b) + 10px));
   }
 }
 
@@ -424,4 +455,24 @@
     --glyph: 24px;
     font-size: 22px;
   }
+}
+
+/* More skills than the strip was sized for: compact, so it stays one line. */
+.bar[data-crowded='true'] {
+  gap: 6px;
+}
+
+.bar[data-crowded='true'] .button {
+  width: 48px;
+  height: 48px;
+}
+
+.bar[data-crowded='true'] .ultimate {
+  width: 54px;
+  height: 54px;
+}
+
+.bar[data-crowded='true'] .glyph {
+  --glyph: 21px;
+  font-size: 19px;
 }

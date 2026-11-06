@@ -47,6 +47,7 @@ import {
   endlessRules,
   objectiveMet,
   practiceRules,
+  contractBot,
   quickMatchRules,
   runRules,
   tournamentRules
@@ -203,7 +204,8 @@ function resolveRules(
     ((submission.options.arenaId && !arenaPreset(submission.options.arenaId)) ||
       (submission.options.personality && !PERSONALITIES.includes(submission.options.personality)) ||
       (submission.options.contract &&
-        (submission.mode !== 'quick' || submission.botId !== 'legend')) ||
+        (submission.mode !== 'quick' ||
+          submission.botId !== contractBot(submission.options.contract))) ||
       !['quick', 'practice', 'endless', 'versus'].includes(submission.mode))
   ) {
     return reject('invalid-match-options', 'Those options are not available for this encounter.');

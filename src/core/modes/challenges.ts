@@ -36,10 +36,11 @@ export const LEGACY_CHALLENGES: readonly Challenge[] = [
   {
     id: 'jetstream',
     name: 'Jetstream',
-    blurb: 'Master opposing currents and reach a twelve-return rally',
+    blurb: 'Master opposing currents: hold a twelve-hit rally and win',
     bot: 'pro',
     winScore: 3,
-    objective: { id: 'rally', label: 'Reach a 12 rally', value: 12 },
+    // A rally counts both paddles, so the goal only counts in a match won.
+    objective: { id: 'rally', label: 'Win with a 12-hit rally', value: 12 },
     modifiers: { arena: arenaPreset('jetstream')!.arena, speedPerHitScale: 0.8 },
     xp: 160
   },
@@ -106,10 +107,10 @@ export const LEGACY_CHALLENGES: readonly Challenge[] = [
   {
     id: 'long-rally',
     name: 'Marathon',
-    blurb: 'One rally, twenty-five returns',
+    blurb: 'One rally of twenty-five hits, in a match you win',
     bot: 'pro',
     winScore: 3,
-    objective: { id: 'rally', label: 'Reach a 25 rally', value: 25 },
+    objective: { id: 'rally', label: 'Win with a 25-hit rally', value: 25 },
     modifiers: { speedPerHitScale: 0.7 },
     xp: 140
   },
@@ -172,6 +173,11 @@ export const LEGACY_CHALLENGES: readonly Challenge[] = [
   }
 ];
 
+/** "1 switch", "2 switches": the counted noun agrees with its number. */
+function count(value: number, one: string, many: string): string {
+  return `${value} ${value === 1 ? one : many}`;
+}
+
 function routeObjective(
   arena: NonNullable<MatchModifiers['arena']>,
   difficulty: number
@@ -179,7 +185,7 @@ function routeObjective(
   if (arena.switches?.length)
     return {
       id: 'switches',
-      label: `Win and trigger ${1 + difficulty} switches`,
+      label: `Win and trigger ${count(1 + difficulty, 'switch', 'switches')}`,
       value: 1 + difficulty
     };
   if (arena.rails?.some((r) => r.hp) || arena.bricks) {
@@ -187,18 +193,22 @@ function routeObjective(
       (arena.rails?.filter((r) => r.hp).length ?? 0) +
       (arena.bricks ? arena.bricks.rows * (arena.bricks.sides === 'both' ? 2 : 1) : 0);
     const value = Math.min(capacity, 1 + difficulty);
-    return { id: 'breaks', label: `Win and break ${value} structures`, value };
+    return {
+      id: 'breaks',
+      label: `Win and break ${count(value, 'structure', 'structures')}`,
+      value
+    };
   }
   if (arena.rails?.length)
     return {
       id: 'banks',
-      label: `Win and land ${2 + difficulty} rail banks`,
+      label: `Win and land ${count(2 + difficulty, 'rail bank', 'rail banks')}`,
       value: 2 + difficulty
     };
   if (arena.gates?.length)
     return {
       id: 'gates',
-      label: `Win and cross ${2 + difficulty} openings`,
+      label: `Win and cross ${count(2 + difficulty, 'opening', 'openings')}`,
       value: 2 + difficulty
     };
   return { id: 'win', label: 'Win the match', value: 0 };

@@ -2,6 +2,8 @@ import { botProfile } from '../bots/levels';
 import type { MatchResult, MatchRules } from './types';
 import type { ResolvedLoadout } from '../talents/effects';
 
+const REHEARSAL_SCORE = 3;
+
 /** Rehearse the reached court without retaining any ranked attempt identity. */
 export function encounterPracticeRules(
   source: MatchRules,
@@ -21,7 +23,16 @@ export function encounterPracticeRules(
   let bot = source.bot;
   let arenaIntensity = source.arenaIntensity ?? 1;
   let swerve = source.boss?.swerve ?? 0;
-  const modifiers = { ...source.modifiers, startScore: { you: 0, bot: 0 } };
+  // A deficit the encounter opens on - Two Down's 0-2, Pressure's point - is
+  // part of what is being rehearsed. It stays short of the rehearsal's three.
+  const start = source.modifiers.startScore;
+  const modifiers = {
+    ...source.modifiers,
+    startScore: {
+      you: Math.min(REHEARSAL_SCORE - 1, start.you),
+      bot: Math.min(REHEARSAL_SCORE - 1, start.bot)
+    }
+  };
   for (const phase of source.boss?.phases ?? []) {
     if (phase.at > result.scoreYou) break;
     if (phase.arena) modifiers.arena = phase.arena;
@@ -41,7 +52,7 @@ export function encounterPracticeRules(
     label: 'Encounter practice',
     bot,
     practiceBallRank: source.bot.rank,
-    winScore: 3,
+    winScore: REHEARSAL_SCORE,
     lives: 0,
     modifiers,
     arenaIntensity,

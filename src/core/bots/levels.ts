@@ -91,6 +91,33 @@ export const BOT_LEVELS: Readonly<Record<BotLevelId, BotProfile>> = {
     pressure: 0.98,
     assist: 0
   },
+  /**
+   * Above the ladder Legend used to top. A developed build outclassed Legend
+   * well before level 50, so this one reads almost every ball right, almost
+   * never misjudges one and brings a quicker ball of its own (rank 6 in
+   * `BALANCE.ball.rank`). It is chosen, never imposed: a Quick Match tier and
+   * the Mythic contract's opponent. Placed as a boss in hazard content it
+   * measured as a wall even for a skilled, fully built player.
+   */
+  champion: {
+    id: 'champion',
+    name: 'Champion',
+    blurb: 'Beyond Legend: reads nearly everything and plays a faster ball',
+    rank: 6,
+    xpFactor: 6.5,
+    reaction: 0.08,
+    prediction: 0.995,
+    aimError: 16,
+    speed: 1800,
+    deadzone: 4,
+    consistency: 0.99,
+    recovery: 0.99,
+    placement: 1,
+    pressure: 0.99,
+    assist: 0,
+    caution: 0.7,
+    contactRead: 0.8
+  },
   wall: {
     id: 'wall',
     name: 'The Wall',
@@ -116,7 +143,8 @@ export const SELECTABLE_BOTS: readonly BotProfile[] = [
   BOT_LEVELS.amateur,
   BOT_LEVELS.pro,
   BOT_LEVELS.elite,
-  BOT_LEVELS.legend
+  BOT_LEVELS.legend,
+  BOT_LEVELS.champion
 ];
 
 export const DEFAULT_BOT: BotLevelId = 'amateur';

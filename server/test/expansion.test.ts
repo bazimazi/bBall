@@ -74,6 +74,7 @@ import { updateArena } from '../../src/game/arena';
 import { FIXED_DT, BALL_R, FIELD_H, PADDLE_W, SERVE_DELAY } from '../../src/game/constants';
 import { bounceBumper } from '../../src/game/hazardContacts';
 import { BALANCE } from '../../src/core/balance/config';
+import { journeyPace } from '../../src/core/modes/pace';
 import { talentBuildOn, masterCardLoadout } from '../../src/core/talents/builds';
 import { spentPoints, respec } from '../../src/core/talents/save';
 import { trainMastery } from '../../src/core/progression/mastery';
@@ -427,13 +428,17 @@ it('mastery variants never downgrade Legend and keep boss difficulty modifiers',
     ascendant = stageById(`ascendant-${base.id}`)!;
   assert.equal(veteran.bot, 'legend');
   assert.equal(ascendant.bot, 'legend');
+  // Later worlds add content pace on top of the stage's own modifiers.
+  const pace = journeyPace(ascendant.world);
   assert.equal(
     campaignRules(ascendant).modifiers.playerPaddleScale,
     ascendant.modifiers.playerPaddleScale
   );
-  assert.equal(
-    campaignRules(ascendant).modifiers.serveSpeedScale,
-    ascendant.modifiers.serveSpeedScale
+  assert.ok(
+    Math.abs(
+      campaignRules(ascendant).modifiers.serveSpeedScale -
+        (ascendant.modifiers.serveSpeedScale ?? 1) * pace
+    ) < 1e-9
   );
   assert.equal(worldById(1_000_000_029)?.stages[19]?.id, 'f2-999999999-20');
   const progress = Object.fromEntries(LEGACY_STAGES.map((s) => [s.id, 7]));

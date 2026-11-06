@@ -22,20 +22,41 @@ export function masterCardLoadout() {
 export function buildSlots(level: number): number {
   return level >= 100 ? 8 : level >= 50 ? 6 : 4;
 }
-/** Rebuild presets through real purchases, so saved layouts cannot bypass gates. */
+/** What a saved-build request does to its slot. */
+export type TalentBuildAction = 'save' | 'load' | 'rename';
+
+/** The name a build is stored under: trimmed, bounded, never blank. */
+export function buildName(name: string, slot: number): string {
+  return name.trim().slice(0, 32) || `Build ${slot + 1}`;
+}
+
+/**
+ * Rebuild presets through real purchases, so saved layouts cannot bypass gates.
+ *
+ * `rename` changes only the label of a build already saved in the slot: its
+ * ranks and skills stay exactly as they were saved, and the live build is not
+ * touched. A blank name is refused rather than quietly replaced.
+ */
 export function talentBuildOn(
   profile: PlayerProfile,
   slot: number,
-  action: 'save' | 'load',
+  action: TalentBuildAction,
   name = 'Saved build'
 ): PlayerProfile | null {
   const level = levelOf(profile.xp);
   if (!Number.isInteger(slot) || slot < 0 || slot >= buildSlots(level)) return null;
   const current = cloneTalentSave(profile.talents);
+  if (action === 'rename') {
+    const preset = current.presets?.[slot];
+    const label = name.trim().slice(0, 32);
+    if (!preset || !label) return null;
+    current.presets![slot] = { ...preset, name: label };
+    return { ...profile, talents: current };
+  }
   if (action === 'save') {
     current.presets ??= Array.from({ length: 8 }, () => null);
     current.presets[slot] = {
-      name: name.trim().slice(0, 32) || `Build ${slot + 1}`,
+      name: buildName(name, slot),
       ranks: { ...current.ranks },
       equipped: [...current.equipped]
     };

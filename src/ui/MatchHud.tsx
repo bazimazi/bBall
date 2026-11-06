@@ -1,6 +1,6 @@
-import { t, msg } from '../core/i18n/index';
-import type { GameSnapshot } from '../game/types';
-import { useId, type CSSProperties } from 'react';
+import { t, msg, secondsUnit } from '../core/i18n/index';
+import type { GameSnapshot, GoalView } from '../game/types';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 import { settingsStore } from '../core/settings/store';
 import { useSettings } from './hooks/useSettings';
 import { TalentIcon } from './icons/TalentIcon';
@@ -13,10 +13,71 @@ interface MatchHudProps {
   onGoals: () => void;
 }
 
+function goalGlyph(goal: GoalView): string {
+  if (goal.state === 'missed') return '×';
+  return goal.state === 'reached' || goal.state === 'earned' ? '★' : '☆';
+}
+
+function goalText(goal: GoalView): string {
+  return msg('{0}: {1}, {2}', [t(goal.label), t(goal.progress), t(GOAL_STATUS[goal.state])]);
+}
+
+/**
+ * The live objective, one line, shown whether or not the panel is expanded:
+ * the series game, a timed objective's clock, wave or objective progress,
+ * each star goal's counter and the rally-pressure reach cut. Each part is
+ * translated on its own.
+ */
+function liveParts(snapshot: GameSnapshot): ReactNode[] {
+  const parts: ReactNode[] = [];
+  const { series, clock, progress } = snapshot;
+  if (series)
+    parts.push(
+      <span key="series" title={msg('Best of {0}', [t(series.length)])}>
+        {msg('Game {0} · {1}–{2}', [t(series.game), t(series.you), t(series.foe)])}
+      </span>
+    );
+  if (clock)
+    parts.push(
+      <span key="clock" className={styles.clock} data-over={clock.elapsed > clock.limit}>
+        {t('Time')} <b>{t(clock.elapsed)}</b>
+        {t('/')}
+        {t(clock.limit)}
+        {secondsUnit()}
+      </span>
+    );
+  if (progress) parts.push(<span key="progress">{t(progress)}</span>);
+  for (const goal of snapshot.goals) {
+    // Winning is the score itself, already on the line above.
+    if (goal.id === 'win') continue;
+    // A settled goal is its star; only the ones still in play need counting.
+    parts.push(
+      <span key={goal.id} data-state={goal.state} title={goalText(goal)}>
+        <i aria-hidden="true">{t(goalGlyph(goal))}</i>
+        {goal.state === 'active' && <> {t(goal.progress)}</>}
+      </span>
+    );
+  }
+  if (snapshot.rallyPressure)
+    parts.push(
+      <span
+        key="pressure"
+        className={styles.pressure}
+        title={t(msg('Rally pressure: reach reduced by {0}%', [t(snapshot.rallyPressure)]))}
+      >
+        {t('Reach −')}
+        {t(snapshot.rallyPressure)}
+        {t('%')}
+      </span>
+    );
+  return parts;
+}
+
 /** Score changes announce once; rally and goal counters have no live region. */
 export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
   const { matchInfoExpanded } = useSettings();
   const detailsId = useId();
+  const liveId = useId();
   const toggleLabel = t(matchInfoExpanded ? 'Collapse match info' : 'Expand match info');
   const versus = snapshot.mode === 'versus';
   const technique = !!snapshot.technique;
@@ -24,6 +85,7 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
   const bot = technique ? 'Misses' : versus ? 'P2' : (snapshot.opponentName ?? 'Bot');
   const shortName = bot.split(' · ')[0];
   const lives = snapshot.maxLives > 0;
+  const live = liveParts(snapshot);
   const announcement = lives
     ? `${snapshot.lives} of ${snapshot.maxLives} lives left`
     : technique
@@ -38,6 +100,7 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
         className={styles.summary}
         type="button"
         aria-label={toggleLabel}
+        aria-describedby={live.length > 0 ? liveId : undefined}
         title={toggleLabel}
         aria-expanded={matchInfoExpanded}
         aria-controls={detailsId}
@@ -46,27 +109,34 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
           settingsStore.update({ matchInfoExpanded: !matchInfoExpanded });
         }}
       >
-        <span className={styles.score} aria-hidden="true">
-          {lives ? (
-            <span>
-              {t('Lives')}
-              {t(' ')}
-              <b>
-                {t(snapshot.lives)}
-                {t('/')}
-                {t(snapshot.maxLives)}
-              </b>
-            </span>
-          ) : (
-            <>
+        <span className={styles.head}>
+          <span className={styles.score} aria-hidden="true">
+            {lives ? (
               <span>
-                {t(you)} <b className={styles.you}>{t(snapshot.scoreYou)}</b>
+                {t('Lives')}
+                {t(' ')}
+                <b>
+                  {t(snapshot.lives)}
+                  {t('/')}
+                  {t(snapshot.maxLives)}
+                </b>
               </span>
-              <span className={styles.botScore} title={t(bot)}>
-                <span className={styles.opponentName}>{t(shortName)}</span>{' '}
-                <b>{t(snapshot.scoreBot)}</b>
-              </span>
-            </>
+            ) : (
+              <>
+                <span>
+                  {t(you)} <b className={styles.you}>{t(snapshot.scoreYou)}</b>
+                </span>
+                <span className={styles.botScore} title={t(bot)}>
+                  <span className={styles.opponentName}>{t(shortName)}</span>{' '}
+                  <b>{t(snapshot.scoreBot)}</b>
+                </span>
+              </>
+            )}
+          </span>
+          {live.length > 0 && (
+            <span id={liveId} className={styles.live}>
+              {live}
+            </span>
           )}
         </span>
         <svg className={styles.chevron} viewBox="0 0 16 16" aria-hidden="true">
@@ -91,16 +161,6 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
                 ? msg('Best rally {0}', [t(snapshot.bestThisMatch)])
                 : msg('First to {0}', [t(snapshot.winScore)])
             )}
-          </p>
-        )}
-        {!!snapshot.rallyPressure && (
-          <p
-            className={styles.objective}
-            title={t(msg('Rally pressure: reach reduced by {0}%', [t(snapshot.rallyPressure)]))}
-          >
-            {t('Reach −')}
-            {t(snapshot.rallyPressure)}
-            {t('%')}
           </p>
         )}
         {!versus && snapshot.paddleKit && (
@@ -173,36 +233,14 @@ export function MatchHud({ snapshot, objective, onGoals }: MatchHudProps) {
             }}
             disabled={!snapshot.canPause}
             aria-label={msg('Star goals. {0}. Pause to review.', [
-              snapshot.goals
-                .map((goal) =>
-                  msg('{0}: {1}, {2}', [
-                    t(goal.label),
-                    t(goal.progress),
-                    t(GOAL_STATUS[goal.state])
-                  ])
-                )
-                .join('. ')
+              snapshot.goals.map(goalText).join('. ')
             ])}
           >
             <strong>{t('Goals')}</strong>
             <span className={styles.goalPips} aria-hidden="true">
               {snapshot.goals.map((goal) => (
-                <span
-                  key={goal.id}
-                  data-state={goal.state}
-                  title={msg('{0}: {1}, {2}', [
-                    t(goal.label),
-                    t(goal.progress),
-                    t(GOAL_STATUS[goal.state])
-                  ])}
-                >
-                  {t(
-                    goal.state === 'missed'
-                      ? '×'
-                      : goal.state === 'reached' || goal.state === 'earned'
-                        ? '★'
-                        : '☆'
-                  )}
+                <span key={goal.id} data-state={goal.state} title={goalText(goal)}>
+                  {t(goalGlyph(goal))}
                 </span>
               ))}
             </span>

@@ -82,21 +82,28 @@ motion follows the layout direction and still ignores all system motion preferen
 
 Default controls:
 
-| Input                                | Action                                                                 |
-| ------------------------------------ | ---------------------------------------------------------------------- |
-| Drag / move pointer                  | Move your paddle (anywhere on screen - the paddle mirrors your finger) |
-| `↑` `↓` or `W` `S`                   | Move your paddle                                                       |
-| Tap / `Space` / `Enter`              | Serve immediately instead of waiting, or skip the closing replay       |
-| `1`–`9`; `Q` `E` `R` `F` `V` for 1–5 | Use the ability in that slot (or tap the buttons in the corner)        |
-| `Esc` or `P`                         | Pause                                                                  |
-| `M`                                  | Mute                                                                   |
+| Input                          | Action                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| Drag / move pointer            | Move your paddle (anywhere on screen - the paddle mirrors your finger) |
+| `↑` `↓` or `W` `S`             | Move your paddle                                                       |
+| Tap / `Space` / `Enter`        | Serve immediately instead of waiting, or skip the closing replay       |
+| `1`–`5` or `Q` `E` `R` `F` `V` | Use the ability in that slot (or tap its button)                       |
+| `Esc` or `P`                   | Pause                                                                  |
+| `M`                            | Mute                                                                   |
 
 **Your controls.** Open **Settings → Keyboard controls** to change movement,
-both Versus players, serving, pause, mute and all nine skill slots. Each action
+both Versus players, serving, pause, mute and all five skill slots. Each action
 can have an alternate key; conflicts are explained before a change is saved.
 You can restore the defaults at any time. Escape remains a pause key and
 cancels key capture; Tab keeps normal focus navigation. Hints and skill buttons
 show your chosen keys. Player 2's movement keys also work in solo play.
+
+Skill buttons never sit over either paddle's lane: in landscape they run along
+the bottom wall beside your lane, in portrait up the side wall. A mouse moving
+over any match chrome keeps steering the paddle. Under the score, one line keeps
+the live objective in view without opening the match panel - star-goal
+counters, Waves progress, rally pressure, a series game and, for timed
+challenges, the clock against the limit.
 
 Skill buttons activate on the primary mouse press, touch or pen contact, or
 keyboard activation. Secondary and auxiliary mouse buttons do not spend a skill.
@@ -173,7 +180,7 @@ or entering account restoration or Demo, closes the pending confirmation.
 | **Journey**     | 30 worlds, 630 Story stages, Veteran/Ascendant variants and continuing Frontier sectors      |
 | **Daily**       | Separate Standard and fixed-build Master cards, a 30-day practice archive                    |
 | **Gauntlet**    | 9-match Sprint, 36-match Expedition, Endless acts, 50 Pressure ranks and a weekly seed       |
-| **Quick Match** | Five opponent tiers, six schools, 60 courts, Master/Mythic contracts, best-of-three/five     |
+| **Quick Match** | Six opponent tiers, six schools, 60 courts, Master/Mythic contracts, best-of-three/five      |
 | **Endless**     | Classic Wall rally or survival waves; separate court and wave records                        |
 | **Challenge**   | 120 catalog trials, continuing contracts and five-trial playlists                            |
 | **Tournament**  | 10 tiers, 3-round Classic, 7-round Marathon and continuing 6-round championship seasons      |
@@ -218,6 +225,11 @@ progress. Story has 1,890 stars, with separately recorded Veteran and Ascendant
 variants. The expansion uses curated court templates and generated stage
 definitions, rather than 600 individually scripted puzzles.
 
+From world 6 the opponents bring talent builds of their own, which grow world by
+world and step up for trials and bosses; the stage card shows the size of the
+build. Only talents that work from the far side of the court are used - reach,
+placement and pace - never saves.
+
 After the original fifth-world boss, **Journey Beyond** opens 20-node Frontier
 sectors with a boss every fifth encounter. Later sectors introduce Legend
 opponents and rotating, bounded constraints. Completed sectors compact into a
@@ -261,25 +273,30 @@ and pay the moment they are done, with a bonus for all three.
 Choose **Sprint** (nine encounters), **Expedition** (36), or **Endless** (six
 encounters per continuing act). Existing nine-match saves finish through their
 legacy encounter path. Win to draft among 72 boons, including 24 duos, plus 24
-relics with tradeoffs and three relic sockets. Effects share the talent caps;
-saturated drafts offer useful recovery rather than empty choices.
+relics with tradeoffs and three relic sockets. Effects share the talent caps.
+A draft only offers boons that change something your build actually uses, and
+never only relics; a relic card says exactly what it doubles and what it costs.
 
 Acts offer safe/risk routes, bank-and-leave decisions and a capped credit wallet.
 Credits can repair a heart, reroll a draft, upgrade an owned boon or recycle a
-relic. Finished finite runs can continue into Endless with the same build.
-Pressure progresses through 50 ranks with stronger opponent floors, narrower
-reach and rotating rule combinations. Deep encounters rotate within physical
+relic. Finished finite runs can continue into Endless with the same build, and
+the acts keep counting up from where they ended. An Endless run counts as a
+Gauntlet clear once, after its third act. Pressure progresses through 50 ranks
+with stronger opponent floors, narrower reach and rotating rule combinations;
+from rank 3, Hard Courts turns every court's hazards up within their limits.
+Opponents bring talent builds that grow with each act and with Pressure. Deep encounters rotate within physical
 caps instead of raising ball speed indefinitely.
 
 Every new-format match commits its encounter before play. Pausing holds the live
-rally. Closing the app preserves the run and its choices; restarting an unfinished
-committed encounter costs one heart and grants no match reward. Mid-rally state
+rally. Closing the app preserves the run and its choices; restarting or leaving
+an unfinished committed encounter costs one heart and grants no match reward.
+The pause menu says so on the button and asks first, always for the last heart. Mid-rally state
 is not persisted. Completed encounter history retains its latest 40 results;
 depth and banked records continue without growing the save indefinitely.
 
 ### Demo mode
 
-Home screen → **Demo a level** takes a level typed into a number field (1 to 999) and drops you into the game as it is there: the talent points that level
+Profile → **Demo a level** takes a level typed into a number field (1 to 999) and drops you into the game as it is there: the talent points that level
 has earned, its skill slots, its cup tiers and its cosmetics. Nothing a demo
 does is kept - matches, XP, builds and cosmetic changes all live in memory
 only, and **Exit** hands your real save back, including any account updates
@@ -297,21 +314,31 @@ levels and matches cannot become imported progress.
 
 ### Bots
 
-Rookie through Legend now have distinct reaction, error and travel limits.
+Rookie through Champion have distinct reaction, error and travel limits.
 Stronger bots evaluate candidate placements and copied hazard paths, use
 observed paddle movement and alternate shot directions. They never read the
 player's hidden movement target. Higher tiers can move faster than an undeveloped
 player paddle; their movement remains physical and bounded.
 
+**Champion** is the tier above Legend, for a developed build. It reads almost
+every ball right and plays a faster ball of its own. Unlike every tier below it,
+it judges where the ball meets its paddle's face rather than its centre line,
+and keeps an off-centre contact inside its own margin for error when your return
+is heavy or breaks late - the two habits a steep, heavy return exploits. It is
+chosen, never imposed: a Quick Match tier and the Mythic contract's opponent.
+
 Six schools change their tactics: Anchor, Aggressor, Banker, Curver, Disruptor
 and Opportunist. Amateur carries a basic strike, Pro adds a dash, Elite a guard,
-and Legend an ultimate. Their skills use shared
+and Legend and Champion an ultimate. Their skills use shared
 activation, cooldown, recast and return rules; the HUD shows readiness and
 recovery. Ranked scored matches also narrow both paddles during exceptionally
 long rallies, starting after 24 returns and capped at 40%.
 
-Master and Mythic Quick contracts declare a Legend opponent, longer games and
-reduced player reach before launch. Practice, Versus and survival Endless do
+Master and Mythic Quick contracts declare longer games and reduced player reach
+before launch. Master plays a Legend with a 45-point talent build and a quicker
+ball; Mythic plays the Champion on a smaller paddle against a larger one. Cups
+from Platinum up bring opponent builds that grow with the level each cup opens
+at. Practice, Versus and survival Endless do
 not apply ranked rally pressure.
 
 ### Progression
@@ -321,9 +348,15 @@ Levels and achievements unlock cosmetics - colours, ball and paddle styles,
 trails and arenas - which change nothing about how the game plays (see
 [Look and sound](#look-and-sound)). Levels also
 pay **one talent point each** up to level 50, which very much do. Practice pays
-nothing, quitting pays nothing, and repeatable match XP is halved after 25 ranked
-matches in a day. First-time stars, daily clears and quest extras retain their
-separate award rules; generated rewards remain bounded.
+nothing, and repeatable match XP is halved after 25 ranked matches in a day. A
+lost match in which you barely returned the ball pays a flat 10 XP, whatever the
+opponent. First-time stars, daily clears and quest extras retain their separate
+award rules; generated rewards remain bounded.
+
+Leaving or restarting a ranked match is free until a point has been played.
+After that it is a **forfeit**: recorded as a loss, ending a win streak, paying
+nothing - and in a cup it ends the cup. The pause menu labels the button with
+its cost and asks first. Practice, Versus, drills and Endless stay free.
 
 Levelling itself has no cap - the curve just keeps going - but what a level
 buys does: talent points stop at level 50 and paddle speed reaches its ceiling
@@ -338,7 +371,12 @@ Three things are kept strictly apart, and the whole balance model rests on it:
 > more capable. Talents decide how you handle that difficulty.
 
 Opponent tiers raise reaction, placement and skill pressure as well as ball pace.
-Contracts and encounters declare reach, start-score and court restrictions.
+The content a developed build reaches also raises the pace itself: from Journey
+world 6, through the Frontier sectors, with each Gauntlet act and Pressure level,
+up the cups from Platinum and in the Master contract, the serve, the ceiling and
+the climb per return all grow a little - capped well inside the ball's hard
+limit. Pace costs a person more than it costs a bot, which is why it is the
+lever. Contracts and encounters declare reach, start-score and court restrictions.
 Player movement still comes from level, build and explicit match rules; difficulty
 does not secretly adapt to wins or equipment. Shared balance, bot and recipe
 definitions supply the bounded values used by the client and server.
@@ -467,8 +505,8 @@ rather than how a number reads:
 - **Perfect Guard** is a parry: time it and the ball comes back charged, even
   one that would have just cleared your paddle.
 - **Bastion** walls the corners of your line and sends what it turns back out
-  at full pace; **Counterstrike** adds a shield charge and turns every save into
-  a cornered winner followed by charged returns.
+  at full pace; **Counterstrike** turns every save into a cornered winner
+  followed by three charged returns.
 - **Combo Drive** grows your paddle while you keep scoring, **Adrenaline** banks
   a save every so many returns, and **Unbroken** keeps half the drive when you
   drop a point.
@@ -477,7 +515,8 @@ rather than how a number reads:
 
 Eight talents unlock **active skills** - Power Strike, Dash and Perfect Guard,
 and the five ultimates - of which you equip two, three from level 15, four
-from level 30 and five from level 50 (one more with Versatility). Each has a
+from level 30 and five from level 50 (one more with Versatility, which turns into
+20% faster cooldown recovery once level has opened all five). Each has a
 cooldown, a ring on its button, and a distinct reaction on the court.
 The button's brief cast and Echo-clear rings follow actual match events; ordinary
 recharge and return bonuses do not produce an Echo ring. Feedback expires while
@@ -487,7 +526,8 @@ a decision in its own right.
 
 Certain pairs turn into named **synergies** (Power Strike + Momentum, Swerve +
 Bank Shot, Long Reach + Dash, Perfect Guard + Shield, Combo Drive + Adrenaline,
-Cooldown Mastery + two actives). They are additive rewards for committing to an
+Cooldown Mastery + two actives, Perfect Guard + Tempo, Afterglow + Tempo,
+Blink Strike + Afterglow). They are additive rewards for committing to an
 idea, never a gate: every branch works on its own. Respec is free - one branch
 at a time from its own panel, or the lot from the footer - because a build is
 meant to be tried rather than regretted.
@@ -591,8 +631,9 @@ The dev server proxies `/v1` to the API, so the two run on one origin exactly
 as they do in production - no CORS, and the session cookie behaves the same in
 both. Point a build somewhere else with `VITE_API_URL`.
 
-Without a server running, the game is exactly the guest experience above: the
-account row reports that it cannot be reached, and nothing else changes.
+Without a server running, the game is exactly the guest experience above. Signing
+in or registering says the account server could not be reached - distinct from
+the device being offline or a wrong password - and nothing else changes.
 
 ## Look and sound
 

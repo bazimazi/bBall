@@ -301,22 +301,23 @@ export function updateRuntime(world: World, dt: number): void {
   // rather than whenever one of them happens to move.
   growPaddle(world.player, playerLength(world));
 
-  // Zenith and Echo both hurry cooldowns along; they never stack, and the
-  // capstone cooldown floor in `effects.ts` still bounds what that can mean.
+  // Zenith and Echo both hurry cooldowns along; they never stack. Neither
+  // hurries an ultimate - its own or another - or the capstone that is
+  // running would wind itself back: measured, Echo came round every five
+  // seconds and kept Slipstream up permanently.
   const hurry = Math.max(
     runtime.zenith > 0 ? effects.zenithRecharge : 1,
     runtime.echo > 0 ? effects.echoRecharge : 1
   );
-  const recovery = dt * hurry * (1 + effects.recharge + effects.flowRecharge * flowProgress(world));
-  for (const slot of runtime.slots) {
-    if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - recovery);
+  const plain = dt * (1 + effects.recharge + effects.flowRecharge * flowProgress(world));
+  const recover = (id: AbilityId | null, slot: AbilitySlot) => {
+    const step = id && abilityById(id)?.ultimate ? plain : plain * hurry;
+    if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - step);
     if (slot.lockout > 0) slot.lockout = Math.max(0, slot.lockout - dt);
-  }
-  for (const id in runtime.benchedSlots) {
-    const slot = runtime.benchedSlots[id as AbilityId]!;
-    if (slot.cooldown > 0) slot.cooldown = Math.max(0, slot.cooldown - recovery);
-    if (slot.lockout > 0) slot.lockout = Math.max(0, slot.lockout - dt);
-  }
+  };
+  for (const slot of runtime.slots) recover(slot.id, slot);
+  for (const id in runtime.benchedSlots)
+    recover(id as AbilityId, runtime.benchedSlots[id as AbilityId]!);
 
   if (runtime.shieldMax > 0 && runtime.shield < runtime.shieldMax) {
     runtime.shieldTimer -= dt;
@@ -642,7 +643,10 @@ export function swerveBall(world: World): void {
   const time = Math.max(0.04, (face - ball.x) / ball.vx);
   const side = runtime.swerveDir;
   runtime.swerveDir = 0;
-  const limit = Math.tan(MAX_BEND_ANGLE) * Math.abs(ball.vx);
+  // The bend limit caps what the kick adds; it must never flatten a ball that
+  // Precision already sent steeper than the limit. Clamping that one moved its
+  // arrival by a whole paddle, unseen - measured, the point every bot lost.
+  const limit = Math.max(Math.tan(MAX_BEND_ANGLE) * Math.abs(ball.vx), Math.abs(ball.vy));
   let vx = ball.vx;
   let vy = clamp(ball.vy + (side * shift) / time, -limit, limit);
   let speed = Math.hypot(vx, vy);

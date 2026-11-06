@@ -16,6 +16,13 @@ import { hasResearch } from '../../core/loot/state';
 import { trialOpen } from '../../core/loot/trials';
 import { resolveLoadout, type ResolvedLoadout } from '../../core/talents/effects';
 import { advanceSeries, seriesComplete, type MatchSeries } from '../../core/modes/sessions';
+import {
+  forfeitResult,
+  leaveStakes,
+  type LeaveStakes,
+  type Scoreline
+} from '../../core/progression/forfeit';
+import { accountStore } from '../../core/account/store';
 import type { TournamentFormat } from '../../core/tournament/bracket';
 import type { MatchOptions } from '../../core/modes/types';
 import {
@@ -132,6 +139,78 @@ const profileKey = () =>
   `${profileStore.getDemoLevel() === null ? '' : 'demo:'}${profileStore.getSnapshot().id}`;
 const onboardingComplete = () => profileStore.getSnapshot().onboarded;
 
+// ------------------------------------------------- leaving a match early
+
+export type LeaveAction = 'restart' | 'quit';
+
+export interface LeaveState {
+  /** The ranked rules of the match being played, or null. */
+  readonly rules: MatchRules | null;
+  /** A restart or quit waiting for the player to confirm what it costs. */
+  readonly request: LeaveAction | null;
+}
+
+/**
+ * Restarting or leaving a ranked match can cost something - a heart, a loss,
+ * a cup - so the pause menu asks first. The flow owns the rules and the
+ * actions; the pause menu, rendered elsewhere, reads this to label its
+ * buttons and show the question, and answers through {@link acceptLeave}.
+ */
+let leaveState: LeaveState = { rules: null, request: null };
+let leaveAccepted: LeaveAction | null = null;
+const leaveListeners = new Set<() => void>();
+
+function setLeave(next: Partial<LeaveState>): void {
+  leaveState = { ...leaveState, ...next };
+  for (const listener of leaveListeners) listener();
+}
+function subscribeLeave(listener: () => void): () => void {
+  leaveListeners.add(listener);
+  return () => leaveListeners.delete(listener);
+}
+const leaveSnapshot = () => leaveState;
+
+/** The live match's ranked rules and any restart or quit awaiting confirmation. */
+export function useLeaveState(): LeaveState {
+  return useSyncExternalStore(subscribeLeave, leaveSnapshot, leaveSnapshot);
+}
+
+/**
+ * The player confirmed: the requested action's next call goes ahead. Returns
+ * the action, for the caller to invoke.
+ */
+export function acceptLeave(): LeaveAction | null {
+  leaveAccepted = leaveState.request;
+  setLeave({ request: null });
+  return leaveAccepted;
+}
+
+/** The player kept playing. */
+export function cancelLeave(): void {
+  leaveAccepted = null;
+  if (leaveState.request) setLeave({ request: null });
+}
+
+function confirmedLeave(action: LeaveAction): boolean {
+  const confirmed = leaveAccepted === action;
+  leaveAccepted = null;
+  return confirmed;
+}
+
+/**
+ * Record a forfeit: applied locally at once and queued for the server, which
+ * re-runs the same rules - the loss, and a cup's elimination.
+ */
+function recordForfeit(rules: MatchRules, score: Scoreline, startedAt: number): void {
+  const result = forfeitResult(rules, score, (Date.now() - startedAt) / 1000, dayKey());
+  profileStore.applyResult(result);
+  // A demo's matches never leave the device.
+  if (profileStore.getDemoLevel() !== null) return;
+  const random = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+  const opId = `match:${random}`.replace(/[^A-Za-z0-9_:.-]/g, '').slice(0, 64);
+  accountStore.enqueue({ kind: 'match', opId, payload: progression.toSubmission(result, opId) });
+}
+
 /**
  * Routing and match start-up: which screen is showing, and what each mode
  * does when it is picked. Keeping it here means the screens stay presentational
@@ -200,6 +279,7 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
   const lastRules = useRef<MatchRules | null>(null);
   const matchOwner = useRef<string | null>(null);
   const encounterLoadout = useRef<ResolvedLoadout | null>(null);
+  const matchStartedAt = useRef(0);
   const previousOwner = useRef(owner);
 
   // An account restore can finish while a court or result is open. Its save
@@ -210,6 +290,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     if (matchOwner.current === owner) return;
     if (!lastRules.current && !practiceReturn.current && !routeMatch.current) return;
     engine?.quitToMenu();
+    cancelLeave();
+    setLeave({ rules: null });
     lastRules.current = null;
     matchOwner.current = null;
     encounterLoadout.current = null;
@@ -229,6 +311,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     // Check the live store as well as the subscription: a sign-in and a final
     // engine snapshot can arrive in the same React batch.
     if (matchOwner.current !== profileKey()) return;
+    cancelLeave();
+    setLeave({ rules: null });
     if (!practiceReturn.current)
       encounterLoadout.current = engine?.capturePracticeLoadout?.() ?? null;
     setResult(finished);
@@ -252,6 +336,12 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     }
     replace('result');
   });
+  // A restart or quit question belongs to the pause menu it was asked from:
+  // resuming, or a match that could not pause, withdraws it.
+  useEffect(() => {
+    if (snapshot.status !== 'paused') cancelLeave();
+  }, [snapshot.status]);
+
   // Synchronize the external engine's completed attempt exactly once.
   useEffect(() => {
     const finished = snapshot.result;
@@ -274,6 +364,9 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       if (!prepared.options?.bench) setWorkshopKit(null);
       lastRules.current = prepared;
       matchOwner.current = profileKey();
+      matchStartedAt.current = Date.now();
+      cancelLeave();
+      setLeave({ rules: prepared.ranked ? prepared : null });
       const profile = profileStore.getSnapshot();
       engine?.play(
         prepared,
@@ -392,6 +485,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     setPractisingEncounter(false);
     enterPreferredFullscreen();
     lastRules.current = null;
+    cancelLeave();
+    setLeave({ rules: null });
     matchOwner.current = profileKey();
     encounterLoadout.current = null;
     setWorkshopKit(null);
@@ -484,6 +579,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       // A demo swaps the whole profile out, so any match in flight belongs to
       // the save being parked and is dropped rather than carried over.
       engine?.quitToMenu();
+      cancelLeave();
+      setLeave({ rules: null });
       practiceReturn.current = null;
       setPractisingEncounter(false);
       lastRules.current = null;
@@ -503,6 +600,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
 
   const exitDemo = useCallback(() => {
     engine?.quitToMenu();
+    cancelLeave();
+    setLeave({ rules: null });
     practiceReturn.current = null;
     setPractisingEncounter(false);
     lastRules.current = null;
@@ -558,6 +657,31 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     [play, setScreen]
   );
 
+  /** What restarting or leaving the match on court would cost now, or null. */
+  const liveStakes = useCallback((): LeaveStakes | null => {
+    if (screen !== 'playing' || practiceReturn.current) return null;
+    if (matchOwner.current !== profileKey()) return null;
+    return leaveStakes(
+      lastRules.current,
+      { you: snapshot.scoreYou, bot: snapshot.scoreBot },
+      profileStore.getSnapshot().progress.run
+    );
+  }, [screen, snapshot.scoreYou, snapshot.scoreBot]);
+
+  /**
+   * Ask before a restart or quit that costs something. Returns true when the
+   * caller should stop and wait for the player's answer.
+   */
+  const askFirst = useCallback(
+    (action: LeaveAction, stakes: LeaveStakes | null): boolean => {
+      if (!stakes || confirmedLeave(action)) return false;
+      engine?.pause();
+      setLeave({ request: action });
+      return true;
+    },
+    [engine]
+  );
+
   const quitToMenu = useCallback(() => {
     const origin = practiceReturn.current;
     if (origin) {
@@ -576,6 +700,24 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
         return;
       }
     }
+    // Leaving a ranked match after a point is a forfeit, and a Gauntlet
+    // encounter is committed from its start: say so, then charge it.
+    const stakes = liveStakes();
+    if (askFirst('quit', stakes)) return;
+    let landing: ScreenId[] = ['home'];
+    if (stakes?.kind === 'heart') {
+      progression.runAction('restart');
+      landing = ['home', 'gauntlet'];
+    } else if (stakes && lastRules.current) {
+      recordForfeit(
+        lastRules.current,
+        { you: snapshot.scoreYou, bot: snapshot.scoreBot },
+        matchStartedAt.current
+      );
+      if (stakes.kind === 'cup') landing = ['home', 'tournament'];
+    }
+    cancelLeave();
+    setLeave({ rules: null });
     routeMatch.current = null;
     setRouteResult(null);
     const bench = !!lastRules.current?.options?.bench;
@@ -593,11 +735,31 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       });
     } else {
       setWorkshopKit(null);
-      setStack(['home']);
+      setStack(landing);
     }
-  }, [engine]);
+  }, [engine, liveStakes, askFirst, snapshot.scoreYou, snapshot.scoreBot]);
 
   const replay = useCallback(() => {
+    // A restart on court is a forfeit once it costs something - ask first.
+    const stakes = liveStakes();
+    // A cup round forfeited is a cup lost, with no round left to restart:
+    // restarting one is leaving the cup.
+    if (stakes?.kind === 'cup') {
+      quitToMenu();
+      return;
+    }
+    if (askFirst('restart', stakes)) return;
+    if (stakes?.kind === 'loss' && lastRules.current) {
+      recordForfeit(
+        lastRules.current,
+        { you: snapshot.scoreYou, bot: snapshot.scoreBot },
+        matchStartedAt.current
+      );
+      if (series && !practiceReturn.current) {
+        const next = advanceSeries(series, false);
+        setSeries(seriesComplete(next) ? { ...next, games: 0, you: 0, foe: 0 } : next);
+      }
+    }
     if ((lastRules.current?.mode ?? snapshot.mode) === 'run') {
       const run = profileStore.getSnapshot().progress.run;
       if (run?.version === 2) {
@@ -625,7 +787,19 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
     else engine?.replay();
     routeMatch.current = route;
     replace('playing');
-  }, [engine, replace, snapshot.mode, playRun, series, play]);
+  }, [
+    engine,
+    replace,
+    snapshot.mode,
+    snapshot.scoreYou,
+    snapshot.scoreBot,
+    playRun,
+    series,
+    play,
+    liveStakes,
+    askFirst,
+    quitToMenu
+  ]);
 
   /**
    * Leave the result card for a menu, tidying the finished match away.
@@ -639,6 +813,8 @@ export function useGameFlow(engine: GameEngine | null, snapshot: GameSnapshot): 
       routeMatch.current = null;
       setRouteResult(null);
       engine?.quitToMenu();
+      cancelLeave();
+      setLeave({ rules: null });
       practiceReturn.current = null;
       setPractisingEncounter(false);
       if (next !== 'workshop' || !lastRules.current?.options?.bench) setWorkshopKit(null);

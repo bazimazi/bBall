@@ -504,6 +504,7 @@ export function App() {
             <ResultScreen
               result={flow.result}
               summary={flow.summary}
+              series={flow.series}
               label={t(flow.resultLabel)}
               onTechnique={flow.canPractiseEncounter ? flow.startTechnique : undefined}
               onPracticeEncounter={

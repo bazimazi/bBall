@@ -107,6 +107,22 @@ function translate(text: string, depth = 0): string {
   return text;
 }
 
+/**
+ * Persian digits everywhere except inside a shared challenge code: a code is
+ * typed back into the game, which reads only the ASCII form.
+ */
+const LATIN_CODE = /BB1-[A-Z0-9]+/g;
+function persianDigits(text: string): string {
+  const convert = (part: string) => part.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]!);
+  let out = '';
+  let last = 0;
+  for (const match of text.matchAll(LATIN_CODE)) {
+    out += convert(text.slice(last, match.index)) + match[0];
+    last = match.index + match[0].length;
+  }
+  return out + convert(text.slice(last));
+}
+
 /** Translate only rendered text. Never pass ids, saves, or player input here. */
 export function t<T extends ReactNode>(value: T): T {
   if (settingsStore.getSnapshot().language !== 'fa') return value;
@@ -115,7 +131,7 @@ export function t<T extends ReactNode>(value: T): T {
   if (typeof value !== 'string' || !value) return value;
   const cached = cache.get(value);
   if (cached !== undefined) return cached as T;
-  const result = translate(value).replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]!);
+  const result = persianDigits(translate(value));
   if (cache.size >= 3000) cache.clear();
   cache.set(value, result);
   return result as T;
@@ -123,6 +139,16 @@ export function t<T extends ReactNode>(value: T): T {
 
 export function locale(): string {
   return settingsStore.getSnapshot().language === 'fa' ? 'fa-IR' : 'en';
+}
+
+/**
+ * The compact unit after a number of seconds on a timer: "8s", "۸ث".
+ *
+ * Its own helper rather than a dictionary entry: lookups ignore case, so an
+ * entry for "s" also translated the S key and every English plural "s".
+ */
+export function secondsUnit(): string {
+  return settingsStore.getSnapshot().language === 'fa' ? 'ث' : 's';
 }
 
 /** Explicit placeholders let a translation reorder values without guessing. */

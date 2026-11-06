@@ -13,9 +13,11 @@ import { bossById } from '../../core/modes/bosses';
 import { coachingFor } from '../../core/modes/coaching';
 import { starGoalLabel, type StarGoal } from '../../core/modes/stars';
 import type { MatchResult } from '../../core/modes/types';
+import { seriesComplete, type MatchSeries } from '../../core/modes/sessions';
 import type { ProgressSummary } from '../../core/progression/apply';
 import { QUEST_BONUS_XP, QUEST_XP } from '../../core/quests/quests';
 import { runLength } from '../../core/run/formats';
+import { resolveLoadout } from '../../core/talents/effects';
 import { XpBar } from '../components/XpBar';
 import { ResultCoaching } from '../components/ResultCoaching';
 import { SaveNotice } from '../components/SaveNotice';
@@ -42,6 +44,11 @@ interface ResultScreenProps {
   onPracticeEncounter?: (() => void) | undefined;
   /** A star has just landed on the card - the engine plays its chime. */
   onStar?: (index: number) => void;
+  /**
+   * The best-of series this game belongs to, already counting this game.
+   * Null or absent for a single match.
+   */
+  series?: MatchSeries | null | undefined;
 }
 
 function title(result: MatchResult, summary: ProgressSummary | null): string {
@@ -77,6 +84,22 @@ function goalsOf(result: MatchResult): readonly [StarGoal, StarGoal] | null {
   if (result.mode === 'campaign' && result.stageId) return stageById(result.stageId)?.goals ?? null;
   if (result.mode === 'daily' && result.dailyKey) return dailySpec(result.dailyKey).goals;
   return null;
+}
+
+/** "Series 2–0 · You win the series", or the running score and its length. */
+function seriesLine(series: MatchSeries, result: MatchResult): string {
+  const score = `Series ${series.you}–${series.foe}`;
+  if (!seriesComplete(series)) return `${score} · Best of ${series.length}`;
+  const youWon = series.you > series.foe;
+  const winner =
+    result.mode === 'versus'
+      ? youWon
+        ? 'Player 1 wins the series'
+        : 'Player 2 wins the series'
+      : youWon
+        ? 'You win the series'
+        : 'Bot wins the series';
+  return `${score} · ${winner}`;
 }
 
 function duration(seconds: number): string {
@@ -186,7 +209,8 @@ export function ResultScreen({
   onLab,
   onTechnique,
   onPracticeEncounter,
-  onStar
+  onStar,
+  series
 }: ResultScreenProps) {
   const heading = useScreenFocus();
   const titleId = useId();
@@ -200,6 +224,49 @@ export function ResultScreen({
   const technique = TECHNIQUES.find((drill) => drill.id === result.technique);
   const good = result.mode === 'challenge' ? result.objectiveMet : result.won;
   const run = summary?.run;
+  // Levels 15, 30 and 50 open a skill slot as well as paying a point -
+  // unless the build already holds every slot there is.
+  const newSlots =
+    summary && levelled
+      ? resolveLoadout(summary.profile.talents, summary.levelAfter).slots -
+        resolveLoadout(summary.profile.talents, summary.levelBefore).slots
+      : 0;
+  const inSeries = !!series && series.games > 0 && !!result.options?.series;
+
+  // Rehearsal is the next step after a loss, so it leads there. After a win
+  // it waits until the outcome and the rewards have been read.
+  const practice = onPracticeEncounter && (
+    <div className={styles.card}>
+      <h3>{t('Practise this encounter')}</h3>
+      <p>
+        {t(
+          result.bossId
+            ? 'Rehearse this boss without rewards or penalties, starting from the phase you reached. Return to this result when ready.'
+            : 'Rehearse this court and opponent without rewards or penalties. Return to this result when ready.'
+        )}
+      </p>
+      <button type="button" className={styles.ghost} onClick={onPracticeEncounter}>
+        {t('Start three-point practice')}
+      </button>
+      {onTechnique && (
+        <MenuDisclosure
+          title={t('Technique drills')}
+          hint={t('Three targets · repeatable feeds · neutral build')}
+        >
+          {TECHNIQUES.map((drill) => (
+            <button
+              key={drill.id}
+              type="button"
+              className={styles.ghost}
+              onClick={() => onTechnique(drill.id)}
+            >
+              {t(drill.name)}
+            </button>
+          ))}
+        </MenuDisclosure>
+      )}
+    </div>
+  );
 
   return (
     <section className={styles.screen} aria-labelledby={titleId}>
@@ -230,6 +297,11 @@ export function ResultScreen({
             </p>
           )}
           <p className={styles.subtitle}>{t(opponent(result))}</p>
+          {inSeries && (
+            <p className={styles.seriesLine} data-series>
+              {t(seriesLine(series!, result))}
+            </p>
+          )}
         </div>
 
         {goals && summary && (
@@ -319,36 +391,7 @@ export function ResultScreen({
             />
           </div>
         )}
-        {onPracticeEncounter && (
-          <div className={styles.card}>
-            <h3>{t('Practise this encounter')}</h3>
-            <p>
-              {t(
-                'Rehearse this court and opponent without rewards or penalties. Bosses use the phase you reached. Return to this result when ready.'
-              )}
-            </p>
-            <button type="button" className={styles.ghost} onClick={onPracticeEncounter}>
-              {t('Start three-point practice')}
-            </button>
-            {onTechnique && (
-              <MenuDisclosure
-                title={t('Technique drills')}
-                hint={t('Three targets · repeatable feeds · neutral build')}
-              >
-                {TECHNIQUES.map((drill) => (
-                  <button
-                    key={drill.id}
-                    type="button"
-                    className={styles.ghost}
-                    onClick={() => onTechnique(drill.id)}
-                  >
-                    {t(drill.name)}
-                  </button>
-                ))}
-              </MenuDisclosure>
-            )}
-          </div>
-        )}
+        {!good && practice}
 
         {result.objective && result.mode === 'challenge' && (
           <div
@@ -429,6 +472,14 @@ export function ResultScreen({
           </div>
         )}
 
+        {newSlots > 0 && (
+          <button type="button" className={styles.unlockRow} onClick={onTalents}>
+            <span>{t('◆')}</span>
+            <span>{t(newSlots === 1 ? 'New skill slot' : `${newSlots} new skill slots`)}</span>
+            <span style={{ marginInlineStart: 'auto' }}>{t('Equip a skill ›')}</span>
+          </button>
+        )}
+
         {points > 0 && (
           <button type="button" className={styles.unlockRow} onClick={onTalents}>
             <span>{t('◆')}</span>
@@ -447,52 +498,6 @@ export function ResultScreen({
           </button>
         )}
 
-        {(summary?.workshop?.marks ?? 0) > 0 && (
-          <div className={styles.card}>
-            {/* Laid out like the XP card below it: lines, then a total. */}
-            <div className={styles.xpLines}>
-              <p className={styles.xpLine}>
-                <span>{t('Workshop Marks')}</span>
-                <span>
-                  {t('+')}
-                  {t(summary!.workshop.marks)}
-                </span>
-              </p>
-              {summary!.workshop.contracts.map((name) => (
-                <p key={name} className={styles.xpLine}>
-                  <span>{t(name)}</span>
-                  <span>{t('Complete')}</span>
-                </p>
-              ))}
-              {WORKSHOP_CONTRACTS.filter(
-                (c) => (summary!.profile.progress.workshop.contracts[c.id] ?? 0) < c.target
-              )
-                .slice(0, 2)
-                .map((c) => (
-                  <p key={c.id} className={styles.xpLine}>
-                    <span>{t(c.name)}</span>
-                    <span>
-                      {t(summary!.profile.progress.workshop.contracts[c.id] ?? 0)}
-                      {t('/')}
-                      {t(c.target)}
-                    </span>
-                  </p>
-                ))}
-            </div>
-            <p className={styles.xpTotal}>
-              <span>{t('Marks')}</span>
-              <span>{t(summary!.profile.progress.workshop.marks)}</span>
-            </p>
-            <p className={styles.note} style={{ marginTop: 10 }}>
-              {t(nextWorkshopRecipe(summary!.profile.progress.workshop))}
-            </p>
-            {onWorkshop && (
-              <button type="button" className={styles.ghost} onClick={onWorkshop}>
-                {t('Paddle Workshop')}
-              </button>
-            )}
-          </div>
-        )}
         {summary && award && award.total > 0 ? (
           <div className={styles.card}>
             <div className={styles.xpLines}>
@@ -564,6 +569,52 @@ export function ResultScreen({
           </p>
         )}
 
+        {(summary?.workshop?.marks ?? 0) > 0 && (
+          <div className={styles.card}>
+            {/* Laid out like the XP card above it: lines, then a total. */}
+            <div className={styles.xpLines}>
+              <p className={styles.xpLine}>
+                <span>{t('Workshop Marks')}</span>
+                <span>
+                  {t('+')}
+                  {t(summary!.workshop.marks)}
+                </span>
+              </p>
+              {summary!.workshop.contracts.map((name) => (
+                <p key={name} className={styles.xpLine}>
+                  <span>{t(name)}</span>
+                  <span>{t('Complete')}</span>
+                </p>
+              ))}
+              {WORKSHOP_CONTRACTS.filter(
+                (c) => (summary!.profile.progress.workshop.contracts[c.id] ?? 0) < c.target
+              )
+                .slice(0, 2)
+                .map((c) => (
+                  <p key={c.id} className={styles.xpLine}>
+                    <span>{t(c.name)}</span>
+                    <span>
+                      {t(summary!.profile.progress.workshop.contracts[c.id] ?? 0)}
+                      {t('/')}
+                      {t(c.target)}
+                    </span>
+                  </p>
+                ))}
+            </div>
+            <p className={styles.xpTotal}>
+              <span>{t('Marks')}</span>
+              <span>{t(summary!.profile.progress.workshop.marks)}</span>
+            </p>
+            <p className={styles.note} style={{ marginTop: 10 }}>
+              {t(nextWorkshopRecipe(summary!.profile.progress.workshop))}
+            </p>
+            {onWorkshop && (
+              <button type="button" className={styles.ghost} onClick={onWorkshop}>
+                {t('Paddle Workshop')}
+              </button>
+            )}
+          </div>
+        )}
         {summary?.loot && LOOT_ITEMS.some((item) => summary.loot.items[item] > 0) && (
           <div className={styles.card}>
             <p className={styles.sectionLabel}>{t('Loot banked')}</p>
@@ -629,6 +680,8 @@ export function ResultScreen({
             ))}
           </>
         )}
+
+        {good && practice}
       </div>
 
       <footer className={styles.footer}>

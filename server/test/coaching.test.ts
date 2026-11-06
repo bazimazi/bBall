@@ -91,12 +91,20 @@ it('wins, abandoned matches, versus and cleared challenges do not get loss coach
   }
   const rallyClear = result({
     mode: 'challenge',
-    won: false,
-    objective: { id: 'rally', label: 'Reach a 12 rally', value: 12 },
+    won: true,
+    objective: { id: 'rally', label: 'Win with a 12-hit rally', value: 12 },
     bestRally: 12
   });
   assert.equal(rallyClear.objectiveMet, true);
-  assert.equal(coachingFor(rallyClear), null, 'rally challenge success does not require a win');
+  assert.equal(coachingFor(rallyClear), null, 'a cleared rally challenge gets no loss coaching');
+  // A rally counts both players' returns, so a long one in a lost match is no clear.
+  const rallyLost = result({
+    mode: 'challenge',
+    won: false,
+    objective: { id: 'rally', label: 'Win with a 12-hit rally', value: 12 },
+    bestRally: 12
+  });
+  assert.equal(rallyLost.objectiveMet, false);
 });
 
 it('a missed rally challenge uses its one-rally target rather than total returns or the winner', () => {
