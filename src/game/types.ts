@@ -131,7 +131,6 @@ export interface AbilitySlot {
 export interface TalentRuntime {
   benchedSlots: Partial<Record<AbilityId, AbilitySlot>>;
   shieldDebt: number;
-  tactics: Partial<Record<AbilityId, number>>;
   /** Returns since the last conceded point. Feeds Combo Drive family. */
   drive: number;
   bestDrive: number;
@@ -182,9 +181,6 @@ export interface TalentRuntime {
   zenithRefunds: number;
   zenith: number;
   echo: number;
-  /** Last successful cast, for Chain Casting. Cleared between rallies. */
-  lastAbility: AbilityId | null;
-
   slots: AbilitySlot[];
   stats: {
     abilitiesUsed: number;

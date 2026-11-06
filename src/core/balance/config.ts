@@ -219,17 +219,17 @@ export const BALANCE = {
      */
     heavyImpact: { heft: 0.12 },
     criticalStrike: {
-      chance: 0.1,
+      chance: 0.15,
       /** A crit's own bonus, before ranks. Overload crits with this alone. */
       growth: 0.1,
       /** Added to `growth` per rank: a deeper investment hits harder, too. */
       growthPerRank: 0.04,
       /** Above three ranks' worth, so Reckless still buys crit chance. */
-      chanceCap: 0.4,
+      chanceCap: 0.6,
       /** A critical return is driven at least this far off centre. */
-      minAngle: 0.55,
+      minAngle: 0.62,
       angle: 0.16,
-      heft: 0.3
+      heft: 0.45
     },
     /** A return off a wall leaves this much steeper, per rank. */
     bankShot: { angle: 0.04 },
@@ -241,18 +241,19 @@ export const BALANCE = {
      * that it cancelled the whole bonus, and a keystone that nets to nothing
      * is not a decision.
      */
-    reckless: { chance: 0.2, growth: 0.15, heft: 0.25 },
+    reckless: { chance: 0.25, growth: 0.15, heft: 0.3 },
 
     // -- control ----------------------------------------------------------
     longReach: { length: 0.05 },
     precision: { angle: 0.07, spin: -0.12 },
     /**
-     * Units per second squared, applied only once the ball is `from` of the
-     * way across: the break comes after the opponent has already read it,
-     * which is the whole trick. Its direction is set at contact and never
-     * changes mid-flight.
+     * Field units a return breaks by, per rank, once it is `from` of the way
+     * across - far enough over that a bot has taken its last look and a person
+     * has committed. Small on purpose: a break nobody can see coming is worth
+     * far more than its size suggests. Aimed away from the opponent's paddle,
+     * sixteen units a rank won nearly every point; this is the measured size.
      */
-    swerve: { accel: 90, from: 0.62 },
+    swerve: { shift: 6, from: 0.84 },
     dash: { distance: 110, cooldown: 6, seconds: 0.12 },
     /** Seconds after a dash in which a return leaves charged, and what each rank takes off the dash. */
     blinkStrike: { seconds: 1.2, cooldown: -1.5 },
@@ -274,8 +275,13 @@ export const BALANCE = {
     },
 
     // -- defense ----------------------------------------------------------
-    /** Units from each wall, per rank, where Bastion turns a ball back at the line. */
-    bastion: { reach: 40 },
+    /**
+     * Units from each wall where Bastion turns a ball back at the line:
+     * `reach` at rank one and `step` more at rank two. Little reaches the
+     * corners, so less than ninety measured as next to nothing. It goes back
+     * at full pace, `minAngle` off centre and `heft` heavy.
+     */
+    bastion: { reach: 90, step: 50, minAngle: 0.5, heft: 0.3 },
     /**
      * `rechargeStep` is added per rank past the first, so charges return
      * sooner. A charge used to come back every 48 seconds, which made a
@@ -292,12 +298,18 @@ export const BALANCE = {
     clutch: { length: 0.2, growth: -0.015, slow: 0.1 },
     /** Fraction off each shield charge's recharge, per rank. */
     fortify: { recharge: 0.25 },
-    counterstrike: { pace: 0.25, minAngle: 0.6, heft: 0.6 },
-    secondChance: { uses: 1 },
+    /**
+     * Saves are rare, so a talent that only improved the ball each save sends
+     * back measured as nothing: `charges` is one more Shield charge to save
+     * with, and `primed` the returns after a save that leave charged.
+     */
+    counterstrike: { pace: 0.25, minAngle: 0.6, heft: 0.6, primed: 2, charges: 1 },
+    /** Uses per match. One measured as less than a point of point share per talent point. */
+    secondChance: { uses: 2 },
 
     // -- momentum ---------------------------------------------------------
     /** Returns charged at the start of the rally after a won point, and what rank two adds. */
-    hotHand: { returns: 2, step: 1 },
+    hotHand: { returns: 4, step: 2 },
     comboDrive: { every: 5, length: 0.03, steps: 3 },
     /** Every `start - rank * step` returns on a drive bank one spare save. */
     adrenaline: { start: 24, step: 4 },
@@ -319,15 +331,21 @@ export const BALANCE = {
     // -- utility ----------------------------------------------------------
     tempo: { perReturn: 0.5 },
     cooldownMastery: { cooldown: -0.1 },
-    afterglow: { length: 0.1, seconds: 3 },
+    /**
+     * With three skills equipped a skill is used every few seconds, so this
+     * is close to always on: at 10% a rank, two points out-measured three in
+     * Long Reach.
+     */
+    afterglow: { length: 0.08, seconds: 3 },
     versatility: { slots: 1 },
     talentSynergy: { magnitude: 0.5, lengthPerSynergy: 0.025 },
     combinations: { parryTempo: 1, afterglowTempo: 0.35, blinkWindow: 0.3, conduitRecharge: 0.15 },
     edgePressure: { threshold: 0.9, thresholdStep: -0.1 },
-    timeSlip: { slow: 0.1 },
+    /** Seconds of Dash cooldown each Blink Strike return gives back, per rank. */
+    timeSlip: { refund: 1.25 },
     rallyArmor: { perReturn: 1.5 },
     fastStart: { flowStep: 1, comboStep: 1 },
-    chainCasting: { refund: 0.5 },
+    chainCasting: { refund: 0.75 },
     rankRewards: { strikeWindow: 0.5, afterglowSeconds: 1, overflowRecharge: 0.1 },
 
     /*
@@ -361,7 +379,7 @@ export const BALANCE = {
      * everything measured at nearly twenty points of win rate over an
      * already-strong defensive build - far past what a capstone should buy.
      */
-    aegis: { saves: 2, seconds: 6, cooldown: 80 },
+    aegis: { saves: 2, seconds: 6, cooldown: 50 },
     /**
      * `refunds` is per *match*, not per casting. Re-castable insurance every
      * thirty-five seconds measured at more than twice the baseline win rate -

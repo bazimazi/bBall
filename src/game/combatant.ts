@@ -38,27 +38,15 @@ export function opponentLoadout(profile: BotProfile): ResolvedLoadout {
       save.ranks['perfect-guard'] = 1;
       save.equipped[2] = 'perfect-guard';
     }
-    if (profile.rank >= 5) {
+    // A Legend school plays its own idea with three skills; only the
+    // schoolless Legend and the Opportunist carry an ultimate as well.
+    if (profile.rank >= 5 && (!profile.personality || profile.personality === 'opportunist')) {
       save.ranks.overload = 1;
       save.equipped[3] = 'overload';
     }
-    if (profile.rank >= 5 && profile.personality && profile.personality !== 'opportunist') {
-      const skill =
-        profile.personality === 'banker'
-          ? 'anchor'
-          : profile.personality === 'curver'
-            ? 'redirect'
-            : profile.personality === 'disruptor'
-              ? 'relay'
-              : profile.personality === 'anchor'
-                ? 'rebound'
-                : 'reserve';
-      save.ranks[skill] = 1;
-      save.equipped[3] = skill;
-    }
   }
   if (profile.personality === 'banker') save.ranks['bank-shot'] = 2;
-  if (profile.personality === 'curver') save.ranks.swerve = 2;
+  if (profile.personality === 'curver') save.ranks.swerve = 1;
   if (profile.personality === 'anchor') save.ranks['long-reach'] = 1;
   if (profile.personality === 'aggressor') save.ranks['heavy-impact'] = 1;
   const loadout = resolveLoadout(save, 50);

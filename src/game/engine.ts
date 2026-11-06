@@ -556,7 +556,6 @@ export class GameEngine {
     key += `,${tenth(runtime.aegis)},${runtime.aegisSaves}`;
     key += `,${tenth(runtime.zenith)},${runtime.zenithRefunds},${tenth(runtime.echo)}`;
 
-    key += JSON.stringify(Object.values(runtime.tactics).map(tenth));
     if (enemy) {
       if (key !== this.enemyAbilityKey) {
         this.enemyAbilityKey = key;

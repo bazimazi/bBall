@@ -76,7 +76,7 @@ export const LEGACY_BOONS: readonly BoonDef[] = [
     family: 'power',
     maxRank: 3,
     effects: (e, rank) => {
-      e.swerve += 60 * rank;
+      e.swerve += 4 * rank;
     }
   },
   {
@@ -170,7 +170,7 @@ export const LEGACY_BOONS: readonly BoonDef[] = [
       ['heavy', 2]
     ],
     effects: (e) => {
-      e.swerve += 120;
+      e.swerve += 8;
       e.momentumEvery = e.momentumEvery > 0 ? Math.min(e.momentumEvery, 5) : 5;
     }
   },

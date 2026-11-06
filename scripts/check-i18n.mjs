@@ -142,7 +142,6 @@ try {
     'talents/catalog',
     'talents/abilities',
     'talents/synergy',
-    'talents/expansion',
     'run/boons',
     'run/expansionBoons',
     'run/formats',

@@ -1,7 +1,7 @@
 import { applyArenaForces, portalExit, placeBumpers, type PortalTrip } from './arena';
 import { bounceBumper } from './hazardContacts';
 import { collideCourse } from './course';
-import { bankBall, ballTimeScale, swerveBall } from './talents';
+import { bankBall, ballTimeScale } from './talents';
 import { combatant } from './combatant';
 import { BALL_R, FIELD_H } from './constants';
 import { clamp } from './utils/math';
@@ -51,17 +51,19 @@ export function forecast(
     arena: { value: arena },
     ball: { value: ball },
     botBrain: { value: { ...world.botBrain } },
+    // A Swerve that has not broken yet is invisible: the read sees a
+    // straight ball, and once it has broken the break is in its velocity.
     talents: {
       value: {
         ...world.talents,
-        tactics: { ...world.talents.tactics },
+        swerveDir: 0,
         slots: world.talents.slots.map((s) => ({ ...s }))
       }
     },
     botTalents: {
       value: {
         ...world.botTalents,
-        tactics: { ...world.botTalents.tactics },
+        swerveDir: 0,
         slots: world.botTalents.slots.map((s) => ({ ...s }))
       }
     }
@@ -79,14 +81,9 @@ export function forecast(
   const trip: PortalTrip = { x: 0, y: 0, pair: 0, from: 0 };
   const dt = 1 / 120;
   const runtimes = [ghost.talents, ghost.botTalents];
-  const tactics = ['redirect', 'anchor', 'breach', 'relay', 'reserve', 'rebound'] as const;
   const side = Math.sign(targetX - ball.x);
   for (let i = 0; i < 360; i++) {
-    for (const runtime of runtimes) {
-      runtime.blink = Math.max(0, runtime.blink - dt);
-      for (const id of tactics)
-        if (runtime.tactics[id]) runtime.tactics[id] = Math.max(0, runtime.tactics[id]! - dt);
-    }
+    for (const runtime of runtimes) runtime.blink = Math.max(0, runtime.blink - dt);
     arena.time += dt * arena.intensity;
     const wind = arena.spec?.wind;
     if (wind && wind.period > 0) {
@@ -98,8 +95,6 @@ export function forecast(
     }
     placeBumpers(ghost);
     const travel = dt * ballTimeScale(ghost);
-    swerveBall(ghost, dt);
-    swerveBall(combatant(ghost, 'bot'), dt);
     applyArenaForces(ghost, travel);
     ball.px = ball.x;
     ball.py = ball.y;
@@ -141,7 +136,7 @@ export function forecast(
           FIELD_H - BALL_R
         );
       }
-      b.hp -= (ball.owner === 'you' ? ghost.talents : ghost.botTalents).tactics.breach ? 2 : 1;
+      b.hp -= 1;
       b.alive = b.hp > 0;
     }
     arena.portalLock = Math.max(0, arena.portalLock - dt);

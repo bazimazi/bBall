@@ -244,16 +244,6 @@ function chooseShot(world: World, paddle: Paddle, brain: BotBrain, cross: number
         vx,
         vy,
         owner: paddle.side
-      },
-      talents: {
-        ...world.talents,
-        swerveDir:
-          paddle.side === 'you' && world.loadout.effects.swerve > 0 ? (vy >= 0 ? 1 : -1) : 0
-      },
-      botTalents: {
-        ...world.botTalents,
-        swerveDir:
-          paddle.side === 'bot' && world.botLoadout.effects.swerve > 0 ? (vy >= 0 ? 1 : -1) : 0
       }
     };
     const landing = predictY(projected, foe.x);
@@ -298,16 +288,7 @@ function chooseSkill(world: World, brain: BotBrain, cross: number): void {
     const charge =
       entry.id === 'power-strike' && time < 0.65 && time > 0.12 && actor.talents.strikeHits === 0;
     const burst = entry.id === 'overload' && time < 0.7 && world.match.rally > 4;
-    const tactic =
-      (entry.id === 'redirect' && time < 0.7 && time > 0.12) ||
-      (entry.id === 'anchor' && !!world.arena.spec?.rails?.length && time < 0.7) ||
-      (entry.id === 'relay' && !!world.arena.spec?.switches?.length && time < 0.7) ||
-      (entry.id === 'rebound' && time < 0.5 && gap < world.bot.half) ||
-      (entry.id === 'reserve' &&
-        world.match.rally > 0 &&
-        time > 0.4 &&
-        (actor.talents.tactics.reserve ?? 0) <= 0);
-    if (defend || guard || charge || burst || tactic) {
+    if (defend || guard || charge || burst) {
       fireAbility(actor, slot);
       break;
     }

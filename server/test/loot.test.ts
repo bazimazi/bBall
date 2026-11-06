@@ -280,7 +280,8 @@ describe('research skill physics and switching', () => {
     world.talents.shield = 0;
     world.talents.shieldTimer = 7;
     world.talents.secondChances = 0;
-    world.talents.stats.secondChances = 1;
+    // Every refund the build carries has been spent.
+    world.talents.stats.secondChances = a.effects.secondChances;
     world.talents.stats.abilitiesUsed = 9;
     world.talents.zenithRefunds = 0;
     assert.equal(switchRuntime(world, b), true);

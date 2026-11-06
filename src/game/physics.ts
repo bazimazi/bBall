@@ -432,8 +432,8 @@ export function stepBall(world: World, dt: number): void {
   const { ball, view } = world;
   const live = world.match.status !== 'menu';
   if (live) {
-    swerveBall(world, dt);
-    swerveBall(combatant(world, 'bot'), dt);
+    swerveBall(world);
+    swerveBall(combatant(world, 'bot'));
   }
   // Clutch runs the ball's clock slow in the player's half. Its speed is
   // untouched, so the pace it carries back out is exactly the pace it had.

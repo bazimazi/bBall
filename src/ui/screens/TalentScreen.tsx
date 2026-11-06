@@ -310,7 +310,7 @@ export function TalentScreen({ profile, onBack, onLab }: TalentScreenProps) {
         {t(' unlock after')}
         {t(' ')}
         {t(tierRequirement(ULTIMATE_TIER))}
-        {t(' points in a branch. Advanced court talents continue below.')}
+        {t(' points in a branch.')}
       </p>
 
       {/* ------------------------------------------------------- synergies */}

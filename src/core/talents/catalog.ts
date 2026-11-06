@@ -1,5 +1,4 @@
 import { BALANCE } from '../balance/config';
-import { EXPANSION_TALENTS } from './expansion';
 import { BRANCHES, type Branch, type BranchId, type TalentDef, type TalentId } from './types';
 
 /**
@@ -199,7 +198,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 2,
     requires: [],
     rankText: () =>
-      `+${pct(E.reckless.chance)} critical chance, and every critical return hits ${pct(E.reckless.growth)} harder and lands twice as heavy - but nothing can save you: Shield, Bastion, Adrenaline, Aegis, Second Chance and Zenith's refund all stand down.`
+      `+${pct(E.reckless.chance)} critical chance, and every critical return hits ${pct(E.reckless.growth)} harder and is ${pct(E.reckless.heft)} harder to read - but nothing can save you: Shield, Bastion, Adrenaline, Aegis, Second Chance and Zenith's refund all stand down.`
   },
   {
     id: 'edge-pressure',
@@ -248,7 +247,7 @@ export const TALENTS: readonly TalentDef[] = [
     name: 'Foresight',
     blurb: 'See where the ball will arrive',
     maxRank: 2,
-    costs: [2, 2],
+    costs: [1, 2],
     tier: 0,
     column: 1,
     requires: [],
@@ -288,14 +287,14 @@ export const TALENTS: readonly TalentDef[] = [
     id: 'swerve',
     branch: 'control',
     name: 'Swerve',
-    blurb: 'Your returns break late',
+    blurb: 'Your returns break late, after the read',
     maxRank: 2,
     costs: [1, 1],
     tier: 1,
     column: 2,
     requires: [{ talent: 'precision', rank: 1 }],
     rankText: (rank) =>
-      `In the last stretch of their flight your returns break further the way they left your paddle${rank >= 2 ? ', twice as hard' : ''} - after the opponent has already read them.`
+      `Most of the way across, your returns break ${rank * E.swerve.shift} units further the way they left your paddle - after the opponent has already read them. Nothing shows the break coming.`
   },
   {
     id: 'blink-strike',
@@ -332,14 +331,14 @@ export const TALENTS: readonly TalentDef[] = [
     id: 'time-slip',
     branch: 'control',
     name: 'Time Slip',
-    blurb: 'Dash buys a moment to place your counter',
+    blurb: 'Every dash that turns into an attack winds Dash back',
     maxRank: 2,
     costs: [1, 1],
     tier: 3,
     column: 0,
     requires: [{ talent: 'blink-strike', rank: 1 }],
     rankText: (rank) =>
-      `During Blink Strike's follow-up window, an incoming ball travels through your half ${pct(rank * E.timeSlip.slow)} slower, giving you time to place the charged return. Its actual speed is preserved. Does not stack with Clutch's slowdown.`
+      `Every Blink Strike return - the charged return straight after a dash - gives back ${sec(rank * E.timeSlip.refund)} of Dash's cooldown.`
   },
   {
     id: 'slipstream',
@@ -368,7 +367,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 0,
     requires: [],
     rankText: (rank) =>
-      `A ball reaching your line within ${rank * E.bastion.reach} units of either wall is turned back - every time, for free.`
+      `A ball reaching your line within ${E.bastion.reach + (rank - 1) * E.bastion.step} units of either wall is turned back at full pace, heavy and driven away from the opponent - every time, for free.`
   },
   {
     id: 'shield',
@@ -413,14 +412,14 @@ export const TALENTS: readonly TalentDef[] = [
     id: 'counterstrike',
     branch: 'defense',
     name: 'Counterstrike',
-    blurb: 'A save goes back as an attack',
+    blurb: 'One more shield charge, and every save goes back as an attack',
     maxRank: 1,
     costs: [2],
     tier: 1,
     column: 1,
     requires: [{ talent: 'shield', rank: 1 }],
     rankText: () =>
-      `Every ball you save - by Shield, Aegis or Adrenaline - goes back as a winner: driven into a corner, ${pct(E.counterstrike.pace)} faster than it came and far harder to read. Your next return leaves charged, too.`
+      `+${E.counterstrike.charges} shield charge. Every ball you save - by Shield, Aegis or Adrenaline - goes back as a winner: driven into a corner, ${pct(E.counterstrike.pace)} faster than it came and far harder to read. Your next ${E.counterstrike.primed} returns leave charged, too.`
   },
   {
     id: 'second-chance',
@@ -433,7 +432,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 2,
     requires: [{ talent: 'clutch', rank: 1 }],
     rankText: () =>
-      `Once a match, refunds a conceded point - or your last life - while you are not ahead.`
+      `${E.secondChance.uses} times a match, refunds a conceded point - or your last life - while you are not ahead.`
   },
   {
     id: 'rally-armor',
@@ -627,14 +626,14 @@ export const TALENTS: readonly TalentDef[] = [
     id: 'chain-casting',
     branch: 'utility',
     name: 'Chain Casting',
-    blurb: 'Alternate your skills to keep the rotation moving',
+    blurb: 'Every skill you use winds the others back',
     maxRank: 2,
     costs: [1, 1],
     tier: 3,
     column: 2,
     requires: [{ talent: 'talent-synergy', rank: 1 }],
     rankText: (rank) =>
-      `Casting a different skill from your previous cast this rally takes ${sec(rank * E.chainCasting.refund)} off your other equipped cooldowns, half that off ultimates. Repeating one skill gives no refund; minimum recast limits still apply.`
+      `Every skill you use takes ${sec(rank * E.chainCasting.refund)} off the cooldown of each of your other equipped skills - half that off an ultimate.`
   },
   {
     id: 'echo',
@@ -649,8 +648,7 @@ export const TALENTS: readonly TalentDef[] = [
     ability: 'echo',
     rankText: () =>
       `Unlocks Echo. Instantly clears the cooldown of your other equipped skills, then recharges them ${E.echo.recharge}x faster for ${E.echo.seconds}s. ${E.echo.cooldown}s cooldown.`
-  },
-  ...EXPANSION_TALENTS
+  }
 ];
 
 const BY_ID = new Map<string, TalentDef>(TALENTS.map((talent) => [talent.id, talent]));

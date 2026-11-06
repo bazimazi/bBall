@@ -143,8 +143,6 @@ export function arenaNonLinear(world: World): boolean {
     !!world.arena.spec?.rails?.length ||
     !!world.arena.spec?.gates?.length ||
     !!world.arena.spec?.zones?.length ||
-    world.talents.swerveDir !== 0 ||
-    world.botTalents.swerveDir !== 0 ||
     world.arena.bossSwerveDir !== 0 ||
     (world.ball.owner === 'you' ? world.loadout : world.botLoadout).effects.bankShot > 0
   );
@@ -576,8 +574,7 @@ function collideBricks(world: World): void {
     }
     keepPlayable(world);
 
-    const actor = ball.owner === 'you' ? world : { talents: world.botTalents };
-    brick.hp -= (actor.talents.tactics.breach ?? 0) > 0 ? 2 : 1;
+    brick.hp -= 1;
     brick.flash = 1;
     const hue = world.theme[brick.side === 'you' ? 'youHue' : 'botHue'];
     const cx = brick.x + brick.w / 2;

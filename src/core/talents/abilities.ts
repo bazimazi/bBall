@@ -1,5 +1,4 @@
 import { ABILITIES, type AbilityId, type TalentEffects, type TalentId } from './types';
-import { EXPANSION_ABILITIES } from './expansion';
 
 /**
  * The active abilities, as data.
@@ -131,7 +130,6 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     summary: (effects) =>
       `Clears other cooldowns, then ${effects.echoRecharge}x recharge for ${seconds(effects.echoSeconds)}`
   },
-  ...EXPANSION_ABILITIES,
   {
     id: 'pulse-brake',
     name: 'Pulse Brake',

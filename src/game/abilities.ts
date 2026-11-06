@@ -186,22 +186,6 @@ function fire(world: World, def: AbilityDef): void {
       world.audio.dash();
       break;
     }
-    case 'redirect':
-    case 'anchor':
-    case 'breach':
-    case 'relay':
-    case 'reserve':
-    case 'rebound':
-      talents.tactics[id] = { redirect: 4, anchor: 5, breach: 5, relay: 6, reserve: 8, rebound: 3 }[
-        id
-      ];
-      world.casts.spawn(
-        'power-strike',
-        { x: world.player.x, y: world.player.y, hue, life: 0.5, size: 58 },
-        world.motion
-      );
-      world.audio.charge();
-      break;
     case 'power-strike':
       firePowerStrike(world, hue);
       break;
@@ -280,15 +264,14 @@ export function fireAbility(world: World, slot: number): boolean {
     world.talents.afterglow = world.loadout.effects.afterglowSeconds;
   }
   if (def.ultimate) world.talents.stats.ultimates++;
-  const previous = world.talents.lastAbility;
-  if (previous && previous !== entry.id && world.loadout.effects.castTempo > 0) {
+  // Chain Casting: every skill used winds the *other* equipped skills back.
+  if (world.loadout.effects.castTempo > 0) {
     for (const other of world.talents.slots) {
       if (!other.id || other === entry) continue;
       const share = abilityById(other.id)?.ultimate ? 0.5 : 1;
       other.cooldown = Math.max(0, other.cooldown - world.loadout.effects.castTempo * share);
     }
   }
-  world.talents.lastAbility = entry.id;
   fire(world, def);
   return true;
 }
@@ -405,16 +388,6 @@ export function liveEffect(world: World, id: AbilityId): LiveEffect {
   const { effects } = world.loadout;
 
   switch (id) {
-    case 'redirect':
-    case 'anchor':
-    case 'breach':
-    case 'relay':
-    case 'reserve':
-    case 'rebound':
-      return timed(
-        runtime.tactics[id] ?? 0,
-        { redirect: 4, anchor: 5, breach: 5, relay: 6, reserve: 8, rebound: 3 }[id]
-      );
     case 'power-strike':
       return {
         ...timed(runtime.strikeArmed, effects.powerStrikeWindow),

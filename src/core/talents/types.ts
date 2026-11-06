@@ -1,4 +1,3 @@
-import type { ExpansionTalentId } from './expansion';
 /**
  * The talent system's vocabulary.
  *
@@ -21,12 +20,6 @@ export const ABILITIES = [
   'aegis',
   'zenith',
   'echo',
-  'redirect',
-  'anchor',
-  'breach',
-  'relay',
-  'reserve',
-  'rebound',
   'pulse-brake',
   'phase-lens'
 ] as const;
@@ -80,7 +73,6 @@ export interface TalentDef {
 }
 
 export type TalentId =
-  | ExpansionTalentId
   // power
   | 'heavy-impact'
   | 'power-strike'
@@ -240,7 +232,7 @@ export interface TalentEffects {
   spinMul: number;
   /** Multiplier on the usable bounce-angle range - deliberate placement. */
   angleMul: number;
-  /** Swerve: sideways acceleration on the player's returns past the centre line, in units/s². */
+  /** Swerve: field units the player's return breaks by, late in its flight. */
   swerve: number;
   /** Bank Shot: how much steeper a player's return leaves a wall. */
   bankShot: number;
@@ -312,6 +304,8 @@ export interface TalentEffects {
   blinkCrit: boolean;
   /** Incoming ball slowdown during the dash follow-up window. */
   dashSlow: number;
+  /** Time Slip: Dash cooldown seconds each Blink Strike return gives back. */
+  blinkRefund: number;
   guardWindow: number;
   /** Units past the paddle's ends that a Perfect Guard still reaches. */
   guardReach: number;

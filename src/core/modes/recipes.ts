@@ -17,9 +17,9 @@ export type Personality = (typeof PERSONALITIES)[number];
 export const SCHOOL_SCOUT: Record<Personality, string> = {
   anchor: 'Safe contacts and a steadier guard. Draw it wide, then reverse the shot.',
   aggressor: 'Early charges and pressure toward your exposed edge. Keep a recovery skill ready.',
-  banker: 'Steeper wall banks and an Anchor charge. Read the wall route before committing.',
-  curver: 'Late bending returns and Redirect angles. Delay your final correction.',
-  disruptor: 'Switch routes and Relay recovery. Watch the linked gate and save a dash.',
+  banker: 'Steeper wall banks. Read the wall route before committing.',
+  curver: 'Returns that break late, after your read. Delay your final correction.',
+  disruptor: 'Switch routes and wrong-footing placements. Watch the linked gate and save a dash.',
   opportunist: 'Alternates placement against your observed movement. Vary your recovery position.'
 };
 

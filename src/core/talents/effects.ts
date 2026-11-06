@@ -2,7 +2,6 @@ import { abilitySlotsForLevel, BALANCE, paddleSpeedForLevel } from '../balance/c
 import { applyBoonEffects, type BoonRanks } from '../run/boons';
 import { TALENTS } from './catalog';
 import { RESEARCH_ABILITIES } from '../loot/catalog';
-import { applyExpansionTalents } from './expansion';
 import { branchSpend, dominantBranch } from './save';
 import type { BranchId } from './types';
 import { activeSynergies, type SynergyDef } from './synergy';
@@ -103,6 +102,7 @@ function baseEffects(): TalentEffects {
     blinkSeconds: 0,
     blinkCrit: false,
     dashSlow: 0,
+    blinkRefund: 0,
     guardWindow: E.perfectGuard.baseWindow,
     guardReach: E.perfectGuard.baseReach,
     guardCooldown: E.perfectGuard.cooldown,
@@ -176,8 +176,8 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   effects.angleMul *= 1 + precision * E.precision.angle;
   effects.spinMul *= 1 + precision * E.precision.spin;
 
-  effects.swerve += r('swerve') * E.swerve.accel;
-  effects.dashSlow = r('time-slip') * E.timeSlip.slow;
+  effects.swerve += r('swerve') * E.swerve.shift;
+  effects.blinkRefund = r('time-slip') * E.timeSlip.refund;
 
   const blink = r('blink-strike');
   if (blink > 0) {
@@ -194,7 +194,8 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   }
 
   // -- defense ------------------------------------------------------------
-  effects.bastion += r('bastion') * E.bastion.reach;
+  const bastion = r('bastion');
+  if (bastion > 0) effects.bastion += E.bastion.reach + (bastion - 1) * E.bastion.step;
 
   const shield = r('shield');
   effects.shieldCharges += shield * E.shield.charges;
@@ -209,7 +210,10 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   effects.clutchGrowth += clutch * E.clutch.growth;
   effects.clutchSlow += clutch * E.clutch.slow;
 
-  if (r('counterstrike') > 0) effects.counterPace = E.counterstrike.pace;
+  if (r('counterstrike') > 0) {
+    effects.counterPace = E.counterstrike.pace;
+    effects.shieldCharges += E.counterstrike.charges;
+  }
   effects.secondChances += r('second-chance') * E.secondChance.uses;
 
   // -- momentum -----------------------------------------------------------
@@ -302,16 +306,17 @@ function clampEffects(effects: TalentEffects): void {
   effects.flowRecharge = clamp(effects.flowRecharge, 0, 0.6);
   effects.heft = clamp(effects.heft, 0, 0.6);
   effects.clutchSlow = clamp(effects.clutchSlow, 0, 0.3);
-  effects.bastion = clamp(effects.bastion, 0, 120);
+  effects.bastion = clamp(effects.bastion, 0, 180);
   effects.bankShot = clamp(effects.bankShot, 0, 0.4);
-  effects.swerve = clamp(effects.swerve, 0, 1000);
+  effects.swerve = clamp(effects.swerve, 0, 24);
   effects.tempo = clamp(effects.tempo, 0, 1);
   effects.afterglowTempo = clamp(effects.afterglowTempo, 0, 0.7);
   effects.parryTempo = clamp(effects.parryTempo, 0, 2);
   effects.recharge = clamp(effects.recharge, 0, 0.3);
-  effects.castTempo = clamp(effects.castTempo, 0, 1);
+  effects.castTempo = clamp(effects.castTempo, 0, 1.5);
   effects.shieldTempo = clamp(effects.shieldTempo, 0, 3);
   effects.dashSlow = clamp(effects.dashSlow, 0, 0.2);
+  effects.blinkRefund = clamp(effects.blinkRefund, 0, 4);
   effects.extraSlots = clamp(effects.extraSlots, 0, 1);
 
   effects.slipstreamPaddle = clamp(effects.slipstreamPaddle, 0, 1);
@@ -341,7 +346,7 @@ function clampEffects(effects: TalentEffects): void {
   effects.afterglowSeconds = clamp(effects.afterglowSeconds, 0, 8);
   effects.driveKeep = clamp(effects.driveKeep, 0, 0.65);
   effects.critGrowth = clamp(effects.critGrowth, 0, 0.5);
-  effects.critHeft = clamp(effects.critHeft, 0, 0.6);
+  effects.critHeft = clamp(effects.critHeft, 0, 0.8);
   effects.flowAngle = clamp(effects.flowAngle, 0, E.flowState.angle * 3);
   effects.flowHeft = clamp(effects.flowHeft, 0, E.flowState.heft * 3);
 }
@@ -361,7 +366,6 @@ function usableEquipped(save: TalentSave, slots: number): (AbilityId | null)[] {
 export function resolveLoadout(save: TalentSave, level: number): ResolvedLoadout {
   const effects = baseEffects();
   applyRanks(effects, save);
-  applyExpansionTalents(effects, save);
 
   const slots = abilitySlotsForLevel(level, effects.extraSlots);
   // Once level alone opens every slot, Versatility remains a useful investment.

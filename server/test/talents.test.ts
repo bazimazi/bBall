@@ -8,7 +8,7 @@ import type { AbilityId, TalentSave } from '../../src/core/talents/types';
 import { botProfile } from '../../src/core/bots/levels';
 import { quickMatchRules } from '../../src/core/modes/rules';
 import { driveAi } from '../../src/game/ai';
-import { FIXED_DT } from '../../src/game/constants';
+import { BALL_R, FIELD_H, FIXED_DT, PADDLE_W } from '../../src/game/constants';
 import { startMatch } from '../../src/game/match';
 import { step } from '../../src/game/simulation';
 import { abilityViews, fireAbility, liveEffect } from '../../src/game/abilities';
@@ -17,11 +17,14 @@ import {
   ballTimeScale,
   playerLength,
   playerReturn,
-  resetRally,
   resetRuntime,
+  swerveBall,
+  tryBastion,
   tryShield,
-  updateRuntime
+  updateRuntime,
+  wonPoint
 } from '../../src/game/talents';
+import { forecast } from '../../src/game/trajectory';
 import { createBrain, createWorld, placePaddles } from '../../src/game/world';
 
 const silent = new Proxy({}, { get: () => () => 0 }) as unknown as GameAudio;
@@ -211,15 +214,30 @@ it('Power rewards real edge placement without treating a grown paddle as an edge
   assert.equal(build({ 'edge-pressure': 1 }).loadout.effects.edgePressure, 0.9);
 });
 
-it('Control slows only incoming travel during a dash follow-up and keeps actual pace', () => {
-  const world = build({ dash: 1, 'blink-strike': 1, 'time-slip': 2, clutch: 2 }, ['dash']);
+it('Time Slip winds Dash back on each Blink Strike return, and only that return', () => {
+  const world = build({ dash: 1, 'blink-strike': 1, 'time-slip': 2 }, ['dash']);
+  const dash = world.talents.slots[0]!;
+  assert.equal(fireAbility(world, 0), true);
+  const span = dash.cooldown;
+  assert.equal(span, BALANCE.effects.dash.cooldown + BALANCE.effects.blinkStrike.cooldown);
+  assert.equal(playerReturn(world, 0).charged, true);
+  assert.equal(dash.cooldown, span - 2 * BALANCE.effects.timeSlip.refund);
+  playerReturn(world, 0);
+  assert.equal(
+    dash.cooldown,
+    span - 2 * BALANCE.effects.timeSlip.refund,
+    'a plain return refunds nothing'
+  );
+  assert.ok(dash.lockout > 0, 'the recast lockout still holds');
+});
+
+it('Clutch slows only incoming travel in the player half and keeps actual pace', () => {
+  const world = build({ clutch: 2 });
   world.view.w = 1000;
   world.ball.x = 200;
   world.ball.vx = -500;
   world.ball.speed = 500;
   assert.equal(ballTimeScale(world), 1);
-  fireAbility(world, 0);
-  assert.equal(ballTimeScale(world), 0.8);
   world.match.maxLives = 3;
   world.match.lives = 1;
   assert.equal(ballTimeScale(world), 0.8);
@@ -227,10 +245,6 @@ it('Control slows only incoming travel during a dash follow-up and keeps actual 
   assert.equal(ballTimeScale(world), 1);
   world.ball.x = 200;
   world.ball.vx = 500;
-  assert.equal(ballTimeScale(world), 1);
-  world.ball.vx = -500;
-  world.match.lives = 3;
-  playerReturn(world, 0);
   assert.equal(ballTimeScale(world), 1);
   assert.equal(world.ball.speed, 500);
 });
@@ -275,26 +289,24 @@ it('Momentum builds earlier without increasing its maximum reach or flow bonuses
   assert.equal(playerReturn(fast, 0).heft, playerReturn(plain, 0).heft);
 });
 
-it('Mastery rewards alternating successful casts, halves ultimate refunds and resets each rally', () => {
+it('Chain Casting winds every other skill back on each cast, an ultimate by half', () => {
   const world = build({ 'power-strike': 1, dash: 1, 'chain-casting': 2, zenith: 1 }, [
     'power-strike',
     'dash',
     'zenith'
   ]);
-  world.talents.slots[2]!.cooldown = 20;
+  const refund = 2 * BALANCE.effects.chainCasting.refund;
+  const [strike, dash, zenith] = world.talents.slots;
+  zenith!.cooldown = 20;
   fireAbility(world, 0);
-  assert.equal(world.talents.slots[2]!.cooldown, 20);
+  assert.equal(strike!.cooldown, BALANCE.effects.powerStrike.cooldown, 'never refunds itself');
+  assert.equal(dash!.cooldown, 0, 'a ready skill stays ready');
+  assert.equal(zenith!.cooldown, 20 - refund / 2);
+  fireAbility(world, 1);
+  assert.equal(strike!.cooldown, BALANCE.effects.powerStrike.cooldown - refund);
+  assert.equal(zenith!.cooldown, 20 - refund);
+  assert.equal(strike!.lockout, BALANCE.talents.minRecast, 'refunds never touch the lockout');
   assert.equal(fireAbility(world, 0), false);
-  fireAbility(world, 1);
-  assert.equal(world.talents.slots[0]!.cooldown, 7);
-  assert.equal(world.talents.slots[2]!.cooldown, 19.5);
-  assert.equal(world.talents.slots[0]!.lockout, BALANCE.talents.minRecast);
-  world.talents.slots[1]!.cooldown = 0;
-  world.talents.slots[1]!.lockout = 0;
-  fireAbility(world, 1);
-  assert.equal(world.talents.slots[0]!.cooldown, 7);
-  resetRally(world);
-  assert.equal(world.talents.lastAbility, null);
 });
 
 it('existing rank upgrades remain useful for charge timing, Afterglow and max-level Versatility', () => {
@@ -447,4 +459,80 @@ it('expanded builds complete real matches with finite physics and bounded pace',
   } finally {
     Math.random = originalRandom;
   }
+});
+
+it('Swerve breaks once, late, the way the ball left the paddle - and no read sees it coming', () => {
+  const world = build({ swerve: 2 });
+  world.view.w = 1000;
+  placePaddles(world);
+  const shift = 2 * BALANCE.effects.swerve.shift;
+  const line = world.view.w * BALANCE.effects.swerve.from;
+  const face = world.bot.x - (PADDLE_W / 2 + BALL_R);
+  Object.assign(world.ball, { x: 500, px: 495, y: 300, vx: 800, vy: 0, speed: 800, owner: 'you' });
+  world.talents.swerveDir = 1;
+
+  // Before the break the path reads dead straight.
+  assert.ok(Math.abs(forecast(world, face) - 300) < 1e-6);
+  swerveBall(world);
+  assert.equal(world.ball.vy, 0, 'nothing happens before the break line');
+
+  Object.assign(world.ball, { px: line - 5, x: line + 5 });
+  swerveBall(world);
+  assert.equal(world.ball.vx, 800, 'the break never slows the ball across the court');
+  assert.ok(world.ball.vy > 0, 'it breaks the way it was sent');
+  const arrival = world.ball.y + (world.ball.vy * (face - world.ball.x)) / world.ball.vx;
+  assert.ok(Math.abs(arrival - (300 + shift)) < 1e-6);
+  assert.ok(Math.abs(world.talents.surge - (world.ball.speed - 800)) < 1e-9);
+  assert.equal(world.talents.swerveDir, 0, 'one break per return');
+  const vy = world.ball.vy;
+  swerveBall(world);
+  assert.equal(world.ball.vy, vy);
+});
+
+it('Bastion turns a corner ball back at full pace, heavy and away from the opponent', () => {
+  const world = build({ bastion: 1 });
+  world.view.w = 1000;
+  placePaddles(world);
+  world.bot.y = 120;
+  Object.assign(world.ball, {
+    x: 2,
+    px: 8,
+    y: BALANCE.effects.bastion.reach,
+    vx: -900,
+    vy: -50,
+    speed: 900
+  });
+  world.ball.owner = 'bot';
+  assert.equal(tryBastion(world), true);
+  assert.equal(world.ball.speed, 900);
+  assert.equal(world.ball.heft, BALANCE.effects.bastion.heft);
+  assert.ok(world.ball.vx > 0 && world.ball.vy > 0, 'out of the corner, towards the far side');
+  world.ball.y = FIELD_H / 2;
+  assert.equal(tryBastion(world), false, 'the middle of the line is not walled');
+});
+
+it('Counterstrike adds a shield charge and charges the returns after a save', () => {
+  const world = build({ shield: 1, counterstrike: 1 });
+  assert.equal(world.loadout.effects.shieldCharges, 2);
+  assert.equal(world.talents.shield, 2);
+  world.ball.vx = -600;
+  assert.equal(tryShield(world), true);
+  assert.equal(world.talents.primed, BALANCE.effects.counterstrike.primed);
+  for (let i = 0; i < BALANCE.effects.counterstrike.primed; i++)
+    assert.equal(playerReturn(world, 0).charged, true);
+  assert.equal(playerReturn(world, 0).charged, false);
+  const reckless = build({ shield: 1, counterstrike: 1, reckless: 1 });
+  assert.equal(reckless.loadout.effects.shieldCharges, 0, 'Reckless still strips every save');
+});
+
+it('Second Chance carries two refunds and Hot Hand charges the next rally', () => {
+  assert.equal(build({ 'second-chance': 1 }).talents.secondChances, 2);
+  const world = build({ 'hot-hand': 2 });
+  wonPoint(world);
+  const returns = BALANCE.effects.hotHand.returns + BALANCE.effects.hotHand.step;
+  for (let i = 0; i < returns; i++) {
+    const shot = playerReturn(world, 0);
+    assert.equal(shot.charged && shot.crit, true);
+  }
+  assert.equal(playerReturn(world, 0).charged, false);
 });

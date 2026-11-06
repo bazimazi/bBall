@@ -68,9 +68,9 @@ const RECIPES: readonly (readonly [
   [
     'storm-lens',
     'Storm Lens',
-    'Curve +40 units',
+    'Curve +3 units',
     (e, r) => {
-      e.swerve += 40 * r;
+      e.swerve += 3 * r;
     }
   ],
   [

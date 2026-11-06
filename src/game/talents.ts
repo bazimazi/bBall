@@ -5,7 +5,7 @@ import { resolveLoadout, type ResolvedLoadout } from '../core/talents/effects';
 import { createTalentSave } from '../core/talents/save';
 import type { TalentMatchStats } from '../core/talents/types';
 import { aegisSaveCast, zenithRefundCast } from './casts';
-import { BALL_R, FIELD_H, MAX_BOUNCE_ANGLE } from './constants';
+import { BALL_R, FIELD_H, MAX_BOUNCE_ANGLE, PADDLE_W } from './constants';
 import { growPaddle } from './paddle';
 import { equipmentReach, reboundBonus, surfaceResponse } from '../core/equipment/catalog';
 import { hsla, sideHue } from './palette';
@@ -46,7 +46,6 @@ export function createRuntime(): TalentRuntime {
   return {
     benchedSlots: {},
     shieldDebt: 0,
-    tactics: {},
     drive: 0,
     bestDrive: 0,
     rallyReturns: 0,
@@ -73,7 +72,6 @@ export function createRuntime(): TalentRuntime {
     zenith: 0,
     zenithRefunds: 0,
     echo: 0,
-    lastAbility: null,
     slots: emptySlots(),
     stats: {
       abilitiesUsed: 0,
@@ -92,7 +90,6 @@ export function createRuntime(): TalentRuntime {
 export function resetRuntime(world: World): void {
   const runtime = world.talents;
   const { effects, equipped } = world.loadout;
-  runtime.tactics = {};
   runtime.benchedSlots = {};
   runtime.shieldDebt = 0;
 
@@ -117,7 +114,6 @@ export function resetRuntime(world: World): void {
   runtime.zenith = 0;
   runtime.zenithRefunds = BALANCE.effects.zenith.refunds;
   runtime.echo = 0;
-  runtime.lastAbility = null;
   runtime.guardShielded = false;
 
   runtime.shieldMax = effects.shieldCharges;
@@ -152,7 +148,6 @@ export function resetRuntime(world: World): void {
 
 /** A new rally is about to start. */
 export function resetRally(world: World): void {
-  world.talents.lastAbility = null;
   world.talents.rallyReturns = 0;
   world.talents.surge = 0;
   world.talents.guardShielded = false;
@@ -289,9 +284,6 @@ function boostLength(world: World): number {
 export function updateRuntime(world: World, dt: number): void {
   const runtime = world.talents;
   const { effects } = world.loadout;
-  for (const id of Object.keys(runtime.tactics) as AbilityId[])
-    runtime.tactics[id] = Math.max(0, (runtime.tactics[id] ?? 0) - dt);
-
   runtime.strikeArmed = Math.max(0, runtime.strikeArmed - dt);
   if (runtime.strikeArmed <= 0) runtime.strikeHits = 0;
   runtime.guardWindow = Math.max(0, runtime.guardWindow - dt);
@@ -381,14 +373,11 @@ export function applyTempo(world: World, bonus = 0): void {
   recoverCooldowns(world, tempo);
 }
 
-/**
- * Wind cooldowns back by `seconds` - an ultimate by half as much - sparing
- * `except`, for a skill whose refund goes to the others.
- */
-export function recoverCooldowns(world: World, seconds: number, except?: AbilityId): void {
+/** Wind cooldowns back by `seconds` - an ultimate by half as much. */
+function recoverCooldowns(world: World, seconds: number): void {
   if (seconds <= 0) return;
   for (const slot of world.talents.slots) {
-    if (!slot.id || slot.id === except || slot.cooldown <= 0) continue;
+    if (!slot.id || slot.cooldown <= 0) continue;
     const share = abilityById(slot.id)?.ultimate ? 0.5 : 1;
     slot.cooldown = Math.max(0, slot.cooldown - seconds * share);
   }
@@ -471,11 +460,7 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   runtime.drive++;
   runtime.rallyReturns++;
   runtime.bestDrive = Math.max(runtime.bestDrive, runtime.drive);
-  // Rebound banks its second on top of this return's own tempo, not as a
-  // second helping of it.
-  const rebound = (runtime.tactics.rebound ?? 0) > 0;
-  if (rebound) runtime.tactics.rebound = 0;
-  applyTempo(world, (runtime.guardWindow > 0 ? effects.parryTempo : 0) + (rebound ? 1 : 0));
+  applyTempo(world, runtime.guardWindow > 0 ? effects.parryTempo : 0);
   if (runtime.shield < runtime.shieldMax && effects.shieldTempo > 0) {
     runtime.shieldTimer = Math.max(0, runtime.shieldTimer - effects.shieldTempo);
   }
@@ -522,6 +507,12 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   // Blink Strike: the return a dash just rescued goes straight back on the attack.
   const blinked = runtime.blink > 0;
   runtime.blink = 0;
+  // Time Slip: the return a dash rescued winds Dash itself back.
+  if (blinked && effects.blinkRefund > 0) {
+    for (const slot of runtime.slots) {
+      if (slot.id === 'dash') slot.cooldown = Math.max(0, slot.cooldown - effects.blinkRefund);
+    }
+  }
 
   // Use the actual paddle edge, not the angle compensated for a longer paddle:
   // more reach must not turn safe centre contacts into free edge criticals.
@@ -538,12 +529,6 @@ export function playerReturn(world: World, offset: number): ReturnMods {
 
   // Passive sources, capped together.
   let growth = tuning.speedPerHit;
-  // Reserve rewards waiting three seconds before spending its one return.
-  if ((runtime.tactics.reserve ?? 0) > 0 && (runtime.tactics.reserve ?? 0) <= 5) {
-    growth += 0.12;
-    runtime.tactics.reserve = 0;
-  }
-  if ((runtime.tactics.breach ?? 0) > 0) growth -= 0.05;
   if (inClutch(world)) growth += effects.clutchGrowth;
   growth += reboundBonus(world.player.equipment, offset, charged || crit || guarded);
   if (world.player.equipment.insert === 'copper' && growth > tuning.speedPerHit)
@@ -565,10 +550,6 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   // Where the ball goes matters more than how fast it gets there: every
   // heavy return is also a wide one, and the heavier it is the wider.
   let off = rawOff;
-  if ((runtime.tactics.redirect ?? 0) > 0) {
-    off = corner(world, off, 0.72, 0);
-    runtime.tactics.redirect = 0;
-  }
   if (overloaded) off = corner(world, off, E.overload.minAngle, E.overload.angle);
   else if (crit) off = corner(world, off, E.criticalStrike.minAngle, E.criticalStrike.angle);
   else if (charged) off = corner(world, off, E.powerStrike.minAngle, E.powerStrike.stretch);
@@ -605,7 +586,6 @@ export function previewReturn(world: World, offset: number): ReturnMods {
       value: {
         ...runtime,
         stats: { ...runtime.stats },
-        tactics: { ...runtime.tactics },
         slots: runtime.slots.map((s) => ({ ...s }))
       }
     },
@@ -624,33 +604,62 @@ function aim(world: World, angle: number): void {
   ball.vy = Math.sin(angle) * ball.speed;
 }
 
-/**
- * Swerve: the player's return bends in the last stretch of its flight.
- *
- * Late on purpose. By then the opponent has taken its looks and committed,
- * so the break lands after the read rather than before it. Bending earlier
- * and softer only beat the bots that never look twice.
- */
-export function swerveBall(world: World, dt: number): void {
-  const { ball, talents: runtime } = world;
-  const accel = world.loadout.effects.swerve;
-  if (accel <= 0 || runtime.swerveDir === 0 || ball.owner !== world.player.side) return;
-  const outgoing =
-    world.player.side === 'you'
-      ? ball.vx > 0 && ball.x >= world.view.w * E.swerve.from
-      : ball.vx < 0 && ball.x <= world.view.w * (1 - E.swerve.from);
-  if (!outgoing) return;
+/** Where this side's returns break, in field units along the court. */
+function breakLine(world: World): number {
+  return world.player.side === 'you'
+    ? world.view.w * E.swerve.from
+    : world.view.w * (1 - E.swerve.from);
+}
 
-  const vy = ball.vy + runtime.swerveDir * accel * dt;
-  const angle = clamp(Math.atan2(vy, Math.abs(ball.vx)), -MAX_BEND_ANGLE, MAX_BEND_ANGLE);
-  aim(world, angle);
+/**
+ * Swerve: the player's return breaks once, late in its flight.
+ *
+ * The moment it passes the break line - most of the way across, after the
+ * opponent has taken its last look - it kicks further the way it left the
+ * paddle, by enough to arrive `swerve` units from where it was heading. Its
+ * pace across the court is kept, so a break never buys the opponent time; the
+ * little speed the kick adds is the player's own, and bleeds off on the way
+ * back like any other pace they put on the ball.
+ *
+ * Nothing shows it coming: a read of the path, a bot's or Foresight's, sees a
+ * straight ball until it breaks. It used to bend gradually from much earlier,
+ * the way the ball already left the paddle, with the bend inside every read -
+ * and measured as a small *loss*, because a steeper ball crosses the court
+ * more slowly and the opponent had seen it all along.
+ */
+export function swerveBall(world: World): void {
+  const { ball, talents: runtime } = world;
+  const shift = world.loadout.effects.swerve;
+  if (shift <= 0 || runtime.swerveDir === 0 || ball.owner !== world.player.side) return;
+  const you = world.player.side === 'you';
+  const line = breakLine(world);
+  const crossed = you
+    ? ball.vx > 0 && ball.px < line && ball.x >= line
+    : ball.vx < 0 && ball.px > line && ball.x <= line;
+  if (!crossed) return;
+
+  const face = world.bot.x - (you ? 1 : -1) * (PADDLE_W / 2 + BALL_R);
+  const time = Math.max(0.04, (face - ball.x) / ball.vx);
+  const side = runtime.swerveDir;
+  runtime.swerveDir = 0;
+  const limit = Math.tan(MAX_BEND_ANGLE) * Math.abs(ball.vx);
+  let vx = ball.vx;
+  let vy = clamp(ball.vy + (side * shift) / time, -limit, limit);
+  let speed = Math.hypot(vx, vy);
+  if (speed > BALANCE.ball.hardMax) {
+    vx *= BALANCE.ball.hardMax / speed;
+    vy *= BALANCE.ball.hardMax / speed;
+    speed = BALANCE.ball.hardMax;
+  }
+  runtime.surge += Math.max(0, speed - ball.speed);
+  ball.vx = vx;
+  ball.vy = vy;
+  ball.speed = speed;
 }
 
 /**
  * The ball just hit a wall: a player's return comes off it steeper with Bank
- * Shot. A swerve keeps its own direction through the bounce, the way spin
- * does - flipping it with every wall steepened the ball into a zigzag that
- * measured at more than forty points of win rate on its own.
+ * Shot.
  */
 export function bankBall(world: World): void {
   const { ball } = world;
@@ -748,7 +757,7 @@ export function tryShield(world: World): boolean {
     aim(world, side * E.counterstrike.minAngle * MAX_BOUNCE_ANGLE);
     ball.heft = E.counterstrike.heft;
     // ...and the player's next return goes back charged, too.
-    runtime.primed = Math.max(runtime.primed, 1);
+    runtime.primed = Math.max(runtime.primed, E.counterstrike.primed);
   } else {
     ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed * effects.shieldSaveSpeed);
     aim(world, Math.atan2(ball.vy, ball.vx));
@@ -776,6 +785,10 @@ export function tryShield(world: World): boolean {
  * ball that has been banked off a wall arrives, and exactly where a paddle
  * sent the wrong way is furthest from. Not a save: it spends nothing, feeds
  * nothing, and Counterstrike does not answer it.
+ *
+ * It goes back at full pace, driven away from the opponent and heavy. Handed
+ * back softly from the goal line, as it first was, the ball was an easy one
+ * to put away, and the talent measured at barely a point of point share.
  */
 export function tryBastion(world: World): boolean {
   const reach = world.loadout.effects.bastion;
@@ -786,10 +799,10 @@ export function tryBastion(world: World): boolean {
   ball.x = BALL_R;
   ball.px = ball.x;
   ball.vx = Math.abs(ball.vx);
-  ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed * world.loadout.effects.shieldSaveSpeed);
-  aim(world, Math.atan2(ball.vy, ball.vx));
+  ball.speed = Math.max(BALANCE.ball.hardMin, ball.speed);
+  aim(world, (world.bot.y < FIELD_H / 2 ? 1 : -1) * E.bastion.minAngle * MAX_BOUNCE_ANGLE);
   ball.owner = 'you';
-  ball.heft = 0;
+  ball.heft = E.bastion.heft;
   ball.squash = 0.9;
   ball.squashAngle = 0;
   world.talents.swerveDir = 0;

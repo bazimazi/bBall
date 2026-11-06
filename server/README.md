@@ -252,7 +252,7 @@ release should check the current guidelines rather than trust that comment.
 ## Endless expansion rules
 
 Client and server share the 630-stage Journey catalog, procedural Frontier and
-contract identities, 60 courts, 25 bosses, expanded talents, mastery and
+contract identities, 60 courts, 25 bosses, the talent tree, mastery and
 format-aware rewards. `/config` advertises content version 2 and counts. Deploy
 the client and API together and apply migration 6 before accepting new clients.
 

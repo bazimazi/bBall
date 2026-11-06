@@ -305,7 +305,7 @@ player paddle; their movement remains physical and bounded.
 
 Six schools change their tactics: Anchor, Aggressor, Banker, Curver, Disruptor
 and Opportunist. Amateur carries a basic strike, Pro adds a dash, Elite a guard,
-and Legend an ultimate or school-specific skill. Their skills use shared
+and Legend an ultimate. Their skills use shared
 activation, cooldown, recast and return rules; the HUD shows readiness and
 recovery. Ranked scored matches also narrow both paddles during exceptionally
 long rallies, starting after 24 returns and capped at 40%.
@@ -414,16 +414,10 @@ preference values. Set `LOOT_SCREENSHOTS` to save captures.
 
 ### Talents
 
-One point per level to level 50: 49 points against 64 talents. Free respec and
+One point per level to level 50: 49 points against 40 talents. Free respec and
 four saved build slots let you try different choices; slots grow to six at
 level 50 and eight at level 100. Account build presets sync through the same
 validated purchase gates and budget as ordinary talent purchases.
-
-The expansion adds 18 passives and six active skills: Redirect commits a wide
-next contact; Anchor primes a bank; Breach damages structures with a weaker
-return; Relay refunds recovery through a switch; Reserve stores a delayed
-charge; Rebound rewards a recovery return. These compete for existing equipped
-slots and retain cooldown and recast limits.
 
 Reach, reading the ball, placement and saves are the main build choices. No
 talent grants XP or a permanent movement-speed bonus.
@@ -462,8 +456,9 @@ rather than how a number reads:
 
 - **Foresight** marks where the ball will reach your line - and, at rank two,
   draws its whole path, wall bounces included.
-- **Swerve** bends your returns in the last stretch of their flight, after the
-  opponent has already read them. **Bank Shot** sends them off a wall steeper.
+- **Swerve** breaks your returns once, most of the way across, further the way
+  they left your paddle - after the opponent has read them, and with nothing on
+  the court showing the break coming. **Bank Shot** sends them off a wall steeper.
 - **Heavy Impact** makes every return harder for the opponent to read; charged
   and critical returns are heavier still.
 - **Reckless** is a keystone: far bigger criticals, and in exchange nothing can
@@ -471,16 +466,17 @@ rather than how a number reads:
   refund all stand down.
 - **Perfect Guard** is a parry: time it and the ball comes back charged, even
   one that would have just cleared your paddle.
-- **Bastion** walls the corners of your line; **Counterstrike** turns every save
-  into a cornered, charged winner.
+- **Bastion** walls the corners of your line and sends what it turns back out
+  at full pace; **Counterstrike** adds a shield charge and turns every save into
+  a cornered winner followed by charged returns.
 - **Combo Drive** grows your paddle while you keep scoring, **Adrenaline** banks
   a save every so many returns, and **Unbroken** keeps half the drive when you
   drop a point.
 - **Versatility** buys a skill slot outright, and **Tempo** winds every cooldown
   back each time you return the ball.
 
-Fourteen talents unlock **active skills** - Power Strike, Dash and Perfect Guard,
-the six expansion skills and five ultimates - of which you equip two, three from level 15, four
+Eight talents unlock **active skills** - Power Strike, Dash and Perfect Guard,
+and the five ultimates - of which you equip two, three from level 15, four
 from level 30 and five from level 50 (one more with Versatility). Each has a
 cooldown, a ring on its button, and a distinct reaction on the court.
 The button's brief cast and Echo-clear rings follow actual match events; ordinary

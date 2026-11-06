@@ -40,7 +40,6 @@ import {
 import { runActionOn } from '../../src/core/run/ops';
 import { atBoundary } from '../../src/core/run/formats';
 import { TALENTS } from '../../src/core/talents/catalog';
-import { NEW_ACTIVES } from '../../src/core/talents/expansion';
 import { createTalentSave, earnedPoints } from '../../src/core/talents/save';
 import { resolveLoadout, withBoons } from '../../src/core/talents/effects';
 import { EMPTY_MATCH_STATS } from '../../src/core/talents/types';
@@ -65,7 +64,7 @@ import { combatant } from '../../src/game/combatant';
 import { forecast } from '../../src/game/trajectory';
 import { createCourse, collideCourse, gateOpening, reflectSegment } from '../../src/game/course';
 import { fireAbility } from '../../src/game/abilities';
-import { playerReturn, resetRuntime, updateRuntime, rallyPressure } from '../../src/game/talents';
+import { rallyPressure } from '../../src/game/talents';
 import { createWorld, placePaddles, createBrain } from '../../src/game/world';
 import { advanceWave, scorePoint, startMatch } from '../../src/game/match';
 import { BANNER_TIME, checkBossPhase } from '../../src/game/arena';
@@ -127,7 +126,7 @@ it('catalogs have stable legacy IDs and the complete expansion quantities', () =
   assert.equal(ARENA_PRESETS.length, 60);
   assert.equal(BOSSES.length, 25);
   assert.equal(CHALLENGES.length, 120);
-  assert.equal(TALENTS.length, 64);
+  assert.equal(TALENTS.length, 40);
   assert.equal(TOURNAMENT_TIERS.length, 10);
   assert.equal(BOONS.length, 72);
   assert.equal(BOONS.filter((b) => b.family === 'duo').length, 24);
@@ -245,42 +244,10 @@ it('act services, banking and sprint continuation use real six-match boundaries'
   assert.equal(p.progress.run, null);
   assert.equal(p.progress.lastRun!.stage, 15);
 });
-it('new skill timers perform contact effects and obey shared recast and cooldown rules', () => {
-  for (const id of NEW_ACTIVES) {
-    const w = world();
-    const save = createTalentSave();
-    save.ranks[id] = 1;
-    save.equipped[0] = id;
-    w.loadout = resolveLoadout(save, 50);
-    resetRuntime(w);
-    assert.equal(fireAbility(w, 0), true);
-    assert.equal(fireAbility(w, 0), false);
-    assert.ok(w.talents.tactics[id]! > 0);
-    if (id === 'redirect') {
-      assert.ok(Math.abs(playerReturn(w, 0).off) >= 0.72);
-      assert.equal(w.talents.tactics.redirect, 0);
-    }
-    if (id === 'reserve') {
-      updateRuntime(w, 3.1);
-      assert.ok(playerReturn(w, 0).growth > w.tuning.speedPerHit);
-      assert.equal(w.talents.tactics.reserve, 0);
-    }
-    if (id === 'rebound') {
-      w.talents.slots[1]!.id = 'dash';
-      w.talents.slots[1]!.cooldown = 5;
-      playerReturn(w, 0);
-      assert.equal(w.talents.slots[1]!.cooldown, 4);
-    }
-    updateRuntime(w, 10);
-    assert.equal(w.talents.tactics[id], 0);
-  }
-});
-it('banks, double structure damage and switch relay recovery come from collision events', () => {
+it('banks, structure damage and switch hits come from collision events', () => {
   const w = world();
-  w.arena.spec = { rails: [{ ax: 0.5, ay: 0.1, bx: 0.5, by: 0.4, hp: 2 }] };
+  w.arena.spec = { rails: [{ ax: 0.5, ay: 0.1, bx: 0.5, by: 0.4, hp: 1 }] };
   w.arena.course = createCourse(w.arena.spec);
-  w.talents.tactics.breach = 5;
-  w.talents.tactics.anchor = 5;
   Object.assign(w.ball, {
     px: 480,
     py: 140,
@@ -295,19 +262,17 @@ it('banks, double structure damage and switch relay recovery come from collision
   assert.equal(w.arena.course.events.you.banks, 1);
   assert.equal(w.arena.course.events.you.breaks, 1);
   assert.equal(w.arena.course.rails[0], 0);
-  assert.equal(w.talents.primed, 1);
   w.arena.spec = {
     gates: [{ x: 0.6, center: 0.5, gap: 0.3, period: 7 }],
     switches: [{ x: 0.4, y: 0.3, r: 20, gate: 0 }]
   };
   w.arena.course = createCourse(w.arena.spec);
-  w.talents.tactics.relay = 6;
   w.talents.slots[0]!.id = 'dash';
   w.talents.slots[0]!.cooldown = 5;
   Object.assign(w.ball, { px: 400, py: 180, x: 400, y: 180, owner: 'you' });
   collideCourse(w);
   assert.equal(w.arena.course.events.you.switches, 1);
-  assert.equal(w.talents.slots[0]!.cooldown, 3);
+  assert.equal(w.talents.slots[0]!.cooldown, 5, 'a switch hit refunds no cooldown');
   assert.ok(w.arena.course.openUntil[0]! > 0);
 });
 it('swept rails catch fast travel and occupied phase openings cannot close onto a ball', () => {
@@ -341,7 +306,6 @@ it('forecast copies destructible courts, switches, skill timers and recovery sta
     speed: Math.hypot(800, 100),
     owner: 'you'
   });
-  w.talents.tactics.relay = 6;
   const before = JSON.stringify([w.ball, w.arena, w.talents, w.botTalents, w.botBrain]);
   assert.ok(Number.isFinite(forecast(w, w.bot.x)));
   assert.equal(JSON.stringify([w.ball, w.arena, w.talents, w.botTalents, w.botBrain]), before);
@@ -1103,34 +1067,6 @@ it('a bumper adds pace up to the cap and never slows a faster ball', () => {
     assert.ok(Math.abs(ball.speed - expected) < 1e-9, `${speed} against a ${cap} cap`);
     assert.ok(Math.abs(Math.hypot(ball.vx, ball.vy) - expected) < 1e-6);
   }
-});
-
-it('Rebound adds its second to a return tempo once, and Relay refunds only the other skills', () => {
-  const w = world();
-  const save = createTalentSave();
-  save.ranks.rebound = 1;
-  save.ranks.relay = 1;
-  save.ranks.dash = 1;
-  save.equipped[0] = 'rebound';
-  save.equipped[1] = 'relay';
-  save.equipped[2] = 'dash';
-  w.loadout = resolveLoadout(save, 50);
-  w.loadout = { ...w.loadout, effects: { ...w.loadout.effects, tempo: 0.5 } };
-  resetRuntime(w);
-  w.talents.tactics.rebound = 3;
-  w.talents.slots[2]!.cooldown = 5;
-  playerReturn(w, 0);
-  assert.equal(w.talents.slots[2]!.cooldown, 3.5, 'tempo 0.5 plus the banked second');
-
-  w.arena.spec = { switches: [{ x: 0.4, y: 0.3, r: 20, gate: 0 }], gates: [] };
-  w.arena.course = createCourse(w.arena.spec);
-  w.talents.tactics.relay = 6;
-  w.talents.slots[1]!.cooldown = 10;
-  w.talents.slots[2]!.cooldown = 5;
-  Object.assign(w.ball, { px: 400, py: 180, x: 400, y: 180, owner: 'you' });
-  collideCourse(w);
-  assert.equal(w.talents.slots[1]!.cooldown, 10, 'Relay does not refund itself');
-  assert.equal(w.talents.slots[2]!.cooldown, 3, 'a switch hit carries no return tempo');
 });
 
 it('the Practice landing estimate measures the whole court and names the edge on screen', () => {
