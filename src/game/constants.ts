@@ -26,6 +26,8 @@ export const PADDLE_H = 108;
 export const MIN_PADDLE_SCALE = 0.42;
 /** ...and nothing, capstone included, may stretch one past this. */
 export const MAX_PADDLE_SCALE = 1.5;
+/** ...except while Slipstream or Zenith runs, so a capstone's length is not clipped away. */
+export const ULTIMATE_PADDLE_SCALE = 1.8;
 /** Paddle centre distance from the field edge. */
 export const PADDLE_INSET = 46;
 

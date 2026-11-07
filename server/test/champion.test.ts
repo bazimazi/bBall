@@ -59,7 +59,9 @@ it('content pace rises with depth, stays plain early and is bounded', () => {
   assert.equal(journeyPace(1), 1);
   assert.equal(journeyPace(5), 1);
   assert.ok(journeyPace(6) > 1 && journeyPace(30) > journeyPace(6));
-  assert.ok(journeyPace(31, 1) >= journeyPace(30));
+  // The Frontier opens beside world 6 at plain pace and climbs from there.
+  assert.ok(journeyPace(31, 1) >= 1);
+  assert.ok(journeyPace(60, 30) > journeyPace(31, 1));
   assert.ok(journeyPace(1_000_000, 999_999) <= BALANCE.pace.max);
   assert.equal(runPace(0, 0), 1);
   assert.ok(runPace(5, 50) > runPace(1, 0));
@@ -92,9 +94,6 @@ it('the Champion is chosen, never imposed by content', () => {
     0,
     'the Mythic Champion brings no build'
   );
-  assert.equal(
-    tournamentRules({ ...createTournament(9, 0, 'classic'), round: 2 }).bot.id,
-    'legend'
-  );
-  assert.ok(campaignRules(stageById('w28-24')!).botPoints! > 0, 'a Legend boss keeps its build');
+  assert.equal(tournamentRules({ ...createTournament(9, 0, 'classic'), round: 2 }).bot.id, 'pro');
+  assert.ok(campaignRules(stageById('w28-24')!).botPoints! > 0, 'a late boss keeps its build');
 });

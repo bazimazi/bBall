@@ -367,7 +367,14 @@ function StageTile({ stage, hue, mask, open, next, selected, onSelect }: StageTi
       <span className={modes.stageNum}>{t(stageCode(stage))}</span>
       <span className={modes.stageName}>{t(stage.name)}</span>
       {stage.boss && <span className={modes.bossBadge}>{t('Boss')}</span>}
-      <StarRow mask={mask} className={modes.stars} on={modes.starOn} />
+      {/* A stage still shut says so, rather than showing three empty stars. */}
+      {open ? (
+        <StarRow mask={mask} className={modes.stars} on={modes.starOn} />
+      ) : (
+        <span className={modes.stageLock} aria-hidden="true">
+          <LockIcon />
+        </span>
+      )}
     </button>
   );
 }

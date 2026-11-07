@@ -40,7 +40,10 @@ export function applyLootReward(
   const mode = result.mode as LootMode,
     state = profile.progress.loot;
   reward.items.shards = 3 + Math.min(6, Math.floor(result.hits / 8)) + (result.won ? 2 : 0);
-  if (mode !== 'quick') reward.items.threads = 1 + (result.won || result.objectiveMet ? 1 : 0);
+  // Quick Match pays a thread for a win, so a player who only plays Quick can
+  // still reach the research that needs threads; other modes pay for taking part.
+  reward.items.threads =
+    mode === 'quick' ? (result.won ? 1 : 0) : 1 + (result.won || result.objectiveMet ? 1 : 0);
   if ((result.won && result.botRank >= 4) || (mode === 'endless' && (result.waves ?? 0) >= 3))
     reward.items.cores++;
   if (!state.seenModes.includes(mode)) {

@@ -535,6 +535,25 @@ export const ACCENTS: readonly AccentCosmetic[] = [
   })
 ];
 
+/**
+ * Level milestones between the last early unlock (30) and the long accent
+ * ladder (every 50): something to earn every five to ten levels until 90, so
+ * the climb to and past the last talent point keeps paying in looks. Each is
+ * a tuned variant of a base style: [level, base index, glow/alpha, ring/width].
+ */
+const LEVEL_BALLS = [
+  [35, 2, 1.2, 0.3],
+  [45, 4, 1.25, 0.42],
+  [60, 6, 1.3, 0.36],
+  [80, 3, 1.35, 0.5]
+] as const;
+const LEVEL_TRAILS = [
+  [40, 1, 1.12, 0.95],
+  [55, 3, 1.15, 1.05],
+  [70, 2, 1.18, 1.15],
+  [90, 4, 1.2, 1.2]
+] as const;
+
 // The fifth branch's id is still 'utility'; players know it as Mastery.
 const BUILD_NAMES = ['Power', 'Control', 'Defense', 'Momentum', 'Mastery'] as const;
 const BUILD_IDS = ['power', 'control', 'defense', 'momentum', 'utility'] as const;
@@ -548,6 +567,14 @@ export const BALLS: readonly BallCosmetic[] = [
     glow: 1.15 + i * 0.05,
     ring: 0.2 + i * 0.08,
     unlock: { type: 'achievement', id: `track-build-${BUILD_IDS[i]}` }
+  })),
+  ...LEVEL_BALLS.map(([level, base, glow, ring]): BallCosmetic => ({
+    ...BASE_BALLS[base]!,
+    id: `ball-level-${level}`,
+    name: `Mastery ${level}`,
+    glow,
+    ring,
+    unlock: { type: 'level', level }
   }))
 ];
 export const PADDLES: readonly PaddleCosmetic[] = [
@@ -579,6 +606,14 @@ export const TRAILS: readonly TrailCosmetic[] = [
     alpha: 1.1 + i * 0.03,
     width: 0.8 + i * 0.1,
     unlock: { type: 'achievement', id: `track-school-${id}` }
+  })),
+  ...LEVEL_TRAILS.map(([level, base, alpha, width]): TrailCosmetic => ({
+    ...BASE_TRAILS[base]!,
+    id: `trail-level-${level}`,
+    name: `Mastery ${level}`,
+    alpha,
+    width,
+    unlock: { type: 'level', level }
   }))
 ];
 const COURT_IDS = [

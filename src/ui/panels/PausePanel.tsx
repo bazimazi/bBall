@@ -210,7 +210,7 @@ export function PausePanel({
     );
 
   return (
-    <div ref={root} className={styles.panel}>
+    <div ref={root} className={`${styles.panel} ${styles.pausePanel}`}>
       <h2 className={styles.heading}>{t('Paused')}</h2>
       <p className={styles.tagline}>{t(label)}</p>
       {resized && (

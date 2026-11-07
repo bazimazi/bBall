@@ -88,7 +88,7 @@ export function passiveViews(world: World): PassiveView[] {
   if (effects.secondChances > 0) {
     const { match } = world;
     const left = runtime.secondChances;
-    const losing = match.maxLives > 0 ? match.lives <= 1 : match.score.bot >= match.score.you;
+    const losing = match.maxLives > 0 ? match.lives <= 1 : match.score.bot > match.score.you;
     views.push(
       chip(
         world,

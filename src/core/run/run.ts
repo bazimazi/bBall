@@ -188,7 +188,7 @@ export function encounterFor(save: RunSave, stage = save.stage): Encounter {
     const band = Math.min(
       4,
       Math.floor(save.pressure / 10) +
-        Math.min(2, act) +
+        (save.pressure === 0 ? Math.max(0, Math.min(2, act) - 1) : Math.min(2, act)) +
         Math.floor(Math.max(0, act - 2) / 3) +
         (save.route === 'risk' ? 1 : 0)
     );

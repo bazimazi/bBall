@@ -142,7 +142,10 @@ function applyRanks(effects: TalentEffects, save: TalentSave): void {
   if (r('power-strike') > 0) {
     const overdrive = r('overdrive');
     effects.powerStrikeSpeed += overdrive * E.overdrive.speed;
-    effects.powerStrikeCooldown += overdrive * E.overdrive.cooldown;
+    // Rank two's reward is the second charged return; it does not also take
+    // the cooldown down again. Both together measured as a cliff - rank two
+    // worth about four times rank one per point.
+    effects.powerStrikeCooldown += Math.min(1, overdrive) * E.overdrive.cooldown;
     effects.powerStrikeWindow += overdrive * E.rankRewards.strikeWindow;
     if (overdrive >= 2) effects.powerStrikeHits = 2;
   }

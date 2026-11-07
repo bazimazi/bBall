@@ -422,11 +422,12 @@ it('cloud merges use maximum Frontier sectors, not bitwise OR, and retain Master
   assert.equal(merged.progress.contracts, 8);
   assert.equal(merged.progress.dailyMaster.clears, 3);
 });
-it('mastery variants never downgrade Legend and keep boss difficulty modifiers', () => {
-  const base = STAGES.find((s) => s.bot === 'legend' && s.boss)!;
+it('mastery variants raise the opponent and keep boss difficulty modifiers', () => {
+  // The Story road stays with Pro and its build; Veteran and Ascendant bring the higher tiers.
+  const base = STAGES.find((s) => s.boss && s.world > 5)!;
   const veteran = stageById(`veteran-${base.id}`)!,
     ascendant = stageById(`ascendant-${base.id}`)!;
-  assert.equal(veteran.bot, 'legend');
+  assert.equal(veteran.bot, base.bot === 'legend' ? 'legend' : 'elite');
   assert.equal(ascendant.bot, 'legend');
   // Later worlds add content pace on top of the stage's own modifiers.
   const pace = journeyPace(ascendant.world);
@@ -1034,9 +1035,11 @@ it('a new serve clears the last rally, its pressure and its heft once the best i
 it('a refunded point lights the player line the ball actually crossed', () => {
   const w = world();
   w.talents.secondChances = 1;
+  // Second Chance refunds only from behind.
+  w.match.score.bot = 1;
   w.ball.y = 200;
   scorePoint(w, 'bot');
-  assert.deepEqual(w.match.score, { you: 0, bot: 0 });
+  assert.deepEqual(w.match.score, { you: 0, bot: 1 });
   assert.equal(w.talents.secondChances, 0);
   assert.equal(w.fx.goalSide, 'you');
   scorePoint(w, 'you');

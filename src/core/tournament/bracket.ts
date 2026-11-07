@@ -34,21 +34,21 @@ export const LEGACY_TIERS: readonly TournamentTier[] = [
     id: 0,
     name: 'Bronze Cup',
     minLevel: 1,
-    opponents: ['rookie', 'amateur', 'pro'],
+    opponents: ['rookie', 'amateur', 'amateur'],
     trophyXp: 260
   },
   {
     id: 1,
     name: 'Silver Cup',
-    minLevel: 5,
-    opponents: ['amateur', 'pro', 'elite'],
+    minLevel: 8,
+    opponents: ['amateur', 'amateur', 'pro'],
     trophyXp: 380
   },
   {
     id: 2,
     name: 'Gold Cup',
     minLevel: 12,
-    opponents: ['pro', 'elite', 'legend'],
+    opponents: ['amateur', 'pro', 'pro'],
     trophyXp: 520
   }
 ];
@@ -60,7 +60,7 @@ export const TOURNAMENT_TIERS: readonly TournamentTier[] = [
       id: i + 3,
       name: `${name} Cup`,
       minLevel: 18 + i * 5,
-      opponents: i < 2 ? ['elite', 'elite', 'legend'] : ['legend', 'legend', 'legend'],
+      opponents: i < 2 ? ['amateur', 'pro', 'pro'] : ['pro', 'pro', 'pro'],
       trophyXp: 600 + i * 60
     })
   )

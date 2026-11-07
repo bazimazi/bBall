@@ -50,11 +50,12 @@ function liveParts(snapshot: GameSnapshot): ReactNode[] {
   for (const goal of snapshot.goals) {
     // Winning is the score itself, already on the line above.
     if (goal.id === 'win') continue;
-    // A settled goal is its star; only the ones still in play need counting.
+    // An earned or reached goal is its star; live and missed ones keep their words.
     parts.push(
       <span key={goal.id} data-state={goal.state} title={goalText(goal)}>
         <i aria-hidden="true">{t(goalGlyph(goal))}</i>
-        {goal.state === 'active' && <> {t(goal.progress)}</>}
+        {/* A missed goal keeps its words, so the cross says which one. */}
+        {(goal.state === 'active' || goal.state === 'missed') && <> {t(goal.progress)}</>}
       </span>
     );
   }

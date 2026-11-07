@@ -52,7 +52,8 @@ export function goalViews(world: World): readonly GoalView[] {
           reached = evidence.hits >= goal.value;
           break;
         case 'margin':
-          progress = `Lead ${evidence.scoreYou - evidence.scoreBot}/${goal.value}`;
+          // The same words as the goal's own label, with the lead it has now.
+          progress = `Win by ${goal.value}: ${signed(evidence.scoreYou - evidence.scoreBot)}`;
           // A lead can be lost, so it is never a secured target during play.
           missed = match.winScore - evidence.scoreBot < goal.value;
           break;
@@ -81,4 +82,8 @@ export function goalViews(world: World): readonly GoalView[] {
       };
     })
   ];
+}
+
+function signed(value: number): string {
+  return value > 0 ? `+${value}` : `${value}`;
 }

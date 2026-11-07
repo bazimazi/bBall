@@ -546,3 +546,35 @@
   line-height: 13px;
   pointer-events: none;
 }
+
+/*
+ * Upright, a column of four or five full-size buttons covers a fifth of the
+ * player's own half, where returns are read. A large loadout steps down a
+ * size there - still comfortably thumb-sized - so the column gives the
+ * court back about a fifth of its height.
+ */
+@media (orientation: portrait) {
+  .bar[data-dense='true'] {
+    gap: 8px;
+  }
+
+  .bar[data-dense='true'] .button {
+    width: 52px;
+    height: 52px;
+  }
+
+  .bar[data-dense='true'] .ultimate {
+    width: 58px;
+    height: 58px;
+  }
+
+  .bar[data-dense='true'] .glyph {
+    --glyph: 22px;
+    font-size: 20px;
+  }
+
+  .bar[data-dense='true'] .ultimate .glyph {
+    --glyph: 25px;
+    font-size: 23px;
+  }
+}

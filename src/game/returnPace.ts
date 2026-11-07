@@ -1,5 +1,6 @@
 import { BALANCE } from '../core/balance/config';
 import { combatant } from './combatant';
+import { rallyCeiling } from './talents';
 import type { ReturnMods } from './talents';
 import type { Paddle } from './types';
 import type { World } from './world';
@@ -18,7 +19,7 @@ export function returnPace(world: World, paddle: Paddle, mods: ReturnMods, raw: 
     Math.max(BALANCE.ball.hardMin, world.ball.speed - actor.talents.surge - foe.talents.surge) *
       world.tuning.speedPerHit,
     BALANCE.ball.hardMin,
-    Math.min(BALANCE.ball.hardMax, world.tuning.maxSpeed)
+    rallyCeiling(world)
   );
   const ceiling = Math.min(BALANCE.ball.hardMax, mods.ceiling);
   let speed = clamp(world.ball.speed * mods.growth, BALANCE.ball.hardMin, ceiling);

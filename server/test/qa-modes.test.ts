@@ -373,7 +373,49 @@ describe('idle matches', () => {
       botId: 'legend',
       botRank: 5
     });
-    assert.ok(computeMatchXp(fought, ctx).total > 100, 'a contested loss still pays');
+    assert.ok(
+      computeMatchXp(fought, ctx).total > PARTICIPATION_XP * 4,
+      'a contested loss still pays'
+    );
+    // A loss earns the share of the opponent's factor its score earned: a close
+    // loss to Legend pays far more than a whitewash, and a whitewash no more
+    // than an easy win - throwing matches is never the best farm.
+    const close = result({ ...fought, scoreYou: 4, hits: 20 });
+    assert.ok(computeMatchXp(close, ctx).total > computeMatchXp(fought, ctx).total * 2);
+    const thrown = result({ ...fought, scoreYou: 0, hits: 6 });
+    assert.ok(computeMatchXp(thrown, ctx).total < computeMatchXp(rookieWin, ctx).total);
+    const legendWin = result({ botId: 'legend', botRank: 5, scoreYou: 5, scoreBot: 4 });
+    assert.equal(computeMatchXp(legendWin, ctx).multiplier, 5);
+  });
+
+  it('victory follows the winning score, and repeats and openers pay as matches', () => {
+    const short = result({ scoreYou: 3, scoreBot: 0, botId: 'pro', botRank: 3 });
+    const long = result({ scoreYou: 5, scoreBot: 0, botId: 'pro', botRank: 3 });
+    const victory = (r: MatchResult) =>
+      computeMatchXp(r, ctx).lines.find((line) => line.label === 'Victory')?.xp;
+    assert.equal(victory(short), 33);
+    assert.equal(victory(long), 55);
+    const trial = CHALLENGES[0]!;
+    const clear = result({
+      mode: 'challenge',
+      challengeId: trial.id,
+      objectiveMet: true,
+      botId: 'pro',
+      botRank: 3
+    });
+    const bonus = (first: boolean) =>
+      computeMatchXp(clear, { ...ctx, firstChallengeClear: first }).lines.find(
+        (line) => line.label === 'Challenge complete'
+      )?.xp;
+    assert.equal(bonus(true), trial.xp);
+    assert.equal(bonus(false), Math.round(trial.xp / 4));
+    const round = (index: number) =>
+      computeMatchXp(
+        result({ mode: 'tournament', tournamentRound: index, tournamentTier: 0 }),
+        ctx
+      ).lines.find((line) => line.label === 'Round won')?.xp;
+    assert.equal(round(0), undefined, 'an opening round pays as a match');
+    assert.ok((round(2) ?? 0) > (round(1) ?? 0));
   });
 });
 
@@ -383,7 +425,7 @@ describe('challenge goals', () => {
   it('rally challenges say they need a win', () => {
     for (const id of ['jetstream', 'long-rally']) {
       const challenge = challengeById(id)!;
-      assert.match(challenge.objective.label, /^Win with a \d+-hit rally$/);
+      assert.match(challenge.objective.label, /^Win with an? \d+-hit rally$/);
     }
   });
 
@@ -465,7 +507,8 @@ describe('Journey expansion bosses and cups', () => {
         const champion = award.lines.find((line) => line.label === 'Champion')!;
         assert.equal(trophyAward(tier.id, format), Math.round(champion.xp * award.multiplier));
       }
-    assert.equal(trophyAward(3), tierById(3).trophyXp * 5, 'a Legend final multiplies by five');
+    // Every cup now ends against a Pro at most: the build and the pace grow, not the tier.
+    assert.equal(trophyAward(3), tierById(3).trophyXp * 2.5, 'a Pro final multiplies by 2.5');
   });
 });
 

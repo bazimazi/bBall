@@ -10,6 +10,8 @@ interface TutorialCoachProps {
   onSend: () => void;
   onNext: () => void;
   onPractice: () => void;
+  /** The first Journey stage, when it is still to be cleared: the lesson leads into it. */
+  onFirstStage?: (() => void) | undefined;
   onRestart: () => void;
   onExit: () => void;
 }
@@ -19,6 +21,7 @@ export function TutorialCoach({
   onSend,
   onNext,
   onPractice,
+  onFirstStage,
   onRestart,
   onExit
 }: TutorialCoachProps) {
@@ -46,7 +49,9 @@ export function TutorialCoach({
           ? '2 / 3 · Meet the ball'
           : '3 / 3 · Place an angled return';
   const hint = complete
-    ? 'You can move, return and choose an angle. Try a friendly Practice match next.'
+    ? onFirstStage
+      ? 'You can move, return and choose an angle. Your first Journey match is next.'
+      : 'You can move, return and choose an angle. Try a friendly Practice match next.'
     : cleared
       ? step === 'angle'
         ? 'The outer part sent it at an angle. You choose where the return goes.'
@@ -72,8 +77,8 @@ export function TutorialCoach({
       <div className={styles.actions}>
         {complete ? (
           <>
-            <button type="button" onClick={onPractice}>
-              {t('Play with Rookie')}
+            <button type="button" onClick={onFirstStage ?? onPractice}>
+              {t(onFirstStage ? 'Play stage 1-1' : 'Play with Rookie')}
             </button>
             <button type="button" onClick={onRestart}>
               {t('Repeat lesson')}

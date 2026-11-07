@@ -1345,7 +1345,8 @@ it('replaying a boss or wave match starts from its opening rules, not its last p
       world.match.hits = 12;
       assert.equal(advanceWave(world), true);
     }
-    assert.notEqual(world.rules, rules);
+    // A wave swaps the rules; a boss phase may only move the arena on.
+    if (!rules.boss) assert.notEqual(world.rules, rules);
     engine.replay();
     assert.equal(world.rules, rules);
     assert.equal(world.arena.phase, 0);

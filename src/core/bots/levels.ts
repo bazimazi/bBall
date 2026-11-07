@@ -48,14 +48,15 @@ export const BOT_LEVELS: Readonly<Record<BotLevelId, BotProfile>> = {
     xpFactor: 2.5,
     reaction: 0.17,
     prediction: 0.86,
-    aimError: 45,
+    aimError: 40,
     speed: 1080,
     deadzone: 12,
     consistency: 0.9,
     recovery: 0.85,
     placement: 0.75,
     pressure: 0.82,
-    assist: 0
+    assist: 0,
+    caution: 0.3
   },
   elite: {
     id: 'elite',
@@ -72,7 +73,9 @@ export const BOT_LEVELS: Readonly<Record<BotLevelId, BotProfile>> = {
     recovery: 0.94,
     placement: 0.9,
     pressure: 0.93,
-    assist: 0
+    assist: 0,
+    caution: 0.35,
+    contactRead: 0.4
   },
   legend: {
     id: 'legend',
@@ -89,7 +92,9 @@ export const BOT_LEVELS: Readonly<Record<BotLevelId, BotProfile>> = {
     recovery: 0.98,
     placement: 0.97,
     pressure: 0.98,
-    assist: 0
+    assist: 0,
+    caution: 0.25,
+    contactRead: 0.5
   },
   /**
    * Above the ladder Legend used to top. A developed build outclassed Legend
@@ -107,7 +112,7 @@ export const BOT_LEVELS: Readonly<Record<BotLevelId, BotProfile>> = {
     xpFactor: 6.5,
     reaction: 0.08,
     prediction: 0.995,
-    aimError: 16,
+    aimError: 12,
     speed: 1800,
     deadzone: 4,
     consistency: 0.99,
@@ -115,8 +120,8 @@ export const BOT_LEVELS: Readonly<Record<BotLevelId, BotProfile>> = {
     placement: 1,
     pressure: 0.99,
     assist: 0,
-    caution: 0.7,
-    contactRead: 0.8
+    caution: 0.55,
+    contactRead: 0.65
   },
   wall: {
     id: 'wall',

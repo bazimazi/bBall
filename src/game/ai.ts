@@ -149,20 +149,72 @@ function approach(world: World, paddle: Paddle): number {
  * It widens with ball speed, and a bot with low `pressure` suffers far more
  * from that than a composed one.
  */
-function aimError(world: World, brain: BotBrain, fast: number, correcting: boolean): number {
+function aimError(
+  world: World,
+  brain: BotBrain,
+  fast: number,
+  correcting: boolean,
+  strain: number
+): number {
   const p = brain.profile;
   const tired = stress(world, p);
   const spread =
-    p.aimError *
-    (1 + (1 - p.pressure) * fast * 1.3) *
+    readSpread(world, p, fast, strain) *
     (1 + tired) *
     (brain.misread ? 1.7 : 1) *
-    // A heavy return is harder to read than its speed alone would make it.
-    (1 + Math.min(0.8, world.ball.heft)) *
     // A second look tidies the read up, but a tired bot tidies it up less.
     (correcting ? Math.min(1, 0.65 + tired * 0.18) : 1);
   return (world.random() + world.random() - 1) * spread;
 }
+
+/**
+ * How much a bot's read of this ball is likely to be out, before fatigue or a
+ * misjudged bounce: its own aim, loosened by pace it cannot absorb, by a heavy
+ * return, by a move that makes it run, and by a steep arrival - a timing slip
+ * along a steep path is a slip along the paddle.
+ *
+ * An easy ball is read better than the bot's plain aim and a stretching one far
+ * worse, so its errors gather on the returns that earned them.
+ */
+export function readSpread(world: World, p: BotProfile, fast: number, strain: number): number {
+  return (
+    p.aimError *
+      (1 + (1 - p.pressure) * fast * 1.3) *
+      // A heavy return is harder to read than its speed alone would make it.
+      (1 + Math.min(0.8, world.ball.heft)) *
+      (EASY_READ + STRAIN_ERROR * strain * strain) +
+    Math.abs(world.ball.vy) * STEEP_TIMING * (1 - p.pressure * 0.8)
+  );
+}
+
+/**
+ * How hard this ball makes the bot run: the paddle speed meeting it at
+ * `cross` needs, against a fixed reference speed. 0 is a ball straight at it;
+ * 1 is a crossing that needs `STRAIN_SPEED` the whole way.
+ *
+ * Measured against one reference rather than the bot's own top speed, so the
+ * same demanding return unsettles every tier's aim alike - quick legs get a bot
+ * there, they do not steady its hands. Better bots still err less, through
+ * their smaller aim.
+ *
+ * Without this, a bot's misses were its own: nearly every top-tier miss was an
+ * off-centre contact it chose and then mis-hit, never a ball the player had
+ * made hard to reach, and placing a return earned a person nothing.
+ */
+export function strainOf(world: World, paddle: Paddle, cross: number): number {
+  const time = Math.abs(paddle.x - world.ball.x) / Math.max(1, Math.abs(world.ball.vx));
+  return clamp(Math.abs(cross - paddle.y) / Math.max(1, STRAIN_SPEED * time), 0, STRAIN_CAP);
+}
+
+/** Read spread on a ball that asks nothing of the bot, against its plain aim. */
+const EASY_READ = 0.6;
+/** Spread added per unit of strain, squared: easy balls barely, sprints sharply. */
+const STRAIN_ERROR = 8;
+/** Field units per second of paddle travel that count as a full stretch. */
+const STRAIN_SPEED = 1000;
+const STRAIN_CAP = 1.2;
+/** Seconds of contact-timing slip, before composure, along a ball's lateral travel. */
+const STEEP_TIMING = 0.08;
 
 /** Start the clock on a fresh approach. Fast balls are noticed later. */
 function armReaction(world: World, brain: BotBrain, fast: number): void {
@@ -175,6 +227,7 @@ function armReaction(world: World, brain: BotBrain, fast: number): void {
   brain.aimed = false;
   brain.reads = 0;
   brain.misread = false;
+  brain.strain = 0;
 }
 
 /**
@@ -213,10 +266,13 @@ function decide(
     p.rank >= 3 && p.assist === 0
       ? chooseShot(world, paddle, brain, cross)
       : away * (0.25 + p.placement * 0.6);
-  const place = cautious(world, paddle, p, wanted, fast);
+  // How hard this ball made it run is judged once, at the first read.
+  if (!correcting) brain.strain = strainOf(world, paddle, cross);
+  const strain = brain.strain ?? 0;
+  const place = cautious(world, paddle, p, wanted, fast, strain);
 
   paddle.target = clamp(
-    cross - place * paddle.half + aimError(world, brain, fast, correcting),
+    cross - place * paddle.half + aimError(world, brain, fast, correcting, strain),
     paddle.half,
     FIELD_H - paddle.half
   );
@@ -242,14 +298,13 @@ function cautious(
   paddle: Paddle,
   p: BotProfile,
   place: number,
-  fast: number
+  fast: number,
+  strain: number
 ): number {
   const caution = p.caution ?? 0;
   if (caution <= 0) return place;
   const foe = combatant(world, paddle.side === 'bot' ? 'you' : 'bot');
-  const spread =
-    p.aimError * (1 + (1 - p.pressure) * fast * 1.3) * (1 + Math.min(0.8, world.ball.heft));
-  const margin = caution * (spread + foe.loadout.effects.swerve);
+  const margin = caution * (readSpread(world, p, fast, strain) + foe.loadout.effects.swerve);
   const reach = paddle.half + BALL_R * 0.55;
   const limit = clamp((reach - margin) / paddle.half, 0, 1);
   return clamp(place, -limit, limit);

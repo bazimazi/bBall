@@ -172,7 +172,7 @@ export const TALENTS: readonly TalentDef[] = [
     column: 1,
     requires: [{ talent: 'power-strike', rank: 1 }],
     rankText: (rank) =>
-      `Power Strike gains +${pct(rank * E.overdrive.speed)} speed, comes back ${sec(rank * Math.abs(E.overdrive.cooldown))} sooner and holds its charge for ${sec(E.powerStrike.window + rank * E.rankRewards.strikeWindow)}${rank >= 2 ? ', with two charged returns per cast' : ''}.`
+      `Power Strike gains +${pct(rank * E.overdrive.speed)} speed, comes back ${sec(Math.abs(E.overdrive.cooldown))} sooner and holds its charge for ${sec(E.powerStrike.window + rank * E.rankRewards.strikeWindow)}${rank >= 2 ? ', with two charged returns per cast' : ''}.`
   },
   {
     id: 'momentum',
@@ -425,14 +425,14 @@ export const TALENTS: readonly TalentDef[] = [
     id: 'second-chance',
     branch: 'defense',
     name: 'Second Chance',
-    blurb: 'Take a conceded point back while you are not ahead',
+    blurb: 'Take a conceded point back while you are behind',
     maxRank: 1,
     costs: [2],
     tier: 2,
     column: 2,
     requires: [{ talent: 'clutch', rank: 1 }],
     rankText: () =>
-      `${E.secondChance.uses} times a match, refunds a conceded point - or your last life - while you are not ahead.`
+      `${E.secondChance.uses} times a match, refunds a conceded point - or your last life - while you are behind.`
   },
   {
     id: 'rally-armor',

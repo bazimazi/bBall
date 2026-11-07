@@ -334,10 +334,10 @@ export const BALANCE = {
        * Placement, not pace. A wider deliberate angle is what still wins
        * points once a rally is long, so that is what flow builds.
        */
-      angle: 0.015,
+      angle: 0.01,
       recharge: 0.1,
       /** Heft per stack: a long rally wears the opponent's read down. */
-      heft: 0.02
+      heft: 0.012
     },
     unbroken: { keep: 0.5 },
 
@@ -393,7 +393,7 @@ export const BALANCE = {
      * everything measured at nearly twenty points of win rate over an
      * already-strong defensive build - far past what a capstone should buy.
      */
-    aegis: { saves: 2, seconds: 6, cooldown: 50 },
+    aegis: { saves: 2, seconds: 6, cooldown: 38 },
     /**
      * `refunds` is per *match*, not per casting. Re-castable insurance every
      * thirty-five seconds measured at more than twice the baseline win rate -
@@ -401,7 +401,7 @@ export const BALANCE = {
      * is not.
      */
     zenith: { seconds: 8, grow: 0.3, recharge: 2, refunds: 1, cooldown: 35 },
-    echo: { seconds: 6, recharge: 4, cooldown: 45 }
+    echo: { seconds: 6, recharge: 4, cooldown: 35 }
   },
 
   /**
@@ -420,26 +420,26 @@ export const BALANCE = {
     championShare: 0,
     /** Expansion world 6, plus this much per world after it. */
     journey: 8,
-    journeyStep: 1.5,
+    journeyStep: 1,
     /** Added for a world's trials and boss; taken off its three teaching stages. */
     trial: 4,
-    boss: 6,
+    boss: 4,
     teaching: 4,
     /** Frontier sector 1, plus this much per sector. */
-    frontier: 44,
-    frontierStep: 0.5,
+    frontier: 8,
+    frontierStep: 0.8,
     /** Gauntlet: per act, and per level of Pressure. */
-    runAct: 6,
+    runAct: 1,
     runPressure: 0.5,
     /** Cups: per level a tier unlocks above `cupFrom`. Bronze to Gold stay plain. */
     cupFrom: 15,
-    cupLevel: 0.8,
+    cupLevel: 0.3,
     /**
      * Contracts. Mythic already plays the Champion on its own reduced reach,
      * larger opponent and longer game; any build on top measured as
      * unwinnable even for an expert player.
      */
-    master: 45,
+    master: 0,
     mythic: 0
   },
 
@@ -453,7 +453,7 @@ export const BALANCE = {
     /** Per Journey world after the fifth. */
     journeyStep: 0.012,
     /** Frontier sector 1, plus this much per sector. */
-    frontier: 1.3,
+    frontier: 1,
     frontierStep: 0.01,
     /** Gauntlet: per act, and per level of Pressure. */
     runAct: 0.03,
@@ -461,7 +461,7 @@ export const BALANCE = {
     /** Cups: per level a tier opens above `cupFrom`. */
     cupFrom: 15,
     cupLevel: 0.006,
-    master: 1.2,
+    master: 1.05,
     mythic: 1
   },
 

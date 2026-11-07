@@ -135,11 +135,14 @@ middle of the court is the current rally, and a long enough rally lights up a
 streak banner. The ball speeds up with every hit and runs hotter the longer a
 rally lasts, so rallies tend to end themselves.
 
-**Learning and pacing.** Open **How to play** from Home for an optional
-three-step lesson: move, return, then place an angled return. It uses the real
-physics with a slower shot, a paddle-position outline and safe retries. Repeat
-or skip it any time, or continue into a Rookie warm-up in Practice. The lesson
-awards no XP and records no result. The pause menu also has a controls reference.
+**Learning and pacing.** **Start playing** in first-time setup goes straight
+into a three-step lesson: move, return, then place an angled return. It uses the
+real physics with a slower shot, a paddle-position outline and safe retries, and
+ends by offering Journey stage 1-1, so a new player's first real match counts.
+**Skip** in setup, or **Skip lesson**, goes Home instead. **How to play** on Home
+repeats the lesson any time; once 1-1 is cleared it offers a Rookie warm-up in
+Practice instead. The lesson awards no XP and records no result. Home's main
+button plays the next Journey stage directly; the Journey card opens the map. The pause menu also has a controls reference.
 Dragging to position the paddle does not skip the serve delay; a short tap,
 Space, Enter or the **Serve now** button launches it. In Settings, choose
 **Serve pacing → When ready** to wait at each point. Waiting beyond the normal
@@ -227,12 +230,16 @@ definitions, rather than 600 individually scripted puzzles.
 
 From world 6 the opponents bring talent builds of their own, which grow world by
 world and step up for trials and bosses; the stage card shows the size of the
-build. Only talents that work from the far side of the court are used - reach,
+build. The Story road keeps a Pro opponent and lets that build and the content
+pace carry the climb - stacking a tier step on top made worlds 16 to 30 a wall.
+Journey bosses change courts, reach, intensity and bend between points, but their
+brain never passes Pro; Veteran and Ascendant variants bring Elite and Legend. Only talents that work from the far side of the court are used - reach,
 placement and pace - never saves.
 
 After the original fifth-world boss, **Journey Beyond** opens 20-node Frontier
-sectors with a boss every fifth encounter. Later sectors introduce Legend
-opponents and rotating, bounded constraints. Completed sectors compact into a
+sectors with a boss every fifth encounter. Sector 1 starts at plain pace with a
+small opponent build, beside world 6; builds and pace climb sector by sector, and
+Elite opponents arrive from sector 31, with rotating, bounded constraints. Completed sectors compact into a
 cursor; detailed records stay bounded and replaying compacted clears cannot
 award their first-clear stars again. New generated-star rewards are bounded and
 do not multiply by sector number.
@@ -320,9 +327,19 @@ observed paddle movement and alternate shot directions. They never read the
 player's hidden movement target. Higher tiers can move faster than an undeveloped
 player paddle; their movement remains physical and bounded.
 
+**Bots miss the shots you make hard.** A bot reads an easy ball - one straight at
+it - better than its plain aim, and a ball that makes it run, or arrives steeply,
+far worse; how hard it had to run is judged at its first look and stays with it.
+Its misses therefore gather on wide, fast, well-placed returns. Before, nearly
+every top-tier miss was an off-centre contact the bot chose and then mis-hit:
+placing a return earned a person nothing, and an easy ball was as likely to be
+whiffed as a hard one. Pro and up also keep a little of their likely error between
+the ball and the paddle's end, and Elite and up partly judge where the ball meets
+the paddle's face rather than its centre line.
+
 **Champion** is the tier above Legend, for a developed build. It reads almost
-every ball right and plays a faster ball of its own. Unlike every tier below it,
-it judges where the ball meets its paddle's face rather than its centre line,
+every ball right and plays a faster ball of its own. More than any tier below
+it, it judges where the ball meets its paddle's face rather than its centre line,
 and keeps an off-centre contact inside its own margin for error when your return
 is heavy or breaks late - the two habits a steep, heavy return exploits. It is
 chosen, never imposed: a Quick Match tier and the Mythic contract's opponent.
@@ -332,13 +349,15 @@ and Opportunist. Amateur carries a basic strike, Pro adds a dash, Elite a guard,
 and Legend and Champion an ultimate. Their skills use shared
 activation, cooldown, recast and return rules; the HUD shows readiness and
 recovery. Ranked scored matches also narrow both paddles during exceptionally
-long rallies, starting after 24 returns and capped at 40%.
+long rallies, starting after 24 returns and capped at 40%, and lift the ball's
+top speed by the same share - the steadiest pairings used to trade returns for
+minutes on end.
 
 Master and Mythic Quick contracts declare longer games and reduced player reach
-before launch. Master plays a Legend with a 45-point talent build and a quicker
-ball; Mythic plays the Champion on a smaller paddle against a larger one. Cups
-from Platinum up bring opponent builds that grow with the level each cup opens
-at. Practice, Versus and survival Endless do
+before launch. Master plays a Legend on a slightly quicker ball; Mythic plays
+the Champion on a smaller paddle against a larger one. Cups end against a Pro at
+most; from Platinum up their opponents bring builds that grow with the level each
+cup opens at. Practice, Versus and survival Endless do
 not apply ranked rally pressure.
 
 ### Progression
@@ -348,9 +367,17 @@ Levels and achievements unlock cosmetics - colours, ball and paddle styles,
 trails and arenas - which change nothing about how the game plays (see
 [Look and sound](#look-and-sound)). Levels also
 pay **one talent point each** up to level 50, which very much do. Practice pays
-nothing, and repeatable match XP is halved after 25 ranked matches in a day. A
-lost match in which you barely returned the ball pays a flat 10 XP, whatever the
-opponent. First-time stars, daily clears and quest extras retain their separate
+nothing, and repeatable match XP is halved after 25 ranked matches in a day,
+counted on your own calendar day. A lost match in which you barely returned the
+ball pays a flat 10 XP, whatever the opponent. A win pays the opponent's full
+difficulty factor; a loss pays the share of it the score earned, so a close loss
+to Legend pays well and a whitewash does not - throwing matches against the top
+tier used to out-earn honest play. Victory XP follows the winning score, so a
+first-to-three never pays a first-to-five's win in half the time. A repeat
+challenge clear keeps a quarter of its bonus; a cup's opening round and a
+Gauntlet run's opening encounter pay as ordinary matches, so starting one and
+leaving after an easy win is never the best farm. Endless pays for waves cleared.
+Frontier stars start at the world-16 rate and climb a world per sector. First-time stars, daily clears and quest extras retain their separate
 award rules; generated rewards remain bounded.
 
 Leaving or restarting a ranked match is free until a point has been played.
@@ -360,7 +387,9 @@ its cost and asks first. Practice, Versus, drills and Endless stay free.
 
 Levelling itself has no cap - the curve just keeps going - but what a level
 buys does: talent points stop at level 50 and paddle speed reaches its ceiling
-at level 53. Beyond level 10,000, a constant-cost XP tail continues levels
+at level 53. Cosmetic level rewards keep arriving every five to ten levels up
+to 90 - "Mastery" balls and trails at 35, 40, 45, 55, 60, 70, 80 and 90 - and
+then an accent every 50. Beyond level 10,000, a constant-cost XP tail continues levels
 without an expanding threshold table. Twenty-seven technique, school, court and
 build mastery tracks repeat in 250-mark cycles. Their achievements and cosmetic
 rewards add goals without granting more permanent combat points.
@@ -426,7 +455,8 @@ See the [implementation and validation report](docs/validation/paddle-workshop-r
 
 Open **Resonance Lab** from Home, Talents or a ranked result. Ranked Quick,
 Journey, Challenge, Daily, Gauntlet, Endless and Tournament attempts bank Rally
-Shards, Tactic Threads and Resonance Cores, including defeats, after at least
+Shards, Tactic Threads (Quick Match pays one per win) and Resonance Cores,
+including defeats, after at least
 15 seconds and two player returns. Completing three different modes fills a
 **Resonance Circuit** for one core and two threads; it repeats without a daily
 limit. Elite/Legend wins, Endless waves and first clears provide other bonuses.

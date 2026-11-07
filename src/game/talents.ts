@@ -14,7 +14,14 @@ import {
   swerveFx,
   unbrokenFx
 } from './passiveFx';
-import { BALL_R, FIELD_H, MAX_BOUNCE_ANGLE, PADDLE_W } from './constants';
+import {
+  BALL_R,
+  FIELD_H,
+  MAX_BOUNCE_ANGLE,
+  MAX_PADDLE_SCALE,
+  PADDLE_W,
+  ULTIMATE_PADDLE_SCALE
+} from './constants';
 import { growPaddle } from './paddle';
 import { equipmentReach, reboundBonus, surfaceResponse } from '../core/equipment/catalog';
 import { hsla, sideHue } from './palette';
@@ -297,10 +304,27 @@ export function playerLength(world: World): number {
   return (1 + length) * (1 - rallyPressure(world)) - 1;
 }
 
+/** The paddle's size limit right now: higher only while a lengthening ultimate runs. */
+function lengthLimit(world: World): number {
+  return world.talents.slipstream > 0 || world.talents.zenith > 0
+    ? ULTIMATE_PADDLE_SCALE
+    : MAX_PADDLE_SCALE;
+}
+
 /** A declared long-rally rule, symmetric and reset on every serve. */
 export function rallyPressure(world: World): number {
   if (!world.rules.ranked || world.rules.winScore <= 0 || world.match.status === 'menu') return 0;
   return Math.min(0.4, Math.max(0, world.match.rally - 24) * 0.02);
+}
+
+/**
+ * The match's top speed for the next return. Rally pressure lifts it on the
+ * same ramp that narrows the paddles, so a rally that will not end runs faster
+ * for both sides until it does - never past the ball's hard limit. Narrowing
+ * alone left the steadiest pairings trading returns for minutes on end.
+ */
+export function rallyCeiling(world: World): number {
+  return Math.min(BALANCE.ball.hardMax, world.tuning.maxSpeed * (1 + rallyPressure(world)));
 }
 
 /** The everyday part of the paddle's length that comes and goes: a drive, a skill's afterglow. */
@@ -370,7 +394,7 @@ export function updateRuntime(world: World, dt: number): void {
   // Every length source can change from one step to the next - a drive
   // ticking over, a skill's glow fading - so the paddle is re-measured here
   // rather than whenever one of them happens to move.
-  growPaddle(world.player, playerLength(world));
+  growPaddle(world.player, playerLength(world), lengthLimit(world));
 
   // Clutch has no button and no cast: the moment the match turns into a last
   // stand is the one moment it can say it is there.
@@ -440,7 +464,7 @@ export function switchRuntime(world: World, loadout: ResolvedLoadout): boolean {
       delete ledger[slot.id];
     }
   runtime.benchedSlots = ledger;
-  growPaddle(world.player, playerLength(world));
+  growPaddle(world.player, playerLength(world), lengthLimit(world));
   return true;
 }
 
@@ -521,7 +545,7 @@ export function plainReturn(world: World, off: number): ReturnMods {
   return {
     off,
     growth: world.tuning.speedPerHit,
-    ceiling: world.tuning.maxSpeed,
+    ceiling: rallyCeiling(world),
     spin: 1,
     angleLimit: MAX_BOUNCE_ANGLE,
     crit: false,
@@ -696,7 +720,7 @@ export function playerReturn(world: World, offset: number): ReturnMods {
   if (crit) lift += effects.critGrowth;
   if (charged) lift += effects.powerStrikeSpeed;
   growth += lift;
-  const ceiling = tuning.maxSpeed * (1 + lift);
+  const ceiling = rallyCeiling(world) * (1 + lift);
 
   let heft = effects.heft + flowStacks(world) * effects.flowHeft;
   if (charged) heft += E.powerStrike.heft;
@@ -1035,7 +1059,9 @@ export function trySecondChance(world: World): boolean {
   const { match } = world;
   if (runtime.secondChances <= 0) return false;
 
-  const losing = match.maxLives > 0 ? match.lives <= 1 : match.score.bot >= match.score.you;
+  // Strictly behind: at level scores the first conceded points of every match
+  // used to spend both refunds before the player was ever losing.
+  const losing = match.maxLives > 0 ? match.lives <= 1 : match.score.bot > match.score.you;
   if (!losing) return false;
 
   runtime.secondChances--;

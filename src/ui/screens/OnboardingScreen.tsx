@@ -16,13 +16,15 @@ import styles from '../Screens.module.css';
 interface OnboardingScreenProps {
   profile: PlayerProfile;
   onDone: () => void;
+  /** Start playing: where a completed setup goes. Skip still uses `onDone`. */
+  onStart?: () => void;
 }
 
 /**
  * First run only. Everything here is optional - "Skip" takes the defaults and
  * gets out of the way, because nobody installs a ball game to fill in a form.
  */
-export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
+export function OnboardingScreen({ profile, onDone, onStart }: OnboardingScreenProps) {
   useSettings();
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<AvatarId>(profile.avatar);
@@ -39,7 +41,7 @@ export function OnboardingScreen({ profile, onDone }: OnboardingScreenProps) {
     if (!canComplete()) return;
     setIdentity(name, avatar);
     equipCosmetic('accent', accent);
-    onDone();
+    (onStart ?? onDone)();
   };
 
   const skip = () => {

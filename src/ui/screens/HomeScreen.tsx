@@ -52,6 +52,8 @@ interface HomeScreenProps {
   onLab?: () => void;
   onSettings: () => void;
   onHelp: () => void;
+  /** Launch a Journey stage straight from Home. */
+  onPlayStage?: (id: string) => void;
 }
 
 /** Matches after which the controls hint has done its job. */
@@ -266,13 +268,17 @@ export function HomeScreen({
   onWorkshop,
   onLab,
   onSettings,
-  onHelp
+  onHelp,
+  onPlayStage
 }: HomeScreenProps) {
   const coarse = useCoarsePointer();
   const { keyBindings } = useSettings();
   const cup = profile.tournament ? tierById(profile.tournament.tier) : null;
   const points = profile.talents.points;
   const newcomer = profile.stats.matches === 0;
+  const next = useMemo(() => homeStage(profile.progress.journey), [profile.progress.journey]);
+  // The Lab opens on Home once there is loot to look at; Talents still links to it.
+  const looted = Object.values(profile.progress.loot.earned).some((count) => count > 0);
 
   return (
     <section className={styles.screen}>
@@ -309,6 +315,12 @@ export function HomeScreen({
             <SaveNotice />
             <ProfileChip profile={profile} onClick={onProfile} />
             <JourneyCard profile={profile} onPick={() => onPick('campaign')} />
+            {/* The next match is one press away: the stage Home points at. */}
+            {next && onPlayStage && (
+              <button type="button" className={styles.primary} onClick={() => onPlayStage(next.id)}>
+                {t(msg('Play {0}-{1} · {2}', [t(next.world), t(next.index + 1), t(next.name)]))}
+              </button>
+            )}
             {profile.stats.matches < HINT_MATCHES && (
               <>
                 <p className={styles.note}>
@@ -341,9 +353,11 @@ export function HomeScreen({
           <button type="button" className={styles.ghost} onClick={onModes}>
             {t('More modes')}
           </button>
-          <button type="button" className={styles.ghost} onClick={onLab}>
-            {t('Resonance Lab · loot and upgrades')}
-          </button>
+          {looted && (
+            <button type="button" className={styles.ghost} onClick={onLab}>
+              {t('Resonance Lab · loot and upgrades')}
+            </button>
+          )}
           {profile.stats.matches >= HINT_MATCHES && (
             <button type="button" className={styles.ghost} onClick={onHelp}>
               {t('How to play')}

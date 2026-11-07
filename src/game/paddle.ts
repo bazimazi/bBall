@@ -16,7 +16,7 @@ import { clamp } from './utils/math';
 
 export function resizePaddle(paddle: Paddle): void {
   const floor = (PADDLE_H / 2) * MIN_PADDLE_SCALE;
-  const ceiling = (PADDLE_H / 2) * MAX_PADDLE_SCALE;
+  const ceiling = (PADDLE_H / 2) * (paddle.maxScale ?? MAX_PADDLE_SCALE);
   paddle.half = clamp(paddle.baseHalf * paddle.scale * paddle.grow, floor, ceiling);
   // A paddle that just grew can overhang a wall; pull its centre back in.
   paddle.y = clamp(paddle.y, paddle.half, FIELD_H - paddle.half);
@@ -41,9 +41,10 @@ export function shrinkPaddle(paddle: Paddle, fraction: number): void {
  * Lengthen a paddle by a fraction, or back to normal with 0. A negative
  * fraction shortens it - Reckless is the one thing that asks for that.
  */
-export function growPaddle(paddle: Paddle, fraction: number): void {
+export function growPaddle(paddle: Paddle, fraction: number, maxScale = MAX_PADDLE_SCALE): void {
   const grow = 1 + Math.max(-0.5, fraction);
-  if (paddle.grow === grow) return;
+  if (paddle.grow === grow && paddle.maxScale === maxScale) return;
   paddle.grow = grow;
+  paddle.maxScale = maxScale;
   resizePaddle(paddle);
 }

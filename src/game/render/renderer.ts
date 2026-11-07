@@ -1011,8 +1011,12 @@ export class Renderer {
     }
     const grow = age < 0.3 ? 0.7 + easeOutBack(age / 0.3, 2.2) * 0.3 : 1;
     const fade = Math.min(1, fx.bannerTimer / 0.45, age / 0.12);
+    // Held clear of the serve spot, where the ball gathers at the centre: in
+    // the opponent's half on an upright court, towards the top wall otherwise.
+    const { view } = world;
+    const lift = view.rotated ? view.w * view.scale * 0.24 : view.h * view.scale * 0.3;
     ctx.save();
-    ctx.translate(cx, cy - 40 * s);
+    ctx.translate(cx, cy - lift);
     ctx.scale(grow, grow);
     ctx.globalAlpha = fade;
     // A band of the banner's colour behind the words.

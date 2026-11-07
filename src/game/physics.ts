@@ -144,7 +144,7 @@ function onPaddleHit(
   match.rally++;
   if (match.rally === 25 && world.rules.ranked && world.rules.winScore > 0) {
     fx.bannerText = 'Rally pressure';
-    fx.bannerSub = 'Both paddles narrow from return 25 · resets next serve';
+    fx.bannerSub = 'From return 25 both paddles narrow and the ball quickens · resets next serve';
     fx.bannerHue = 35;
     fx.bannerTimer = 1.9;
   }

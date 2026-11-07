@@ -1,5 +1,7 @@
 # bBall player experience review
 
+**World-class comparison review, 6 November:** bot misses now come from the shots a player makes hard rather than from the bot's own edge gambles; long ranked rallies speed up; stacked difficulty walls in late Journey, Frontier, Sprint and cups were removed; loss and repeat-clear XP farms were closed; talent bugs (Dash aim-assist, Bulwark validation, Second Chance at 0–0) were fixed; and the first-time flow now goes from setup through the lesson into stage 1-1. Evidence is from bot pilots and two human models, not playtests. System/browser reduced-motion settings remain completely ignored. See the [review, evidence and open items](world-class-review.md).
+
 **Short sessions correction, 14 October:** real pointer play reproduced a
 misleading drill layout: feeds started at 28% of the court, and returns were
 scored at 80% before the visible opponent could reach them. Drills now feed from

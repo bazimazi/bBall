@@ -107,10 +107,10 @@ export const LEGACY_CHALLENGES: readonly Challenge[] = [
   {
     id: 'long-rally',
     name: 'Marathon',
-    blurb: 'One rally of twenty-five hits, in a match you win',
+    blurb: 'One rally of eighteen hits, in a match you win',
     bot: 'pro',
     winScore: 3,
-    objective: { id: 'rally', label: 'Win with a 25-hit rally', value: 25 },
+    objective: { id: 'rally', label: 'Win with an 18-hit rally', value: 18 },
     modifiers: { speedPerHitScale: 0.7 },
     xp: 140
   },

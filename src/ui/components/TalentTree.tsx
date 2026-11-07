@@ -19,11 +19,19 @@ import styles from '../Talents.module.css';
  * set of numbers, used by both the grid and the paths drawn over it.
  */
 const TILE = 44;
-const GAP = 14;
+/**
+ * Every tile carries its name underneath, so the tree can be read without
+ * tapping each one: columns leave room for a two-line name, rows for the name
+ * and the arrow that starts below it.
+ */
+const COLUMN_GAP = 40;
+const ROW_GAP = 52;
+/** The name's height under a tile; arrows start below it. */
+const LABEL = 35;
 
-const cellX = (column: number) => column * (TILE + GAP);
-const cellY = (tier: number) => tier * (TILE + GAP);
-const gridW = BRANCH_COLUMNS * TILE + (BRANCH_COLUMNS - 1) * GAP;
+const cellX = (column: number) => column * (TILE + COLUMN_GAP);
+const cellY = (tier: number) => tier * (TILE + ROW_GAP);
+const gridW = BRANCH_COLUMNS * TILE + (BRANCH_COLUMNS - 1) * COLUMN_GAP;
 
 interface TalentTreeProps {
   branch: Branch;
@@ -64,9 +72,9 @@ function tileClass(state: TalentState, selected: boolean): string {
 function Arrow({ from, to }: { from: TalentDef; to: TalentDef }) {
   const x1 = cellX(from.column) + TILE / 2;
   const x2 = cellX(to.column) + TILE / 2;
-  const y1 = cellY(from.tier) + TILE + 3;
+  const y1 = cellY(from.tier) + TILE + LABEL;
   const y2 = cellY(to.tier) - 9;
-  const bend = y2 - GAP / 2 + 2;
+  const bend = Math.round((y1 + y2) / 2);
 
   const path =
     from.column === to.column
@@ -97,7 +105,7 @@ export function TalentTree({
   const talents = talentsOfBranch(branch.id);
   const links = linksOfBranch(branch.id);
   const rows = tiersOfBranch(branch.id);
-  const gridH = rows * TILE + (rows - 1) * GAP;
+  const gridH = rows * TILE + (rows - 1) * ROW_GAP + LABEL;
   const hue = branch.hue;
 
   return (
@@ -150,6 +158,9 @@ export function TalentTree({
                 onClick={() => onPick(talent)}
               >
                 <TalentIcon id={talent.id} />
+                <span className={styles.tileName} aria-hidden="true">
+                  {t(talent.name)}
+                </span>
                 <span className={styles.rank}>
                   {t(state.rank)}
                   {t('/')}

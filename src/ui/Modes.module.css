@@ -538,8 +538,21 @@
 }
 
 .stageLocked {
-  opacity: 0.65;
+  opacity: 0.55;
+  filter: saturate(0.25);
   cursor: default;
+}
+
+.stageLock {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
+.stageLock svg {
+  width: 100%;
+  height: 100%;
 }
 
 .stageNext::after {

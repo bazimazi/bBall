@@ -343,11 +343,14 @@ it('Bastion and Second Chance name themselves where they act', () => {
   assert.ok(words(world).includes('BASTION'));
 
   let chance = passiveViews(world).find((view) => view.id === 'second-chance')!;
-  assert.equal(chance.state, 'ready', 'level on points: not ahead, so it would fire');
+  assert.equal(chance.state, 'idle', 'level on points: not behind, so it would not fire');
+  world.match.score.bot = 1;
+  chance = passiveViews(world).find((view) => view.id === 'second-chance')!;
+  assert.equal(chance.state, 'ready', 'behind: it would fire');
   world.match.score.you = 2;
   chance = passiveViews(world).find((view) => view.id === 'second-chance')!;
   assert.equal(chance.state, 'idle', 'ahead: it would not');
-  world.match.score.bot = 2;
+  world.match.score.bot = 3;
   assert.equal(trySecondChance(world), true);
   assert.equal(alive(world, 'refund'), 1);
   assert.ok(words(world).includes('SECOND CHANCE'));

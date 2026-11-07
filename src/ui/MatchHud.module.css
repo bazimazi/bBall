@@ -75,24 +75,32 @@
 }
 
 /*
- * The live objective: one line, never wrapping, so the collapsed panel stays
- * small. Each part is its own span, joined by a dot.
+ * The live objective. Each part is its own span, spaced apart, and never
+ * breaks inside itself; a narrow panel wraps between parts onto a second line
+ * rather than cutting a star goal off mid-word.
  */
 .live {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: normal;
   font-size: 11px;
   line-height: 14px;
   color: var(--muted);
 }
 
-.live > * + *::before {
-  content: '·';
-  margin-inline: 5px;
-  color: var(--muted);
+/* Spacing rather than a dot, so a wrapped line never starts with a separator. */
+.live > * + * {
+  margin-inline-start: 10px;
+}
+
+/* Atomic, so a line can break between two parts but never inside one. */
+.live > * {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .live i {

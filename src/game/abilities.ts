@@ -1,7 +1,6 @@
 import { BALANCE } from '../core/balance/config';
 import { abilityById, type AbilityDef } from '../core/talents/abilities';
 import type { AbilityId } from '../core/talents/types';
-import { predictY } from './ai';
 import { laneRush, ultimateCast } from './casts';
 import { FIELD_H } from './constants';
 import { hsla, sideHue } from './palette';
@@ -23,8 +22,10 @@ import type { World } from './world';
  * Where a dash is trying to get to.
  *
  * A dash follows the intent that is already on screen: the position being
- * steered towards, or - when the paddle is sitting still - where the incoming
- * ball is going to cross. `stop` is that destination, and the dash is never
+ * steered towards, or - when the paddle is sitting still - towards the incoming
+ * ball as it is now. It used to stop exactly where the ball would cross, bounces
+ * and all: a still paddle and a tap read every ball perfectly, which made the
+ * skill an aim-assist rather than a move. `stop` is that destination, and the dash is never
  * allowed past it, so a badly timed press costs a cooldown rather than the
  * point. Without either, it is a plain nudge towards the nearer half.
  */
@@ -36,9 +37,8 @@ function dashAim(world: World): { dir: 1 | -1; stop: number | null } {
   }
 
   if (world.player.side === 'you' ? ball.vx < 0 : ball.vx > 0) {
-    const crossing = predictY(world, player.x);
-    const gap = crossing - player.y;
-    if (Math.abs(gap) > 1) return { dir: gap > 0 ? 1 : -1, stop: crossing };
+    const gap = ball.y - player.y;
+    if (Math.abs(gap) > 1) return { dir: gap > 0 ? 1 : -1, stop: ball.y };
   }
   return { dir: player.y < FIELD_H / 2 ? 1 : -1, stop: null };
 }

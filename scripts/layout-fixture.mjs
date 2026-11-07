@@ -138,7 +138,7 @@ window.layoutReview = {
         : h(ExitPanel,{native:false,onExit:noop,onCancel:noop})) : name==='tutorial' ? h(TutorialCoach,
       {key:++revision,snapshot:{...snapshot,tutorialStep:state==='complete'?'complete':'move',tutorialCleared:false},
         onSend:noop,onNext:noop,onPractice:noop,onRestart:noop,onExit:noop}) : name === 'match' ? h(Fragment,{key:++revision},
-      h(MatchHud,{snapshot,objective:'Rally pressure: after 24 returns both paddles narrow, up to 40%',onGoals:noop}),
+      h(MatchHud,{snapshot,objective:'Rally pressure: after 24 returns both paddles narrow and the ball quickens, up to 40%',onGoals:noop}),
       ...(state==='skills' ? [h(AbilityBar,{abilities:ABILITY_DEFS.slice(0,9).map(skill),show:true,side:'right',onUse:noop})] : []),
       h(Hud,{muted:false,canPause:true,onToggleMute:noop,onPause:noop})) : h(Fragment,{key:++revision},
       h(components[name],props),h(Hud,{muted:false,canPause:false,onToggleMute:noop,onPause:noop})));

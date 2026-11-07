@@ -258,14 +258,15 @@ it('the live progress line carries waves and objective counters', (t) => {
 
 it('a boss keeps its name on the score panel, and its live tier after a phase', (t) => {
   const { engine, world } = harness(t);
-  const rules = campaignRules(stageById('w6-24')!);
+  // Orbiter opens as an Amateur and steps up to Pro in its second phase.
+  const rules = campaignRules(stageById('w2-6')!);
   engine.play(rules);
-  assert.equal(engine.getSnapshot().opponentName, `${rules.boss!.name} · Pro`);
+  assert.equal(engine.getSnapshot().opponentName, `${rules.boss!.name} · Amateur`);
   world.match.status = 'play';
   world.match.score.you = 2;
   assert.ok(checkBossPhase(world));
   (engine as unknown as { publish: () => void }).publish();
-  assert.equal(engine.getSnapshot().opponentName, `${rules.boss!.name} · Elite`);
+  assert.equal(engine.getSnapshot().opponentName, `${rules.boss!.name} · Pro`);
   engine.play(quickMatchRules('pro'));
   assert.match(engine.getSnapshot().opponentName ?? '', /^Pro · /);
 });
@@ -474,7 +475,7 @@ it('a banner raised mid-rally is a brief edge notice; a serve banner keeps its c
       return recording;
     };
     w.fx.bannerText = 'Rally pressure';
-    w.fx.bannerSub = 'Both paddles narrow from return 25 · resets next serve';
+    w.fx.bannerSub = 'From return 25 both paddles narrow and the ball quickens · resets next serve';
     w.match.status = 'play';
     w.match.rally = 25;
     const shown = draw(0.3);

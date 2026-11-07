@@ -44,7 +44,8 @@ it('low-pressure Gauntlet bosses grow with the act instead of jumping from Amate
     for (let act = 0; act < 3; act++) {
       const opening = runRules({ ...run, stage: act * length });
       const boss = runRules({ ...run, stage: (act + 1) * length - 1 });
-      assert.equal(opening.bot.rank, act + 2);
+      // Pressure 0 opens a band lower, so a first run can be cleared.
+      assert.equal(opening.bot.rank, Math.max(0, act - 1) + 2);
       const ranks = [
         boss.bot.rank,
         ...boss.boss!.phases.map((p) => (p.bot ? botProfile(p.bot).rank : boss.bot.rank))

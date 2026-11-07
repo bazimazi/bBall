@@ -29,7 +29,8 @@ import {
   type MatchResult,
   type MatchRules,
   type MatchOptions,
-  type PracticePace
+  type PracticePace,
+  type BossSpec
 } from './types';
 
 export const QUICK_WIN_SCORE = 5;
@@ -81,7 +82,8 @@ export function quickMatchRules(bot: BotLevelId, options?: MatchOptions): MatchR
     label: 'Quick Match',
     objective: {
       id: 'win',
-      label: 'Rally pressure: after 24 returns both paddles narrow, up to 40%',
+      label:
+        'Rally pressure: after 24 returns both paddles narrow and the ball quickens, up to 40%',
       value: 0
     }
   };
@@ -200,7 +202,11 @@ export function tournamentRules(save: TournamentSave): MatchRules {
   const tier = tierById(save.tier);
   const generated =
     save.tier >= 3
-      ? recipe(`cup-${save.tier}-${save.season ?? 0}`, save.round, Math.min(4, save.tier - 2))
+      ? recipe(
+          `cup-${save.tier}-${save.season ?? 0}`,
+          save.round,
+          Math.min(2, Math.floor((save.tier - 1) / 3))
+        )
       : undefined;
   return {
     mode: 'tournament',
@@ -224,6 +230,17 @@ export function tournamentRules(save: TournamentSave): MatchRules {
 
 function goalLine(goals: readonly [StarGoal, StarGoal]): string {
   return `${starGoalLabel(goals[0])} · ${starGoalLabel(goals[1])}`;
+}
+
+/** Journey bosses change courts, reach, intensity and bend between points, but their brain never passes Pro. */
+function journeyBoss(spec: BossSpec): BossSpec {
+  const cap = botProfile('pro').rank;
+  return {
+    ...spec,
+    phases: spec.phases.map((p) =>
+      p.bot && botProfile(p.bot).rank > cap ? { ...p, bot: 'pro' as const } : p
+    )
+  };
 }
 
 /** A Journey stage. A boss stage brings its boss's court, brain and phases. */
@@ -256,7 +273,7 @@ export function campaignRules(stage: Stage): MatchRules {
     objective: { id: 'win', label: goalLine(stage.goals), value: 0 },
     stageId: stage.id,
     goals: stage.goals,
-    boss: boss?.spec,
+    boss: boss && journeyBoss(boss.spec),
     intro: boss ? undefined : { title: stage.name, sub: `Stage ${stageCode(stage)}` }
   };
 }

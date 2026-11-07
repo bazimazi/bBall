@@ -225,7 +225,7 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
         3,
         'Carousel',
         'Two bumpers circle the centre',
-        'pro',
+        'amateur',
         [
           { id: 'fast', value: 110 },
           { id: 'margin', value: 3 }
@@ -244,7 +244,7 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
         4,
         'Switchback',
         'Time your shots through two sliding posts',
-        'pro',
+        'amateur',
         [
           { id: 'flicks', value: 4 },
           { id: 'shutout', value: 0 }
@@ -285,7 +285,7 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
         1,
         'Gusts',
         'The wind turns every five seconds',
-        'pro',
+        'amateur',
         [
           { id: 'rally', value: 12 },
           { id: 'margin', value: 2 }
@@ -302,7 +302,7 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
           { id: 'margin', value: 2 },
           { id: 'rally', value: 14 }
         ],
-        { arena: { well: { x: 0.5, y: 0.5, strength: 420 } } }
+        { arena: { well: { x: 0.5, y: 0.5, strength: 420 } }, botPaddleScale: 0.8 }
       ),
       stage(
         3,
@@ -314,7 +314,10 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
           { id: 'flicks', value: 4 },
           { id: 'shutout', value: 0 }
         ],
-        { arena: { wind: { strength: 300, period: 6 }, bumpers: [{ x: 0.5, y: 0.5, r: 26 }] } }
+        {
+          arena: { wind: { strength: 300, period: 6 }, bumpers: [{ x: 0.5, y: 0.5, r: 26 }] },
+          botPaddleScale: 0.8
+        }
       ),
       stage(
         3,
@@ -326,7 +329,7 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
           { id: 'margin', value: 2 },
           { id: 'fast', value: 120 }
         ],
-        { arena: arenaPreset('heartbeat')!.arena }
+        { arena: arenaPreset('heartbeat')!.arena, botPaddleScale: 0.8 }
       ),
       bossStage(3, 5, 'tempest', [
         { id: 'margin', value: 2 },
@@ -349,7 +352,7 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
         'amateur',
         [
           { id: 'margin', value: 2 },
-          { id: 'returns', value: 30 }
+          { id: 'returns', value: 18 }
         ],
         { arena: { bricks: { rows: 6, sides: 'both' } } }
       ),
@@ -387,19 +390,22 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
           { id: 'flicks', value: 4 },
           { id: 'margin', value: 2 }
         ],
-        { arena: { bricks: { rows: 5, sides: 'both', regrow: true } } }
+        { arena: { bricks: { rows: 5, sides: 'both', regrow: true } }, botPaddleScale: 0.85 }
       ),
       stage(
         4,
         4,
         'Fortress Pinball',
         'Walls, and a bumper between them',
-        'elite',
+        'pro',
         [
           { id: 'margin', value: 2 },
           { id: 'shutout', value: 0 }
         ],
-        { arena: { bricks: { rows: 5, sides: 'both' }, bumpers: [{ x: 0.5, y: 0.5, r: 30 }] } }
+        {
+          arena: { bricks: { rows: 5, sides: 'both' }, bumpers: [{ x: 0.5, y: 0.5, r: 30 }] },
+          botPaddleScale: 0.85
+        }
       ),
       bossStage(4, 5, 'bastion', [
         { id: 'margin', value: 2 },
@@ -419,7 +425,7 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
         0,
         'Gravity Slalom',
         'A well, and bumpers either side of it',
-        'elite',
+        'pro',
         [
           { id: 'margin', value: 2 },
           { id: 'flicks', value: 4 }
@@ -443,7 +449,7 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
         2,
         'Storm Forge',
         'Opposing wind lanes, and walls to break through them',
-        'elite',
+        'pro',
         [
           { id: 'fast', value: 130 },
           { id: 'flicks', value: 5 }
@@ -458,8 +464,8 @@ export const LEGACY_JOURNEY: readonly JourneyWorld[] = [
         5,
         4,
         'Gauntlet of Legends',
-        'The Legend, on its own court, at full pace',
-        'legend',
+        'The Legend court, at full pace',
+        'pro',
         [
           { id: 'margin', value: 2 },
           { id: 'rally', value: 16 }

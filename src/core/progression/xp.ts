@@ -44,6 +44,13 @@ export interface XpContext {
   readonly talentXpMul: number;
 }
 
+/** Victory XP per point of the winning score: 55 for a first-to-five. */
+export const VICTORY_PER_POINT = 11;
+/** What a repeat clear keeps of a challenge's own bonus. */
+export const REPEAT_CHALLENGE_SHARE = 0.25;
+/** Round-won XP per round already behind the player: nothing for an opener. */
+export const ROUND_XP = 40;
+
 /** Ranked matches per day before awards are halved. */
 export const DAILY_SOFT_CAP = 25;
 
@@ -113,10 +120,14 @@ export function computeMatchXp(result: MatchResult, context: XpContext): XpAward
   if (result.mode === 'endless') {
     add('Run survived', 20);
     add('Longest rally', Math.min(220, result.bestRally * 4));
-    add('Returns', Math.min(120, result.hits));
+    add('Returns', Math.min(240, result.hits));
+    // A wave cleared is the run doing what it asked; better play pays more.
+    if (result.waves) add('Waves cleared', Math.min(300, result.waves * 25));
   } else {
     add('Match played', 20);
-    if (result.won) add('Victory', 55);
+    // A longer game is a bigger win: the bonus follows the score it took, so a
+    // first-to-three does not pay a first-to-five's victory in half the time.
+    if (result.won) add('Victory', VICTORY_PER_POINT * Math.max(result.scoreYou, result.scoreBot));
     add('Points won', result.scoreYou * 8);
     add('Best rally', rallyBonus(result.bestRally));
     if (result.won && result.shutout) add('Shutout', 30);
@@ -126,12 +137,16 @@ export function computeMatchXp(result: MatchResult, context: XpContext): XpAward
   if (result.mode === 'challenge' && result.objectiveMet) {
     const challenge = result.challengeId ? challengeById(result.challengeId) : undefined;
     const base = challenge?.xp ?? 120;
-    add('Challenge complete', base);
+    // The trial's own bonus is a first-clear reward; a repeat keeps a token
+    // of it on top of an ordinary match against the same opponent.
+    add('Challenge complete', context.firstChallengeClear ? base : base * REPEAT_CHALLENGE_SHARE);
     if (context.firstChallengeClear) add('First clear', base);
   }
 
   if (result.mode === 'tournament') {
-    if (result.won) add('Round won', 60);
+    // Later rounds pay more; an opening round is just a match, so starting a
+    // cup and walking out after it is never better than a Quick Match.
+    if (result.won) add('Round won', ROUND_XP * (result.tournamentRound ?? 0));
     const finalRound =
       (result.tournamentRound ?? 0) ===
       roundsFor(result.tournamentFormat ? { format: result.tournamentFormat } : {}).length - 1;
@@ -156,8 +171,17 @@ function rankFactor(rank: number): number {
   return BOT_FACTORS[Math.min(BOT_FACTORS.length, Math.max(1, rank)) - 1]!;
 }
 
+/**
+ * A win pays the opponent's full factor. A loss pays the part of it the score
+ * earned: a close loss to the hardest opponent is still worth far more than
+ * an easy win, a whitewash is worth taking part and no more - otherwise
+ * throwing matches against the top tier out-earned honest play.
+ */
 function botMultiplier(result: MatchResult): number {
-  return rankFactor(result.botRank);
+  const factor = rankFactor(result.botRank);
+  if (result.won || factor <= 1) return factor;
+  const share = Math.min(1, result.scoreYou / Math.max(1, result.scoreBot));
+  return 1 + (factor - 1) * share;
 }
 
 /**

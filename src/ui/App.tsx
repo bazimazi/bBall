@@ -1,8 +1,8 @@
 import { t } from '../core/i18n/index';
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { seriesComplete } from '../core/modes/sessions';
-import { stageById, nextAfter } from '../core/campaign/journey';
+import { isCleared, stageById, nextAfter } from '../core/campaign/journey';
 import type { MatchResult } from '../core/modes/types';
 import { setExitRequestHandler } from '../core/platform/back';
 import { exitApp, isNativeShell } from '../core/platform/shell';
@@ -191,6 +191,8 @@ export function App() {
   const loadout = useLoadout(profile);
   const { canvasRef, snapshot, engine } = useGameEngine(theme);
   const flow = useGameFlow(engine, snapshot);
+  /** The lesson running now was started by onboarding's Start playing. */
+  const lessonFromStart = useRef(false);
   const account = useAccount();
   const settings = useSettings();
   const coarse = useCoarsePointer();
@@ -300,8 +302,16 @@ export function App() {
           onSend={() => engine?.serve()}
           onNext={() => engine?.nextLesson()}
           onPractice={() => flow.startPractice('rookie')}
+          onFirstStage={
+            isCleared(profile.progress.journey, 'w1-1') ? undefined : () => flow.startStage('w1-1')
+          }
           onRestart={flow.startTutorial}
-          onExit={() => flow.leaveResult('help')}
+          onExit={() => {
+            // Skipping the lesson a new player was sent into returns Home.
+            const from = lessonFromStart.current ? 'home' : 'help';
+            lessonFromStart.current = false;
+            flow.leaveResult(from);
+          }}
         />
       )}
 
@@ -342,7 +352,18 @@ export function App() {
       />
 
       {flow.screen === 'onboarding' && (
-        <OnboardingScreen key={profile.id} profile={profile} onDone={() => flow.replace('home')} />
+        <OnboardingScreen
+          key={profile.id}
+          profile={profile}
+          onDone={() => flow.replace('home')}
+          onStart={() => {
+            // A new player's first press plays: the three-step lesson, which
+            // then leads into the first Journey stage.
+            flow.replace('home');
+            lessonFromStart.current = true;
+            flow.startTutorial();
+          }}
+        />
       )}
 
       {flow.screen === 'home' && (
@@ -359,6 +380,7 @@ export function App() {
           onLab={() => flow.go('lab')}
           onSettings={() => flow.go('settings')}
           onHelp={() => flow.go('help')}
+          onPlayStage={flow.startStage}
         />
       )}
 

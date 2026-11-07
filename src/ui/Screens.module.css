@@ -636,8 +636,11 @@
   transform: scale(0.98);
 }
 
+/* Unavailable reads as unavailable: neutral, not a dimmed call to action. */
 .primary:disabled {
-  opacity: 0.5;
+  color: var(--muted);
+  background: rgba(238, 242, 255, 0.08);
+  box-shadow: none;
   cursor: default;
 }
 
@@ -1118,6 +1121,28 @@
 button.unlockRow {
   cursor: pointer;
   min-height: 46px;
+}
+
+/* Put a new cosmetic on from the result card. */
+.unlockAction {
+  margin-inline-start: auto;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(79, 240, 214, 0.45);
+  border-radius: 10px;
+  background: rgba(79, 240, 214, 0.14);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.unlockAction:disabled {
+  border-color: var(--edge);
+  background: transparent;
+  color: var(--muted);
+  cursor: default;
 }
 
 .levelUp {

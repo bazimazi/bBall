@@ -51,11 +51,11 @@ export const LEGACY_BOSSES: readonly BossDef[] = [
       title: 'Bumpers wheel round the centre',
       hue: 268,
       phases: [
-        { at: 2, label: 'The orbit quickens', intensity: 1.5 },
-        { at: 4, label: 'Full spin', intensity: 2, bot: 'elite' }
+        { at: 2, label: 'The orbit quickens', intensity: 1.5, bot: 'pro' },
+        { at: 4, label: 'Full spin', intensity: 2 }
       ]
     },
-    bot: 'pro',
+    bot: 'amateur',
     winScore: 5,
     modifiers: {
       arena: {
@@ -74,11 +74,11 @@ export const LEGACY_BOSSES: readonly BossDef[] = [
       title: 'The wind turns without warning - almost',
       hue: 195,
       phases: [
-        { at: 2, label: 'Gale', intensity: 1.35 },
-        { at: 4, label: 'Eye of the storm', intensity: 1.7, bot: 'elite' }
+        { at: 2, label: 'Gale', intensity: 1.35, bot: 'pro' },
+        { at: 4, label: 'Eye of the storm', intensity: 1.7 }
       ]
     },
-    bot: 'pro',
+    bot: 'amateur',
     winScore: 5,
     modifiers: { arena: { wind: { strength: 360, period: 4.5 } } }
   },
@@ -89,11 +89,11 @@ export const LEGACY_BOSSES: readonly BossDef[] = [
       title: 'Break the wall, then break the keeper',
       hue: 12,
       phases: [
-        { at: 2, label: 'The keeper tightens', bot: 'elite' },
-        { at: 4, label: 'All or nothing', bot: 'legend' }
+        { at: 2, label: 'The keeper tightens', bot: 'pro', botPaddleScale: 1.1 },
+        { at: 4, label: 'All or nothing', botPaddleScale: 1.3 }
       ]
     },
-    bot: 'pro',
+    bot: 'amateur',
     winScore: 5,
     modifiers: { arena: { bricks: { rows: 7, sides: 'bot', armored: true } } }
   },
@@ -140,7 +140,7 @@ export const LEGACY_BOSSES: readonly BossDef[] = [
         { at: 4, label: 'Apex', intensity: 1.6, swerve: 280 }
       ]
     },
-    bot: 'elite',
+    bot: 'pro',
     winScore: 5,
     modifiers: {
       arena: {

@@ -134,9 +134,24 @@ export function grantAchievements(
   return unlocked;
 }
 
-function rollDaily(profile: PlayerProfile): void {
-  const today = dayKey();
-  if (profile.daily.day !== today) profile.daily = { day: today, matches: 0 };
+/**
+ * Start a new anti-farm day when the match belongs to a later one. The match's
+ * own day - the player's calendar - decides, so the client and the server
+ * count the same day wherever the server runs. Never rolls backwards.
+ */
+function rollDaily(profile: PlayerProfile, day: string = dayKey()): void {
+  // A stored day well ahead of the clock came from a wrong clock; let it go.
+  const stale = profile.daily.day > dayKey(new Date(Date.now() + 36 * 3600_000));
+  if (profile.daily.day < day || stale) profile.daily = { day, matches: 0 };
+}
+
+/**
+ * The world whose star rate a stage pays. Frontier sectors (world 31 on) open
+ * beside the expansion's early worlds, so they start at the world-16 rate and
+ * climb a world per sector to the cap rather than paying the top rate at once.
+ */
+function starWorld(world: number): number {
+  return world > 30 ? Math.min(30, 15 + (world - 30)) : world;
 }
 
 function applyStats(profile: PlayerProfile, result: MatchResult): boolean {
@@ -315,7 +330,7 @@ export function applyMatchResult(source: PlayerProfile, result: MatchResult): Pr
   const xpBefore = profile.xp;
   const levelBefore = levelOf(xpBefore);
 
-  rollDaily(profile);
+  rollDaily(profile, result.day);
 
   // Practice and abandoned matches leave no trace at all - except a forfeit:
   // a ranked match left or restarted after a point was played. That is a
@@ -473,7 +488,7 @@ function applyModes(profile: PlayerProfile, result: MatchResult): ModesOutcome {
       if (after !== before) progress.journey[stage.id] = after;
       add(
         newStars > 1 ? `${newStars} new stars` : 'New star',
-        newStars * starXp(Math.min(30, stage.world))
+        newStars * starXp(starWorld(stage.world))
       );
       const frontier = /^f2-(\d+)-20$/.exec(stage.id);
       if (frontier && result.won) {
@@ -509,6 +524,9 @@ function applyModes(profile: PlayerProfile, result: MatchResult): ModesOutcome {
   if (result.mode === 'run' && progress.run && !progress.run.finished) {
     if (result.runStage === undefined || result.runStage === progress.run.stage) {
       const pressure = progress.run.pressure;
+      // The opening encounter pays as a match only, so starting a run and
+      // leaving after one easy win never out-earns playing it out.
+      const opening = progress.run.stage === 0;
       run = advanceRun(
         progress.run,
         result.won,
@@ -516,7 +534,7 @@ function applyModes(profile: PlayerProfile, result: MatchResult): ModesOutcome {
         result.scoreBot,
         runBuild(profile)
       );
-      if (result.won) {
+      if (result.won && (result.bossId || !opening)) {
         add(
           result.bossId ? 'Boss defeated' : 'Gauntlet win',
           result.bossId ? RUN_BOSS_XP : RUN_WIN_XP

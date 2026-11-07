@@ -195,6 +195,11 @@ try {
         await avatars.first().click();
         await geometry('onboarding');
         await click('Start playing');
+        // Start playing goes straight into the first-rally lesson; skipping it returns Home.
+        await page
+          .getByRole('region', { name: await label('First-rally lesson'), exact: true })
+          .waitFor();
+        await click('Skip lesson');
         await (await button('More modes')).waitFor();
         await geometry('home');
         assert.equal(

@@ -36,6 +36,8 @@ export interface Paddle {
   scale: number;
   /** The build's size change: Long Reach, a drive, Clutch, an ultimate. Re-measured every step. */
   grow: number;
+  /** The size limit in force: the everyday one, or an ultimate's higher one while it runs. */
+  maxScale?: number;
   /** 0..1 hit highlight, decays every step. */
   flash: number;
   /** Where the last ball struck, from the paddle's centre: the paddle bows there. */
@@ -60,6 +62,12 @@ export interface BotBrain {
   maxReads: number;
   /** True when this approach was misjudged - a believable, human whiff. */
   misread: boolean;
+  /**
+   * How hard this approach made it run, judged at the first read (0..1). A
+   * sprint stays in every later read of the same ball, the way a person who
+   * had to lunge is still off balance when the ball arrives.
+   */
+  strain?: number;
 }
 
 export interface Ball {

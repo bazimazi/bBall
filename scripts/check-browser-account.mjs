@@ -133,6 +133,9 @@ try {
     await page.goto(baseUrl);
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Guest browser');
     await click('Start playing');
+    // Start playing goes straight into the first-rally lesson; skipping it returns Home.
+    await page.getByRole('region', { name: 'First-rally lesson', exact: true }).waitFor();
+    await click('Skip lesson');
     await page.getByRole('button', { name: 'More modes', exact: true }).waitFor();
     guest = (await state()).profile;
   });

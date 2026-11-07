@@ -287,6 +287,7 @@ export function AbilityBar({ abilities, show, side, onUse }: AbilityBarProps) {
     <div
       className={side === 'left' ? `${styles.bar} ${styles.left}` : styles.bar}
       data-crowded={abilities.length > 5}
+      data-dense={abilities.length >= 4}
     >
       {abilities.map((ability) => (
         <AbilityButton key={ability.id} ability={ability} onUse={onUse} />

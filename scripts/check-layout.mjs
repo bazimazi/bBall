@@ -859,7 +859,9 @@ try {
       const toggle = info.locator('button[aria-expanded]');
       assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
       const compactBox = await info.boundingBox();
-      assert.ok(compactBox.height <= 60, `${size}: collapsed match HUD must stay small`);
+      // One score row plus up to two objective lines: on an upright phone the panel
+      // must stay clear of the opponent's paddle, so two goals wrap rather than clip.
+      assert.ok(compactBox.height <= 72, `${size}: collapsed match HUD must stay small`);
       assert.equal(await page.getByRole('img').count(), 0, 'Collapsed rival skills are hidden');
       await toggle.click();
       assert.equal(await toggle.getAttribute('aria-expanded'), 'true');

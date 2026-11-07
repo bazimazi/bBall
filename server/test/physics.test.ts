@@ -4,6 +4,7 @@ import { BALANCE } from '../../src/core/balance/config';
 import type { GameAudio } from '../../src/game/audio';
 import { BALL_R, FIELD_H, FIXED_DT, PADDLE_W } from '../../src/game/constants';
 import { movePaddle, stepBall } from '../../src/game/physics';
+import { rallyCeiling } from '../../src/game/talents';
 import { createWorld, placePaddles, rescaleField, type World } from '../../src/game/world';
 
 const silent = new Proxy({}, { get: () => () => 0 }) as unknown as GameAudio;
@@ -166,12 +167,33 @@ it('repeated boosted returns at the speed ceiling preserve normal rally pace', (
     effects: { ...world.loadout.effects, critChance: 1, critGrowth: 0.4 }
   };
   for (let i = 0; i < 40; i++) {
+    // Each exchange is the start of a rally: rally pressure is its own rule.
+    world.match.rally = 0;
     hit(world, 'you');
     assert.ok(world.ball.speed > world.tuning.maxSpeed);
     hit(world, 'bot');
     assert.equal(world.ball.speed, world.tuning.maxSpeed);
     assert.equal(world.talents.surge, 0);
   }
+});
+
+it('rally pressure lifts the speed ceiling for both sides, within the hard limit', () => {
+  const world = createWorld(silent, 0);
+  world.view.w = 1000;
+  placePaddles(world);
+  world.match.status = 'play';
+  world.ball.speed = world.tuning.maxSpeed;
+  assert.equal(rallyCeiling(world), world.tuning.maxSpeed, 'a short rally keeps the plain ceiling');
+  // Past return 24 the ceiling climbs on the ramp that narrows the paddles.
+  world.match.rally = 34;
+  assert.ok(Math.abs(rallyCeiling(world) - world.tuning.maxSpeed * 1.2) < 1e-9);
+  hit(world, 'bot');
+  assert.ok(world.ball.speed > world.tuning.maxSpeed, 'a long rally runs faster');
+  world.match.rally = 500;
+  assert.ok(rallyCeiling(world) <= BALANCE.ball.hardMax);
+  // Unranked play declares no rally pressure.
+  world.rules = { ...world.rules, ranked: false };
+  assert.equal(rallyCeiling(world), world.tuning.maxSpeed);
 });
 
 it('below the ceiling, opponents still bleed only the boosted share of pace', () => {

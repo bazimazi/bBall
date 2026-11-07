@@ -2,6 +2,7 @@ import { t } from '../../core/i18n/index';
 import type { PlayerProfile } from '../../core/profile/types';
 import { kitName } from '../../core/equipment/catalog';
 import { fixedDailyKit } from '../../core/equipment/policy';
+import { NEUTRAL_KIT, type PaddleKit } from '../../core/equipment/types';
 import styles from '../Screens.module.css';
 
 export function PaddleNotice({
@@ -21,6 +22,19 @@ export function PaddleNotice({
         : undefined;
   const active =
     policy === 'run' ? !!profile.progress.run : policy === 'cup' ? !!profile.tournament : false;
+  // A player who has only ever had the neutral paddle has nothing to be told
+  // about it: the line appears once there is a choice it describes.
+  const plain = (kit?: PaddleKit) =>
+    !kit ||
+    (Object.keys(NEUTRAL_KIT) as (keyof PaddleKit)[]).every((key) => kit[key] === NEUTRAL_KIT[key]);
+  const unsupported = !!session && session.version > 1;
+  if (
+    policy !== 'daily' &&
+    !unsupported &&
+    plain(profile.progress.workshop.equipped) &&
+    plain(session?.kit)
+  )
+    return null;
   const text =
     policy === 'daily'
       ? `${dailyKey ? kitName(fixedDailyKit(dailyKey)) : 'Date-defined paddle'} · Daily supplies the same equipment to everyone.`

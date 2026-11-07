@@ -18,6 +18,7 @@ import type { ProgressSummary } from '../../core/progression/apply';
 import { QUEST_BONUS_XP, QUEST_XP } from '../../core/quests/quests';
 import { runLength } from '../../core/run/formats';
 import { resolveLoadout } from '../../core/talents/effects';
+import { equipCosmetic } from '../../core/account/progression';
 import { XpBar } from '../components/XpBar';
 import { ResultCoaching } from '../components/ResultCoaching';
 import { SaveNotice } from '../components/SaveNotice';
@@ -217,6 +218,8 @@ export function ResultScreen({
   const endless = result.mode === 'endless';
   const award = summary?.award;
   const levelled = (summary?.levelsGained ?? 0) > 0;
+  /** New cosmetics put on from this card. */
+  const [equipped, setEquipped] = useState<string[]>([]);
   const points = summary?.talentPointsAvailable ?? 0;
   const gained = summary?.talentPoints ?? 0;
   const goals = goalsOf(result);
@@ -498,52 +501,60 @@ export function ResultScreen({
           </button>
         )}
 
+        {summary && summary.achievements.length > 0 && (
+          <>
+            <p className={styles.sectionLabel}>{t('Achievements')}</p>
+            {summary.achievements.map((achievement) => (
+              <div key={achievement.id} className={styles.unlockRow}>
+                <span>{t('★')}</span>
+                <span>{t(achievement.name)}</span>
+                {achievement.xp > 0 && (
+                  <span style={{ marginInlineStart: 'auto' }}>
+                    {t('+')}
+                    {t(achievement.xp)}
+                    {t(' XP')}
+                  </span>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+
+        {summary && summary.unlocks.length > 0 && (
+          <>
+            <p className={styles.sectionLabel}>{t('Unlocked')}</p>
+            {summary.unlocks.map((cosmetic) => (
+              <div key={cosmetic.id} className={styles.unlockRow}>
+                <span
+                  className={styles.swatchDisc}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    background: `linear-gradient(140deg, ${cosmetic.swatch[0]}, ${cosmetic.swatch[1]})`
+                  }}
+                />
+                <span>
+                  {t(cosmetic.name)} {t(cosmetic.kind)}
+                </span>
+                {/* A new look is worth trying on straight away. */}
+                <button
+                  type="button"
+                  className={styles.unlockAction}
+                  disabled={equipped.includes(cosmetic.id)}
+                  onClick={() => {
+                    equipCosmetic(cosmetic.kind, cosmetic.id);
+                    setEquipped((list) => [...list, cosmetic.id]);
+                  }}
+                >
+                  {t(equipped.includes(cosmetic.id) ? 'Equipped' : 'Equip')}
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+
         {summary && award && award.total > 0 ? (
           <div className={styles.card}>
-            <div className={styles.xpLines}>
-              {award.lines.map((line) => (
-                <p key={line.label} className={styles.xpLine}>
-                  <span>{t(line.label)}</span>
-                  <span>
-                    {t('+')}
-                    {t(line.xp)}
-                  </span>
-                </p>
-              ))}
-              {award.multiplier !== 1 && (
-                <p className={styles.xpLine}>
-                  <span>{t('Difficulty')}</span>
-                  <span>
-                    {t('×')}
-                    {t(award.multiplier)}
-                  </span>
-                </p>
-              )}
-              {award.talentMultiplier > 1 && (
-                <p className={styles.xpLine}>
-                  <span>{t('Talents')}</span>
-                  <span>
-                    {t('×')}
-                    {t(award.talentMultiplier.toFixed(2))}
-                  </span>
-                </p>
-              )}
-              {award.damped && (
-                <p className={styles.xpLine}>
-                  <span>{t('Daily cap')}</span>
-                  <span>{t('×0.5')}</span>
-                </p>
-              )}
-              {award.extras.map((line) => (
-                <p key={`extra-${line.label}`} className={styles.xpLine}>
-                  <span>{t(line.label)}</span>
-                  <span>
-                    {t('+')}
-                    {t(line.xp)}
-                  </span>
-                </p>
-              ))}
-            </div>
             <p className={styles.xpTotal}>
               <span>{t('XP earned')}</span>
               <span>
@@ -554,6 +565,53 @@ export function ResultScreen({
             <div style={{ marginTop: 12 }}>
               <XpBar xp={summary.xpAfter} from={summary.xpBefore} />
             </div>
+            {/* The total is the headline; the line-by-line sum is there for anyone who asks. */}
+            <MenuDisclosure title={t('XP breakdown')}>
+              <div className={styles.xpLines}>
+                {award.lines.map((line) => (
+                  <p key={line.label} className={styles.xpLine}>
+                    <span>{t(line.label)}</span>
+                    <span>
+                      {t('+')}
+                      {t(line.xp)}
+                    </span>
+                  </p>
+                ))}
+                {award.multiplier !== 1 && (
+                  <p className={styles.xpLine}>
+                    <span>{t('Difficulty')}</span>
+                    <span>
+                      {t('×')}
+                      {t(award.multiplier)}
+                    </span>
+                  </p>
+                )}
+                {award.talentMultiplier > 1 && (
+                  <p className={styles.xpLine}>
+                    <span>{t('Talents')}</span>
+                    <span>
+                      {t('×')}
+                      {t(award.talentMultiplier.toFixed(2))}
+                    </span>
+                  </p>
+                )}
+                {award.damped && (
+                  <p className={styles.xpLine}>
+                    <span>{t('Daily cap')}</span>
+                    <span>{t('×0.5')}</span>
+                  </p>
+                )}
+                {award.extras.map((line) => (
+                  <p key={`extra-${line.label}`} className={styles.xpLine}>
+                    <span>{t(line.label)}</span>
+                    <span>
+                      {t('+')}
+                      {t(line.xp)}
+                    </span>
+                  </p>
+                ))}
+              </div>
+            </MenuDisclosure>
           </div>
         ) : (
           <p className={styles.note}>
@@ -639,46 +697,6 @@ export function ResultScreen({
               {t('Spend loot in the Resonance Lab')}
             </button>
           </div>
-        )}
-
-        {summary && summary.achievements.length > 0 && (
-          <>
-            <p className={styles.sectionLabel}>{t('Achievements')}</p>
-            {summary.achievements.map((achievement) => (
-              <div key={achievement.id} className={styles.unlockRow}>
-                <span>{t('★')}</span>
-                <span>{t(achievement.name)}</span>
-                {achievement.xp > 0 && (
-                  <span style={{ marginInlineStart: 'auto' }}>
-                    {t('+')}
-                    {t(achievement.xp)}
-                    {t(' XP')}
-                  </span>
-                )}
-              </div>
-            ))}
-          </>
-        )}
-
-        {summary && summary.unlocks.length > 0 && (
-          <>
-            <p className={styles.sectionLabel}>{t('Unlocked')}</p>
-            {summary.unlocks.map((cosmetic) => (
-              <div key={cosmetic.id} className={styles.unlockRow}>
-                <span
-                  className={styles.swatchDisc}
-                  style={{
-                    width: 20,
-                    height: 20,
-                    background: `linear-gradient(140deg, ${cosmetic.swatch[0]}, ${cosmetic.swatch[1]})`
-                  }}
-                />
-                <span>
-                  {t(cosmetic.name)} {t(cosmetic.kind)}
-                </span>
-              </div>
-            ))}
-          </>
         )}
 
         {good && practice}

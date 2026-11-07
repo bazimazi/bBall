@@ -563,7 +563,11 @@ function checkTalentUse(
     (aegisEquipped
       ? effects.aegisSaves * (Math.ceil(submission.seconds / effects.aegisCooldown) + 1)
       : 0) +
-    (effects.adrenalineEvery > 0 ? Math.floor(submission.hits / effects.adrenalineEvery) : 0);
+    (effects.adrenalineEvery > 0 ? Math.floor(submission.hits / effects.adrenalineEvery) : 0) +
+    // Bulwark: a parry refills a spent charge once per rally.
+    (effects.guardGrantsShield
+      ? Math.min(stats.perfectGuards, submission.scoreYou + submission.scoreBot + 1)
+      : 0);
   if (stats.shieldSaves > shieldCeiling) {
     return reject('impossible-talent-stats', 'More shield saves than the build could recharge.');
   }

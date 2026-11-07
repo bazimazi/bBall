@@ -73,7 +73,7 @@ function bossBlurb(id: string): string {
 export const EXPANSION_WORLDS: readonly JourneyWorld[] = NAMES.map((name, n) => {
   const id = n + 6,
     arc = Math.floor(n / 5);
-  const bots: readonly BotLevelId[] = ['pro', 'pro', 'elite', 'elite', 'legend'];
+  const bots: readonly BotLevelId[] = ['pro', 'pro', 'pro', 'pro', 'pro'];
   const stages: Stage[] = Array.from({ length: 24 }, (_, i) => {
     const court = EXPANSION_COURTS[(n * 7 + i) % EXPANSION_COURTS.length]!;
     const arena: ArenaSpec = court.arena;
@@ -106,19 +106,19 @@ export const EXPANSION_WORLDS: readonly JourneyWorld[] = NAMES.map((name, n) => 
         boss
           ? { id: 'margin', value: 2 }
           : arena.switches?.length
-            ? { id: 'switches', value: 1 }
+            ? { id: 'switches', value: 2 }
             : arena.rails?.some((r) => r.hp)
               ? { id: 'breaks', value: 1 }
               : arena.rails?.length
-                ? { id: 'banks', value: 2 }
+                ? { id: 'banks', value: 3 }
                 : arena.gates?.length
-                  ? { id: 'gates', value: 2 }
+                  ? { id: 'gates', value: 4 }
                   : { id: 'margin', value: 2 },
         i % 3 === 0
-          ? { id: 'flicks', value: 3 + arc }
+          ? { id: 'flicks', value: 3 }
           : i % 3 === 1
-            ? { id: 'rally', value: 12 + arc * 2 }
-            : { id: 'fast', value: 140 }
+            ? { id: 'rally', value: 12 + Math.min(2, arc) * 2 }
+            : { id: 'fast', value: 60 }
       ],
       ...(boss ? { boss } : {}),
       // The first twelve stages form the core route. Side branches never gate the boss.
@@ -143,7 +143,7 @@ export const EXPANSION_WORLDS: readonly JourneyWorld[] = NAMES.map((name, n) => 
 
 export function frontierStage(sector: number, index: number): Stage {
   const depth = (sector - 1) * 20 + index;
-  const r = recipe('journey-frontier-v2', depth, Math.min(4, Math.floor((sector - 1) / 3) + 2));
+  const r = recipe('journey-frontier-v2', depth, Math.min(2, Math.floor((sector - 1) / 30) + 1));
   const boss =
     index % 5 === 4 ? EXPANSION_BOSS_IDS[(sector + Math.floor(index / 5)) % 18]! : undefined;
   return {
@@ -159,7 +159,7 @@ export function frontierStage(sector: number, index: number): Stage {
     modifiers: r.modifiers,
     goals: [
       { id: 'margin', value: 2 },
-      { id: 'flicks', value: 5 }
+      { id: 'flicks', value: 3 }
     ],
     ...(boss ? { boss } : {})
   };
