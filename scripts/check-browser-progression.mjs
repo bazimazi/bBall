@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { preferEnglish } from './prefer-english.mjs';
 
 /* global window, requestAnimationFrame, cancelAnimationFrame */
 
@@ -243,6 +244,7 @@ try {
       guest.talents = buyTalent(guest.talents, 100, talent.id) ?? guest.talents;
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await preferEnglish(page);
   page.setDefaultTimeout(15_000);
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('**/v1/**', (route) =>

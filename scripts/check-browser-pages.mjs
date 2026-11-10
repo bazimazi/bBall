@@ -186,8 +186,10 @@ try {
 
       await check('onboarding', async () => {
         await page.goto(server.resolvedUrls.local[0]);
-        if (language === 'fa')
-          await page.getByRole('button', { name: 'فارسی', exact: true }).click();
+        // Persian is the default; English players pick it during onboarding.
+        await page
+          .getByRole('button', { name: language === 'fa' ? 'فارسی' : 'English', exact: true })
+          .click();
         await page
           .getByRole('textbox', { name: await label('Name'), exact: true })
           .fill(`Tester ${language}`);

@@ -93,7 +93,7 @@ it('drills reset feed pace and hazards, count misses, and never award progressio
 });
 
 it('authored bosses announce a stable guard/recovery cycle and preserve cooldowns and player reach', () => {
-  for (const boss of AUTHORED_BOSSES) {
+  for (const boss of AUTHORED_BOSSES.filter((b) => b.spec.rhythm)) {
     const world = worldFor();
     const rules = {
       ...practiceRules(boss.bot, 'normal', { bossId: boss.spec.id }),

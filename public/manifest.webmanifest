@@ -1,7 +1,9 @@
 {
   "id": "./",
-  "name": "bBall",
-  "short_name": "bBall",
+  "name": "توپک",
+  "short_name": "توپک",
+  "lang": "fa",
+  "dir": "rtl",
   "description": "A fast, minimal bouncing-ball duel.",
   "start_url": "./",
   "scope": "./",

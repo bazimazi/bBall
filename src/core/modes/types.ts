@@ -38,11 +38,36 @@ export interface PortalSpec {
 }
 
 /**
+ * A spark: a pickup floating in midfield. The ball collects it, and the side
+ * that touched the ball last gets the effect - so a return aimed through one
+ * is an attack, and a careless return hands it to the opponent.
+ *
+ *  - `wide`: your paddle is longer for a few seconds.
+ *  - `fire`: your next return leaves charged - quicker and harder to read.
+ *  - `ward`: one ball that would beat you is turned back at your line.
+ *  - `hex`: the opponent's paddle is shorter for a few seconds.
+ */
+export type SparkKind = 'wide' | 'fire' | 'ward' | 'hex';
+
+export const SPARK_KINDS: readonly SparkKind[] = ['wide', 'fire', 'ward', 'hex'];
+
+export interface SparkSpec {
+  /** Which sparks may appear; each new one is drawn from this list. */
+  readonly kinds: readonly SparkKind[];
+  /** Seconds of live play before the next spark appears. */
+  readonly every: number;
+  /** At most this many on court at once: 1 or 2. */
+  readonly max?: number;
+}
+
+/**
  * The court itself as a rule: what stands in it, and what pushes the ball
  * around. Every hazard is data, read by `game/arena.ts`, so a stage, a boss
  * or a daily challenge describes its court rather than coding one.
  */
 export interface ArenaSpec {
+  /** Pickups the ball collects for the side that touched it last. */
+  readonly sparks?: SparkSpec;
   /** Reflecting segments, measured in fractions of the field. */
   readonly rails?: readonly RailSpec[];
   readonly gates?: readonly GateSpec[];
@@ -118,8 +143,34 @@ export interface ChargeZoneSpec {
   readonly scale: number;
 }
 
+/**
+ * What a boss does that an ordinary opponent never does. Each one is a fair,
+ * visible rule: the court shows it working, and none of them hides the ball
+ * or slows the player's paddle.
+ */
+export interface BossTraits {
+  /**
+   * A second, slower paddle guarding the boss's half at `x` (a fraction of
+   * the court's length), `half` field units long, moving at `speed` units/s.
+   * It turns the player's returns back; aim round it.
+   */
+  readonly warden?: { readonly x: number; readonly half: number; readonly speed: number };
+  /** Its returns gather pace past the centre line, by this factor (1.1-1.35). */
+  readonly surge?: number;
+  /** Its returns check up at the centre line for this many seconds (0.15-0.45). */
+  readonly stutter?: number;
+  /** Rebuilds one broken brick or deflector every this many seconds of play. */
+  readonly mason?: number;
+  /** Each of its returns turns the court's wind, after the usual warning. */
+  readonly gust?: boolean;
+  /** Each of its returns shuts every gate a switch had opened. */
+  readonly lockdown?: boolean;
+}
+
 /** One step up in a boss's fight, reached when the player's score hits `at`. */
 export interface BossPhase {
+  /** Traits added for the rest of the fight, on top of the boss's own. */
+  readonly traits?: BossTraits;
   /** Court transition between points, announced by the phase banner. */
   readonly arena?: ArenaSpec;
   readonly at: number;
@@ -152,6 +203,8 @@ export interface BossSpec {
   readonly hue: number;
   /** From the first serve. */
   readonly swerve?: number;
+  /** Its signature behaviour, from the first serve. */
+  readonly traits?: BossTraits;
   readonly phases: readonly BossPhase[];
 }
 import type { TalentMatchStats } from '../talents/types';
@@ -200,7 +253,14 @@ export const NEUTRAL_MODIFIERS: MatchModifiers = {
   startScore: { you: 0, bot: 0 }
 };
 
-export type CourtEvents = { banks: number; switches: number; breaks: number; gates: number };
+export type CourtEvents = {
+  banks: number;
+  switches: number;
+  breaks: number;
+  gates: number;
+  /** Sparks collected. Optional: records from before sparks existed have none. */
+  sparks?: number | undefined;
+};
 export type ObjectiveId = 'win' | 'rally' | 'shutout' | 'quick-win' | 'survive' | keyof CourtEvents;
 
 export interface MatchObjective {

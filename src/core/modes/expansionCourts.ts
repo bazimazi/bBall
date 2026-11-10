@@ -122,6 +122,25 @@ export const COURT_THEMES = [
   ]
 ] as const satisfies readonly (readonly [string, string, string, ArenaSpec])[];
 
+/**
+ * A variant is a different place, not a number: each template's later
+ * variants (mirrored, narrower, stronger) carry names of their own.
+ */
+const VARIANT_NAMES: Readonly<Record<string, readonly string[]>> = {
+  bankworks: ['Low Banks', 'Long Banks', 'Mirror Banks'],
+  gatehouse: ['Narrow Gate', 'Slow Gate', 'Last Gate'],
+  switchyard: ['Signal Yard', 'Night Yard', 'Junction'],
+  'charge-circuit': ['Live Wire', 'Fast Lane', 'High Voltage'],
+  'phase-crossing': ['Blink Gate', 'Half Light', 'Flicker'],
+  'deflector-ruins': ['Broken Mirrors', 'Old Walls', 'Last Ruins'],
+  'crosswind-lock': ['Shear Lock', 'Gale Lock', 'Storm Lock'],
+  'siege-relay': ['Breach Relay', 'Iron Relay', 'Siege Line'],
+  'storm-circuit': ['Eye Circuit', 'Thunder Ring', 'Static Field'],
+  'rail-slalom': ['Slide Rail', 'Glide Rail', 'Drift Rail'],
+  'rift-bank': ['Rift Shore', 'Far Rift'],
+  'pulse-forge': ['Heart Forge', 'Deep Forge']
+};
+
 export const EXPANSION_COURTS = Array.from({ length: 46 }, (_, i) => {
   const [id, name, blurb, definition] = COURT_THEMES[i % COURT_THEMES.length]!;
   const base: ArenaSpec = definition;
@@ -189,7 +208,7 @@ export const EXPANSION_COURTS = Array.from({ length: 46 }, (_, i) => {
   };
   return {
     id: `${id}-${variant + 1}`,
-    name: `${name}${variant ? ` ${variant + 1}` : ''}`,
+    name: variant ? (VARIANT_NAMES[id]?.[variant - 1] ?? `${name} ${variant + 1}`) : name,
     blurb,
     arena,
     since: '2026-10-08'

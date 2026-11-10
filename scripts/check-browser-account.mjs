@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { preferEnglish } from './prefer-english.mjs';
 import { makeServer, GOOD_PASSWORD } from '../server/test/helpers.ts';
 
 // Run with node --import tsx. This is the real browser, HTTP API, cookie jar,
@@ -32,6 +33,7 @@ try {
   const baseUrl = vite.resolvedUrls.local[0];
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await preferEnglish(context);
   page = await context.newPage();
   page.setDefaultTimeout(20_000);
   page.on('pageerror', (error) => report.errors.push({ current, error: error.message }));

@@ -6,12 +6,13 @@ next to the API. Everywhere else it is the same build inside a
 installer per operating system.
 
 English and Persian use the same bundled client translations on web, desktop
-and mobile. Language is selected at first-time setup or in Settings and stored
-per device. Persian menus and canvas labels use the bundled Vazirmatn variable
-font, including its OFL license; no font service is required. Persian menus use
-right-to-left layout, with sound controls on the left, while the court and paddle
-controls retain their orientation. Include language switching, Persian name
-entry and mixed email/key labels in packaged-webview QA.
+and mobile. Persian is the default; language is selected at first-time setup or
+in Settings and stored per device. Persian menus and canvas labels use the
+bundled Vazirmatn variable font, including its OFL license; no font service is
+required. Persian menus use right-to-left layout, with sound controls on the
+left, while the court and paddle controls retain their orientation. Include
+language switching, Persian name entry and mixed email/key labels in
+packaged-webview QA.
 
 **Reduced-motion policy:** web, desktop and mobile builds completely ignore
 operating-system and browser reduced-motion settings. Native wrappers must not
@@ -453,6 +454,14 @@ exists rather than a bare `tauri icon`:
 Run `npm run icons` again after `android:init` or `ios:init`: once those
 projects exist, they hold the copies that get built, and the script writes into
 them as well as into `src-tauri/icons/`.
+
+The name under the icon is **توپک**, not `productName`. `productName` stays
+`bBall` because it also names desktop binaries and installers. On Android the
+label is `app_name` (and `main_activity_title`) in
+`src-tauri/gen/android/app/src/main/res/values/strings.xml`; `android:init`
+rewrites that file from `productName`, so set both strings back to `توپک`
+afterwards. Installed web apps take the label from `short_name` in
+`public/manifest.webmanifest`.
 
 ## Signing
 

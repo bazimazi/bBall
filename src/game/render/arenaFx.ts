@@ -6,6 +6,10 @@ import type { World } from '../world';
 import type { GlowCache } from './glow';
 import { roundRect } from './shapes';
 import { courseSegments, gateOpening } from '../course';
+import { SPARK_HUES } from '../sparks';
+import { BALANCE } from '../../core/balance/config';
+import type { SparkKind } from '../../core/modes/types';
+import type { Paddle } from '../types';
 
 /**
  * The court's hazards, drawn under the ball and over the floor.
@@ -18,6 +22,9 @@ import { courseSegments, gateOpening } from '../course';
  * thing to watch.
  */
 export function drawArena(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
+  // What the sparks left each side holding outlives a court change, so it is
+  // drawn whatever the court.
+  drawSparkHolds(ctx, world, glow);
   const spec = world.arena.spec;
   if (!spec) return;
   drawCourse(ctx, world);
@@ -26,6 +33,164 @@ export function drawArena(ctx: CanvasRenderingContext2D, world: World, glow: Glo
   if (world.arena.bricks.length > 0) drawBricks(ctx, world);
   if (world.arena.bumpers.length > 0) drawBumpers(ctx, world, glow);
   if (world.arena.portals.length > 0) drawPortals(ctx, world, glow);
+  if (world.arena.warden) drawWarden(ctx, world, glow);
+  if (world.arena.sparks.orbs.length > 0) drawSparks(ctx, world, glow);
+}
+
+/**
+ * Each spark wears its effect as a glyph, readable at a glance and at any
+ * court size: arrows apart for Wide, a flame for Fire, a wall for Ward,
+ * arrows together for Hex. It pops in over a third of a second - the time in
+ * which it cannot be taken - and then breathes gently.
+ */
+function drawSparks(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
+  const r = BALANCE.sparks.radius;
+  for (const orb of world.arena.sparks.orbs) {
+    const hue = SPARK_HUES[orb.kind];
+    const pop = Math.min(1, orb.age / 0.3);
+    const ease = 1 - Math.pow(1 - pop, 3);
+    const size = r * ease * (1 + Math.sin(orb.age * 4.2) * 0.06);
+    if (size <= 0.5) continue;
+    const g = size * 2.8;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.5 * ease;
+    ctx.drawImage(glow.dot(hue, 62), orb.x - g, orb.y - g, g * 2, g * 2);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(orb.x, orb.y);
+    ctx.rotate(orb.age * 0.9);
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.lineTo(Math.cos(a) * size, Math.sin(a) * size);
+    }
+    ctx.closePath();
+    ctx.fillStyle = hsla(hue, 70, 14, 0.92);
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = hsla(hue, 100, 70, pop < 1 ? 0.6 : 0.95);
+    ctx.stroke();
+    ctx.restore();
+    drawGlyph(ctx, orb.kind, orb.x, orb.y, size * 0.58, hsla(hue, 100, 80, 0.95));
+  }
+}
+
+function drawGlyph(
+  ctx: CanvasRenderingContext2D,
+  kind: SparkKind,
+  x: number,
+  y: number,
+  s: number,
+  color: string
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = Math.max(1.5, s * 0.28);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  if (kind === 'wide' || kind === 'hex') {
+    // Along the paddle's own axis: heads out for longer, heads in for shorter.
+    for (const end of [-1, 1]) {
+      const tip = end * s;
+      ctx.moveTo(0, end * s * 0.25);
+      ctx.lineTo(0, tip);
+      const head = kind === 'wide' ? tip : end * s * 0.25;
+      const back = (kind === 'wide' ? -end : end) * s * 0.42;
+      ctx.moveTo(-s * 0.42, head + back);
+      ctx.lineTo(0, head);
+      ctx.lineTo(s * 0.42, head + back);
+    }
+    ctx.stroke();
+  } else if (kind === 'fire') {
+    ctx.moveTo(0, -s);
+    ctx.quadraticCurveTo(s * 0.9, -s * 0.1, s * 0.45, s * 0.7);
+    ctx.quadraticCurveTo(0, s * 1.05, -s * 0.45, s * 0.7);
+    ctx.quadraticCurveTo(-s * 0.9, -s * 0.1, 0, -s);
+    ctx.fill();
+  } else {
+    ctx.moveTo(0, -s);
+    ctx.lineTo(0, s);
+    ctx.moveTo(-s * 0.55, -s * 0.6);
+    ctx.quadraticCurveTo(-s * 0.15, 0, -s * 0.55, s * 0.6);
+    ctx.moveTo(s * 0.55, -s * 0.6);
+    ctx.quadraticCurveTo(s * 0.15, 0, s * 0.55, s * 0.6);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** A held Ward lights its goal line; Wide, Hex and Fire tint the paddle that carries them. */
+function drawSparkHolds(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
+  const sparks = world.arena.sparks;
+  for (const side of ['you', 'bot'] as const) {
+    const hold = sparks.hold[side];
+    const flash = sparks.wardFlash[side];
+    if (hold.ward > 0 || flash > 0) {
+      const x = side === 'you' ? 3 : world.view.w - 3;
+      const pulse = 0.55 + Math.sin(world.fx.time * 5) * 0.15;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = hsla(SPARK_HUES.ward, 100, 72, Math.max(hold.ward > 0 ? pulse : 0, flash));
+      ctx.lineWidth = 4 + flash * 6;
+      ctx.setLineDash(hold.ward > 0 ? [14, 8] : []);
+      ctx.beginPath();
+      ctx.moveTo(x, 10);
+      ctx.lineTo(x, FIELD_H - 10);
+      ctx.stroke();
+      ctx.restore();
+    }
+    const paddle = side === 'you' ? world.player : world.bot;
+    if (hold.wide > 0) aura(ctx, world, glow, paddle, SPARK_HUES.wide, hold.wide);
+    if (hold.hex > 0) aura(ctx, world, glow, paddle, SPARK_HUES.hex, hold.hex);
+    if (hold.fire > 0) aura(ctx, world, glow, paddle, SPARK_HUES.fire, 9);
+  }
+}
+
+/** A soft glow along a paddle; it flickers in its last second so the end is no surprise. */
+function aura(
+  ctx: CanvasRenderingContext2D,
+  world: World,
+  glow: GlowCache,
+  paddle: Paddle,
+  hue: number,
+  left: number
+): void {
+  const flicker = left < 1 ? 0.5 + 0.5 * Math.sin(world.fx.time * 30) : 1;
+  const w = 34;
+  const h = paddle.half * 2 + 30;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.55 * flicker;
+  ctx.drawImage(glow.bar(hue, 62), paddle.x - w / 2, paddle.y - h / 2, w, h);
+  ctx.restore();
+}
+
+/** The warden: a slimmer paddle in the boss's colour, on a faint track of its own. */
+function drawWarden(ctx: CanvasRenderingContext2D, world: World, glow: GlowCache): void {
+  const warden = world.arena.warden!;
+  const hue = world.rules.boss?.hue ?? 0;
+  ctx.save();
+  ctx.strokeStyle = hsla(hue, 70, 70, 0.12);
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 9]);
+  ctx.beginPath();
+  ctx.moveTo(warden.x, 0);
+  ctx.lineTo(warden.x, FIELD_H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const h = warden.half * 2 + 26;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.35 + warden.flash * 0.5;
+  ctx.drawImage(glow.bar(hue, 60), warden.x - 16, warden.y - h / 2, 32, h);
+  ctx.restore();
+  roundRect(ctx, warden.x - 5, warden.y - warden.half, 10, warden.half * 2, 5);
+  ctx.fillStyle = hsla(hue, 80, 58 + warden.flash * 25, 0.92);
+  ctx.fill();
 }
 
 function drawCourse(ctx: CanvasRenderingContext2D, world: World): void {

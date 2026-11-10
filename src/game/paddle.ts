@@ -15,9 +15,10 @@ import { clamp } from './utils/math';
  */
 
 export function resizePaddle(paddle: Paddle): void {
-  const floor = (PADDLE_H / 2) * MIN_PADDLE_SCALE;
-  const ceiling = (PADDLE_H / 2) * (paddle.maxScale ?? MAX_PADDLE_SCALE);
-  paddle.half = clamp(paddle.baseHalf * paddle.scale * paddle.grow, floor, ceiling);
+  const boost = paddle.boost ?? 1;
+  const floor = (PADDLE_H / 2) * MIN_PADDLE_SCALE * Math.min(1, boost);
+  const ceiling = (PADDLE_H / 2) * (paddle.maxScale ?? MAX_PADDLE_SCALE) * Math.max(1, boost);
+  paddle.half = clamp(paddle.baseHalf * paddle.scale * paddle.grow * boost, floor, ceiling);
   // A paddle that just grew can overhang a wall; pull its centre back in.
   paddle.y = clamp(paddle.y, paddle.half, FIELD_H - paddle.half);
   paddle.target = clamp(paddle.target, paddle.half, FIELD_H - paddle.half);

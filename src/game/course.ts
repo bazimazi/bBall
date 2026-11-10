@@ -1,5 +1,5 @@
 import { BALANCE } from '../core/balance/config';
-import type { ArenaSpec, GateSpec } from '../core/modes/types';
+import type { ArenaSpec, CourtEvents, GateSpec } from '../core/modes/types';
 import { BALL_R, FIELD_H } from './constants';
 import type { Side, Vec2 } from './types';
 import type { World } from './world';
@@ -11,8 +11,11 @@ export interface CourseState {
   openUntil: number[];
   switchLocks: number[];
   zoneLock: number;
-  events: Record<Side, { banks: number; switches: number; breaks: number; gates: number }>;
+  events: Record<Side, LiveCourtEvents>;
 }
+
+/** The live counters: every kind always counted, sparks included. */
+export type LiveCourtEvents = { [K in keyof CourtEvents]-?: number };
 
 export function createCourse(spec?: ArenaSpec | null): CourseState {
   return {
@@ -22,8 +25,8 @@ export function createCourse(spec?: ArenaSpec | null): CourseState {
     switchLocks: (spec?.switches ?? []).map(() => 0),
     zoneLock: 0,
     events: {
-      you: { banks: 0, switches: 0, breaks: 0, gates: 0 },
-      bot: { banks: 0, switches: 0, breaks: 0, gates: 0 }
+      you: { banks: 0, switches: 0, breaks: 0, gates: 0, sparks: 0 },
+      bot: { banks: 0, switches: 0, breaks: 0, gates: 0, sparks: 0 }
     }
   };
 }
@@ -197,8 +200,11 @@ export function collideCourse(world: World): void {
       break;
     }
   }
-  for (const g of arena.spec?.gates ?? []) {
-    if ((ball.px - g.x * world.view.w) * (ball.x - g.x * world.view.w) < 0)
+  for (const [i, g] of (arena.spec?.gates ?? []).entries()) {
+    if (
+      (ball.px - g.x * world.view.w) * (ball.x - g.x * world.view.w) < 0 &&
+      gateOpening(g, arena.time, course.openUntil[i]).gap < 1
+    )
       course.events[ball.owner].gates++;
   }
   for (const [i, s] of (arena.spec?.switches ?? []).entries()) {

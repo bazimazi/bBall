@@ -274,7 +274,8 @@ export const matchSubmissionSchema = z
         banks: z.number().int().min(0).max(100000),
         switches: z.number().int().min(0).max(100000),
         breaks: z.number().int().min(0).max(100000),
-        gates: z.number().int().min(0).max(100000)
+        gates: z.number().int().min(0).max(100000),
+        sparks: z.number().int().min(0).max(100000).optional()
       })
       .strict()
       .optional(),

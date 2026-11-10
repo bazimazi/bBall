@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { it, type TestContext } from 'node:test';
+import { before, it, type TestContext } from 'node:test';
+import { settingsStore } from '../../src/core/settings/store';
 import { heatHue } from '../../src/game/palette';
 import { GlowCache } from '../../src/game/render/glow';
 import { drawArena } from '../../src/game/render/arenaFx';
@@ -16,6 +17,9 @@ import {
   toScreenX,
   toScreenY
 } from '../../src/game/view';
+
+// These checks read English canvas labels; Persian is the shipped default.
+before(() => settingsStore.update({ language: 'en' }));
 
 it('automatic resolution bounds fill cost while preserving geometry and input at every density', (t) => {
   replaceGlobals(t, { window: { devicePixelRatio: 3 } });

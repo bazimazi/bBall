@@ -142,7 +142,14 @@ export function practiceRules(
     objective: null,
     ...(boss
       ? {
-          boss: { ...boss.spec, swerve: phase?.swerve ?? boss.spec.swerve ?? 0, phases: [] },
+          boss: {
+            ...boss.spec,
+            swerve: phase?.swerve ?? boss.spec.swerve ?? 0,
+            // The traits a live match would have reached by this phase, merged
+            // the way the phases add them.
+            traits: Object.assign({}, boss.spec.traits, ...selectedPhases.map((p) => p.traits)),
+            phases: []
+          },
           intro: {
             title: `${boss.spec.name} · ${phase?.label ?? 'Opening phase'}`,
             sub: 'Practice · isolated phase · no rewards'
@@ -178,13 +185,17 @@ export function endlessRules(options?: MatchOptions): MatchRules {
 }
 
 export function challengeRules(challenge: Challenge): MatchRules {
+  const boss = challenge.boss ? bossById(challenge.boss) : undefined;
   return {
     mode: 'challenge',
     ...(challenge.courtFamily ? { courtFamily: challenge.courtFamily } : {}),
     bot: botProfile(challenge.bot),
     winScore: challenge.winScore,
     lives: 0,
-    modifiers: modifiers(challenge.modifiers),
+    modifiers: modifiers(
+      boss ? { ...boss.modifiers, ...challenge.modifiers } : challenge.modifiers
+    ),
+    ...(boss ? { boss: cappedBoss(boss.spec, challenge.bot) } : {}),
     ranked: true,
     label: challenge.name,
     objective: challenge.objective,
@@ -232,15 +243,18 @@ function goalLine(goals: readonly [StarGoal, StarGoal]): string {
   return `${starGoalLabel(goals[0])} · ${starGoalLabel(goals[1])}`;
 }
 
-/** Journey bosses change courts, reach, intensity and bend between points, but their brain never passes Pro. */
-function journeyBoss(spec: BossSpec): BossSpec {
-  const cap = botProfile('pro').rank;
+/** A boss whose phases may sharpen its court and traits, but whose brain never passes `bot`. */
+function cappedBoss(spec: BossSpec, bot: BotLevelId): BossSpec {
+  const cap = botProfile(bot).rank;
   return {
     ...spec,
-    phases: spec.phases.map((p) =>
-      p.bot && botProfile(p.bot).rank > cap ? { ...p, bot: 'pro' as const } : p
-    )
+    phases: spec.phases.map((p) => (p.bot && botProfile(p.bot).rank > cap ? { ...p, bot } : p))
   };
+}
+
+/** Journey bosses change courts, reach, intensity and bend between points, but their brain never passes Pro. */
+function journeyBoss(spec: BossSpec): BossSpec {
+  return cappedBoss(spec, 'pro');
 }
 
 /** A Journey stage. A boss stage brings its boss's court, brain and phases. */
@@ -402,6 +416,7 @@ export function objectiveMet(
     case 'switches':
     case 'breaks':
     case 'gates':
+    case 'sparks':
       return result.won && (result.court?.[objective.id] ?? 0) >= objective.value;
   }
 }

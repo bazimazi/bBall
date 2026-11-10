@@ -1,4 +1,6 @@
 import { updateBossRhythm } from './bossRhythm';
+import { updateBossTraits } from './bossTraits';
+import { updateSparks } from './sparks';
 import { updateArena } from './arena';
 import { updateAbilityFx } from './casts';
 import { FIELD_H } from './constants';
@@ -179,6 +181,8 @@ export function step(world: World, dt: number): void {
   }
   updateArena(world, dt);
   updateBossRhythm(world);
+  updateBossTraits(world, dt);
+  updateSparks(world, dt);
 
   switch (match.status) {
     case 'menu': {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { preferEnglish } from './prefer-english.mjs';
 
 /* global window, PointerEvent, requestAnimationFrame, cancelAnimationFrame */
 
@@ -136,6 +137,7 @@ try {
   await server.listen();
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await preferEnglish(page);
   page.setDefaultTimeout(12_000);
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('**/v1/auth/oauth/providers', (route) =>
@@ -447,6 +449,7 @@ try {
         isMobile: true,
         hasTouch: true
       });
+      await preferEnglish(page);
       page.on('pageerror', (error) => errors.push(error.message));
       await page.route('**/v1/auth/oauth/providers', (route) =>
         route.fulfill({ json: { providers: [] } })

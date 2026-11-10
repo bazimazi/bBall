@@ -124,9 +124,9 @@ it('catalogs have stable legacy IDs and the complete expansion quantities', () =
   assert.equal(JOURNEY.length, 30);
   assert.equal(STAGES.length, 630);
   assert.equal(LEGACY_STAGES.length, 30);
-  assert.equal(ARENA_PRESETS.length, 60);
-  assert.equal(BOSSES.length, 25);
-  assert.equal(CHALLENGES.length, 120);
+  assert.equal(ARENA_PRESETS.length, 66);
+  assert.equal(BOSSES.length, 32);
+  assert.equal(CHALLENGES.length, 130);
   assert.equal(TALENTS.length, 40);
   assert.equal(TOURNAMENT_TIERS.length, 10);
   assert.equal(BOONS.length, 72);
@@ -136,7 +136,7 @@ it('catalogs have stable legacy IDs and the complete expansion quantities', () =
     assert.equal(new Set(list.map((s) => s.id)).size, list.length);
   assert.equal(
     new Set(ARENA_PRESETS.map((c) => JSON.stringify(c.arena))).size,
-    60,
+    66,
     'layouts have real geometry or timing differences'
   );
 });

@@ -352,7 +352,15 @@ export interface MatchSubmissionDto {
   readonly material?: MaterialStats | undefined;
   waves?: number | undefined;
   options?: MatchOptions | undefined;
-  court?: { banks: number; switches: number; breaks: number; gates: number } | undefined;
+  court?:
+    | {
+        banks: number;
+        switches: number;
+        breaks: number;
+        gates: number;
+        sparks?: number | undefined;
+      }
+    | undefined;
   /** Client-generated, stable across retries. Replays are ignored. */
   readonly clientMatchId: string;
   readonly mode: ModeId;

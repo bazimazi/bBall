@@ -67,6 +67,9 @@ try {
     vite.ssrLoadModule('/src/game/match.ts'),
     vite.ssrLoadModule('/src/core/modes/rules.ts')
   ]);
+  // The label checks below read English; Persian is the shipped default.
+  const ENGLISH_DEFAULTS = { ...DEFAULT_SETTINGS, language: 'en' };
+  settingsStore.update(ENGLISH_DEFAULTS);
   const profile = createProfile();
   const silent = new Proxy({}, { get: () => () => 0 });
   const world = createWorld(silent, 1);
@@ -168,7 +171,7 @@ try {
     assert.match(group, new RegExp(`aria-pressed="true"[^>]*>${label}</button>`));
     assert.equal((group.match(/aria-pressed="true"/g) ?? []).length, 1);
   }
-  settingsStore.update(DEFAULT_SETTINGS);
+  settingsStore.update(ENGLISH_DEFAULTS);
   for (const [graphicsIntensity, label] of [
     ['low', 'Low'],
     ['balanced', 'Balanced'],
@@ -181,7 +184,7 @@ try {
     assert.match(group, new RegExp(`aria-pressed="true"[^>]*>${label}</button>`));
     assert.equal((group.match(/aria-pressed="true"/g) ?? []).length, 1);
   }
-  settingsStore.update(DEFAULT_SETTINGS);
+  settingsStore.update(ENGLISH_DEFAULTS);
   const localeWindow = new Window();
   try {
     settingsStore.update({ language: 'fa' });
@@ -197,7 +200,7 @@ try {
     }
   } finally {
     localeWindow.close();
-    settingsStore.update(DEFAULT_SETTINGS);
+    settingsStore.update(ENGLISH_DEFAULTS);
   }
   const pending = renderToStaticMarkup(
     createElement(

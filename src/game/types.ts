@@ -38,6 +38,12 @@ export interface Paddle {
   grow: number;
   /** The size limit in force: the everyday one, or an ultimate's higher one while it runs. */
   maxScale?: number;
+  /**
+   * A court effect on top of everything else - a Wide or Hex spark. 1 when
+   * none is running. It moves the size limits with it, so a spark still
+   * shows on a paddle the build has already stretched to its cap.
+   */
+  boost?: number;
   /** 0..1 hit highlight, decays every step. */
   flash: number;
   /** Where the last ball struck, from the paddle's centre: the paddle bows there. */

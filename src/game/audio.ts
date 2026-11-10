@@ -281,6 +281,34 @@ export class GameAudio {
     synth.bell(330 + power * 220, 0.12, 0.28, { send: 0.25, pan: panOf(pan) });
   }
 
+  /**
+   * A spark collected: a bright two-note chime whose interval names the kind
+   * - rising for the two that help you, falling for Hex - so it can be told
+   * apart without looking away from the ball.
+   */
+  spark(kind: 'wide' | 'fire' | 'ward' | 'hex', pan = 0): void {
+    const synth = this.live;
+    if (!synth) return;
+    const p = panOf(pan);
+    const [a, b] =
+      kind === 'wide'
+        ? [784, 1175]
+        : kind === 'fire'
+          ? [659, 988]
+          : kind === 'ward'
+            ? [587, 880]
+            : [932, 622];
+    synth.bell(a, 0.06, 0.32, { send: 0.3, pan: p });
+    synth.bell(b, 0.07, 0.4, { delay: 0.06, send: 0.35, pan: p });
+    synth.noise({
+      gain: 0.035,
+      dur: 0.12,
+      attack: 0.004,
+      filter: { type: 'highpass', freq: 5200 },
+      pan: p
+    });
+  }
+
   /** A brick shattering. */
   brick(pan = 0): void {
     const synth = this.live;

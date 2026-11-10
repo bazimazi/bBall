@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { preferEnglish } from './prefer-english.mjs';
 
 /* global window, document, getComputedStyle, innerWidth, innerHeight, DOMMatrixReadOnly */
 
@@ -39,6 +40,7 @@ try {
   });
   if (screenshots) await mkdir(screenshots, { recursive: true });
   const page = await browser.newPage();
+  await preferEnglish(page);
   page.setDefaultTimeout(10_000);
   // Account layout has no configured providers; no backend or credentials are needed.
   await page.route('**/v1/auth/oauth/providers', (route) =>
@@ -906,6 +908,7 @@ try {
   });
   mobilePage.on('pageerror', (error) => errors.push(error.message));
   try {
+    await preferEnglish(mobilePage);
     await mobilePage.goto(url);
     await mobilePage.getByRole('button', { name: 'Skip', exact: true }).click();
     await mobilePage.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -963,6 +966,7 @@ try {
   });
   unsupportedPage.on('pageerror', (error) => errors.push(error.message));
   try {
+    await preferEnglish(unsupportedPage);
     await unsupportedPage.addInitScript(() => {
       Object.defineProperty(document, 'fullscreenEnabled', { value: false });
     });

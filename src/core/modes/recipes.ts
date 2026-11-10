@@ -2,7 +2,7 @@ import { COURT_HEIGHT, MIN_COURT_WIDTH } from './geometry';
 import { EXPANSION_COURTS } from './expansionCourts';
 import { seeded } from '../util/random';
 import type { BotLevelId } from '../bots/types';
-import type { ArenaSpec, MatchModifiers } from './types';
+import { SPARK_KINDS, type ArenaSpec, type MatchModifiers } from './types';
 
 export const CONTENT_VERSION = 2;
 export const PERSONALITIES = [
@@ -242,6 +242,19 @@ export function validArena(arena: ArenaSpec): boolean {
   if (
     arena.bricks &&
     (!Number.isInteger(arena.bricks.rows) || arena.bricks.rows < 2 || arena.bricks.rows > 8)
+  )
+    return false;
+  // Sparks neither bend nor block the ball, so they sit outside the family
+  // budget - but a court never floods with them.
+  if (
+    arena.sparks &&
+    (arena.sparks.kinds.length === 0 ||
+      new Set(arena.sparks.kinds).size !== arena.sparks.kinds.length ||
+      arena.sparks.kinds.some((kind) => !SPARK_KINDS.includes(kind)) ||
+      !Number.isFinite(arena.sparks.every) ||
+      arena.sparks.every < 3 ||
+      arena.sparks.every > 20 ||
+      (arena.sparks.max !== undefined && ![1, 2].includes(arena.sparks.max)))
   )
     return false;
   if (

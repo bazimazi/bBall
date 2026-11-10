@@ -23,6 +23,8 @@ import {
 import type { Paddle } from './types';
 import { clamp } from './utils/math';
 import { shrinkPaddle } from './paddle';
+import { fireReturn, tryWard } from './sparks';
+import { bossFlight } from './bossTraits';
 import { combatant } from './combatant';
 import { REPLAY_HIT_BOT, REPLAY_HIT_YOU, REPLAY_WALL } from './replay';
 import {
@@ -135,6 +137,8 @@ function onPaddleHit(
     talented && actor.loadout.effects.swerve > 0 ? (ball.vy >= 0 ? 1 : -1) : 0;
   if (paddle.side === 'bot' && match.status !== 'menu') bossReturned(world);
   else playerReturned(world);
+  // A held Fire spark charges this return, on top of whatever the build did.
+  if (match.status !== 'menu') fireReturn(world, paddle.side, ball.x + dir * BALL_R, contactY);
 
   const p = power(world);
   paddle.flash = mods.crit || mods.charged ? 1.35 : 1;
@@ -466,7 +470,10 @@ export function stepBall(world: World, dt: number): void {
   if (live && ball.vx < 0 && ball.px >= view.w / 2 && ball.x < view.w / 2) slowCrossing(world);
 
   // Bumpers and brick walls stand between the paddles.
-  if (live) collideArena(world);
+  if (live) {
+    collideArena(world);
+    bossFlight(world);
+  }
 
   // A contact can nudge the ball past a wall; pull it back without reflecting,
   // so the real bounce still plays next step.
@@ -480,7 +487,10 @@ export function stepBall(world: World, dt: number): void {
   // A Shield charge catches the ball at the player's line, before the point
   // is ever awarded - so a save keeps the rally alive rather than undoing it.
   // Bastion guards the corners for free, so it answers before a charge is spent.
-  if (ball.vx < 0 && ball.x <= BALL_R && !tryBastion(world)) tryShield(world);
+  if (ball.vx < 0 && ball.x <= BALL_R && !tryBastion(world) && !tryShield(world))
+    tryWard(world, 'you');
+  // A Ward spark is the only save the far line has.
+  if (live && ball.vx > 0 && ball.x >= view.w - BALL_R) tryWard(world, 'bot');
 
   world.trailTick += dt;
   if (world.trailTick >= 1 / 90) {

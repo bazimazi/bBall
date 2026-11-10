@@ -1,5 +1,6 @@
 import type { ArenaSpec, BossSpec, MatchModifiers } from './types';
 import type { BotLevelId } from '../bots/types';
+import { SIGNATURE_BOSSES } from './signatureBosses';
 
 const gate = (center: number): ArenaSpec => ({
   gates: [{ x: 0.58, center, gap: 0.34, period: 5.5, amplitude: 0.1 }]
@@ -8,8 +9,8 @@ const rails = (flip: boolean): ArenaSpec => ({
   rails: [{ ax: 0.38, ay: flip ? 0.76 : 0.24, bx: 0.68, by: flip ? 0.58 : 0.42 }]
 });
 const posts = (y: number): ArenaSpec => ({ bumpers: [{ x: 0.6, y, r: 28 }] });
-/** Three authored encounters; all hazards use the normal collision/forecast geometry. */
-export const AUTHORED_BOSSES: readonly {
+/** Three rhythm-guard encounters; all hazards use the normal collision/forecast geometry. */
+const RHYTHM_BOSSES: readonly {
   spec: BossSpec;
   bot: BotLevelId;
   winScore: number;
@@ -69,3 +70,11 @@ export const AUTHORED_BOSSES: readonly {
     modifiers: { arena: posts(0.5), botPaddleScale: 1.12 }
   }
 ];
+
+/** Every boss of Journey worlds 6 to 30, all of them authored. */
+export const AUTHORED_BOSSES: readonly {
+  spec: BossSpec;
+  bot: BotLevelId;
+  winScore: number;
+  modifiers: Partial<MatchModifiers>;
+}[] = [...RHYTHM_BOSSES, ...SIGNATURE_BOSSES];

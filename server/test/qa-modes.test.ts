@@ -14,7 +14,9 @@ import { CHALLENGES, challengeById, contractChallenge } from '../../src/core/mod
 import { techniqueRules, techniqueTarget, TECHNIQUES } from '../../src/core/modes/drills';
 import { encounterPracticeRules } from '../../src/core/modes/encounterPractice';
 import { validArena } from '../../src/core/modes/recipes';
+import { bossById } from '../../src/core/modes/bosses';
 import {
+  campaignRules,
   challengeRulesById,
   endlessRules,
   objectiveMet,
@@ -479,8 +481,10 @@ describe('Journey expansion bosses and cups', () => {
   it('Frontier names its sector and its boss properly', () => {
     const stage = frontierStage(1, 4);
     assert.ok(stage.boss);
-    assert.match(stage.name, /^Frontier 1 · [A-Z]/);
-    assert.doesNotMatch(stage.name, new RegExp(`· ${stage.boss}$`));
+    // The stage code carries the sector, so the name is the boss alone: the
+    // label used to read "Frontier 1-5 · Frontier 1 · Railwarden".
+    assert.equal(stage.name, bossById(stage.boss)!.spec.name);
+    assert.equal(campaignRules(stage).label, `Frontier 1-5 · ${stage.name}`);
     assert.equal(stageCode(stage), 'Frontier 1-5');
     assert.equal(stageCode(stageById('w12-4')!), '12-4');
     assert.equal(worldTitle(worldById(31)!), 'Frontier 1');

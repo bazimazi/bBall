@@ -20,7 +20,8 @@ export type StarGoalId =
   | 'banks'
   | 'switches'
   | 'breaks'
-  | 'gates';
+  | 'gates'
+  | 'sparks';
 
 export interface StarGoal {
   readonly id: StarGoalId;
@@ -54,6 +55,8 @@ export function starGoalLabel(goal: StarGoal): string {
       return `Break ${goal.value} structure${goal.value === 1 ? '' : 's'}`;
     case 'gates':
       return `Cross ${goal.value} gate opening${goal.value === 1 ? '' : 's'}`;
+    case 'sparks':
+      return `Collect ${goal.value} spark${goal.value === 1 ? '' : 's'}`;
   }
 }
 
@@ -82,6 +85,7 @@ export function starGoalMet(goal: StarGoal, result: Evidence): boolean {
     case 'switches':
     case 'breaks':
     case 'gates':
+    case 'sparks':
       return (result.court?.[goal.id] ?? 0) >= goal.value;
   }
 }

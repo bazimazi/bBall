@@ -20,6 +20,11 @@ export interface Challenge {
   readonly objective: MatchObjective;
   readonly modifiers: Partial<MatchModifiers>;
   readonly xp: number;
+  /**
+   * A boss to face instead of a plain opponent: its traits and phases, with
+   * every phase's brain held at this challenge's own `bot`.
+   */
+  readonly boss?: string;
 }
 
 export const LEGACY_CHALLENGES: readonly Challenge[] = [
@@ -173,6 +178,127 @@ export const LEGACY_CHALLENGES: readonly Challenge[] = [
   }
 ];
 
+/**
+ * Challenges built on the newer ideas - sparks, and the signature bosses -
+ * each asking for one thing those ideas make possible. They sit straight
+ * after the originals, ahead of the court trials.
+ */
+export const FEATURED_CHALLENGES: readonly Challenge[] = [
+  {
+    id: 'spark-duel',
+    name: 'Spark Duel',
+    blurb: 'Every kind of spark, two at a time. Take three and win',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'sparks', label: 'Win and collect 3 sparks', value: 3 },
+    modifiers: { arena: arenaPreset('spark-circuit')!.arena },
+    xp: 190
+  },
+  {
+    id: 'hex-war',
+    name: 'Hex War',
+    blurb: 'Only Hex sparks: shrink the bot before it shrinks you',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'win', label: 'Win the match', value: 0 },
+    modifiers: {
+      arena: {
+        bumpers: [{ x: 0.5, y: 0.5, r: 20 }],
+        sparks: { kinds: ['hex'], every: 3, max: 2 }
+      }
+    },
+    xp: 180
+  },
+  {
+    id: 'firestarter',
+    name: 'Firestarter',
+    blurb: 'Fire sparks between walls that rebuild every point. Win fast',
+    bot: 'amateur',
+    winScore: 3,
+    objective: { id: 'quick-win', label: 'Win within 90s', value: 90 },
+    modifiers: { arena: arenaPreset('ember-forge')!.arena },
+    xp: 170
+  },
+  {
+    id: 'last-ward',
+    name: 'Last Ward',
+    blurb: 'Two points down, with wards to hold your line',
+    bot: 'pro',
+    winScore: 3,
+    objective: { id: 'win', label: 'Win the match', value: 0 },
+    modifiers: {
+      startScore: { you: 0, bot: 2 },
+      arena: { sparks: { kinds: ['ward'], every: 4 } }
+    },
+    xp: 200
+  },
+  {
+    id: 'gale-garden',
+    name: 'Gale Garden',
+    blurb: 'An Elite in a turning wind. Ride the gusts onto two sparks',
+    bot: 'elite',
+    winScore: 3,
+    objective: { id: 'sparks', label: 'Win and collect 2 sparks', value: 2 },
+    modifiers: { arena: arenaPreset('spark-gale')!.arena },
+    xp: 230
+  },
+  {
+    id: 'wardens-way',
+    name: "Warden's Way",
+    blurb: 'The Railwarden at full stride. Bank three returns round it',
+    bot: 'pro',
+    boss: 'railwarden',
+    winScore: 5,
+    objective: { id: 'banks', label: 'Win and land 3 rail banks', value: 3 },
+    modifiers: {},
+    xp: 230
+  },
+  {
+    id: 'stutter-step',
+    name: 'Stutter Step',
+    blurb: 'Hold a long rally against returns that check up at the centre line',
+    bot: 'pro',
+    boss: 'pulsekeeper',
+    winScore: 5,
+    objective: { id: 'rally', label: 'Win with a 12-hit rally', value: 12 },
+    modifiers: {},
+    xp: 220
+  },
+  {
+    id: 'masonry',
+    name: 'Masonry',
+    blurb: 'Out-break a boss that rebuilds: six structures, and the win',
+    bot: 'pro',
+    boss: 'breacher',
+    winScore: 5,
+    objective: { id: 'breaks', label: 'Win and break 6 structures', value: 6 },
+    modifiers: {},
+    xp: 240
+  },
+  {
+    id: 'lockout',
+    name: 'Lockout',
+    blurb: 'Trip three switches against a boss that shuts every gate you open',
+    bot: 'pro',
+    boss: 'switchmaster',
+    winScore: 5,
+    objective: { id: 'switches', label: 'Win and trigger 3 switches', value: 3 },
+    modifiers: {},
+    xp: 230
+  },
+  {
+    id: 'crowned',
+    name: 'Crowned',
+    blurb: 'The Sovereign at Elite strength, every phase of it',
+    bot: 'elite',
+    boss: 'sovereign',
+    winScore: 5,
+    objective: { id: 'win', label: 'Win the match', value: 0 },
+    modifiers: {},
+    xp: 300
+  }
+];
+
 /** "1 switch", "2 switches": the counted noun agrees with its number. */
 function count(value: number, one: string, many: string): string {
   return `${value} ${value === 1 ? one : many}`;
@@ -215,6 +341,7 @@ function routeObjective(
 }
 export const CHALLENGES: readonly Challenge[] = [
   ...LEGACY_CHALLENGES,
+  ...FEATURED_CHALLENGES,
   ...Array.from({ length: 106 }, (_, i): Challenge => {
     const court = EXPANSION_COURTS[i % 46]!,
       band = Math.floor(i / 27);

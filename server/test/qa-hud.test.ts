@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { it, type TestContext } from 'node:test';
+import { before, it, type TestContext } from 'node:test';
 import { stageById } from '../../src/core/campaign/journey';
 import { ARENA_PRESETS } from '../../src/core/modes/arenas';
 import {
@@ -9,7 +9,7 @@ import {
   practiceRules,
   quickMatchRules
 } from '../../src/core/modes/rules';
-import { DEFAULT_SETTINGS } from '../../src/core/settings/store';
+import { DEFAULT_SETTINGS, settingsStore } from '../../src/core/settings/store';
 import { checkBossPhase, BANNER_TIME } from '../../src/game/arena';
 import type { GameAudio } from '../../src/game/audio';
 import { BALL_R, FIELD_H, PADDLE_INSET, PADDLE_W } from '../../src/game/constants';
@@ -21,6 +21,9 @@ import { forecast, nearCourse } from '../../src/game/trajectory';
 import { toScreenX, toScreenY } from '../../src/game/view';
 import { createWorld, placePaddles, type World } from '../../src/game/world';
 import { seeded } from '../../src/core/util/random';
+
+// These checks read English canvas labels; Persian is the shipped default.
+before(() => settingsStore.update({ language: 'en' }));
 
 class TestElement extends EventTarget {
   tagName = 'DIV';

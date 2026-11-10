@@ -49,7 +49,7 @@ export const MODES: readonly ModeInfo[] = [
   {
     id: 'challenge',
     name: 'Challenge',
-    blurb: '120 trials and an ongoing contract series.',
+    blurb: '130 trials, boss rematches and an ongoing contract series.',
     picksBot: false,
     ranked: true
   },

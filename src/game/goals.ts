@@ -36,6 +36,7 @@ export function goalViews(world: World): readonly GoalView[] {
         case 'switches':
         case 'breaks':
         case 'gates':
+        case 'sparks':
           progress = `${evidence.court[goal.id]}/${goal.value}`;
           reached = evidence.court[goal.id] >= goal.value;
           break;

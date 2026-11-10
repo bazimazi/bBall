@@ -1,7 +1,6 @@
 import { AUTHORED_BOSSES } from './authoredBosses';
 import type { BotLevelId } from '../bots/types';
 import type { BossSpec, MatchModifiers } from './types';
-import { EXPANSION_COURTS } from './expansionCourts';
 import { EXPANSION_BOSS_IDS } from '../campaign/expansion';
 
 /**
@@ -156,39 +155,11 @@ export const LEGACY_BOSSES: readonly BossDef[] = [
 
 export const BOSSES: readonly BossDef[] = [
   ...LEGACY_BOSSES,
-  ...EXPANSION_BOSS_IDS.map((id, i): BossDef => {
+  // Every expansion boss is authored, with a signature of its own.
+  ...EXPANSION_BOSS_IDS.map((id): BossDef => {
     const authored = AUTHORED_BOSSES.find((b) => b.spec.id === id);
-    if (authored) return authored;
-    const court = EXPANSION_COURTS[(i * 7) % EXPANSION_COURTS.length]!;
-    return {
-      spec: {
-        id,
-        name: id[0]!.toUpperCase() + id.slice(1),
-        title: court.blurb,
-        hue: (28 + i * 37) % 360,
-        swerve: i % 3 === 0 ? 100 : 0,
-        phases: [
-          {
-            at: 2,
-            label: `${EXPANSION_COURTS[(i * 7 + 3) % 46]!.name} opens`,
-            arena: EXPANSION_COURTS[(i * 7 + 3) % 46]!.arena,
-            intensity: 1.15,
-            bot: i < 6 ? 'elite' : 'legend'
-          },
-          {
-            at: 4,
-            label: `Final route · ${EXPANSION_COURTS[(i * 7 + 6) % 46]!.name}`,
-            arena: EXPANSION_COURTS[(i * 7 + 6) % 46]!.arena,
-            intensity: 1.3,
-            bot: 'legend',
-            swerve: i % 3 === 0 ? 190 : 80
-          }
-        ]
-      },
-      bot: i < 6 ? 'pro' : i < 12 ? 'elite' : 'legend',
-      winScore: 5,
-      modifiers: { arena: court.arena, serveSpeedScale: 1 + i * 0.008 }
-    };
+    if (!authored) throw new Error(`Expansion boss ${id} has no definition`);
+    return authored;
   })
 ];
 const BY_ID = new Map(BOSSES.map((boss) => [boss.spec.id, boss]));

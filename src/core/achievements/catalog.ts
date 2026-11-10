@@ -275,7 +275,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'boss-all',
     name: 'Nemesis',
-    description: 'Beat every boss',
+    description: 'Beat every boss of the first five worlds',
     group: 'journey',
     xp: 350,
     check: ({ profile }) => LEGACY_BOSSES.every((b) => !!profile.progress.bosses[b.spec.id]),
@@ -394,13 +394,13 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'boss-expansion-all',
     name: 'Council Breaker',
-    description: 'Defeat all 25 bosses',
+    description: 'Defeat every boss in the game',
     group: 'journey',
     xp: 800,
     check: ({ profile }) => BOSSES.every((b) => !!profile.progress.bosses[b.spec.id]),
-    progress: ({ profile }) => ratio(bossesBeaten(profile), 25)
+    progress: ({ profile }) => ratio(bossesBeaten(profile), BOSSES.length)
   },
-  ...[1, 10, 100, 1000].map((n) => ({
+  ...[1, 10, 100].map((n) => ({
     id: `frontier-${n}`,
     name: `Frontier ${n}`,
     description: `Complete ${n} Frontier sectors`,
@@ -410,10 +410,10 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     progress: ({ profile }: AchievementContext) =>
       ratio(profile.progress.journey['frontier-v2'] ?? 0, n)
   })),
-  ...[50, 100, 250, 500, 1000].map((n) => ({
+  ...[50, 100, 150, 200].map((n) => ({
     id: `mastery-${n}`,
     name: `Mastery ${n}`,
-    description: `Reach level ${n} with bounded combat power`,
+    description: `Reach level ${n}`,
     group: 'level' as const,
     xp: 0,
     check: ({ level }: AchievementContext) => level >= n,

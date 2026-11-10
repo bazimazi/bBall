@@ -163,7 +163,7 @@ export function installLanguage(): () => void {
     const language = settingsStore.getSnapshot().language;
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'fa' ? 'rtl' : 'ltr';
-    document.title = language === 'fa' ? 'bBall · بازی توپ و راکت' : 'bBall';
+    document.title = language === 'fa' ? 'توپک' : 'bBall';
   };
   apply();
   return settingsStore.subscribe(apply);

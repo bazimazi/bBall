@@ -76,7 +76,11 @@ it('mixed forces preserve pace and forward progress at every polarity', () => {
 it('new courts leave past daily pools and in-progress run encounters intact', () => {
   assert.equal(presetsOn('2026-10-03').length, 8);
   assert.equal(presetsOn('2026-10-04').length, 14);
-  assert.equal(presetsOn('2026-10-08').length, ARENA_PRESETS.length);
+  assert.equal(presetsOn('2026-10-08').length, 60);
+  // The spark courts join from the day after they shipped: today's and every
+  // earlier Daily keep the pool they were rolled from.
+  assert.equal(presetsOn('2026-11-10').length, 60);
+  assert.equal(presetsOn('2026-11-11').length, ARENA_PRESETS.length);
   const old = createRun('old-run', 3, Date.parse('2026-10-03T12:00:00Z'));
   const oldNames = new Set(presetsOn('2026-10-03').map((p) => p.name));
   for (const stage of [0, 1, 3, 4, 6, 7]) {

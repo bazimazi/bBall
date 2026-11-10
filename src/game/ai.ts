@@ -8,6 +8,7 @@ import type { BotProfile } from '../core/bots/types';
 import { arenaNonLinear, brickAt, wallFor } from './arena';
 import { BALL_R, FIELD_H, PADDLE_W } from './constants';
 import { movePaddle } from './physics';
+import { sparkValue } from './sparks';
 import type { BotBrain, Paddle, Vec2 } from './types';
 import { clamp, lerp } from './utils/math';
 import type { World } from './world';
@@ -340,6 +341,8 @@ function chooseShot(world: World, paddle: Paddle, brain: BotBrain, cross: number
     const observed = brain.previousFoeY ?? foe.y;
     const anticipated = clamp(foe.y + (foe.y - observed) * 0.4, foe.half, FIELD_H - foe.half);
     let value = Math.abs(landing - anticipated) / Math.max(0.2, time) + (world.random() - 0.5) * 60;
+    // A return through a spark collects it: worth a little reach, never a gamble.
+    value += sparkValue(world, paddle.x + direction * (BALL_R + 8), cross, vx, vy) * p.placement;
     // A sequence of opposite placements stretches recovery; anchoring favors safer contacts.
     if (p.rank >= 4 && Math.sign(offset) !== Math.sign(brain.shot ?? 0)) value += 45;
     if (personality === 'anchor') value -= Math.abs(offset) * 65;

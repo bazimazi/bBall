@@ -352,7 +352,7 @@ export function applyWorkshopReward(
       result.botRank >= 3 &&
       result.won &&
       !!result.court &&
-      Object.values(result.court).some((n) => n > 0)
+      Object.values(result.court).some((n) => (n ?? 0) > 0)
         ? 1
         : 0
   };

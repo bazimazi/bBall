@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
 
-it('older device settings retain preferences and pick up the new pacing defaults', async (t) => {
+it('older device settings retain preferences and pick up the new pacing and language defaults', async (t) => {
   const values = new Map<string, string>([
     [
       'bball.settings',
@@ -34,7 +34,7 @@ it('older device settings retain preferences and pick up the new pacing defaults
   });
   const { settingsStore, DEFAULT_SETTINGS } = await import('../../src/core/settings/store');
   assert.deepEqual(settingsStore.getSnapshot(), {
-    language: 'en',
+    language: 'fa',
     musicVolume: 0.2,
     sfxVolume: 0.7,
     shake: 'off',
@@ -112,4 +112,12 @@ it('older device settings retain preferences and pick up the new pacing defaults
   assert.equal(JSON.parse(values.get('bball.settings')!).data.matchInfoExpanded, true);
   settingsStore.update({ matchInfoExpanded: 'yes' as unknown as boolean });
   assert.equal(settingsStore.getSnapshot().matchInfoExpanded, false);
+  // Persian is the default, but an explicit English choice must survive validation.
+  settingsStore.update({ language: 'en' });
+  assert.equal(settingsStore.getSnapshot().language, 'en');
+  assert.equal(JSON.parse(values.get('bball.settings')!).data.language, 'en');
+  settingsStore.update({ effects: 'full' });
+  assert.equal(settingsStore.getSnapshot().language, 'en');
+  settingsStore.update({ language: 'de' as unknown as typeof DEFAULT_SETTINGS.language });
+  assert.equal(settingsStore.getSnapshot().language, 'fa');
 });

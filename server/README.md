@@ -2,7 +2,7 @@
 
 Identity, authoritative progression and cloud saves for bBall.
 
-The client supports English and Persian. Language is a device setting; shared
+The client supports Persian (the default) and English. Language is a device setting; shared
 catalogs, IDs, progression payloads and authoritative rules stay unchanged.
 The client translates displayed catalog text and account errors. No database
 migration or server locale setting is needed for this feature.

@@ -691,7 +691,8 @@ export function validateMatch(
     (!arenas.some((a) => a?.switches?.length) && court.switches > 0) ||
     (!arenas.some((a) => a?.gates?.length) && court.gates > 0) ||
     (!arenas.some((a) => a?.rails?.some((r) => r.hp) || a?.bricks) && court.breaks > 0) ||
-    Object.values(court).some((n) => n > submission.seconds * 100 + 100)
+    (!arenas.some((a) => a?.sparks) && (court.sparks ?? 0) > 0) ||
+    Object.values(court).some((n) => (n ?? 0) > submission.seconds * 100 + 100)
   ) {
     return reject('invalid-court-events', 'Those court contacts cannot occur in this encounter.');
   }
@@ -730,7 +731,14 @@ export function validateMatch(
     runStage: rules.runStage,
     bossId: rules.boss?.id,
     flicks: submission.flicks ?? 0,
-    court: { ...court },
+    // A client from before sparks sends no count; the record keeps none.
+    court: {
+      banks: court.banks,
+      switches: court.switches,
+      breaks: court.breaks,
+      gates: court.gates,
+      ...(court.sparks !== undefined ? { sparks: court.sparks } : {})
+    },
     // The player's own day keeps their quests on their calendar; a day
     // further out than time zones explain is ignored for the server's own.
     day:

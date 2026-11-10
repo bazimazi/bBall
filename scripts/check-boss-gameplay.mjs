@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { preferEnglish } from './prefer-english.mjs';
 
 /* global window */
 // Starts each boss drill through the real UI. Live phase tests then install the
@@ -18,6 +19,7 @@ try {
   await server.listen();
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await preferEnglish(page);
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(new URL('/?experience=1', server.resolvedUrls.local[0]).href);
   await page.getByRole('button', { name: 'Skip', exact: true }).click();

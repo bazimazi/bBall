@@ -1,6 +1,7 @@
 import { t, msg } from '../../core/i18n/index';
 import { useState } from 'react';
 import { botProfile } from '../../core/bots/levels';
+import { bossById } from '../../core/modes/bosses';
 import { CHALLENGES, contractChallenge } from '../../core/modes/challenges';
 import type { PlayerProfile } from '../../core/profile/types';
 import { Screen } from '../components/Screen';
@@ -125,7 +126,11 @@ export function ChallengeScreen({ profile, onPick, onBack }: ChallengeScreenProp
                 <span className={styles.rowBlurb}>
                   {t(challenge.objective.label)}
                   {t(' · vs ')}
-                  {t(botProfile(challenge.bot).name)}
+                  {t(
+                    challenge.boss
+                      ? (bossById(challenge.boss)?.spec.name ?? botProfile(challenge.bot).name)
+                      : botProfile(challenge.bot).name
+                  )}
                 </span>
               </span>
               <span className={done ? `${styles.rowMeta} ${styles.done}` : styles.rowMeta}>

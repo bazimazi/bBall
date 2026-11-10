@@ -17,6 +17,7 @@ import {
   SERVE_DELAY
 } from './constants';
 import { arenaServe, BANNER_TIME, checkBossPhase, setupArena } from './arena';
+import { resetSparks } from './sparks';
 import { clearAbilityFx } from './casts';
 import { combatant, opponentLoadout } from './combatant';
 import { masteryTags } from '../core/progression/mastery';
@@ -616,6 +617,7 @@ export function startMatch(world: World, rules: MatchRules = world.rules): void 
   world.particles.clear();
   clearAbilityFx(world);
   setupArena(world);
+  resetSparks(world);
   updateBossRhythm(world);
   beginServe(world, world.random() < 0.5 ? 1 : -1);
   introBanner(world);
@@ -695,6 +697,7 @@ export function returnToMenu(world: World): void {
   world.particles.clear();
   clearAbilityFx(world);
   setupArena(world);
+  resetSparks(world);
   centreBall(world);
   match.serveTimer = 0.35;
 }

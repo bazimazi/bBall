@@ -59,10 +59,12 @@ prerequisites, signing, deep links, and what the shell is allowed to do.
 
 ## Playing
 
+The game starts in Persian (**فارسی**) and installs as **توپک** on phone home screens.
 Choose **English** or **فارسی** during first-time setup, or in **Settings → Language**.
-The choice is saved on this device and takes effect immediately. Persian includes
-menus, lessons, match messages, progression, equipment, account feedback and
-accessibility labels, with right-to-left menus and Persian digits. Player names,
+The choice is saved on this device and takes effect immediately; a saved English
+choice is kept. Persian includes menus, lessons, match messages, progression,
+equipment, account feedback and accessibility labels, with right-to-left menus
+and Persian digits. Player names,
 email addresses, physical controls and court orientation retain their meaning.
 Persian menus and canvas text use the bundled [Vazirmatn](https://github.com/rastikerdar/vazirmatn)
 variable font. Its license ships in `public/fonts/vazirmatn/OFL.txt`. The sound
@@ -128,6 +130,21 @@ low, and a dashed guide off the ball shows where. It is never flatter than a
 gentle angle, so there is no dead-straight gift to be had. The bot's serves
 stay a toss-up.
 
+**Sparks.** Some courts grow sparks: hexagonal pickups that pop in around
+midfield. The ball collects a spark it passes through, and the side that touched
+the ball last gets the effect - so a return aimed through one is an attack, and a
+careless one hands it to the bot, which plays by exactly the same rule (Pro and
+stronger bots aim for them too). **Wide** lengthens your paddle for eight
+seconds; **Fire** charges your next return, a little past the match's top speed
+but never past the hard limit; **Ward** lights your goal line and turns back the
+next ball that would beat you, after your own build's saves; **Hex** shortens the
+opponent's paddle for six seconds. Each wears its effect as a glyph and names
+itself when taken, and a held effect shows on the paddle or the goal line. A
+Reckless build, which nothing may save, collects Fire where it would have taken a
+Ward. Sparks are court effects, never talents: they count as neither a skill nor
+a save, and the server checks that a match reporting them was played on a court
+that has them.
+
 Your paddle is the aqua one (or whatever colour you equip); the bot's is rose.
 The labeled score at the top shows each side's points and the winning target;
 the dots beside each end mirror those points. The faint number in the
@@ -183,9 +200,9 @@ or entering account restoration or Demo, closes the pending confirmation.
 | **Journey**     | 30 worlds, 630 Story stages, Veteran/Ascendant variants and continuing Frontier sectors      |
 | **Daily**       | Separate Standard and fixed-build Master cards, a 30-day practice archive                    |
 | **Gauntlet**    | 9-match Sprint, 36-match Expedition, Endless acts, 50 Pressure ranks and a weekly seed       |
-| **Quick Match** | Six opponent tiers, six schools, 60 courts, Master/Mythic contracts, best-of-three/five      |
+| **Quick Match** | Six opponent tiers, six schools, 66 courts, Master/Mythic contracts, best-of-three/five      |
 | **Endless**     | Classic Wall rally or survival waves; separate court and wave records                        |
-| **Challenge**   | 120 catalog trials, continuing contracts and five-trial playlists                            |
+| **Challenge**   | 130 trials incl. spark and boss rematches, continuing contracts and five-trial playlists     |
 | **Tournament**  | 10 tiers, 3-round Classic, 7-round Marathon and continuing 6-round championship seasons      |
 | **Versus**      | Local two-player series, shared modifiers, mirrored court pairs and four device presets      |
 | **Practice**    | Court/school selection, isolated boss phases, Normal/Relaxed pace and paused stepping; no XP |
@@ -193,15 +210,20 @@ or entering account restoration or Demo, closes the pending confirmation.
 The [expansion implementation report](docs/validation/endless-progression-report.md)
 records the content counts, verification evidence and remaining human playtest work.
 The [UI review](docs/validation/endless-ui-review.md) records the subsequent
-browser review, layout fixes and screenshots.
+browser review, layout fixes and screenshots. The
+[content review](docs/content-review-2026-11.md) records why players stopped,
+the sparks, boss traits and reworked worlds that answer it, and what was removed.
 
 ### Courts and bosses
 
-The 60 layouts combine bumpers, wind, gravity wells, brick walls and portals
+The 66 layouts combine bumpers, wind, gravity wells, brick walls and portals
 with reflecting rails, breakable deflectors, moving/phase gates, ball-operated
-switches and marked pace zones. Twelve expansion court templates supply 46
-layouts. Generated encounters vary their geometry, timing, opponent school and
-compatible hazards under density and speed limits.
+switches, marked pace zones and sparks. Twelve expansion court templates supply
+46 layouts, each with a name of its own rather than a number; six hand-built
+spark courts (Spark Garden, Lantern Posts, Ember Forge, Spark Rift, Spark Gale,
+Spark Circuit) join the Daily rotation from 11 November 2026, so no Daily that
+was already played changes. Generated encounters vary their geometry, timing,
+opponent school and compatible hazards under density and speed limits.
 
 Wind and wells bend the ball while preserving pace. Marked pace zones explicitly
 change it within the match cap. Gates display their gap, release beat and timer;
@@ -209,9 +231,24 @@ switches open their linked gate temporarily. Rail endpoints use swept contacts,
 and gates allow an occupied opening to clear before closing. Essential court
 cues and opponent charge/guard indicators remain visible in Full and Calm.
 
-There are 25 bosses with announced phases. Expansion bosses change courts
-between points. A phase can raise opponent strength, reach, curve or hazard
-intensity, and cannot downgrade an opponent already playing at a higher tier.
+There are 32 bosses with announced phases: the original seven, and one for each
+Journey world from 6 to 30, all of them authored. Each later boss has a
+signature behaviour that matches its name and court, and its phases sharpen it:
+
+| Trait        | What it does                                                                  |
+| ------------ | ----------------------------------------------------------------------------- |
+| **Warden**   | A second, slower paddle guards the boss's half; aim round it. Once per return |
+| **Surge**    | Its returns gather pace past the centre line, inside the match's speed limits |
+| **Stutter**  | Its returns check up at the centre line for a beat, then snap on              |
+| **Mason**    | It rebuilds a broken brick or deflector every few seconds                     |
+| **Gust**     | Each of its returns turns the wind, after the usual warning                   |
+| **Lockdown** | Each of its returns shuts every gate a switch had opened                      |
+
+The three rhythm bosses (Gatekeeper, Architect, Duelist) keep their rising and
+falling guard; the Curator, Firebrand and Alchemist play for sparks. None of the
+traits touches the player's paddle or hides the ball. A phase can also raise
+opponent strength, reach, curve or hazard intensity, and cannot downgrade an
+opponent already playing at a higher tier.
 Bot forecasts use copied court/runtime state and a bounded three-second horizon;
 reading a shot never damages real structures or spends a skill.
 
@@ -222,11 +259,19 @@ choices; it is not a guarantee that every old balance constant remains frozen.
 ### Journey
 
 The original 30 stages and their stars remain. Twenty-five expansion worlds add
-24 stages each: 12 core encounters, eight optional branches, three mastery trials
-and a boss. Core prerequisites lead to the boss; optional branches do not block
+24 stages each: eight core stages, 12 optional branches, three mastery trials and
+a boss. The core chain leads to the boss; branches and trials never block
 progress. Story has 1,890 stars, with separately recorded Veteran and Ascendant
-variants. The expansion uses curated court templates and generated stage
-definitions, rather than 600 individually scripted puzzles.
+variants.
+
+Each expansion world is a chapter built around one idea - Spark Garden's sparks,
+Shifting Rails' warden, Crosswind Lock's answering wind - with a court pool chosen
+for it, one opponent school on its core stages and trials, and its own boss at
+the end; no two worlds share a boss. Stages are named for their courts, the first
+three teach, and the core chain carries no handicap. Branches meet the other
+schools; a third of them sprinkle sparks onto the world's courts, and some carry
+a declared handicap. The stages are still generated from that recipe rather than
+600 individually scripted puzzles, but nothing about a world is random.
 
 From world 6 the opponents bring talent builds of their own, which grow world by
 world and step up for trials and bosses; the stage card shows the size of the
@@ -293,6 +338,13 @@ with stronger opponent floors, narrower reach and rotating rule combinations;
 from rank 3, Hard Courts turns every court's hazards up within their limits.
 Opponents bring talent builds that grow with each act and with Pressure. Deep encounters rotate within physical
 caps instead of raising ball speed indefinitely.
+
+Each act ends on a boss. The opening acts meet Colossus and then Orbiter; the
+middle band draws from Tempest, Bastion and Singularity; deeper acts draw from
+all 25 signature bosses plus Trickster and Apex. Every run meets them in its own
+seeded order and never meets the same boss twice until it has seen the whole
+pool, so a Sprint no longer opens on Colossus twice and the weekly Expedition's
+bosses change from week to week.
 
 Every new-format match commits its encounter before play. Pausing holds the live
 rally. Closing the app preserves the run and its choices; restarting or leaving

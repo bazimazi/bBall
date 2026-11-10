@@ -149,6 +149,43 @@ export const BALANCE = {
     surgeBleed: 0.6
   },
 
+  /**
+   * Sparks: pickups the ball collects for the side that touched it last.
+   * Court effects, symmetric between the two sides, and bounded like
+   * everything else - a Fire return still answers to the hard speed limit.
+   */
+  sparks: {
+    /** Seconds into a point before the first spark of a match appears. */
+    firstDelay: 2.5,
+    /** Field units: the pickup's radius. */
+    radius: 17,
+    /** Wide: paddle length multiplier, and seconds it lasts. */
+    wideScale: 1.3,
+    wideTime: 8,
+    /** Hex: the opponent's paddle length multiplier, and seconds it lasts. */
+    hexScale: 0.75,
+    hexTime: 6,
+    /** Fire: pace and heft the charged return adds, and how far past the match's top speed it may go. */
+    firePace: 1.16,
+    fireHeft: 0.3,
+    fireCeiling: 1.1
+  },
+
+  /**
+   * Boss traits that need numbers of their own. The traits themselves are
+   * authored per boss; these are the shared limits every one of them obeys.
+   */
+  bossTraits: {
+    /** Stutter: slowest a checked-up return may travel, as a fraction of its pace. */
+    stutterPace: 0.42,
+    /** ...and the snap it leaves with afterwards. */
+    stutterSnap: 1.06,
+    /** Surge may never take a return past this share of the match's top speed. */
+    surgeCeiling: 1.12,
+    /** Warden: how far ahead of the ball it may read, in seconds. */
+    wardenLead: 0.12
+  },
+
   /** Talent-point economy and the shape of the tree. */
   talents: {
     pointsPerLevel: 1,

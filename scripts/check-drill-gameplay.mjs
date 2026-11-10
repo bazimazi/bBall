@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { preferEnglish } from './prefer-english.mjs';
 
 /* global window, document */
 // Actual app navigation, pointer aiming and keyboard serving. Observers call
@@ -252,6 +253,7 @@ try {
     { width: 390, height: 844 }
   ]) {
     const page = await browser.newPage({ viewport });
+    await preferEnglish(page);
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(new URL('/?experience=1', server.resolvedUrls.local[0]).href);
     await page.getByRole('button', { name: 'Skip', exact: true }).click();

@@ -53,6 +53,8 @@ before(async () => {
   api = (await import('../../src/core/net/api')).api;
   errors = await import('../../src/core/i18n/errors');
   net = await import('../../src/core/net/client');
+  // The wording checks below are written against English; Persian is the default.
+  (await import('../../src/core/settings/store')).settingsStore.update({ language: 'en' });
   account.start();
 });
 

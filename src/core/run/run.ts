@@ -173,6 +173,26 @@ const ACT_BOSSES: readonly (readonly string[])[] = [
   ['trickster', 'apex']
 ];
 
+/** Bosses by how far into a run's difficulty they belong. Each run meets them in its own order. */
+const OPENING_BOSSES = ['colossus', 'orbiter'] as const;
+const MIDDLE_BOSSES = ['tempest', 'bastion', 'singularity'] as const;
+const DEEP_BOSSES: readonly string[] = [...EXPANSION_BOSS_IDS, 'trickster', 'apex'];
+
+/**
+ * The run's own order through a boss pool: a seeded shuffle, so two runs meet
+ * different bosses and one run never meets the same boss twice until it has
+ * seen the whole pool.
+ */
+function bossInOrder(seed: string, tier: string, pool: readonly string[], act: number): string {
+  const random = seeded('run-boss-order', seed, tier);
+  const order = [...pool];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [order[j]!, order[i]!];
+  }
+  return order[act % order.length]!;
+}
+
 export function actOf(stage: number): number {
   return Math.min(2, Math.floor(stage / 3));
 }
@@ -200,10 +220,10 @@ export function encounterFor(save: RunSave, stage = save.stage): Encounter {
     const boss = !bossStage
       ? null
       : band === 0
-        ? 'colossus'
+        ? OPENING_BOSSES[Math.min(act, OPENING_BOSSES.length - 1)]!
         : band === 1
-          ? pickOne(seeded('run-boss', save.seed, act), ['orbiter', 'tempest', 'singularity'])
-          : EXPANSION_BOSS_IDS[(act + save.pressure) % EXPANSION_BOSS_IDS.length]!;
+          ? bossInOrder(save.seed, 'middle', MIDDLE_BOSSES, act)
+          : bossInOrder(save.seed, 'deep', DEEP_BOSSES, act + save.pressure);
     const definition = boss ? bossById(boss) : undefined;
     const order = ['rookie', 'amateur', 'pro', 'elite', 'legend', 'champion'];
     const bot =

@@ -237,6 +237,10 @@ async function withUiFrames(test) {
   }
 }
 try {
+  // These checks find controls by their English labels; Persian is the shipped default.
+  (await vite.ssrLoadModule('/src/core/settings/store.ts')).settingsStore.update({
+    language: 'en'
+  });
   const { AbilityBar } = await vite.ssrLoadModule('/src/ui/AbilityBar.tsx');
   const skill = {
     slot: 2,

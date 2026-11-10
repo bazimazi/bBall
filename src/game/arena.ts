@@ -9,6 +9,23 @@ import type { Side, Vec2 } from './types';
 import { clamp } from './utils/math';
 import { createCourse, collideCourse, type CourseState } from './course';
 import { bounceBumper } from './hazardContacts';
+import {
+  bossAnswered,
+  bossServe,
+  bossStruck,
+  collideWarden,
+  setupWarden,
+  activeTraits,
+  type StallState,
+  type WardenState
+} from './bossTraits';
+import {
+  collectSparks,
+  courtChanged,
+  createSparks,
+  rescaleSparks,
+  type SparkState
+} from './sparks';
 import { addShake, panAt, pushTrail, setBrainProfile, type World } from './world';
 
 /**
@@ -84,6 +101,16 @@ export interface ArenaState {
   portals: PortalState[];
   /** Seconds before the ball may take a portal again, so it never ping-pongs. */
   portalLock: number;
+  /** Pickups on court and what each side holds from them. */
+  sparks: SparkState;
+  /** A boss's second paddle, while its traits field one. */
+  warden: WardenState | null;
+  /** A boss return checked up at the centre line, while it is held. */
+  stall: StallState | null;
+  /** Seconds until a mason boss rebuilds its next structure. */
+  masonTimer: number;
+  /** True while the boss's latest return may still surge or stutter at the centre line. */
+  bossFlight: boolean;
 }
 
 /** Steepest a hazard may turn the ball: short of vertical, so it never stalls. */
@@ -119,7 +146,12 @@ export function createArena(): ArenaState {
     bossSwerve: 0,
     bossSwerveDir: 0,
     portals: [],
-    portalLock: 0
+    portalLock: 0,
+    sparks: createSparks(),
+    warden: null,
+    stall: null,
+    masonTimer: 0,
+    bossFlight: false
   };
 }
 
@@ -180,9 +212,14 @@ export function setupArena(world: World): void {
     spec: portal
   }));
   arena.portalLock = 0;
+  arena.stall = null;
+  arena.bossFlight = false;
+  arena.masonTimer = activeTraits(world).mason ?? 0;
   placeBumpers(world);
   placePortals(world);
   buildBricks(world);
+  setupWarden(world);
+  courtChanged(world);
 }
 
 function placePortals(world: World): void {
@@ -232,6 +269,8 @@ export function rescaleArena(world: World): void {
   }
   placeBumpers(world);
   placePortals(world);
+  setupWarden(world);
+  rescaleSparks(world);
 }
 
 export function placeBumpers(world: World): void {
@@ -259,6 +298,7 @@ export function arenaServe(world: World): void {
   const spec = world.arena.spec;
   if (spec?.bricks?.regrow) buildBricks(world);
   world.arena.bossSwerveDir = 0;
+  bossServe(world);
 }
 
 /** Move the court on: orbits turn, the wind counts down to its next change. */
@@ -381,11 +421,13 @@ export function applyArenaForces(world: World, travel: number): void {
 export function bossReturned(world: World): void {
   const arena = world.arena;
   arena.bossSwerveDir = arena.bossSwerve > 0 ? (world.ball.vy >= 0 ? 1 : -1) : 0;
+  bossStruck(world);
 }
 
 /** The player touched it last: the boss's bend is spent. */
 export function playerReturned(world: World): void {
   world.arena.bossSwerveDir = 0;
+  bossAnswered(world);
 }
 
 /**
@@ -405,9 +447,11 @@ export function collideArena(world: World): void {
   const { arena } = world;
   if (!arena.spec) return;
   collideCourse(world);
+  if (arena.warden && collideWarden(world)) rethink(world);
   for (const bumper of arena.bumpers) collideBumper(world, bumper);
   if (arena.bricks.length > 0) collideBricks(world);
   if (arena.portals.length > 0 && arena.portalLock <= 0) collidePortals(world);
+  collectSparks(world);
 }
 
 /** Where a portal trip ends, written by {@link portalExit}. */
@@ -654,6 +698,10 @@ export function checkBossPhase(world: World): boolean {
     arena.course.events = events;
   }
   arena.phase = index;
+  // A phase can bring a trait as well as a court: field the warden it names
+  // and start the mason's clock afresh.
+  setupWarden(world);
+  if (next.traits?.mason) arena.masonTimer = next.traits.mason;
   if (next.bot && botProfile(next.bot).rank > world.botBrain.profile.rank) {
     const previous = world.botTalents;
     const profile = {

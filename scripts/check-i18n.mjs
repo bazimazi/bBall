@@ -49,7 +49,7 @@ for (const [key, value] of Object.entries({
   localStorage: win.localStorage
 }))
   Object.defineProperty(globalThis, key, { value, configurable: true });
-// An older save keeps all its other settings and gains the English default.
+// An older save keeps all its other settings and gains the Persian default.
 win.localStorage.setItem(
   'bball.settings',
   JSON.stringify({ v: 1, data: { musicVolume: 0.3, shake: 'off' } })
@@ -63,11 +63,16 @@ try {
   const { settingsStore } = await vite.ssrLoadModule('/src/core/settings/store.ts');
   const { t, msg, installLanguage, locale } = await vite.ssrLoadModule('/src/core/i18n/index.ts');
   const { apiErrorText } = await vite.ssrLoadModule('/src/core/i18n/errors.ts');
-  assert.equal(settingsStore.getSnapshot().language, 'en');
+  assert.equal(settingsStore.getSnapshot().language, 'fa');
   assert.equal(settingsStore.getSnapshot().musicVolume, 0.3);
   assert.equal(settingsStore.getSnapshot().shake, 'off');
   const stop = installLanguage();
+  assert.equal(win.document.documentElement.lang, 'fa');
+  assert.equal(win.document.documentElement.dir, 'rtl');
+  assert.equal(win.document.title, 'توپک');
+  settingsStore.update({ language: 'en' });
   assert.equal(win.document.documentElement.dir, 'ltr');
+  assert.equal(win.document.title, 'bBall');
   settingsStore.update({ language: 'fa' });
   assert.equal(win.document.documentElement.lang, 'fa');
   assert.equal(win.document.documentElement.dir, 'rtl');
@@ -170,8 +175,10 @@ try {
   assert.equal(win.document.documentElement.dir, 'ltr');
   assert.equal(settingsStore.getSnapshot().musicVolume, 0.3);
   assert.equal(settingsStore.getSnapshot().shake, 'off');
-  settingsStore.update({ language: 'unsupported' });
+  settingsStore.update({ musicVolume: 0.4 });
   assert.equal(settingsStore.getSnapshot().language, 'en');
+  settingsStore.update({ language: 'unsupported' });
+  assert.equal(settingsStore.getSnapshot().language, 'fa');
   stop();
   console.log(
     `${literalChecks} UI messages and ${catalogChecks} generated catalog/skill descriptions translated; saved locale, migration, numbers, errors and direction verified.`

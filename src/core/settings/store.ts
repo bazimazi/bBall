@@ -59,7 +59,7 @@ export interface DeviceSettings {
 }
 
 export const DEFAULT_SETTINGS: DeviceSettings = {
-  language: 'en',
+  language: 'fa',
   skillSide: 'left',
   matchInfoExpanded: false,
   musicVolume: AUDIO_MIX.musicDefault,
@@ -103,7 +103,11 @@ const SPEC: StoreSpec<DeviceSettings> = {
     if (typeof data !== 'object' || data === null) return null;
     const source = data as Partial<DeviceSettings>;
     return {
-      language: source.language === 'fa' ? 'fa' : DEFAULT_SETTINGS.language,
+      // Keep either explicit choice; only a missing or unknown value takes the default.
+      language:
+        source.language === 'en' || source.language === 'fa'
+          ? source.language
+          : DEFAULT_SETTINGS.language,
       skillSide: source.skillSide === 'right' ? 'right' : DEFAULT_SETTINGS.skillSide,
       matchInfoExpanded:
         typeof source.matchInfoExpanded === 'boolean'
